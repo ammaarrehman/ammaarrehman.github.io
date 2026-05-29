@@ -3,8 +3,12 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ammaar Rehman | Information Systems Portfolio</title>
-  <meta name="description" content="Personal portfolio for Ammaar Rehman, Information Systems student focused on IT, cybersecurity, cloud, and digital solutions." />
+
+  <title>Ammaar Rehman | Portfolio</title>
+  <meta name="description" content="Personal portfolio for Ammaar Rehman, an Information Systems student focused on IT, cloud computing, web development, and practical technology projects." />
+
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+
   <style>
     * {
       margin: 0;
@@ -13,13 +17,13 @@
     }
 
     :root {
-      --bg: #0b1020;
-      --card: #11182f;
-      --card-light: #17213d;
-      --text: #eef3ff;
-      --muted: #aab6d3;
-      --accent: #4da3ff;
-      --accent-2: #7c5cff;
+      --bg: #0f172a;
+      --section: #111827;
+      --card: #1e293b;
+      --text: #f8fafc;
+      --muted: #cbd5e1;
+      --soft: #94a3b8;
+      --accent: #38bdf8;
       --border: rgba(255, 255, 255, 0.1);
     }
 
@@ -29,9 +33,7 @@
 
     body {
       font-family: Arial, Helvetica, sans-serif;
-      background: radial-gradient(circle at top left, rgba(77, 163, 255, 0.16), transparent 32%),
-                  radial-gradient(circle at top right, rgba(124, 92, 255, 0.14), transparent 30%),
-                  var(--bg);
+      background: var(--bg);
       color: var(--text);
       line-height: 1.6;
     }
@@ -42,29 +44,29 @@
     }
 
     .container {
-      width: min(1100px, 92%);
+      width: min(1050px, 92%);
       margin: 0 auto;
     }
 
     nav {
       position: sticky;
       top: 0;
-      z-index: 10;
-      background: rgba(11, 16, 32, 0.82);
-      backdrop-filter: blur(14px);
+      z-index: 100;
+      background: rgba(15, 23, 42, 0.92);
+      backdrop-filter: blur(12px);
       border-bottom: 1px solid var(--border);
     }
 
     .nav-inner {
       display: flex;
-      align-items: center;
       justify-content: space-between;
+      align-items: center;
       padding: 18px 0;
     }
 
     .logo {
       font-weight: 800;
-      letter-spacing: 0.5px;
+      font-size: 1.1rem;
     }
 
     .logo span {
@@ -83,48 +85,34 @@
     }
 
     .hero {
-      min-height: 86vh;
-      display: grid;
-      place-items: center;
-      padding: 90px 0 60px;
+      padding: 110px 0 90px;
     }
 
     .hero-grid {
       display: grid;
-      grid-template-columns: 1.3fr 0.7fr;
-      gap: 46px;
+      grid-template-columns: 1.4fr 0.8fr;
+      gap: 50px;
       align-items: center;
     }
 
     .eyebrow {
-      display: inline-block;
       color: var(--accent);
-      border: 1px solid rgba(77, 163, 255, 0.28);
-      background: rgba(77, 163, 255, 0.08);
-      padding: 7px 12px;
-      border-radius: 999px;
-      margin-bottom: 22px;
-      font-size: 0.9rem;
+      font-weight: 700;
+      margin-bottom: 18px;
+      display: inline-block;
     }
 
     h1 {
-      font-size: clamp(2.5rem, 7vw, 5.2rem);
-      line-height: 1.02;
-      margin-bottom: 20px;
-      letter-spacing: -2px;
-    }
-
-    .gradient-text {
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      -webkit-background-clip: text;
-      background-clip: text;
-      color: transparent;
+      font-size: clamp(3rem, 7vw, 5.8rem);
+      line-height: 1;
+      letter-spacing: -3px;
+      margin-bottom: 24px;
     }
 
     .hero p {
       color: var(--muted);
+      font-size: 1.15rem;
       max-width: 680px;
-      font-size: 1.08rem;
       margin-bottom: 30px;
     }
 
@@ -139,19 +127,20 @@
       align-items: center;
       justify-content: center;
       padding: 12px 18px;
-      border-radius: 12px;
+      border-radius: 10px;
       font-weight: 700;
       border: 1px solid var(--border);
-      transition: transform 0.2s ease, background 0.2s ease;
+      transition: 0.2s ease;
     }
 
     .btn:hover {
       transform: translateY(-2px);
+      border-color: var(--accent);
     }
 
     .btn-primary {
-      background: linear-gradient(90deg, var(--accent), var(--accent-2));
-      color: white;
+      background: var(--accent);
+      color: #020617;
       border: none;
     }
 
@@ -161,22 +150,23 @@
     }
 
     .profile-card {
-      background: linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0.03));
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 28px;
+      border-radius: 22px;
       padding: 28px;
-      box-shadow: 0 24px 80px rgba(0,0,0,0.28);
     }
 
     .avatar {
-      width: 118px;
-      height: 118px;
-      border-radius: 28px;
-      background: linear-gradient(135deg, var(--accent), var(--accent-2));
+      width: 110px;
+      height: 110px;
+      border-radius: 24px;
+      background: #020617;
+      border: 1px solid var(--border);
       display: grid;
       place-items: center;
-      font-size: 2.7rem;
+      font-size: 2.5rem;
       font-weight: 900;
+      color: var(--accent);
       margin-bottom: 22px;
     }
 
@@ -184,34 +174,61 @@
       margin-bottom: 8px;
     }
 
-    .profile-card p {
+    .profile-card p,
+    .mini-list {
       color: var(--muted);
-      margin-bottom: 18px;
     }
 
     .mini-list {
       display: grid;
       gap: 10px;
-      color: var(--muted);
+      margin-top: 18px;
       font-size: 0.95rem;
     }
 
     section {
-      padding: 80px 0;
+      padding: 75px 0;
     }
 
     .section-heading {
-      margin-bottom: 34px;
+      margin-bottom: 32px;
     }
 
     .section-heading h2 {
       font-size: clamp(2rem, 4vw, 3rem);
-      margin-bottom: 8px;
+      margin-bottom: 10px;
+      letter-spacing: -1px;
     }
 
     .section-heading p {
       color: var(--muted);
-      max-width: 680px;
+      max-width: 700px;
+    }
+
+    .about-box {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 26px;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 16px;
+    }
+
+    .timeline-item {
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 20px;
+    }
+
+    .timeline-item h3 {
+      margin-bottom: 6px;
+    }
+
+    .timeline-item p {
+      color: var(--muted);
     }
 
     .grid {
@@ -221,25 +238,31 @@
     }
 
     .card {
-      background: rgba(17, 24, 47, 0.78);
+      background: var(--card);
       border: 1px solid var(--border);
-      border-radius: 22px;
+      border-radius: 18px;
       padding: 24px;
-      transition: transform 0.2s ease, border-color 0.2s ease;
+      transition: 0.2s ease;
     }
 
     .card:hover {
-      transform: translateY(-5px);
-      border-color: rgba(77, 163, 255, 0.45);
+      transform: translateY(-4px);
+      border-color: rgba(56, 189, 248, 0.55);
     }
 
     .card h3 {
       margin-bottom: 10px;
+      font-size: 1.25rem;
     }
 
     .card p {
       color: var(--muted);
       margin-bottom: 16px;
+    }
+
+    .card a {
+      color: var(--accent);
+      font-weight: 700;
     }
 
     .tags {
@@ -250,54 +273,35 @@
 
     .tag {
       font-size: 0.78rem;
-      color: #cfe3ff;
-      background: rgba(77, 163, 255, 0.1);
-      border: 1px solid rgba(77, 163, 255, 0.18);
+      color: #dff6ff;
+      background: rgba(56, 189, 248, 0.1);
+      border: 1px solid rgba(56, 189, 248, 0.2);
       padding: 5px 9px;
       border-radius: 999px;
     }
 
-    .about-box {
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 22px;
-    }
-
-    .timeline {
-      display: grid;
-      gap: 16px;
-    }
-
-    .timeline-item {
-      border-left: 3px solid var(--accent);
-      padding-left: 18px;
-    }
-
-    .timeline-item p {
-      color: var(--muted);
-    }
-
     .contact {
-      text-align: center;
-      background: linear-gradient(135deg, rgba(77,163,255,0.12), rgba(124,92,255,0.1));
+      background: var(--section);
       border: 1px solid var(--border);
-      border-radius: 30px;
-      padding: 48px 24px;
+      border-radius: 24px;
+      padding: 44px 24px;
+      text-align: center;
+    }
+
+    .contact .button-row {
+      justify-content: center;
     }
 
     footer {
       border-top: 1px solid var(--border);
       padding: 28px 0;
-      color: var(--muted);
       text-align: center;
+      color: var(--soft);
     }
 
     @media (max-width: 850px) {
       .hero-grid,
-      .about-box {
-        grid-template-columns: 1fr;
-      }
-
+      .about-box,
       .grid {
         grid-template-columns: 1fr;
       }
@@ -305,13 +309,19 @@
       .nav-links {
         display: none;
       }
+
+      h1 {
+        letter-spacing: -2px;
+      }
     }
   </style>
 </head>
+
 <body>
   <nav>
     <div class="container nav-inner">
       <a class="logo" href="#top">Ammaar<span>.</span></a>
+
       <div class="nav-links">
         <a href="#about">About</a>
         <a href="#skills">Skills</a>
@@ -325,47 +335,47 @@
     <section class="hero">
       <div class="container hero-grid">
         <div>
-          <span class="eyebrow">Information Systems • IT • Cloud • Cybersecurity</span>
-          <h1>Building practical tech projects with a <span class="gradient-text">business-first mindset.</span></h1>
+          <span class="eyebrow">Information Systems • IT • Cloud • Web Development</span>
+
+          <h1>Hi, I'm Ammaar.</h1>
+
           <p>
-            I’m Ammaar Rehman, an Information Systems student focused on IT, cloud fundamentals,
-            cybersecurity, and digital solutions. This portfolio documents my projects, technical growth,
-            and hands-on work through NightStar Labs and independent learning.
+            I'm an Information Systems student interested in IT, cloud computing, and practical
+            technology projects. This site is where I document what I'm building, learning,
+            and improving over time.
           </p>
+
           <div class="button-row">
-  <a class="btn btn-primary" href="#projects">View Projects</a>
+            <a class="btn btn-primary" href="#projects">View Projects</a>
 
-  <a class="btn btn-secondary"
-     href="assets/resume/Ammaar_Rehman_Resume.pdf"
-     target="_blank">
-     Resume
-  </a>
+            <a class="btn btn-secondary" href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank">
+              Resume
+            </a>
 
-  <a class="btn btn-secondary"
-     href="https://github.com/ammaarrehman"
-     target="_blank"
-     rel="noopener">
-     GitHub
-  </a>
+            <a class="btn btn-secondary" href="https://github.com/ammaarrehman" target="_blank" rel="noopener">
+              GitHub
+            </a>
 
-  <a class="btn btn-secondary"
-     href="https://www.linkedin.com/in/ammaar2rehman"
-     target="_blank"
-     rel="noopener">
-     LinkedIn
-  </a>
-</div>
+            <a class="btn btn-secondary" href="https://www.linkedin.com/in/ammaar2rehman" target="_blank" rel="noopener">
+              LinkedIn
+            </a>
+          </div>
         </div>
 
         <aside class="profile-card">
           <div class="avatar">AR</div>
+
           <h2>Ammaar Rehman</h2>
-          <p>Information Systems student building real-world skills through portfolio projects.</p>
+
+          <p>
+            Information Systems student building real-world skills through hands-on projects.
+          </p>
+
           <div class="mini-list">
             <span>📍 Maryland</span>
             <span>🎓 Howard Community College → UMD Smith goal</span>
             <span>🚀 Founder, NightStar Labs</span>
-            <span>☁️ Learning AWS Cloud Practitioner</span>
+            <span>☁️ Learning AWS fundamentals</span>
           </div>
         </aside>
       </div>
@@ -373,28 +383,35 @@
 
     <section id="about">
       <div class="container about-box">
-        <div>
-          <div class="section-heading">
-            <h2>About Me</h2>
-            <p>
-              I’m developing a foundation across business technology, IT operations, cybersecurity,
-              cloud computing, and web development. My goal is to turn learning into visible projects
-              that show real problem-solving ability.
-            </p>
-          </div>
+        <div class="section-heading">
+          <h2>About Me</h2>
+          <p>
+            I’m focused on the connection between business, technology, and real-world implementation.
+            My goal is to build useful projects while strengthening my skills in IT, cloud computing,
+            web development, and systems thinking.
+          </p>
         </div>
+
         <div class="timeline">
           <div class="timeline-item">
-            <h3>Information Systems Path</h3>
-            <p>Focused on the bridge between business needs, technology systems, and practical implementation.</p>
+            <h3>Information Systems</h3>
+            <p>
+              Studying how technology supports organizations, operations, and decision-making.
+            </p>
           </div>
+
           <div class="timeline-item">
             <h3>NightStar Labs</h3>
-            <p>Building websites and digital solutions while expanding toward IT, cybersecurity, and automation work.</p>
+            <p>
+              Building websites and digital solutions while developing practical project experience.
+            </p>
           </div>
+
           <div class="timeline-item">
             <h3>Cloud Learning</h3>
-            <p>Currently building AWS fundamentals with plans to host and deploy future projects in the cloud.</p>
+            <p>
+              Learning AWS fundamentals with plans to host and deploy future projects in the cloud.
+            </p>
           </div>
         </div>
       </div>
@@ -404,28 +421,52 @@
       <div class="container">
         <div class="section-heading">
           <h2>Skills & Tools</h2>
-          <p>A growing toolkit across front-end development, IT foundations, business systems, and cloud concepts.</p>
+          <p>
+            A growing technical foundation across web development, IT support, documentation,
+            cloud concepts, and business technology.
+          </p>
         </div>
+
         <div class="grid">
           <div class="card">
             <h3>Web Development</h3>
-            <p>Building responsive websites with clean structure and modern design.</p>
+            <p>
+              Building responsive websites with clean structure, readable code, and simple user experiences.
+            </p>
+
             <div class="tags">
-              <span class="tag">HTML</span><span class="tag">CSS</span><span class="tag">JavaScript</span><span class="tag">GitHub Pages</span>
+              <span class="tag">HTML</span>
+              <span class="tag">CSS</span>
+              <span class="tag">GitHub Pages</span>
+              <span class="tag">Responsive Design</span>
             </div>
           </div>
+
           <div class="card">
-            <h3>IT & Systems</h3>
-            <p>Understanding how technology supports operations, users, and organizations.</p>
+            <h3>IT & Operations</h3>
+            <p>
+              Applying troubleshooting, documentation, and process-focused thinking to technical work.
+            </p>
+
             <div class="tags">
-              <span class="tag">Troubleshooting</span><span class="tag">Documentation</span><span class="tag">Operations</span><span class="tag">Support</span>
+              <span class="tag">Troubleshooting</span>
+              <span class="tag">Documentation</span>
+              <span class="tag">Support</span>
+              <span class="tag">Operations</span>
             </div>
           </div>
+
           <div class="card">
-            <h3>Cloud & Security</h3>
-            <p>Learning AWS fundamentals, secure design, and cybersecurity concepts.</p>
+            <h3>Cloud Foundations</h3>
+            <p>
+              Learning cloud concepts with a focus on AWS, hosting, permissions, and deployment basics.
+            </p>
+
             <div class="tags">
-              <span class="tag">AWS</span><span class="tag">IAM</span><span class="tag">Networking</span><span class="tag">Security Basics</span>
+              <span class="tag">AWS</span>
+              <span class="tag">IAM</span>
+              <span class="tag">S3</span>
+              <span class="tag">CloudFront</span>
             </div>
           </div>
         </div>
@@ -433,82 +474,97 @@
     </section>
 
     <section id="projects">
-  <div class="container">
-    <div class="section-heading">
-      <h2>Projects</h2>
-      <p>Projects that demonstrate my growth in web development, cloud computing, IT, and digital solutions.</p>
-    </div>
-
-    <div class="grid">
-
-      <article class="card">
-  <h3>Personal Portfolio Website</h3>
-
-  <p>
-    Designed and deployed a responsive portfolio website using HTML, CSS, and GitHub Pages to showcase projects, skills, and professional development.
-  </p>
-
-  <p>
-    <a href="https://github.com/ammaarrehman/ammaarrehman.github.io"
-       target="_blank">
-       View Repository →
-    </a>
-  </p>
-
-  <div class="tags">
-          <span class="tag">HTML</span>
-          <span class="tag">CSS</span>
-          <span class="tag">GitHub Pages</span>
-          <span class="tag">Portfolio</span>
+      <div class="container">
+        <div class="section-heading">
+          <h2>Projects</h2>
+          <p>
+            Projects that show my progress in web development, cloud learning, IT, and digital solutions.
+          </p>
         </div>
-      </article>
 
-      <article class="card">
-        <h3>
-<a href="https://nightstarlabs.github.io/nightstar-labs-site/"
-target="_blank">
-NightStar Labs Website ↗
-</a>
-</h3>
-        <p>
-          Built and deployed the official NightStar Labs website featuring modern branding, service information, and responsive web design.
-        </p>
-        <div class="tags">
-          <span class="tag">Web Design</span>
-          <span class="tag">Branding</span>
-          <span class="tag">Business</span>
-          <span class="tag">Startup</span>
+        <div class="grid">
+          <article class="card">
+            <h3>Personal Portfolio Website</h3>
+
+            <p>
+              Designed and deployed a responsive personal portfolio website using HTML, CSS,
+              GitHub, and GitHub Pages.
+            </p>
+
+            <p>
+              <a href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank">
+                View Repository →
+              </a>
+            </p>
+
+            <div class="tags">
+              <span class="tag">HTML</span>
+              <span class="tag">CSS</span>
+              <span class="tag">GitHub Pages</span>
+              <span class="tag">Portfolio</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>
+              <a href="https://nightstarlabs.github.io/nightstar-labs-site/" target="_blank">
+                NightStar Labs Website ↗
+              </a>
+            </h3>
+
+            <p>
+              Built and deployed the official NightStar Labs website to showcase digital services,
+              branding, and early-stage technology project work.
+            </p>
+
+            <div class="tags">
+              <span class="tag">Web Design</span>
+              <span class="tag">Branding</span>
+              <span class="tag">GitHub Pages</span>
+              <span class="tag">Business</span>
+            </div>
+          </article>
+
+          <article class="card">
+            <h3>Cloud Portfolio Roadmap</h3>
+
+            <p>
+              Planned next step: migrate this portfolio from GitHub Pages to AWS using S3,
+              CloudFront, Route 53, and IAM.
+            </p>
+
+            <div class="tags">
+              <span class="tag">AWS</span>
+              <span class="tag">S3</span>
+              <span class="tag">CloudFront</span>
+              <span class="tag">Route 53</span>
+            </div>
+          </article>
         </div>
-      </article>
-
-      <article class="card">
-        <h3>AWS Portfolio Migration</h3>
-        <p>
-          Upcoming cloud project focused on migrating this portfolio from GitHub Pages to AWS using S3, CloudFront, Route 53, and IAM.
-        </p>
-        <div class="tags">
-          <span class="tag">AWS</span>
-          <span class="tag">Cloud</span>
-          <span class="tag">S3</span>
-          <span class="tag">CloudFront</span>
-        </div>
-      </article>
-
-    </div>
-  </div>
-</section>
+      </div>
+    </section>
 
     <section id="contact">
       <div class="container">
         <div class="contact">
           <div class="section-heading">
             <h2>Let’s Connect</h2>
-            <p>I’m always working on new projects and learning opportunities in IT, cloud, cybersecurity, and business technology.</p>
+            <p>
+              I’m continuing to build projects and develop skills in Information Systems,
+              cloud computing, IT, and web development.
+            </p>
           </div>
-          <div class="button-row" style="justify-content: center;">
+
+          <div class="button-row">
             <a class="btn btn-primary" href="mailto:ammaarrehmanf@gmail.com">Email Me</a>
-            <a class="btn btn-secondary" href="https://github.com/ammaarrehman" target="_blank" rel="noopener">GitHub</a>
-            <a class="btn btn-secondary" href="https://www.linkedin.com/in/ammaar2rehman" target="_blank" rel="noopener">LinkedIn</a>
+
+            <a class="btn btn-secondary" href="https://github.com/ammaarrehman" target="_blank" rel="noopener">
+              GitHub
+            </a>
+
+            <a class="btn btn-secondary" href="https://www.linkedin.com/in/ammaar2rehman" target="_blank" rel="noopener">
+              LinkedIn
+            </a>
           </div>
         </div>
       </div>
