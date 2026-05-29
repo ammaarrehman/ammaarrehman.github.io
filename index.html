@@ -17,13 +17,14 @@
     }
 
     :root {
-      --bg: #fafafa;
+      --bg: #ffffff;
+      --soft-bg: #f8fafc;
       --text: #111111;
       --muted: #666666;
       --border: #e6e6e6;
       --card: #ffffff;
       --accent: #2563eb;
-      --max-width: 920px;
+      --max-width: 980px;
     }
 
     html {
@@ -54,7 +55,7 @@
 
     nav {
       border-bottom: 1px solid var(--border);
-      background: rgba(250, 250, 250, 0.9);
+      background: rgba(255, 255, 255, 0.92);
       backdrop-filter: blur(12px);
       position: sticky;
       top: 0;
@@ -70,7 +71,7 @@
 
     .logo {
       font-weight: 700;
-      letter-spacing: -0.02em;
+      letter-spacing: -0.03em;
     }
 
     .nav-links {
@@ -82,13 +83,16 @@
 
     .hero {
       padding: 96px 0 72px;
+      background:
+        radial-gradient(circle at top right, rgba(37, 99, 235, 0.08), transparent 32%),
+        var(--bg);
     }
 
     .hero-grid {
       display: grid;
-      grid-template-columns: 1.4fr 0.6fr;
+      grid-template-columns: 1.25fr 0.75fr;
       gap: 56px;
-      align-items: start;
+      align-items: center;
     }
 
     .label {
@@ -98,14 +102,18 @@
     }
 
     h1 {
-      font-size: clamp(3rem, 8vw, 5.5rem);
+      font-size: clamp(3.25rem, 8vw, 6rem);
       line-height: 0.95;
-      letter-spacing: -0.06em;
+      letter-spacing: -0.065em;
       margin-bottom: 24px;
     }
 
+    .accent {
+      color: var(--accent);
+    }
+
     .intro {
-      font-size: 1.25rem;
+      font-size: 1.22rem;
       color: #333333;
       max-width: 680px;
       margin-bottom: 28px;
@@ -114,7 +122,7 @@
     .links {
       display: flex;
       flex-wrap: wrap;
-      gap: 14px;
+      gap: 16px;
       margin-top: 28px;
     }
 
@@ -130,36 +138,49 @@
       border-color: var(--accent);
     }
 
-    .side-card {
+    .headshot-card {
       border: 1px solid var(--border);
       background: var(--card);
-      border-radius: 18px;
-      padding: 22px;
+      border-radius: 22px;
+      padding: 18px;
+      box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
     }
 
-    .side-card h2 {
-      font-size: 1rem;
-      margin-bottom: 14px;
+    .headshot-card img {
+      width: 100%;
+      aspect-ratio: 1 / 1;
+      object-fit: cover;
+      border-radius: 16px;
+      margin-bottom: 16px;
+      border: 1px solid var(--border);
+      background: var(--soft-bg);
     }
 
-    .side-card ul {
-      list-style: none;
-      display: grid;
-      gap: 10px;
+    .headshot-card h2 {
+      font-size: 1.1rem;
+      margin-bottom: 6px;
+      letter-spacing: -0.02em;
+    }
+
+    .headshot-card p {
       color: var(--muted);
       font-size: 0.95rem;
     }
 
     section {
-      padding: 64px 0;
+      padding: 68px 0;
       border-top: 1px solid var(--border);
     }
 
+    section:nth-of-type(even) {
+      background: var(--soft-bg);
+    }
+
     .section-title {
-      font-size: 0.9rem;
+      font-size: 0.82rem;
       color: var(--muted);
       text-transform: uppercase;
-      letter-spacing: 0.12em;
+      letter-spacing: 0.14em;
       margin-bottom: 24px;
       font-weight: 700;
     }
@@ -167,19 +188,43 @@
     .about-text {
       font-size: 1.12rem;
       color: #333333;
-      max-width: 760px;
+      max-width: 780px;
+    }
+
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 14px;
+    }
+
+    .stat {
+      border: 1px solid var(--border);
+      background: var(--card);
+      border-radius: 16px;
+      padding: 20px;
+    }
+
+    .stat h3 {
+      font-size: 1.8rem;
+      letter-spacing: -0.04em;
+      margin-bottom: 4px;
+    }
+
+    .stat p {
+      color: var(--muted);
+      font-size: 0.95rem;
     }
 
     .project-list {
       display: grid;
-      gap: 18px;
+      gap: 8px;
     }
 
     .project {
       display: grid;
       grid-template-columns: 1fr auto;
-      gap: 24px;
-      padding: 24px 0;
+      gap: 28px;
+      padding: 30px 0;
       border-bottom: 1px solid var(--border);
     }
 
@@ -195,7 +240,7 @@
 
     .project p {
       color: var(--muted);
-      max-width: 620px;
+      max-width: 640px;
       margin-bottom: 12px;
     }
 
@@ -217,7 +262,7 @@
       gap: 8px;
       justify-content: flex-end;
       align-content: start;
-      max-width: 220px;
+      max-width: 230px;
     }
 
     .tag {
@@ -240,7 +285,7 @@
       background: var(--card);
       border: 1px solid var(--border);
       border-radius: 16px;
-      padding: 20px;
+      padding: 22px;
     }
 
     .now-item h3 {
@@ -269,6 +314,7 @@
       padding: 28px 0;
       color: var(--muted);
       font-size: 0.9rem;
+      background: var(--bg);
     }
 
     @media (max-width: 780px) {
@@ -282,7 +328,8 @@
 
       .hero-grid,
       .project,
-      .now-grid {
+      .now-grid,
+      .stats-grid {
         grid-template-columns: 1fr;
       }
 
@@ -297,7 +344,7 @@
 <body>
   <nav>
     <div class="container nav-inner">
-      <a class="logo" href="#top">Ammaar Rehman</a>
+      <a class="logo" href="#top">AR</a>
 
       <div class="nav-links">
         <a href="#about">About</a>
@@ -314,11 +361,12 @@
         <div>
           <p class="label">Information Systems student based in Maryland</p>
 
-          <h1>Hi, I'm Ammaar.</h1>
+          <h1>Ammaar <span class="accent">Rehman</span></h1>
 
           <p class="intro">
-            I’m interested in IT, cloud computing, and building practical technology projects.
-            I use this site to keep track of what I’m learning, building, and improving over time.
+            I'm an Information Systems student currently focused on IT, cloud computing,
+            and technology projects. Most of what I learn ends up becoming a project,
+            experiment, or website.
           </p>
 
           <div class="links">
@@ -329,15 +377,39 @@
           </div>
         </div>
 
-        <aside class="side-card">
-          <h2>Currently</h2>
-          <ul>
-            <li>Studying Information Systems</li>
-            <li>Building NightStar Labs</li>
-            <li>Learning AWS fundamentals</li>
-            <li>Working on portfolio projects</li>
-          </ul>
+        <aside class="headshot-card">
+          <img src="assets/headshot.jpg" alt="Ammaar Rehman headshot">
+
+          <h2>Currently building</h2>
+
+          <p>
+            NightStar Labs, this portfolio, and a cloud hosting project using AWS.
+          </p>
         </aside>
+      </div>
+    </section>
+
+    <section>
+      <div class="container stats-grid">
+        <div class="stat">
+          <h3>2026</h3>
+          <p>Portfolio launched</p>
+        </div>
+
+        <div class="stat">
+          <h3>2+</h3>
+          <p>Public projects</p>
+        </div>
+
+        <div class="stat">
+          <h3>AWS</h3>
+          <p>Currently learning</p>
+        </div>
+
+        <div class="stat">
+          <h3>UMD</h3>
+          <p>Transfer goal</p>
+        </div>
       </div>
     </section>
 
@@ -346,9 +418,12 @@
         <p class="section-title">About</p>
 
         <p class="about-text">
-          I’m a student focused on the intersection of business and technology. My current work
-          includes web projects, IT fundamentals, cloud learning, and building NightStar Labs as a
-          real project platform for practical experience.
+          I'm currently studying Information Systems and preparing to transfer to the
+          University of Maryland's Smith School of Business. Outside the classroom,
+          I build projects through NightStar Labs, explore cloud technologies with AWS,
+          and document what I learn through websites and technical projects.
+          My goal is to develop practical experience in IT, cloud computing, and
+          technology consulting while continuing to grow as a builder and problem solver.
         </p>
       </div>
     </section>
@@ -361,6 +436,7 @@
           <article class="project">
             <div>
               <h3>Personal Portfolio Website</h3>
+
               <p>
                 A personal website built with HTML and CSS and deployed through GitHub Pages.
                 This is the first version of my portfolio and will later be migrated to AWS.
@@ -382,6 +458,7 @@
           <article class="project">
             <div>
               <h3>NightStar Labs Website</h3>
+
               <p>
                 Website for NightStar Labs, an early-stage technology project focused on websites,
                 digital solutions, and future IT and cybersecurity work.
@@ -401,7 +478,8 @@
 
           <article class="project">
             <div>
-              <h3>AWS Hosting Migration</h3>
+              <h3>Upcoming: AWS Portfolio Migration</h3>
+
               <p>
                 Planned next step: move this portfolio from GitHub Pages to AWS using S3,
                 CloudFront, Route 53, and IAM. This will become a documented cloud project.
@@ -453,7 +531,7 @@
 
         <div class="contact-box">
           <p>
-            I’m always open to connecting about technology, projects, internships, and learning opportunities.
+            I’m open to connecting about technology, projects, internships, and learning opportunities.
           </p>
 
           <div class="links">
