@@ -7,9 +7,15 @@
   --bg:#0a0a0a; --bg2:#050505;
   --line:#1c1c1c; --line2:#262626;
   --t1:#efefef; --t2:#9e9e9e; --t3:#5c5c5c; --t4:#3a3a3a;
-  --acc:#4ADE80;            /* single functional UI color */
+  --acc:#4ADE80;
   --warn:#FFA94D;
+  /* radar palette (atc scope inspo) */
+  --amber:#FFB000; --cyan:#4DD6E8; --mag:#E879F9; --blue:#5B8DEF; --red:#FF5252;
+  --amber-dim:#8a6d2a; --cyan-dim:#3e6b75;
+  /* film-print cream (poster inspo) */
+  --cream:#E8E0C9;
   --mono:'JetBrains Mono', monospace;
+  --serif:'EB Garamond', Georgia, serif;
   --maxw:1000px;
 }
 ::selection { background:#efefef; color:#0a0a0a; }
@@ -54,10 +60,16 @@ pre.art { white-space:pre; line-height:1.22; font-size:11px; font-weight:500; ov
 /* ── LABELS / DIVIDERS / SECTIONS ── */
 .label { font-size:11px; letter-spacing:3px; color:var(--t3); text-transform:uppercase; }
 .divider { border-bottom:1px solid var(--line); padding:12px 0; }
+.divider-row { display:flex; justify-content:space-between; align-items:baseline; gap:12px; }
 .mono-label { font-size:12px; color:var(--t3); }
 .mono-label b { color:var(--t1); font-weight:500; }
+.wp { font-size:9px; }                          /* radar waypoint triangle */
+.div-anno { font-size:10px; color:var(--t4); letter-spacing:2px; white-space:nowrap; }
 .section { padding:74px 0; border-bottom:1px solid var(--line); }
-.section-heading { font-size:24px; font-weight:700; color:var(--t1); letter-spacing:1px; margin-bottom:10px; }
+.section-heading {
+  font-family:var(--serif); font-size:31px; font-weight:600;
+  color:var(--cream); letter-spacing:.5px; margin-bottom:10px; line-height:1.2;
+}
 .section-sub { max-width:560px; font-size:13.5px; }
 
 /* ── HERO ── */
@@ -79,10 +91,10 @@ pre.art { white-space:pre; line-height:1.22; font-size:11px; font-weight:500; ov
 .hero-links a:hover { color:var(--t1); border-color:var(--t3); }
 .hero-links a.primary { color:var(--t1); border-color:var(--t3); font-weight:500; }
 
-/* ── WORDMARK ── */
+/* ── WORDMARK (font-size set by js/fit — clamp is the fallback) ── */
 .wordmark {
   white-space:pre; font-weight:700; overflow-x:hidden;
-  font-size:clamp(6.5px, 1.45vw, 14px);
+  font-size:clamp(5px, 1.2vw, 12px);
   line-height:1.16; letter-spacing:0;
   margin:18px 0 0; color:var(--t4);
 }
@@ -170,7 +182,7 @@ body.hatching { overflow:hidden; }
   background:var(--bg2); color:var(--t3); border:1px solid var(--line); transition:all .2s;
 }
 .stack-tabs button:hover { color:var(--t1); border-color:var(--line2); }
-.stack-tabs button.on { color:var(--t1); border-color:var(--t3); }
+.stack-tabs button.on { color:var(--cyan); border-color:var(--cyan-dim); }
 .stack-cmd { font-size:12.5px; color:var(--t3); margin-bottom:14px; }
 .stack-cmd b { color:var(--t1); font-weight:500; }
 .stack-chips { display:flex; flex-wrap:wrap; gap:8px; }
@@ -189,7 +201,7 @@ body.hatching { overflow:hidden; }
   padding:24px 4px; border-bottom:1px solid var(--line);
 }
 @media (max-width:680px) { .xp { grid-template-columns:1fr; gap:8px; } }
-.xp-when { font-size:11.5px; color:var(--t4); letter-spacing:1px; line-height:2; }
+.xp-when { font-size:11.5px; color:var(--amber-dim); letter-spacing:1px; line-height:2; }
 .xp-when .where { color:var(--t3); }
 .xp h3 { font-size:14.5px; color:var(--t1); font-weight:700; }
 .xp .role { font-size:12px; color:var(--t3); margin-bottom:10px; }
@@ -206,7 +218,7 @@ body.hatching { overflow:hidden; }
 .status { letter-spacing:1px; }
 .status-active { color:var(--acc); }
 .status-progress { color:var(--warn); }
-.work-type { color:var(--t4); }
+.work-type { color:var(--cyan-dim); }
 .work-title { color:var(--t1); font-size:15px; font-weight:700; margin-bottom:10px; }
 .work-desc { font-size:12.5px; color:var(--t3); margin-bottom:16px; flex:1; }
 .work-stack { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
@@ -239,7 +251,7 @@ body.hatching { overflow:hidden; }
 .cursor { display:inline-block; width:8px; height:14px; background:var(--t1); vertical-align:-2px; animation:blink 1.05s steps(1) infinite; }
 @keyframes blink { 50% { opacity:0; } }
 .contact-rows { margin-top:30px; font-size:12.5px; color:var(--t3); line-height:2.3; }
-.contact-rows b { color:var(--t4); font-weight:400; display:inline-block; width:90px; }
+.contact-rows b { color:var(--amber-dim); font-weight:400; display:inline-block; width:90px; }
 .contact-rows a:hover { text-decoration:underline; }
 
 /* ── FOOTER ── */
