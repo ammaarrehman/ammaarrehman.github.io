@@ -19,15 +19,22 @@ assets/           favicon, photo, resume
 
 ## pi
 
-The hero is pi's room — a pixel diorama with a desk + PC, a MacBook,
-a homelab rack, a drink, a green film poster, and a window with the moon.
-pi wanders the room on his own: he codes at the desk, closes tickets when a
-rack LED goes red, sips the drink for a speed boost, and does design review
-on the MacBook. Drag him onto anything to trigger it; tap him for commentary.
+First visit: an egg sits center-screen and slowly cracks — tapping speeds
+it up. pi hatches, plops onto his floating island, and the camera zooms out
+into the site.
+
+The hero is that island — a pixel diorama with a desk + PC, a MacBook,
+a homelab rack, a drink, the leftover eggshell, and a live sky: drifting
+bit-clouds, a crescent moon, radar waypoints, pterodactyls with dotted
+ATC tracks, and rex (a chrome-dino homage — click him, he hops).
+pi wanders on his own: codes at the desk, closes tickets when a rack LED
+goes red, sips the drink for a speed boost, runs design review on the
+MacBook. Drag him onto anything to trigger it; tap him for commentary.
 The blueprint marks around the frame are an homage to calligraphy
 construction diagrams.
 
-Reduced motion: pi stays visible and grabbable, but doesn't auto-walk.
+Reduced motion: no hatch intro, no auto-walk — pi stays visible and grabbable.
+The hatch plays once per browser session (sessionStorage).
 
 ## Regenerating the marks
 

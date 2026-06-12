@@ -91,25 +91,49 @@ pre.art { white-space:pre; line-height:1.22; font-size:11px; font-weight:500; ov
 .wordmark i { color:#2c2c2c; font-style:normal; }
 @media (max-width:820px) { .wordmark { font-size:clamp(5px, 2.6vw, 11px); } }
 
-/* ── pi's ROOM (hero visual) ──
+/* ── pi's ISLAND (hero visual) ──
    blueprint framing: faint construction marks, like letterform diagrams */
 .room-wrap {
   position:relative; display:flex; flex-direction:column; gap:10px;
   padding:22px 28px 0;
 }
 #room {
-  width:min(440px, 88vw); aspect-ratio:168/104;
+  width:min(480px, 90vw); aspect-ratio:200/144;
   image-rendering:pixelated; display:block;
-  border:1px solid var(--line2); background:#050505;
   touch-action:none; user-select:none; -webkit-user-select:none;
 }
 .room-hint { font-size:10.5px; color:var(--t4); letter-spacing:2px; }
 #room-bubble {
-  position:absolute; z-index:5; background:#0a0a0a; border:1px solid var(--line2);
-  color:var(--t2); font-family:var(--mono); font-size:10.5px; padding:5px 9px;
+  position:absolute; z-index:5; background:#0a0a0a; border:2px solid #efefef;
+  box-shadow:2px 2px 0 #000;
+  color:var(--t1); font-family:var(--mono); font-size:10.5px; padding:4px 8px;
   pointer-events:none; opacity:0; transition:opacity .25s; white-space:nowrap;
 }
 #room-bubble.show { opacity:1; }
+
+/* ── the hatch (entry overlay) ── */
+#hatch {
+  position:fixed; inset:0; z-index:200; background:var(--bg);
+  display:flex; flex-direction:column; align-items:center; justify-content:center;
+  gap:22px; cursor:pointer;
+  transition:transform .78s cubic-bezier(.55,.05,.45,1), opacity .78s ease;
+}
+#hatch::before {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background-image:
+    linear-gradient(var(--line) 1px, transparent 1px),
+    linear-gradient(90deg, var(--line) 1px, transparent 1px);
+  background-size:22px 26px; opacity:.35;
+}
+#hatch canvas {
+  width:min(238px, 56vw); image-rendering:pixelated; position:relative;
+}
+#hatch .hatch-hint {
+  font-size:11px; color:var(--t3); letter-spacing:3px; text-transform:uppercase;
+  animation:blink 1.6s steps(1) infinite; position:relative;
+}
+#hatch.zoom { transform:scale(.18); opacity:0; pointer-events:none; }
+body.hatching { overflow:hidden; }
 .anno { position:absolute; font-size:9px; color:var(--t4); letter-spacing:1px; pointer-events:none; }
 .anno-c {
   width:15px; height:15px; border:1px solid #2c2c2c; border-radius:50%;
