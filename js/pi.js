@@ -286,7 +286,7 @@
     if (act === "mac") { macGlow = false; say("pi:~$ design review: approved.", x, y); }
     if (act === "lab") {
       if (labDown) { labDown = false; nextIncident = perf() + 22000 + Math.random() * 30000; say("pi:~$ ticket closed. that’s " + (ticket++) + ".", x, y); }
-      else say("pi:~$ lab: all green.", x, y);
+      else say(Math.random() < 0.5 ? "pi:~$ lab: all green." : "pi:~$ adguard: ads blocked. all of them.", x, y);
     }
     act = null; mode = REDUCED ? "pause" : "walk";
   }

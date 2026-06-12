@@ -1,14 +1,19 @@
 #!/usr/bin/env python3
-"""Builds assets/resume/Ammaar_Rehman_Resume.pdf — single source of truth.
+"""Regenerates a resume PDF matching resume v2.
 
-Usage:  python3 tools/resume.py
+Note: the deployed assets/resume/Ammaar_Rehman_Resume.pdf is Ammaar's own
+v2 export — this script is a backup that rebuilds equivalent content.
+Run with an output path to avoid overwriting the deployed file.
+
+Usage:  python3 tools/resume.py [out.pdf]
 Requires: reportlab
 """
+import sys
 from reportlab.lib.pagesizes import letter
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import inch
 from reportlab.lib.colors import HexColor
-from reportlab.platypus import (SimpleDocTemplate, Paragraph, Spacer, Table,
+from reportlab.platypus import (SimpleDocTemplate, Paragraph, Table,
                                 TableStyle, HRFlowable)
 
 INK = HexColor("#111111")
@@ -51,7 +56,8 @@ def bullets(items):
     return [Paragraph(t, S["bullet"], bulletText="•") for t in items]
 
 
-doc = SimpleDocTemplate("assets/resume/Ammaar_Rehman_Resume.pdf", pagesize=letter,
+out = sys.argv[1] if len(sys.argv) > 1 else "resume_v2_regen.pdf"
+doc = SimpleDocTemplate(out, pagesize=letter,
                         leftMargin=0.6 * inch, rightMargin=0.6 * inch,
                         topMargin=0.5 * inch, bottomMargin=0.5 * inch,
                         title="Ammaar Rehman — Resume", author="Ammaar Rehman")
@@ -61,71 +67,65 @@ e.append(Paragraph(
     "Ellicott City, Maryland &nbsp;|&nbsp; (301) 768-5445 &nbsp;|&nbsp; ammaarrehmanf@gmail.com &nbsp;|&nbsp; "
     "linkedin.com/in/ammaarrehman &nbsp;|&nbsp; ammaarrehman.github.io", S["contact"]))
 
-e.append(Paragraph("SUMMARY", S["h"])); e.append(rule())
-e.append(Paragraph(
-    "Howard Community College student (3.648 GPA, Dean's List) transferring to the University of Maryland "
-    "for a B.S. in Information Systems. <b>AWS Certified Cloud Practitioner</b> with hands-on experience in IT "
-    "support, operations, and inventory systems. Seeking internships in IT, cloud, or information systems.",
-    S["body"]))
-
 e.append(Paragraph("CERTIFICATIONS", S["h"])); e.append(rule())
 e.extend(bullets([
-    "<b>AWS Certified Cloud Practitioner</b> — Amazon Web Services, 2026",
-    "<b>CompTIA Network+</b> — in progress (expected 2026)",
+    "<b>AWS Certified Cloud Practitioner</b> — Amazon Web Services (CLF-C02), June 2026",
+    "<b>CompTIA Network+</b> (N10-009) — in progress, expected July 2026",
 ]))
 
 e.append(Paragraph("EDUCATION", S["h"])); e.append(rule())
 e.append(job("Howard Community College, Columbia, MD", "Expected 2026"))
 e.append(Paragraph("A.A. General Studies &nbsp;|&nbsp; GPA: 3.648 &nbsp;|&nbsp; Dean's List", S["body"]))
 e.append(Paragraph(
-    "Relevant Coursework: Python, Accounting I &amp; II, Economics (Macro &amp; Micro), Business Calculus, "
-    "Statistics, Marketing, Intro to Business, Computer Concepts", S["body"]))
+    "Relevant Coursework: Accounting I &amp; II, Economics (Macro &amp; Micro), Business Calculus, Statistics, "
+    "Marketing, Intro to Business, Computer Concepts, Python", S["body"]))
 e.append(job("Glenelg High School, Glenelg, MD — High School Diploma", "2024"))
 e.append(Paragraph("Honors: FBLA 2023 National Qualifier, National Honor Society", S["body"]))
 
 e.append(Paragraph("TECHNICAL SKILLS", S["h"])); e.append(rule())
 e.extend(bullets([
-    "<b>Cloud:</b> AWS (S3, CloudFront, Route 53, IAM, EC2 fundamentals)",
-    "<b>Programming:</b> Python (data structures, file I/O, control flow), JavaScript, HTML/CSS, Java (basic)",
-    "<b>Tools &amp; Platforms:</b> Git/GitHub, Microsoft Excel, WordPress, Shopify, inventory &amp; POS systems",
-    "<b>Core:</b> IT support &amp; troubleshooting, hardware &amp; networking fundamentals, security basics, data analysis",
+    "<b>Cloud:</b> AWS, S3, CloudFront, Route 53, IAM, EC2 fundamentals",
+    "<b>Programming/Web:</b> Python, JavaScript, HTML/CSS, Java basics",
+    "<b>Tools &amp; Platforms:</b> Git/GitHub, Microsoft Excel, WordPress, Shopify, inventory/POS systems",
+    "<b>IT Foundations:</b> Troubleshooting, hardware fundamentals, networking basics, security basics, data analysis",
 ]))
 
 e.append(Paragraph("PROFESSIONAL EXPERIENCE", S["h"])); e.append(rule())
-e.append(job("NextGen Consulting Inc. — IT &amp; Operations Intern", "Jun 2022 – Aug 2023"))
+e.append(job("NextGen Consulting Inc., Washington DC–Baltimore Area — IT &amp; Operations Intern", "Jun 2022 – Aug 2023"))
 e.extend(bullets([
     "Resolved 200+ technical support issues for users, documenting solutions to improve future issue resolution",
     "Supported mobile application development through testing, troubleshooting, and feedback",
     "Assisted with IT systems setup, account configuration, and basic troubleshooting",
 ]))
+e.append(job("NightStar Solutions, Ellicott City, MD — Founder", "May 2026 – Present"))
+e.extend(bullets([
+    "Built and maintain a small web and technology project brand focused on websites, digital setup, and IT-focused learning projects",
+    "Develop project documentation, service pages, and client-facing materials for future small business website work",
+    "Use the brand as a portfolio platform for web development, cloud, cybersecurity, and IT infrastructure projects",
+]))
+e.append(job("Howard CC Campus Store / Slingshot, Columbia, MD — Operations Associate", "Aug 2024 – Present"))
+e.extend(bullets([
+    "Use Juniper and store operations software to receive merchandise, fulfill orders, update inventory records, and support back-end store operations",
+    "Manage order fulfillment, receiving, stocking, and inventory accuracy for textbooks, merchandise, and course materials",
+    "Assist students, faculty, and staff with purchases, course material support, and issue resolution during high-volume semester rush periods",
+]))
 e.append(job("The UPS Store, Clarksville, MD — Associate", "Sep 2025 – Present"))
 e.extend(bullets([
-    "Assist customers with shipping, packaging, printing, and mailbox services in a high-volume environment",
-    "Process transactions accurately while resolving customer issues and maintaining service quality",
-]))
-e.append(job("Howard CC Campus Store (Slingshot), Columbia, MD — Operations Associate", "Aug 2024 – Present"))
-e.extend(bullets([
-    "Manage order fulfillment, receiving, and inventory operations for textbooks and merchandise",
-    "Maintain accurate inventory using store systems; handle high-volume semester rushes",
-]))
-e.append(job("Roots Market, Clarksville, MD — Associate", "Aug 2024 – Mar 2025"))
-e.extend(bullets([
-    "Managed cash deposits, register balancing, and end-of-day procedures",
-    "Trained new employees on procedures and customer service expectations",
+    "Process domestic and international shipments using shipping/logistics software, including package details, customs information, labels, and service options",
+    "Assist customers with shipping, packaging, printing, mailbox services, and issue resolution in a high-volume retail environment",
+    "Handle transactions accurately while maintaining attention to detail, service quality, and delivery requirements",
 ]))
 
 e.append(Paragraph("PROJECTS", S["h"])); e.append(rule())
 e.extend(bullets([
-    "<b>Personal ePortfolio</b> — designed, built, and deployed ammaarrehman.github.io (HTML, CSS, JavaScript, "
-    "Python tooling, GitHub Pages); migrating to AWS S3 + CloudFront + Route 53",
-    "<b>NIGHTFALL / Nightstar Solutions</b> — founder of a one-person web &amp; IT delivery operation; "
-    "shipped and maintain the company site and brand system",
+    "<b>Home Network DNS Filtering Project</b> — Raspberry Pi, AdGuard Home, DNS filtering, router/DHCP configuration",
+    "<b>AWS Cloud Portfolio Deployment</b> — Amazon S3, CloudFront, Route 53, IAM, custom domain hosting",
 ]))
 
 e.append(Paragraph("LEADERSHIP &amp; HONORS", S["h"])); e.append(rule())
 e.append(Paragraph(
-    "Maryland House of Delegates — Volunteer Staff &nbsp;|&nbsp; National Honor Society &nbsp;|&nbsp; "
-    "Key Club &nbsp;|&nbsp; Dean's List &nbsp;|&nbsp; FBLA National Qualifier", S["body"]))
+    "Maryland House of Delegates — Volunteer Staff &nbsp;|&nbsp; Dean's List &nbsp;|&nbsp; FBLA National Qualifier",
+    S["body"]))
 
 doc.build(e)
-print("wrote assets/resume/Ammaar_Rehman_Resume.pdf")
+print("wrote", out)
