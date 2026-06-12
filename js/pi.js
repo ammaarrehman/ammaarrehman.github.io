@@ -1,21 +1,28 @@
-/* pi — resident critter + his floor of things.
-   stations: desk (study), server rack (tickets), coffee (speed),
-   package (delivery), rocket (orbits the moon).
-   drag pi onto anything — or leave him alone and he'll get to it. */
+/* pi — resident critter. the hero is his room.
+   stations: desk+pc (he codes), macbook (design review), homelab
+   (he closes tickets), drink (speed boost). window has the moon.
+   drag pi onto things — or leave him alone and he'll get to it. */
 (function () {
-  var el = document.getElementById("critter");
-  if (!el) return;
-  var cv = el.querySelector("canvas"), cx = cv.getContext("2d");
-  var bubble = document.getElementById("critter-bubble");
+  var canvas = document.getElementById("room");
+  if (!canvas) return;
+  var ctx = canvas.getContext("2d");
+  var wrap = canvas.parentElement;
+  var bubble = document.getElementById("room-bubble");
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   function perf() { return performance.now(); }
-  var W = function () { return window.innerWidth; };
-  var H = function () { return window.innerHeight; };
-  var floorY = function () { return H() - 37; };
+
+  var RW = 168, RH = 104, FLOOR = 88;   // room units (1 unit = 1 chunky pixel)
 
   /* ── palette ── */
   var C = { W: "#efefef", G: "#9e9e9e", D: "#5c5c5c", K: "#0a0a0a",
             O: "#FFA94D", Y: "#FFE066", R: "#FF5252", A: "#4ADE80" };
+
+  /* deterministic hash → stable noise (no flicker) */
+  function hash(a, b) {
+    var h = (a * 374761393 + b * 668265263) | 0;
+    h = (h ^ (h >> 13)) * 1274126177 | 0;
+    return ((h ^ (h >> 16)) >>> 0) / 4294967295;
+  }
 
   /* ── pi sprite ── */
   var FRAMES = {
@@ -25,123 +32,160 @@
     walk2: ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWKWWKWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","...WWWW...","...GGGG...",".........."],
     held:  ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWKWWKWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..",".WW....WW.","WW......WW","GG......GG",".........."]
   };
-  function drawPi(name, flip) {
-    cx.clearRect(0, 0, 10, 11);
+  function drawPi(name, flip, ox, oy) {
     var f = FRAMES[name];
+    ox = Math.round(ox); oy = Math.round(oy);
     for (var y = 0; y < f.length; y++)
       for (var x = 0; x < 10; x++) {
         var c = f[y][flip ? 9 - x : x];
-        if (c !== ".") { cx.fillStyle = C[c]; cx.fillRect(x, y, 1, 1); }
+        if (c !== ".") { ctx.fillStyle = C[c]; ctx.fillRect(ox + x, oy + y, 1, 1); }
       }
   }
 
-  /* ── prop factory ── */
-  function prop(id, pw, ph) {
-    var d = document.getElementById(id);
-    if (!d) return null;
-    var c = d.querySelector("canvas");
-    return { el: d, ctx: c.getContext("2d"), pw: pw, ph: ph, x: 0, y: 0,
-             visible: function () { return d.offsetParent !== null && getComputedStyle(d).display !== "none"; },
-             place: function (x) { this.x = x; this.y = H() - (ph * 3) - 4;
-                                   d.style.transform = "translate(" + x + "px," + this.y + "px)"; } };
+  /* ── room state ── */
+  var pcOn = false, macLid = 0, macGlow = false, labDown = false;
+  var nextIncident = perf() + 16000, ticket = 201;
+
+  function rect(x, y, w, h, col) { ctx.fillStyle = col; ctx.fillRect(x, y, w, h); }
+
+  /* ── static shell: wall, floor, noise ── */
+  function drawShell(t) {
+    rect(0, 0, RW, RH, "#050505");
+    // sparse wall noise glyph-dots, stable
+    for (var i = 0; i < RW; i += 3)
+      for (var j = 0; j < FLOOR; j += 3) {
+        var h = hash(i, j);
+        if (h < 0.015) { ctx.fillStyle = h < 0.006 ? "#171c2b" : "#161616"; ctx.fillRect(i, j, 1, 1); }
+      }
+    rect(0, FLOOR, RW, 1, "#262626");          // floor line
+    rect(0, FLOOR + 1, RW, RH - FLOOR - 1, "#0d0d0d");  // floor band
+    for (var k = 0; k < RW; k += 14) rect(k, FLOOR + 6, 7, 1, "#141414"); // planks
+    // shelf over the desk: net+ books
+    rect(56, 53, 26, 1, "#3a3a3a");
+    rect(58, 48, 2, 5, "#5c5c5c"); rect(61, 48, 2, 5, "#2e4438");
+    rect(64, 49, 2, 4, "#9e9e9e"); rect(67, 48, 1, 5, "#7e7e7e");
+    rect(70, 50, 3, 3, "#1c1c1c");               // tiny frame
+    ctx.fillStyle = "#efefef"; ctx.fillRect(71, 51, 1, 1);
   }
-  var desk   = prop("desk", 28, 18);
-  var server = prop("server", 16, 24);
-  var coffee = prop("coffee", 10, 11);
-  var box    = prop("box", 14, 12);
-  var rocket = prop("rocket", 9, 13);
 
-  function px(p, x, y, col) { p.ctx.fillStyle = col; p.ctx.fillRect(x, y, 1, 1); }
-  function bar(p, x0, y0, w, h, col) { p.ctx.fillStyle = col; p.ctx.fillRect(x0, y0, w, h); }
+  /* ── window: stars + crescent (the nightfall nod) ── */
+  function drawWindow(t) {
+    rect(118, 10, 38, 32, "#262626");           // frame
+    rect(119, 11, 36, 30, "#030303");           // night
+    rect(136, 11, 1, 30, "#1c1c1c");            // mullion
+    rect(119, 25, 36, 1, "#1c1c1c");
+    for (var i = 0; i < 30; i++) {              // stable stars, 2 accent
+      var sx = 120 + Math.floor(hash(i, 7) * 34), sy = 12 + Math.floor(hash(7, i) * 28);
+      var h = hash(i, i + 13);
+      if (h < 0.8) {
+        var tw = Math.floor(t / (700 + i * 37)) % 5 === 0;
+        ctx.fillStyle = h < 0.07 ? "#5B8DEF" : (h < 0.12 ? "#FF5252" : (tw ? "#9e9e9e" : "#4a4a4a"));
+        ctx.fillRect(sx, sy, 1, 1);
+      }
+    }
+    // crescent moon
+    ctx.fillStyle = "#efefef";
+    [[146,14,3],[145,15,4],[144,16,4],[144,17,3],[144,18,3],[145,19,3],[146,20,2]].forEach(function (r) {
+      ctx.fillRect(r[0], r[1], r[2], 1);
+    });
+    ctx.fillStyle = "#030303";
+    ctx.fillRect(147, 15, 2, 4); ctx.fillRect(146, 16, 2, 2);
+  }
 
-  /* ── desk: lamp + book ── */
-  var studying = false;
+  /* ── poster: green film print + red seal (pinterest homage) ── */
+  function drawPoster() {
+    rect(8, 44, 20, 28, "#11201a");              // green-tinted print
+    rect(8, 44, 20, 1, "#1c1c1c"); rect(8, 71, 20, 1, "#1c1c1c");
+    rect(8, 44, 1, 28, "#1c1c1c"); rect(27, 44, 1, 28, "#1c1c1c");
+    rect(10, 47, 16, 9, "#1d3326");              // image block
+    rect(12, 50, 5, 2, "#3a5c46");               // figures
+    rect(19, 49, 4, 3, "#3a5c46");
+    rect(10, 59, 12, 1, "#cfcfcf");              // title bar
+    rect(10, 62, 8, 1, "#5c5c5c");               // subtitle
+    rect(10, 65, 10, 1, "#2e4438");              // kana line
+    rect(24, 67, 2, 2, "#FF5252");               // hanko seal
+  }
+
+  /* ── drink: cup on a side table ── */
+  function drawDrink(t, sipping) {
+    rect(24, 83, 16, 1, C.G); rect(24, 84, 16, 1, "#3a3a3a");   // table top
+    rect(25, 85, 1, 3, "#3a3a3a"); rect(38, 85, 1, 3, "#3a3a3a"); // legs
+    rect(28, 78, 6, 5, C.W); rect(29, 79, 4, 2, "#333333");     // cup + coffee
+    rect(34, 79, 1, 2, C.G);                                    // handle
+    if (!REDUCED) {                                             // steam
+      var ph = Math.floor(t / 240) % 4;
+      if (ph < 3) { ctx.fillStyle = ph === 2 ? "#3a3a3a" : "#5c5c5c"; ctx.fillRect(29 + (ph % 2) * 2, 75 - ph, 1, 1); }
+      if (sipping && Math.floor(t / 120) % 2) { ctx.fillStyle = "#5c5c5c"; ctx.fillRect(31, 73, 1, 1); }
+    }
+  }
+
+  /* ── desk + pc ── */
   function drawDesk(t) {
-    if (!desk) return;
-    desk.ctx.clearRect(0, 0, 28, 18);
-    bar(desk, 0, 11, 28, 1, C.G); bar(desk, 0, 12, 28, 1, C.D);       // top
-    bar(desk, 2, 13, 2, 5, C.D);  bar(desk, 24, 13, 2, 5, C.D);       // legs
-    bar(desk, 20, 10, 4, 1, C.G);                                     // lamp base
-    bar(desk, 21, 5, 1, 5, C.G);                                      // arm
-    bar(desk, 18, 4, 4, 1, C.W);                                      // head
-    if (studying) {
-      bar(desk, 18, 5, 3, 1, C.Y);                                    // light
-      if (Math.floor(t / 400) % 2) px(desk, 17, 6, "#6b5d2e");        // glow flicker
-    }
-    bar(desk, 5, 9, 7, 2, C.W);                                       // book
-    var split = studying ? (Math.floor(t / 500) % 3) + 7 : 8;
-    bar(desk, split, 9, 1, 2, C.D);                                   // page split
-  }
-
-  /* ── server rack: LEDs, occasional incident ── */
-  var serverDown = false, nextIncident = perf() + 14000;
-  function drawServer(t) {
-    if (!server) return;
-    server.ctx.clearRect(0, 0, 16, 24);
-    bar(server, 0, 0, 16, 24, C.D); bar(server, 1, 1, 14, 22, C.K);   // frame
-    for (var u = 0; u < 3; u++) {
-      var oy = 2 + u * 7;
-      bar(server, 2, oy, 12, 6, "#101010");
-      for (var v = 0; v < 3; v++) bar(server, 3, oy + 1 + v * 2, 6, 1, "#222");  // vents
-      var blink = Math.floor(t / (300 + u * 170)) % 2;
-      if (u === 0 && serverDown) px(server, 12, oy + 1, blink ? C.R : "#401414");
-      else px(server, 12, oy + 1, blink ? C.A : "#1c4a2c");
-      px(server, 12, oy + 4, Math.floor(t / 900 + u) % 2 ? C.G : C.D);
-    }
-  }
-
-  /* ── coffee: steam ── */
-  function drawCoffee(t) {
-    if (!coffee) return;
-    coffee.ctx.clearRect(0, 0, 10, 11);
-    bar(coffee, 1, 10, 8, 1, C.G);                                    // saucer
-    bar(coffee, 2, 5, 6, 5, C.W); bar(coffee, 3, 6, 4, 3, C.K);       // cup
-    bar(coffee, 3, 5, 4, 1, "#333333");                               // coffee
-    px(coffee, 8, 6, C.G); px(coffee, 8, 7, C.G);                     // handle
-    if (!REDUCED) {
-      var ph = Math.floor(t / 260) % 4;
-      if (ph < 3) { px(coffee, 4 + (ph % 2), 3 - ph, ph === 2 ? C.D : C.G); }
-    }
-  }
-
-  /* ── package ── */
-  function drawBox() {
-    if (!box) return;
-    box.ctx.clearRect(0, 0, 14, 12);
-    bar(box, 0, 2, 14, 10, "#6e6e6e"); bar(box, 1, 3, 12, 8, "#383838");  // box
-    bar(box, 6, 2, 2, 10, C.G);                                       // tape
-    bar(box, 2, 8, 3, 1, C.D);                                        // label
-    px(box, 1, 1, "#6e6e6e"); px(box, 12, 1, "#6e6e6e");              // flaps
-  }
-
-  /* ── rocket ── */
-  var ROCKET = ["....W....","...WWW...","...WWW...","..WWWWW..","..WKKKW..","..WWWWW..","..WWWWW..","..GWWWG..",".WGWWWGW.",".W.WWW.W.","...GGG...",".........","........."];
-  function drawRocket(flame, t) {
-    if (!rocket) return;
-    rocket.ctx.clearRect(0, 0, 9, 13);
-    for (var y = 0; y < ROCKET.length; y++)
-      for (var x = 0; x < 9; x++) {
-        var c = ROCKET[y][x];
-        if (c !== ".") { rocket.ctx.fillStyle = C[c]; rocket.ctx.fillRect(x, y, 1, 1); }
+    rect(44, 82, 48, 1, C.G); rect(44, 83, 48, 1, "#3a3a3a");   // surface
+    rect(46, 84, 2, 4, "#3a3a3a"); rect(88, 84, 2, 4, "#3a3a3a"); // legs
+    // tower under desk
+    rect(52, 84, 7, 4, "#1c1c1c"); rect(53, 85, 5, 2, "#101010");
+    ctx.fillStyle = pcOn ? (Math.floor(t / 160) % 2 ? C.A : "#1c4a2c") : "#222";
+    ctx.fillRect(57, 85, 1, 1);
+    // monitor
+    rect(50, 68, 18, 12, "#1c1c1c");             // bezel
+    rect(58, 80, 2, 2, "#1c1c1c");               // stand
+    if (pcOn) {
+      rect(51, 69, 16, 10, "#0c1f14");           // glow
+      for (var i = 0; i < 4; i++) {              // scrolling code lines
+        var yy = 70 + ((Math.floor(t / 90) + i * 3) % 9);
+        var ww = 4 + Math.floor(hash(i, Math.floor(t / 360)) * 9);
+        ctx.fillStyle = i % 3 ? "#2f7a4d" : "#4ADE80";
+        ctx.fillRect(52 + (i % 2) * 2, yy, ww, 1);
       }
-    if (!flame) {
-      rocket.ctx.fillStyle = Math.floor(t / 600) % 2 ? C.G : C.W;
-      rocket.ctx.fillRect(4, 0, 1, 1);
     } else {
-      px(rocket, 3, 11, C.O); px(rocket, 5, 11, C.O); px(rocket, 4, 11, C.Y);
-      if (Math.floor(t / 90) % 2) px(rocket, 4, 12, C.O);
+      rect(51, 69, 16, 10, "#0d0d0d");
+      ctx.fillStyle = "#1a1a1a"; ctx.fillRect(57, 73, 4, 1);    // sleep glyph
+    }
+    rect(72, 81, 12, 1, "#5c5c5c");              // keyboard
+    if (pcOn && Math.floor(t / 130) % 2) { ctx.fillStyle = "#9e9e9e"; ctx.fillRect(73 + Math.floor(hash(9, Math.floor(t / 130)) * 9), 81, 1, 1); }
+  }
+
+  /* ── macbook on a low bench ── */
+  function drawMac(t) {
+    rect(98, 84, 20, 1, C.G); rect(99, 85, 1, 3, "#3a3a3a"); rect(115, 85, 1, 3, "#3a3a3a");
+    rect(101, 83, 14, 1, "#9e9e9e");             // base
+    var lid = Math.round(macLid);                // 0 closed → 6 open
+    if (lid <= 0) {
+      rect(101, 82, 14, 1, "#bcbcbc");           // closed lid
+      ctx.fillStyle = "#efefef"; ctx.fillRect(107, 82, 1, 1);   // logo glint
+    } else {
+      rect(114, 82 - lid, 1, lid + 1, "#bcbcbc");               // lid up (hinge right)
+      if (macGlow && lid >= 5) {
+        rect(109, 78, 5, 5, "#1a1a22");                          // screen wash
+        rect(110, 79, 3, 1, "#cfcfcf"); rect(110, 81, 2, 1, "#5c5c5c");
+      }
     }
   }
 
-  /* ── layout ── */
-  function layout() {
-    if (desk)   desk.place(Math.max(90, W() * 0.13));
-    if (coffee) coffee.place(Math.max(210, W() * 0.13 + 130));
-    if (server) server.place(W() * 0.46);
-    if (box)    box.place(box.placed ? Math.max(8, Math.min(box.x, W() - 140)) : W() * 0.64);
-    if (box) box.placed = true;
-    if (rocket && !flying) rocket.place(W() - 52);
+  /* ── homelab rack ── */
+  function drawLab(t) {
+    rect(122, 62, 22, 26, "#262626"); rect(123, 63, 20, 24, "#0a0a0a");
+    for (var u = 0; u < 3; u++) {
+      var oy = 64 + u * 8;
+      rect(124, oy, 18, 7, "#101010");
+      for (var v = 0; v < 3; v++) rect(125, oy + 1 + v * 2, 9, 1, "#1e1e1e");  // vents
+      var blink = Math.floor(t / (340 + u * 150)) % 2;
+      ctx.fillStyle = (u === 0 && labDown) ? (blink ? C.R : "#401414") : (blink ? C.A : "#1c4a2c");
+      ctx.fillRect(139, oy + 1, 1, 1);
+      ctx.fillStyle = Math.floor(t / 800 + u) % 2 ? "#5c5c5c" : "#2e2e2e";
+      ctx.fillRect(139, oy + 4, 1, 1);
+    }
+    rect(126, 88, 2, 1, "#1c1c1c"); rect(138, 88, 2, 1, "#1c1c1c"); // feet
   }
+
+  /* ── stations ── */
+  var ST = {
+    drink: { zone: [20, 58, 44, 90],  ax: 13,  dir: 1 },
+    desk:  { zone: [44, 48, 94, 90],  ax: 73,  dir: -1 },
+    mac:   { zone: [94, 64, 120, 90], ax: 87,  dir: 1 },
+    lab:   { zone: [120, 40, 148, 90], ax: 124, dir: 1 }
+  };
 
   /* ── speech ── */
   var QUIPS = [
@@ -150,230 +194,160 @@
     "pi:~$ 3.648 gpa. i checked.",
     "pi:~$ aws ccp — passed. certified.",
     "pi:~$ open to internships, btw.",
-    "pi:~$ drop me somewhere. i do things.",
+    "pi:~$ drop me on something. i do things.",
     "pi:~$ umd smith, soon.",
+    "pi:~$ nice room, right? i decorated.",
     "pi:~$ nightfall hq is one tab away."
   ];
-  var STUDY_QUIPS = ["pi:~$ net+ ch.4: subnetting.", "pi:~$ osi layer 3. again.", "pi:~$ flashcards: vlans.", "pi:~$ quiet. midterms."];
+  var DESK_QUIPS = ["pi:~$ net+ ch.4: subnetting.", "pi:~$ osi layer 3. again.", "pi:~$ git commit -m ‘study’", "pi:~$ flashcards: vlans."];
   var bubbleT = null;
-  function say(msg) {
+  function say(msg, px, py) {
+    var s = canvas.clientWidth / RW;
     bubble.textContent = msg;
-    bubble.style.left = Math.max(6, Math.min(W() - 190, x - 30)) + "px";
-    bubble.style.top = Math.max(6, y - 30) + "px";
+    var bx = Math.max(2, Math.min(wrap.clientWidth - 185, canvas.offsetLeft + px * s - 36));
+    var by = Math.max(2, canvas.offsetTop + py * s - 26);
+    bubble.style.left = bx + "px";
+    bubble.style.top = by + "px";
     bubble.classList.add("show");
     clearTimeout(bubbleT);
     bubbleT = setTimeout(function () { bubble.classList.remove("show"); }, 2400);
   }
 
   /* ── pi state ── */
-  var x = Math.min(80, W() - 60), y = floorY();
-  var dir = 1, baseVX = 0.45, vx = baseVX, vy = 0, t = 0;
+  var x = 36, y = FLOOR - 11;                    // x = left, y = top (feet at y+11)
+  var dir = 1, baseVX = 0.18, vy = 0, t = 0;
   var mode = REDUCED ? "pause" : "walk";
-  var pauseT = REDUCED ? 1e9 : 0;
-  var held = false, grabDX = 0, grabDY = 0, moved = 0;
-  var actT = 0, boostUntil = 0, ticket = 201;
-  var cool = { desk: 0, server: 0, coffee: 0, box: 0 };
+  var pauseT = REDUCED ? 1e9 : 30;
+  var held = false, moved = 0, grabDX = 0, grabDY = 0;
+  var actT = 0, act = null, boostUntil = 0;
+  var cool = { drink: 0, desk: 0, mac: 0, lab: 0 };
 
-  function engage(what) {
-    if (REDUCED && what !== "rocket") { say("pi:~$ " + what + ". noted."); return; }
-    cool[what] = perf() + (what === "desk" ? 45000 : 28000);
-    if (what === "desk") {
-      mode = "study"; actT = 420 + Math.random() * 240;
-      x = desk.x - 16; dir = 1; studying = true;
-      say(STUDY_QUIPS[Math.floor(Math.random() * STUDY_QUIPS.length)]);
-    } else if (what === "coffee") {
-      mode = "drink"; actT = 100; x = coffee.x - 24; dir = 1;
-    } else if (what === "server") {
-      mode = "fix"; actT = serverDown ? 150 : 70; x = server.x - 26; dir = 1;
-    } else if (what === "box") {
-      mode = "push"; actT = 160; dir = x < box.x ? 1 : -1;
-      x = dir === 1 ? box.x - 26 : box.x + 44;
-    }
+  function engage(k) {
+    var s = ST[k];
+    cool[k] = perf() + (k === "desk" ? 40000 : 26000);
+    x = s.ax; y = FLOOR - 11; dir = s.dir; act = k; mode = "act";
+    if (k === "desk") {
+      actT = 380 + Math.random() * 240; pcOn = true;
+      say(DESK_QUIPS[Math.floor(Math.random() * DESK_QUIPS.length)], x, y);
+    } else if (k === "drink") { actT = 100; }
+    else if (k === "mac")     { actT = 280; macGlow = true; }
+    else if (k === "lab")     { actT = labDown ? 150 : 70; }
   }
-  function endAct(what) {
-    studying = false;
-    if (what === "study") say("pi:~$ break. earned.");
-    if (what === "drink") { boostUntil = perf() + 8000; say("pi:~$ caffeinated. zoom."); }
-    if (what === "fix") {
-      if (serverDown) { serverDown = false; nextIncident = perf() + 20000 + Math.random() * 30000; say("pi:~$ ticket closed. that’s " + (ticket++) + "."); }
-      else say("pi:~$ all green. carry on.");
+  function endAct() {
+    if (act === "desk") { pcOn = false; say("pi:~$ break. earned.", x, y); }
+    if (act === "drink") { boostUntil = perf() + 8000; say("pi:~$ caffeinated. zoom.", x, y); }
+    if (act === "mac") { macGlow = false; say("pi:~$ design review: approved.", x, y); }
+    if (act === "lab") {
+      if (labDown) { labDown = false; nextIncident = perf() + 22000 + Math.random() * 30000; say("pi:~$ ticket closed. that’s " + (ticket++) + ".", x, y); }
+      else say("pi:~$ lab: all green.", x, y);
     }
-    if (what === "push") say("pi:~$ out for delivery.");
-    mode = REDUCED ? "pause" : "walk";
+    act = null; mode = REDUCED ? "pause" : "walk";
   }
 
-  /* ── rocket flight (orbits the moon) ── */
-  var flying = false, flightT0 = 0, rAngle = 0, prevRX = 0, prevRY = 0;
-  var FL = { board: 600, ascend: 900, orbit: 4200, ret: 900 };
-  function moonCenter() {
-    var g = document.getElementById("moon-art");
-    if (g) {
-      var r = g.getBoundingClientRect();
-      var cx0 = r.left + r.width / 2, cy0 = r.top + r.height / 2;
-      if (cy0 > -100 && cy0 < H() + 100)
-        return { x: cx0, y: cy0, rx: r.width * 0.62 + 26, ry: r.height * 0.40 + 18 };
-    }
-    return { x: W() / 2, y: H() * 0.4, rx: W() * 0.3, ry: H() * 0.18 };
-  }
-  function orbitPoint(a, g) { return { x: g.x + Math.cos(a) * g.rx - 13, y: g.y + Math.sin(a) * g.ry - 19 }; }
-  function padPos() { return { x: W() - 52, y: H() - 43 }; }
-  function flyStep(now) {
-    var e = now - flightT0, g = moonCenter(), A0 = 0.9, p = padPos(), u, o;
-    prevRX = rocket.x; prevRY = rocket.y;
-    if (e < FL.board) {
-      rocket.x = p.x + Math.sin(e / 28) * 1.6; rocket.y = p.y;
-      rocket.el.style.zIndex = 79;
-    } else if (e < FL.board + FL.ascend) {
-      u = (e - FL.board) / FL.ascend; u = 1 - Math.pow(1 - u, 3);
-      o = orbitPoint(A0, g);
-      rocket.x = p.x + (o.x - p.x) * u; rocket.y = p.y + (o.y - p.y) * u;
-    } else if (e < FL.board + FL.ascend + FL.orbit) {
-      u = (e - FL.board - FL.ascend) / FL.orbit;
-      var a = A0 - u * Math.PI * 4;
-      o = orbitPoint(a, g);
-      rocket.x = o.x; rocket.y = o.y;
-      var behind = Math.sin(a) < -0.15;
-      rocket.el.style.zIndex = behind ? 0 : 79;
-      rocket.el.style.opacity = behind ? 0.55 : 1;
-    } else if (e < FL.board + FL.ascend + FL.orbit + FL.ret) {
-      u = (e - FL.board - FL.ascend - FL.orbit) / FL.ret; u = 1 - Math.pow(1 - u, 3);
-      o = orbitPoint(A0 - Math.PI * 4, g);
-      rocket.x = o.x + (p.x - o.x) * u; rocket.y = o.y + (p.y - o.y) * u;
-      rocket.el.style.zIndex = 79; rocket.el.style.opacity = 1;
-    } else {
-      flying = false; layout();
-      rocket.el.style.transform = "translate(" + rocket.x + "px," + rocket.y + "px)";
-      x = rocket.x - 26; y = floorY(); mode = REDUCED ? "pause" : "walk"; dir = -1;
-      el.style.display = "";
-      say("pi:~$ orbit complete.");
-      return;
-    }
-    var dx = rocket.x - prevRX, dy = rocket.y - prevRY;
-    rAngle = (e > FL.board && (dx || dy)) ? Math.atan2(dy, dx) * 180 / Math.PI + 90 : 0;
-    rocket.el.style.transform = "translate(" + rocket.x + "px," + rocket.y + "px) rotate(" + rAngle + "deg)";
-    drawRocket(e > FL.board, now);
-  }
-
-  /* ── auto engage while walking ── */
   function maybeEngage() {
     var now = perf();
-    var spots = [
-      desk && desk.visible() && { k: "desk", ax: desk.x - 16 },
-      coffee && coffee.visible() && { k: "coffee", ax: coffee.x - 24 },
-      server && server.visible() && { k: "server", ax: server.x - 26 },
-      box && box.visible() && { k: "box", ax: box.x - 26 }
-    ];
-    for (var i = 0; i < spots.length; i++) {
-      var s = spots[i];
-      if (!s || now < cool[s.k]) continue;
-      if (Math.abs(x - s.ax) < 2.2 && Math.random() < (s.k === "server" && serverDown ? 0.9 : 0.35)) {
-        engage(s.k); return;
-      }
+    for (var k in ST) {
+      if (now < cool[k]) continue;
+      if (Math.abs(x - ST[k].ax) < 1.2 && Math.random() < (k === "lab" && labDown ? 0.9 : 0.3)) { engage(k); return; }
     }
+    // moon gaze under the window
+    if (x > 144 && Math.random() < 0.002) { mode = "pause"; pauseT = 140; say("pi:~$ moon’s out.", x, y); }
   }
 
-  function overlaps(p, pad) {
-    if (!p || !p.visible()) return false;
-    var a = el.getBoundingClientRect(), b = p.el.getBoundingClientRect();
-    pad = pad || 6;
-    return !(a.right < b.left - pad || a.left > b.right + pad || a.bottom < b.top - pad || a.top > b.bottom + pad);
+  function inZone(k) {
+    var z = ST[k].zone, cxp = x + 5, cyp = y + 8;
+    return cxp >= z[0] && cxp <= z[2] && cyp >= z[1] && cyp <= z[3];
   }
 
   /* ── main loop ── */
   function step(now) {
     t++;
     now = now || perf();
-    drawDesk(now); drawServer(now); drawCoffee(now); drawBox();
-    if (!serverDown && now > nextIncident && !REDUCED) { serverDown = true; }
-    if (flying) { flyStep(now); requestAnimationFrame(step); return; }
+    if (!labDown && now > nextIncident && !REDUCED) labDown = true;
 
-    drawRocket(false, now);
-    rocket.el.style.transform = "translate(" + rocket.x + "px," + rocket.y + "px)";
+    drawShell(now); drawWindow(now); drawPoster();
+    drawDrink(now, act === "drink"); drawDesk(now); drawMac(now); drawLab(now);
+
+    // macbook lid easing
+    var lidTarget = (act === "mac" && actT > 40) ? 6 : 0;
+    macLid += (lidTarget - macLid) * 0.18;
 
     if (held) {
-      drawPi("held", dir < 0);
+      drawPi("held", dir < 0, x, y);
     } else if (mode === "fall") {
-      vy += 0.55; y += vy;
-      if (y >= floorY()) { y = floorY(); vy = 0; mode = REDUCED ? "pause" : "walk"; }
-      drawPi("held", dir < 0);
-    } else if (mode === "study") {
+      vy += 0.32; y += vy;
+      if (y >= FLOOR - 11) { y = FLOOR - 11; vy = 0; mode = REDUCED ? "pause" : "walk"; }
+      drawPi("held", dir < 0, x, y);
+    } else if (mode === "act") {
       actT--;
-      drawPi(t % 110 < 8 ? "blink" : "idle", false);
-      if (actT <= 0) endAct("study");
-    } else if (mode === "drink" || mode === "fix" || mode === "push") {
-      actT--;
-      if (mode === "push") {
-        var pv = 0.35;
-        x += pv * dir; box.x += pv * dir;
-        box.x = Math.max(8, Math.min(box.x, W() - 140));
-        box.el.style.transform = "translate(" + box.x + "px," + box.y + "px)";
-        drawPi(t % 16 < 8 ? "walk1" : "walk2", dir < 0);
+      if (act === "desk") {
+        drawPi(t % 14 < 7 ? "walk2" : "idle", dir < 0, x, y - (t % 28 < 14 ? 0 : 1));  // typing bob
       } else {
-        drawPi(t % 30 < 15 ? "idle" : "blink", dir < 0);
+        drawPi(t % 60 < 6 ? "blink" : "idle", dir < 0, x, y);
       }
-      if (actT <= 0) endAct(mode);
+      if (actT <= 0) endAct();
     } else if (mode === "pause") {
       pauseT--;
       if (pauseT <= 0 && !REDUCED) { mode = "walk"; dir = Math.random() < 0.5 ? -1 : 1; }
-      drawPi(t % 90 < 6 ? "blink" : "idle", dir < 0);
+      drawPi(t % 90 < 6 ? "blink" : "idle", dir < 0, x, y);
     } else {
-      vx = now < boostUntil ? baseVX * 1.9 : baseVX;
+      var vx = now < boostUntil ? baseVX * 2 : baseVX;
       x += vx * dir;
-      if (x < 8) { x = 8; dir = 1; }
-      if (x > W() - 86) { x = W() - 86; dir = -1; }
-      if (Math.random() < 0.004) { mode = "pause"; pauseT = 90 + Math.random() * 200; }
-      y = floorY();
+      if (x < 2) { x = 2; dir = 1; }
+      if (x > 146) { x = 146; dir = -1; }
+      if (Math.random() < 0.003) { mode = "pause"; pauseT = 80 + Math.random() * 180; }
+      y = FLOOR - 11;
       maybeEngage();
-      drawPi(t % 16 < 8 ? "walk1" : "walk2", dir < 0);
+      drawPi(t % 18 < 9 ? "walk1" : "walk2", dir < 0, x, y);
     }
-    el.style.transform = "translate(" + x + "px," + y + "px)";
     requestAnimationFrame(step);
   }
 
   /* ── input ── */
-  el.addEventListener("pointerdown", function (e) {
-    if (flying) return;
-    held = true; moved = 0; studying = false;
-    grabDX = e.clientX - x; grabDY = e.clientY - y;
-    el.classList.add("held");
-    el.setPointerCapture(e.pointerId);
-    e.preventDefault();
+  function roomXY(e) {
+    var r = canvas.getBoundingClientRect();
+    return { x: (e.clientX - r.left) * (RW / r.width), y: (e.clientY - r.top) * (RH / r.height) };
+  }
+  canvas.addEventListener("pointermove", function (e) {
+    if (held) {
+      var p = roomXY(e);
+      var nx = Math.max(0, Math.min(RW - 10, p.x - grabDX));
+      var ny = Math.max(6, Math.min(FLOOR - 11, p.y - grabDY));
+      moved += Math.abs(nx - x) + Math.abs(ny - y);
+      x = nx; y = ny;
+    } else {
+      var p2 = roomXY(e);
+      var over = p2.x >= x - 2 && p2.x <= x + 12 && p2.y >= y - 2 && p2.y <= y + 13;
+      canvas.style.cursor = over ? "grab" : "default";
+    }
   });
-  el.addEventListener("pointermove", function (e) {
-    if (!held) return;
-    var nx = e.clientX - grabDX, ny = e.clientY - grabDY;
-    moved += Math.abs(nx - x) + Math.abs(ny - y);
-    x = Math.max(0, Math.min(W() - 30, nx));
-    y = Math.max(0, Math.min(floorY(), ny));
+  canvas.addEventListener("pointerdown", function (e) {
+    var p = roomXY(e);
+    if (p.x >= x - 2 && p.x <= x + 12 && p.y >= y - 2 && p.y <= y + 13) {
+      held = true; moved = 0; grabDX = p.x - x; grabDY = p.y - y;
+      if (act === "desk") pcOn = false;
+      if (act === "mac") macGlow = false;
+      act = null;
+      canvas.style.cursor = "grabbing";
+      canvas.setPointerCapture(e.pointerId);
+      e.preventDefault();
+    }
   });
-  el.addEventListener("pointerup", function () {
+  canvas.addEventListener("pointerup", function () {
     if (!held) return;
-    held = false; el.classList.remove("held");
-    if (moved < 6) {
-      say(QUIPS[Math.floor(Math.random() * QUIPS.length)]);
+    held = false; canvas.style.cursor = "grab";
+    if (moved < 3) {
+      say(QUIPS[Math.floor(Math.random() * QUIPS.length)], x, y);
       mode = "pause"; pauseT = 120;
-    } else if (overlaps(rocket) && !flying) {
-      el.style.display = "none";
-      flying = true; flightT0 = perf();
-      say("pi:~$ launching...");
-    } else if (overlaps(desk)) { y = floorY(); engage("desk"); }
-    else if (overlaps(coffee)) { y = floorY(); engage("coffee"); }
-    else if (overlaps(server)) { y = floorY(); engage("server"); }
-    else if (overlaps(box)) { y = floorY(); engage("box"); }
-    else if (y < floorY()) { vy = 0; mode = "fall"; }
-  });
-  window.addEventListener("resize", function () {
-    x = Math.min(x, W() - 38);
-    if (!held && mode !== "fall" && !flying) y = floorY();
-    layout();
+    } else if (inZone("desk")) engage("desk");
+    else if (inZone("drink")) engage("drink");
+    else if (inZone("mac")) engage("mac");
+    else if (inZone("lab")) engage("lab");
+    else if (y < FLOOR - 11) { vy = 0; mode = "fall"; }
+    else mode = REDUCED ? "pause" : "walk";
   });
 
-  layout();
-  drawPi("idle", false);
   requestAnimationFrame(step);
-  setTimeout(function () { if (!held && !flying) say("pi:~$ hi. i’m pi."); }, 2600);
-  /* demo the desk once, early, if nobody's touched him */
-  setTimeout(function () {
-    if (!held && !flying && mode === "walk" && desk && desk.visible()) engage("desk");
-  }, 9000);
+  setTimeout(function () { if (!held) say("pi:~$ hi. i’m pi. my room.", x, y); }, 2600);
+  setTimeout(function () { if (!held && mode === "walk") engage("desk"); }, 9500);
 })();
