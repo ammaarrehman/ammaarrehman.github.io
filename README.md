@@ -1,9 +1,10 @@
 # ammaarrehman.github.io
 
 Personal ePortfolio of **Ammaar Rehman** — Information Systems student (Maryland),
-AWS Certified Cloud Practitioner, founder of [NIGHTFALL](https://nightstarlabs.github.io/nightstar-labs-site/).
+AWS Certified Cloud Practitioner. Homelab and projects documented at
+[github.com/ammaarrehman/homelab](https://github.com/ammaarrehman/homelab).
 
-Built in the NIGHTFALL design system: strict monochrome UI, JetBrains Mono everywhere,
+Hand-rolled design system: strict monochrome UI, JetBrains Mono everywhere,
 and ASCII art that carries all the color.
 
 ## Structure

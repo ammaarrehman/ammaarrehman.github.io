@@ -1,6 +1,6 @@
 /* ============================================================
    AMMAAR REHMAN — ePortfolio
-   NIGHTFALL design system · monochrome UI, the ascii carries color
+   design system · monochrome UI, the ascii carries color
    ============================================================ */
 *, *::before, *::after { box-sizing:border-box; margin:0; padding:0; }
 :root {
@@ -215,6 +215,8 @@ body.hatching { overflow:hidden; }
 .work-item { border:1px solid var(--line); background:var(--bg2); padding:22px 20px; transition:border-color .25s; display:flex; flex-direction:column; }
 .work-item:hover { border-color:var(--line2); }
 .work-meta { display:flex; justify-content:space-between; font-size:10.5px; margin-bottom:14px; }
+.work-img { display:block; width:100%; aspect-ratio:16/10; object-fit:cover; object-position:left top; border:1px solid var(--line); margin-bottom:14px; filter:saturate(.85); transition:filter .25s; }
+.work-item:hover .work-img { filter:saturate(1); }
 .status { letter-spacing:1px; }
 .status-active { color:var(--acc); }
 .status-progress { color:var(--warn); }

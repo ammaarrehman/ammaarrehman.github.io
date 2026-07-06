@@ -1,14 +1,14 @@
-/* skills section — Vue 3 app (matches resume v4) */
+/* skills section — Vue 3 app (matches resume v5) */
 (function () {
   if (!window.Vue) return;
   var groups = {
-    cloud: ["::certified", "AWS Cloud Practitioner (CLF-C02)", "::services", "S3", "CloudFront", "Route 53", "IAM", "EC2"],
-    programming: ["Python — data structures, file I/O", "JavaScript — this site", "HTML / CSS — in production", "Java — basics"],
-    ai_tools: ["Anthropic Claude", "AWS AI developer tools (Kiro)", "AI fluency & prompt engineering"],
-    it_foundations: ["Troubleshooting", "Hardware fundamentals", "Networking basics", "Security basics", "Data analysis"],
-    platforms: ["Git / GitHub", "Visual Studio Code", "Microsoft Excel", "WordPress", "Shopify", "Inventory / POS systems"]
+    cloud_infra: ["::certified", "AWS Cloud Practitioner (CLF-C02)", "::services", "S3", "CloudFront", "Route 53", "IAM", "EC2", "::as code", "Terraform", "Docker", "Infrastructure as code"],
+    systems_networking: ["Linux", "DNS / DNSSEC", "Unbound", "AdGuard Home", "keepalived / VRRP", "Tailscale", "Networking fundamentals"],
+    monitoring: ["Prometheus", "Grafana", "Uptime Kuma", "node-exporter", "cAdvisor"],
+    programming: ["Python — evals, tooling", "JavaScript — this site", "HTML / CSS — in production", "Java — basics", "Git / GitHub", "VS Code"],
+    ai_automation: ["Claude & the Anthropic API", "AWS Kiro", "AI-assisted development", "Prompt design", "Evaluating & refining AI outputs", "Technical documentation"]
   };
   Vue.createApp({
-    data: function () { return { cats: Object.keys(groups), active: "cloud", groups: groups }; }
+    data: function () { return { cats: Object.keys(groups), active: "cloud_infra", groups: groups }; }
   }).mount("#skills-app");
 })();

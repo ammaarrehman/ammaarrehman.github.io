@@ -237,17 +237,17 @@
 
   var QUIPS = [
     "pi:~$ hi. i’m pi.",
-    "pi:~$ ammaar is probably studying for net+.",
-    "pi:~$ 3.648 gpa. i checked.",
+    "pi:~$ ammaar is probably in the homelab.",
+    "pi:~$ 3.65 gpa. i checked.",
     "pi:~$ aws ccp — passed. certified.",
-    "pi:~$ open to internships, btw.",
+    "pi:~$ dns failover: tested. both ways.",
     "pi:~$ drop me on something. i do things.",
     "pi:~$ island wifi: surprisingly good.",
     "pi:~$ the dino’s name is rex. obviously.",
     "pi:~$ umd smith, soon.",
-    "pi:~$ nightfall hq is one tab away."
+    "pi:~$ the homelab repo is one tab away."
   ];
-  var DESK_QUIPS = ["pi:~$ net+ ch.4: subnetting.", "pi:~$ osi layer 3. again.", "pi:~$ git commit -m ‘study’", "pi:~$ flashcards: vlans."];
+  var DESK_QUIPS = ["pi:~$ dig @192.168.86.40 +short", "pi:~$ tail -f keepalived.log", "pi:~$ git commit -m ‘document it’", "pi:~$ terraform plan. breathe. apply."];
   var bubbleT = null;
   function say(msg, px, py) {
     var s = canvas.clientWidth / RW;
