@@ -3,34 +3,75 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Ammaar Rehman — ePortfolio</title>
-  <meta name="description" content="Ammaar Rehman — Information Systems student in Maryland. AWS Certified Cloud Practitioner. Cloud infrastructure, homelab engineering, and IT operations." />
-  <link rel="icon" type="image/png" href="assets/favicon.png" />
+  <title>Ammaar Rehman · Cyber Security, Cloud &amp; Homelab</title>
+  <meta name="description" content="Ammaar Rehman, Ellicott City, MD. Cyber security analyst in Cyber Ready Clinic's internship cohort and Cloud &amp; AI Operations Intern at NextGen Consulting. AWS Certified Cloud Practitioner, CompTIA Tech+. Incoming Information Systems student at UMD Smith." />
+  <meta name="color-scheme" content="dark light" />
+  <meta name="theme-color" content="#0a0a0a" />
+  <link rel="canonical" href="https://ammaarrehman.github.io/" />
+  <meta property="og:type" content="profile" />
+  <meta property="og:url" content="https://ammaarrehman.github.io/" />
+  <meta property="og:title" content="Ammaar Rehman · ePortfolio" />
+  <meta property="og:description" content="Cyber security, cloud, and homelab work from Ellicott City, MD. AWS Certified Cloud Practitioner, CompTIA Tech+." />
+  <meta property="og:image" content="https://ammaarrehman.github.io/assets/og.png" />
+  <meta property="og:image:width" content="1200" />
+  <meta property="og:image:height" content="630" />
+  <meta property="og:image:alt" content="ASCII wordmark reading Ammaar Rehman beside a glowing orb. Cyber security, cloud, homelab." />
+  <meta name="twitter:card" content="summary_large_image" />
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@type": "Person",
+    "name": "Ammaar Rehman",
+    "url": "https://ammaarrehman.github.io/",
+    "image": "https://ammaarrehman.github.io/assets/headshot.jpg",
+    "jobTitle": "Cyber Security Analyst (internship cohort)",
+    "address": { "@type": "PostalAddress", "addressLocality": "Ellicott City", "addressRegion": "MD", "addressCountry": "US" },
+    "alumniOf": { "@type": "CollegeOrUniversity", "name": "Howard Community College" },
+    "sameAs": ["https://github.com/ammaarrehman", "https://www.linkedin.com/in/ammaarrehman/"]
+  }
+  </script>
+  <script>
+  /* before first paint: mark js on, apply a saved theme */
+  (function () {
+    var d = document.documentElement; d.classList.add("js");
+    try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {}
+  })();
+  </script>
+  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
+  <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
+  <link rel="manifest" href="site.webmanifest" />
+  <link rel="me" href="https://github.com/ammaarrehman" />
+  <link rel="me" href="https://www.linkedin.com/in/ammaarrehman/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;700&family=EB+Garamond:ital,wght@0,500;0,600;1,500&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
+  <canvas class="field" aria-hidden="true"></canvas>
+  <a class="skip" href="#main">skip to content</a>
+
   <!-- ── the hatch: first-visit entry ── -->
-  <div id="hatch" hidden aria-label="an egg. tap it.">
+  <div id="hatch" hidden aria-hidden="true">
     <canvas width="72" height="84"></canvas>
-    <div class="hatch-hint">tap the egg</div>
+    <div class="hatch-hint">tap the egg · any key cracks it · esc skips</div>
   </div>
 
   <!-- ── NAV ── -->
-  <nav class="nav">
+  <nav class="nav" aria-label="primary">
     <div class="nav-inner">
       <a href="/" class="nav-logo">ammaar<span>:~$</span></a>
       <div class="nav-links">
         <a href="#about">about</a>
+        <a href="#skills">skills</a>
         <a href="#experience">experience</a>
         <a href="#projects">projects</a>
-        <a href="#education" class="hide-m">education</a>
+        <a href="#education">education</a>
         <a href="#contact">contact</a>
         <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">resume ↗</a>
       </div>
+      <button class="theme-btn" type="button" aria-label="toggle light and dark theme" title="toggle theme">◐</button>
     </div>
   </nav>
 
@@ -39,25 +80,28 @@
     <div class="container hero-grid">
       <div class="hero-text">
         <p class="label rv" style="--d:.15s"><span class="wp" style="color:var(--amber)">&#9650;</span> ePortfolio</p>
-        <pre class="wordmark rv" style="--d:.3s" aria-label="AMMAAR"> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>
+        <h1 class="name-mark"><span class="sr-only">Ammaar Rehman</span><pre class="wordmark rv" style="--d:.3s" aria-hidden="true"> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>
 <b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i>
 <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><span style="color:#FFA94D">█</span><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><span style="color:#4DD6E8">█</span><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><i>╝</i>
 <b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i>
 <b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><i>═</i><i>╝</i> <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><i>═</i><i>╝</i> <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i>
 <i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i></pre>
-        <pre class="wordmark rv" style="--d:.4s" aria-label="REHMAN"><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╗</i>  <b>█</b><span style="color:#5B8DEF">█</span><i>╗</i><b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><i>╗</i>
+        <pre class="wordmark rv" style="--d:.4s" aria-hidden="true"><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╗</i>  <b>█</b><span style="color:#5B8DEF">█</span><i>╗</i><b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><i>╗</i>
 <b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><i>═</i><i>═</i><i>╝</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><i>║</i>
 <span style="color:#FFA94D">█</span><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><i>║</i>
 <b>█</b><span style="color:#5B8DEF">█</span><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><i>╝</i>  <b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><span style="color:#5B8DEF">█</span><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>║</i>
 <b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><i>═</i><i>╝</i> <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i>
-<i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>═</i><i>═</i><i>═</i><i>═</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>═</i><i>═</i><i>╝</i></pre>
+<i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>═</i><i>═</i><i>═</i><i>═</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>═</i><i>═</i><i>╝</i></pre></h1>
         <p class="hero-sub rv" style="--d:.55s">
-          Based in Ellicott City, MD.
+          Cyber security analyst in <b>Cyber Ready Clinic</b>'s internship cohort and
+          <b>Cloud &amp; AI Operations Intern</b> at NextGen Consulting. Incoming
+          Information Systems student at UMD Smith. Based in Ellicott City, MD.
         </p>
         <div class="tree rv" style="--d:.7s">
-          <div><span class="on">●</span> <span class="name">aws/cloud-practitioner</span> — certified</div>
-          <div><span class="on">●</span> <span class="name">anthropic/ai-fluency</span> — certified</div>
-          <div><a href="https://github.com/ammaarrehman/homelab" target="_blank" rel="noopener"><span class="on">●</span> <span class="name">homelab/ha-dns</span> — live · failover tested ↗</a></div>
+          <div><span class="on">●</span> <span class="name">aws/cloud-practitioner</span> · certified</div>
+          <div><span class="on">●</span> <span class="name">comptia/tech-plus</span> · certified</div>
+          <div><span class="half">◐</span> <span class="name">crc/ready5-practitioner</span> · in cohort</div>
+          <div><a href="https://github.com/ammaarrehman/homelab" target="_blank" rel="noopener"><span class="on">●</span> <span class="name">homelab/ha-dns</span> · live, failover tested ↗</a></div>
         </div>
         <div class="hero-links rv" style="--d:.85s">
           <a class="primary" href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">resume ↗</a>
@@ -67,9 +111,10 @@
         </div>
       </div>
       <div class="room-wrap rv" style="--d:.5s">
-        <span class="anno" style="top:2px; left:20%">|&#8592;&nbsp;2/3&nbsp;&#8594;|</span>
-        <span class="anno" style="top:2px; right:15%">70&#176;</span>
-        <span class="anno" style="left:2px; top:44%">1/3</span>
+        <canvas class="net" data-layers="4,6,7,6,4" data-signals="16" aria-hidden="true"></canvas>
+        <span class="anno" aria-hidden="true" style="top:2px; left:20%">|&#8592;&nbsp;2/3&nbsp;&#8594;|</span>
+        <span class="anno" aria-hidden="true" style="top:2px; right:15%">70&#176;</span>
+        <span class="anno" aria-hidden="true" style="left:2px; top:44%">1/3</span>
         <span class="anno anno-c" style="right:4px; top:22%">1</span>
         <canvas id="room" width="200" height="144" aria-label="pi's island &#8212; drag pi onto the desk, drink, homelab, or macbook. mind the dinosaurs."></canvas>
         <div id="room-bubble"></div>
@@ -78,31 +123,39 @@
     </div>
   </header>
 
+<main id="main">
+
 <!-- — ABOUT — -->
-<div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--amber)">&#9650;</span> <b>##</b> about</span><span class="div-anno">&#9312; &#183; 1/3 &#8594;</span></div></div>
+<div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--amber)">&#9650;</span> <b>##</b> about</span><span class="div-anno" aria-hidden="true">&#9312; &#183; 1/3 &#8594;</span></div></div>
 
 <section class="section" id="about">
   <div class="container about-grid">
-    <figure class="about-photo">
-      <img src="assets/headshot.jpg" alt="Ammaar Rehman" loading="lazy" />
+    <figure class="about-photo rv">
+      <img src="assets/headshot.jpg" alt="Ammaar Rehman" width="720" height="707" loading="lazy" decoding="async" />
       <figcaption>// ellicott city, md</figcaption>
     </figure>
-    <div class="about-text">
-      <h2 class="section-heading">A quick intro.</h2>
+    <div class="about-text rv">
+      <h2 class="section-heading">A quick <em>intro.</em></h2>
       <p>
-        I'm an incoming student at the University of Maryland's
-        <b>Smith School of Business</b>, studying Information Systems on a
-        <b>3.65 GPA, Dean's List</b>. The coursework covers Python, accounting,
-        statistics, economics, and computer concepts.
+        I'm finishing my A.A. at <b>Howard Community College</b> this December
+        on a <b>3.65 GPA, Dean's List</b>, and I start at the University of
+        Maryland's <b>Smith School of Business</b> in January 2027 to study
+        Information Systems.
+      </p>
+      <p>
+        This fall I joined <b>Cyber Ready Clinic</b>'s analyst cohort. Working
+        alongside senior practitioners, I help assess nonprofit clients' cyber
+        readiness with the Discover5 and Ready5 frameworks and map the gaps we
+        find to the <b>NIST Cybersecurity Framework</b> and <b>CIS Controls</b>.
       </p>
       <p>
         At <b>NextGen Consulting</b> I started as an IT Operations Intern and
         closed out 200+ user issues. I'm now a <b>Cloud &amp; AI Operations
         Intern</b> on the same team, using Claude and AWS Kiro daily to
         investigate errors and triage tickets, and I write the support docs
-        other staff end up reusing. In 2026 I earned the
-        <b>AWS Certified Cloud Practitioner</b> cert and finished
-        <b>Anthropic's AI Fluency &amp; Claude Developer Training</b>.
+        other staff end up reusing. In 2026 I earned
+        <b>AWS Certified Cloud Practitioner</b> and <b>CompTIA Tech+</b>, and
+        completed <b>Anthropic's AI Fluency &amp; Claude Developer Training</b>.
       </p>
       <p>
         Most of my hands-on work happens in the homelab. Two Raspberry Pi 5
@@ -115,9 +168,10 @@
       </p>
       <div class="fact-list">
         <b>→</b> AWS Certified Cloud Practitioner (CLF-C02)<br />
+        <b>→</b> CompTIA Tech+<br />
         <b>→</b> Anthropic AI Fluency &amp; Claude Developer Training<br />
         <b>→</b> Maryland House of Delegates · volunteer staff<br />
-        <b>→</b> FBLA National Qualifier<br />
+        <b>→</b> FBLA State Champion, Regional Champion, National Qualifier<br />
         <b>→</b> every project documented on GitHub
       </div>
     </div>
@@ -125,35 +179,42 @@
 </section>
 
   <!-- ── SKILLS ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--cyan)">&#9650;</span> <b>##</b> skills</span><span class="div-anno">&#9313; &#183; 2/3</span></div></div>
+  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--cyan)">&#9650;</span> <b>##</b> skills</span><span class="div-anno" aria-hidden="true">&#9313; &#183; 2/3</span></div></div>
 
   <section class="section" id="skills">
     <div class="container" id="skills-app">
-      <h2 class="section-heading">The toolbox.</h2>
-      <p class="section-sub">What I work with — certified, shipped, or currently being drilled.</p>
-      <div class="stack-tabs">
-        <button v-for="c in cats" :key="c" :class="{ on: c === active }" @click="active = c">{{ c }}</button>
-      </div>
-      <p class="stack-cmd">ammaar:~$ <b>ls ./{{ active }}</b></p>
-      <div class="stack-chips">
-        <template v-for="item in groups[active]">
-          <span v-if="item.startsWith('::')" class="grp">{{ item.slice(2) }}</span>
-          <span v-else>{{ item }}</span>
-        </template>
-      </div>
-      <p class="stack-note">// this section renders with Vue 3 — the rest is hand-rolled HTML/CSS/JS, plus Python in tools/.</p>
+      <h2 class="section-heading rv">The <em>toolbox.</em></h2>
+      <p class="section-sub rv">What I work with — certified, shipped, or currently being drilled.</p>
+      <div class="stack-tabs rv" role="tablist" aria-label="skill categories"></div>
+      <p class="stack-cmd">ammaar:~$ <b>ls ./<span class="stack-active">cloud_infra</span></b></p>
+      <div class="stack-chips" role="tabpanel" aria-live="polite"></div>
+      <p class="stack-note">// no frameworks. hand-rolled HTML/CSS/JS, plus Python in tools/.</p>
     </div>
   </section>
 
   <!-- ── EXPERIENCE ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--acc)">&#9650;</span> <b>##</b> experience</span><span class="div-anno">&#9314; &#183; nokta</span></div></div>
+  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--acc)">&#9650;</span> <b>##</b> experience</span><span class="div-anno" aria-hidden="true">&#9314; &#183; nokta</span></div></div>
 
   <section class="section" id="experience">
     <div class="container">
-      <h2 class="section-heading">Where I've worked.</h2>
+      <h2 class="section-heading rv">Where I've <em>worked.</em></h2>
       <div class="xp-list">
 
-        <div class="xp">
+        <div class="xp rv">
+          <div class="xp-when">SEP 2026 – PRESENT<br /><span class="where">internship cohort</span></div>
+          <div>
+            <h3>Cyber Ready Clinic</h3>
+            <p class="role">Cyber Security Analyst</p>
+            <ul>
+              <li>Assess nonprofit clients' cyber readiness with the Discover5 business-risk and Ready5 capability frameworks, mapping findings to the NIST Cybersecurity Framework and CIS Controls</li>
+              <li>Identify coverage gaps across endpoint, identity, email, edge, and response controls: EDR and MDR, MFA and Conditional Access, SPF/DKIM/DMARC, DNS filtering, immutable backup and restore testing</li>
+              <li>Take part in in-person client engagements alongside senior practitioners, including intake interviews with nonprofit leadership, capability interviews with client IT teams and MSPs, and close-out briefings</li>
+              <li>Working toward the Ready5 Practitioner digital badge, awarded on cohort completion</li>
+            </ul>
+          </div>
+        </div>
+
+        <div class="xp rv">
           <div class="xp-when">MAY 2025 – PRESENT<br /><span class="where">DC–Baltimore area</span></div>
           <div>
             <h3>NextGen Consulting Inc.</h3>
@@ -171,7 +232,7 @@
           </div>
         </div>
 
-        <div class="xp">
+        <div class="xp rv">
           <div class="xp-when">AUG 2024 – PRESENT<br /><span class="where">Columbia, MD</span></div>
           <div>
             <h3>HCC Campus Store — Slingshot</h3>
@@ -188,164 +249,143 @@
   </section>
 
   <!-- ── PROJECTS ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--mag)">&#9650;</span> <b>##</b> projects</span><span class="div-anno">&#9315; &#183; 3/3</span></div></div>
+  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--mag)">&#9650;</span> <b>##</b> projects</span><span class="div-anno" aria-hidden="true">&#9315; &#183; 3/3</span></div></div>
 
   <section class="section" id="projects">
     <div class="container">
-      <h2 class="section-heading">On the bench.</h2>
+      <h2 class="section-heading rv">On the <em>bench.</em></h2>
+      <p class="section-sub rv">Three featured builds, then the rest of the homelab. Every one is documented on GitHub.</p>
       <div class="work-grid">
 
-        <div class="work-item">
+        <article class="work-item work-feature rv">
           <div class="work-meta">
-            <span class="status status-active">● LIVE</span>
+            <span class="status status-live">● LIVE</span>
             <span class="work-type">homelab / networking</span>
           </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/ha-dns/screenshots/failover-after.png" alt="keepalived failover — the floating IP live on the backup node" loading="lazy" />
+          <img class="work-img" width="1600" height="1000" decoding="async" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/ha-dns/screenshots/failover-after.png" alt="keepalived failover — the floating IP live on the backup node" loading="lazy" />
           <h3 class="work-title">High-availability DNS</h3>
           <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced between nodes every 10 minutes. The rack on pi's island is real.</p>
           <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
           <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
+        </article>
 
-        <div class="work-item">
+        <article class="work-item rv">
           <div class="work-meta">
-            <span class="status status-active">● SHIPPED</span>
+            <span class="status status-shipped">● SHIPPED</span>
             <span class="work-type">ai / automation</span>
           </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/claude-intake-triage/main/screenshots/sheet-output.png" alt="Triaged intake requests structured in Google Sheets" loading="lazy" />
+          <img class="work-img" width="1600" height="1000" decoding="async" src="https://raw.githubusercontent.com/ammaarrehman/claude-intake-triage/main/screenshots/sheet-output.png" alt="Triaged intake requests structured in Google Sheets" loading="lazy" />
           <h3 class="work-title">Claude intake triage assistant</h3>
           <p class="work-desc">Turns messy free-text help requests into structured, reviewable records — category, urgency, summary, next step, human-review flag — via Google Forms, Apps Script, and the Claude API. A 15-case eval harness drove classification accuracy to 100% and multi-need coverage from 0% to 90%.</p>
           <div class="work-stack"><span>Claude API</span><span>Apps Script</span><span>Google Sheets</span><span>Python</span></div>
           <div class="work-links"><a href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener">↗ repo</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener">↗ demo</a></div>
-        </div>
+        </article>
 
-        <div class="work-item">
+        <article class="work-item rv">
           <div class="work-meta">
-            <span class="status status-active">● SHIPPED</span>
+            <span class="status status-shipped">● SHIPPED</span>
             <span class="work-type">cloud / IaC</span>
           </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/terraform-aws-static-site/screenshots/terraform-apply.png" alt="terraform apply provisioning the AWS static site" loading="lazy" />
+          <img class="work-img" width="1600" height="1000" decoding="async" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/terraform-aws-static-site/screenshots/terraform-apply.png" alt="terraform apply provisioning the AWS static site" loading="lazy" />
           <h3 class="work-title">AWS static website deployment</h3>
           <p class="work-desc">AWS static-site infrastructure provisioned end to end with Terraform — S3 hosting, CloudFront content delivery, Route 53 DNS routing, and IAM access controls — with a repeatable deploy/teardown workflow.</p>
           <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>Route 53</span><span>IAM</span></div>
           <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
+        </article>
 
-        <div class="work-item">
-          <div class="work-meta">
-            <span class="status status-active">● LIVE</span>
-            <span class="work-type">homelab / networking</span>
-          </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/dns-filtering/screenshots/adguard-dashboard.png" alt="AdGuard Home dashboard with live query stats" loading="lazy" />
-          <h3 class="work-title">DNS filtering + recursive resolution</h3>
-          <p class="work-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation — ads and trackers blocked for every device pointed at the Pi. Where the homelab started.</p>
-          <div class="work-stack"><span>AdGuard Home</span><span>Unbound</span><span>DNSSEC</span><span>Linux</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
+      </div>
 
-        <div class="work-item">
-          <div class="work-meta">
-            <span class="status status-active">● LIVE</span>
-            <span class="work-type">homelab / observability</span>
-          </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/monitoring-stack/screenshots/grafana-dashboard.png" alt="Grafana dashboard graphing host and container metrics" loading="lazy" />
-          <h3 class="work-title">Metrics &amp; observability stack</h3>
-          <p class="work-desc">Containerized Prometheus + Grafana with node-exporter and cAdvisor — host and container health across the lab's Docker services, dashboarded in Grafana.</p>
-          <div class="work-stack"><span>Prometheus</span><span>Grafana</span><span>node-exporter</span><span>cAdvisor</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
-
-        <div class="work-item">
-          <div class="work-meta">
-            <span class="status status-active">● LIVE</span>
-            <span class="work-type">homelab / monitoring</span>
-          </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/uptime-monitoring/screenshots/dashboard.png" alt="Uptime Kuma dashboard tracking homelab services" loading="lazy" />
-          <h3 class="work-title">Uptime monitoring</h3>
-          <p class="work-desc">Docker-based Uptime Kuma dashboard tracking uptime, availability, and response health for every homelab service.</p>
-          <div class="work-stack"><span>Docker</span><span>Uptime Kuma</span><span>Linux</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
-
-        <div class="work-item">
-          <div class="work-meta">
-            <span class="status status-active">● LIVE</span>
-            <span class="work-type">homelab / dashboard</span>
-          </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/homepage/screenshots/dashboard.png" alt="Homepage dashboard aggregating homelab services" loading="lazy" />
-          <h3 class="work-title">Homelab dashboard + kiosk</h3>
-          <p class="work-desc">Homepage dashboard aggregating every service with live widgets, plus a Chromium kiosk autostart so it runs full-screen on a touchscreen in the rack.</p>
-          <div class="work-stack"><span>Homepage</span><span>Docker</span><span>Chromium kiosk</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
-
-        <div class="work-item">
-          <div class="work-meta">
-            <span class="status status-active">● LIVE</span>
-            <span class="work-type">homelab / access</span>
-          </div>
-          <img class="work-img" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/remote-access/screenshots/tailscale-status.png" alt="Tailscale mesh status across homelab nodes" loading="lazy" />
-          <h3 class="work-title">Mesh VPN remote access</h3>
-          <p class="work-desc">Tailscale mesh VPN for secure SSH and admin access to every node from anywhere, with nothing exposed to the public internet.</p>
-          <div class="work-stack"><span>Tailscale</span><span>SSH</span><span>Linux</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
-
-        <div class="work-item">
-          <div class="work-meta">
-            <span class="status status-active">● ACTIVE</span>
-            <span class="work-type">web / identity</span>
-          </div>
-          <h3 class="work-title">This ePortfolio</h3>
-          <p class="work-desc">Hand-rolled ASCII design system — pixel critter, generated marks, zero frameworks except a pinch of Vue. HTML, CSS, JS and Python in one honest repo.</p>
-          <div class="work-stack"><span>HTML</span><span>CSS</span><span>JavaScript</span><span>Python</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">↗ repo</a></div>
-        </div>
-
+      <p class="rack-head rv">ammaar:~$ <b>ls ./homelab</b></p>
+      <div class="rack">
+        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener">
+          <span class="status status-live">● LIVE</span>
+          <span class="rack-title">DNS filtering + recursive resolution</span>
+          <span class="rack-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started.</span>
+          <span class="rack-go">↗</span>
+        </a>
+        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener">
+          <span class="status status-live">● LIVE</span>
+          <span class="rack-title">Metrics &amp; observability stack</span>
+          <span class="rack-desc">Prometheus + Grafana with node-exporter and cAdvisor, covering host and container health across the lab.</span>
+          <span class="rack-go">↗</span>
+        </a>
+        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener">
+          <span class="status status-live">● LIVE</span>
+          <span class="rack-title">Uptime monitoring</span>
+          <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for every homelab service.</span>
+          <span class="rack-go">↗</span>
+        </a>
+        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener">
+          <span class="status status-live">● LIVE</span>
+          <span class="rack-title">Homelab dashboard + kiosk</span>
+          <span class="rack-desc">Homepage dashboard with live widgets, running full-screen on a touchscreen in the rack via Chromium kiosk.</span>
+          <span class="rack-go">↗</span>
+        </a>
+        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener">
+          <span class="status status-live">● LIVE</span>
+          <span class="rack-title">Mesh VPN remote access</span>
+          <span class="rack-desc">Tailscale for SSH and admin access to every node from anywhere, with nothing exposed to the public internet.</span>
+          <span class="rack-go">↗</span>
+        </a>
+        <a class="rack-row rv" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">
+          <span class="status status-active">● ACTIVE</span>
+          <span class="rack-title">This ePortfolio</span>
+          <span class="rack-desc">Hand-rolled ASCII design system, pixel critter, generated marks. Plain HTML, CSS, JS and Python with no frameworks.</span>
+          <span class="rack-go">↗</span>
+        </a>
       </div>
     </div>
   </section>
 
   <!-- ── EDUCATION & CERTS ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--blue)">&#9650;</span> <b>##</b> education &amp; certs</span><span class="div-anno">&#9316; &#183; 70&#176;</span></div></div>
+  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--blue)">&#9650;</span> <b>##</b> education &amp; certs</span><span class="div-anno" aria-hidden="true">&#9316; &#183; 70&#176;</span></div></div>
 
   <section class="section" id="education">
     <div class="container">
-      <h2 class="section-heading">Academic record.</h2>
+      <h2 class="section-heading rv">Academic <em>record.</em></h2>
       <div class="edu-grid">
 
-        <div class="edu-item">
-          <div class="when"><span class="lit">● CURRENT</span><span>2026</span></div>
+        <div class="edu-item rv">
+          <div class="when"><span class="lit">● CURRENT</span><span>AUG 2024 – DEC 2026</span></div>
           <h3>Howard Community College</h3>
           <p>A.A. General Studies · <b>GPA 3.65</b> · Dean's List</p>
           <p style="margin-top:8px;">Coursework: Accounting I &amp; II, Economics (Macro &amp; Micro), Business Calculus, Statistics, Marketing, Intro to Business, Computer Concepts, Python</p>
         </div>
 
-        <div class="edu-item">
-          <div class="when"><span>○ TRANSFER</span><span>EXPECTED 2028</span></div>
-          <h3>UMD — Smith School of Business</h3>
+        <div class="edu-item rv">
+          <div class="when"><span>○ INCOMING</span><span>JAN 2027 · EXP. 2028</span></div>
+          <h3>UMD · Smith School of Business</h3>
           <p><b>B.S. Information Systems</b></p>
-          <p style="margin-top:8px;">University of Maryland, Robert H. Smith School of Business. Guaranteed transfer admission — Smith School direct-admit criteria met.</p>
+          <p style="margin-top:8px;">University of Maryland, Robert H. Smith School of Business. Starts January 2027. Guaranteed transfer admission, Smith School direct-admit criteria met.</p>
         </div>
 
-        <div class="edu-item">
+        <div class="edu-item rv">
           <div class="when"><span>CERTIFICATIONS</span></div>
           <div class="cert-row">
             <span class="c-name">AWS Certified Cloud Practitioner (CLF-C02)</span>
             <span class="c-state done">● CERTIFIED JUN 2026</span>
           </div>
           <div class="cert-row">
-            <span class="c-name">Anthropic AI Fluency &amp; Claude Developer Training — Claude Platform, API &amp; AI Fluency tracks</span>
-            <span class="c-state done">● CERTIFIED JUN 2026</span>
+            <span class="c-name">CompTIA Tech+</span>
+            <span class="c-state done">● CERTIFIED AUG 2026</span>
+          </div>
+          <div class="cert-row">
+            <span class="c-name">Anthropic AI Fluency &amp; Claude Developer Training · 9 courses across the Claude Platform, API &amp; AI Fluency tracks</span>
+            <span class="c-state done">● COMPLETED JUN 2026</span>
+          </div>
+          <div class="cert-row">
+            <span class="c-name">Ready5 Practitioner · Cyber Ready Clinic</span>
+            <span class="c-state wip">◐ IN PROGRESS</span>
           </div>
         </div>
 
-        <div class="edu-item">
+        <div class="edu-item rv">
           <div class="when"><span>HONORS &amp; LEADERSHIP</span></div>
           <p>
-            <b>→</b> Maryland House of Delegates — volunteer staff<br />
-            <b>→</b> FBLA National Qualifier — competed at the national level<br />
-            <b>→</b> Dean's List — Howard Community College
+            <b>→</b> FBLA State Champion and Regional Champion<br />
+            <b>→</b> FBLA National Qualifier, competed at the national level<br />
+            <b>→</b> Maryland House of Delegates · volunteer staff<br />
+            <b>→</b> Dean's List · Howard Community College
           </p>
         </div>
 
@@ -354,16 +394,17 @@
   </section>
 
   <!-- ── CONTACT ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--red)">&#9650;</span> <b>##</b> contact</span><span class="div-anno">&#9317; &#183; qalam &#8722; 1</span></div></div>
+  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--red)">&#9650;</span> <b>##</b> contact</span><span class="div-anno" aria-hidden="true">&#9317; &#183; qalam &#8722; 1</span></div></div>
 
   <section class="section" id="contact" style="border-bottom:none;">
     <div class="container">
-      <h2 class="section-heading">Let's talk.</h2>
-      <p class="section-sub">Want to talk? Email is the fastest way to reach me.</p>
-      <p class="prompt-line">
-        <span class="host">ammaar:~$ mail </span><a href="mailto:ammaarrehmanf@gmail.com">ammaarrehmanf@gmail.com</a> <span class="cursor"></span>
+      <canvas class="net net-contact" data-layers="3,5,6,4" data-signals="8" aria-hidden="true"></canvas>
+      <h2 class="section-heading rv">Let's <em>talk.</em></h2>
+      <p class="section-sub rv">Want to talk? Email is the fastest way to reach me.</p>
+      <p class="prompt-line rv">
+        <span class="host">ammaar:~$ mail </span><a href="mailto:ammaarrehmanf@gmail.com">ammaarrehmanf@gmail.com</a><button class="copy-btn" type="button" data-copy="ammaarrehmanf@gmail.com" hidden>copy</button> <span class="cursor" aria-hidden="true"></span>
       </p>
-      <div class="contact-rows">
+      <div class="contact-rows rv">
         <div><b>linkedin</b> <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin.com/in/ammaarrehman</a></div>
         <div><b>github</b> <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github.com/ammaarrehman</a></div>
         <div><b>phone</b> <a href="tel:3017685445">(301) 768-5445</a></div>
@@ -372,10 +413,12 @@
     </div>
   </section>
 
+  </main>
+
   <!-- ── FOOTER ── -->
   <footer class="footer" style="border-top:1px solid var(--line);">
     <div class="container footer-inner">
-      <span><b>AMMAAR REHMAN</b> © 2026 · Ellicott City, MD</span>
+      <span><b>AMMAAR REHMAN</b> © 2026 · Ellicott City, MD · updated Sep 2026</span>
       <span>HTML / CSS / JS / Python · <a href="https://github.com/ammaarrehman/homelab" target="_blank" rel="noopener" style="color:var(--t3)">homelab on GitHub</a> · pi roams here</span>
     </div>
   </footer>
@@ -397,7 +440,9 @@
   })();
   </script>
   <script src="js/pi.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/vue/3.4.21/vue.global.prod.min.js"></script>
   <script src="js/skills.js"></script>
+  <script src="js/site.js"></script>
+  <script src="js/net.js"></script>
+  <script src="js/field.js"></script>
 </body>
 </html>

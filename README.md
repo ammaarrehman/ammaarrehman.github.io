@@ -4,8 +4,10 @@ Personal ePortfolio of **Ammaar Rehman** — Information Systems student (Maryla
 AWS Certified Cloud Practitioner. Homelab and projects documented at
 [github.com/ammaarrehman/homelab](https://github.com/ammaarrehman/homelab).
 
-Hand-rolled design system: strict monochrome UI, JetBrains Mono everywhere,
-and ASCII art that carries all the color.
+Hand-rolled design system: strict monochrome UI and ASCII art that carries
+all the color, over a faint living network that drifts behind the page. Type is all open source (SIL OFL): Instrument Serif for section
+headings, Geist for prose, JetBrains Mono for the UI and the ASCII marks.
+Paper light mode follows the OS, with a ◐ toggle in the nav.
 
 ## Structure
 
@@ -13,9 +15,14 @@ and ASCII art that carries all the color.
 index.html        single page
 css/styles.css    the design system
 js/pi.js          pi — the resident pixel critter + his floor of stations
-js/skills.js      skills section (Vue 3)
+js/skills.js      skills tabs (vanilla, no framework)
+js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
+js/net.js         the neural network canvas (hero + contact)
+js/field.js       the page background: a sparse living network, fixed behind everything
 tools/marks.py    ASCII brand toolchain (wordmarks, crescent, favicon)
-assets/           favicon, photo, resume
+assets/           favicon + app icons, photo, resume, og.png (link preview card)
+404.html          lost-page screen (GitHub Pages serves it for any bad URL)
+robots.txt, sitemap.xml, site.webmanifest   search + install metadata
 ```
 
 ## pi
@@ -34,7 +41,14 @@ MacBook. Drag him onto anything to trigger it; tap him for commentary.
 The blueprint marks around the frame are an homage to calligraphy
 construction diagrams.
 
-Reduced motion: no hatch intro, no auto-walk — pi stays visible and grabbable.
+Behind the island runs the net: a multilayer neural network in the radar
+palette. Nodes drift, layers undulate, weighted connections sway, and
+signals fire input to output, lighting each node they reach. Three depth
+planes parallax against the pointer. A smaller one runs at the contact
+section, and a color pulse sweeps across the ASCII name every few seconds.
+
+Reduced motion: no hatch intro, no auto-walk, the network holds still, no sweep, no
+scroll reveals. pi stays visible and grabbable.
 The hatch plays once per browser session (sessionStorage).
 
 ## Regenerating the marks

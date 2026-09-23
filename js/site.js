@@ -1,0 +1,145 @@
+/* site — theme toggle, hatch keys, copy email, scroll reveal, heading word-rise, nav scrollspy,
+   and the card spotlight. the network lives in js/net.js.
+   everything here is progressive: with js off the page renders as-is. */
+(function () {
+  var root = document.documentElement;
+  var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  var FINE = window.matchMedia && window.matchMedia("(pointer: fine)").matches;
+  var IO = "IntersectionObserver" in window;
+
+  /* ── theme ── */
+  var btn = document.querySelector(".theme-btn");
+  var meta = document.querySelector('meta[name="theme-color"]');
+  function current() {
+    var t = root.getAttribute("data-theme");
+    if (t) return t;
+    return window.matchMedia && window.matchMedia("(prefers-color-scheme: light)").matches ? "light" : "dark";
+  }
+  function paintMeta() { if (meta) meta.setAttribute("content", current() === "light" ? "#f4f1ea" : "#0a0a0a"); }
+  function setTheme(next) {
+    root.setAttribute("data-theme", next);
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    paintMeta();
+  }
+  if (btn) btn.addEventListener("click", function () {
+    var next = current() === "light" ? "dark" : "light";
+    if (!document.startViewTransition || REDUCED) return setTheme(next);
+    // the new theme wipes out in a circle from the button
+    var r = btn.getBoundingClientRect();
+    root.style.setProperty("--vx", (r.left + r.width / 2) + "px");
+    root.style.setProperty("--vy", (r.top + r.height / 2) + "px");
+    document.startViewTransition(function () { setTheme(next); });
+  });
+
+  /* ── the hatch: keyboard can crack the egg too (esc skips straight to the hatch) ── */
+  var hatch = document.getElementById("hatch");
+  if (hatch) window.addEventListener("keydown", function onKey(e) {
+    if (!document.body.classList.contains("hatching")) { window.removeEventListener("keydown", onKey); return; }
+    var n = e.key === "Escape" ? 12 : 1;
+    for (var i = 0; i < n; i++) hatch.dispatchEvent(new Event("pointerdown"));
+  });
+
+  /* ── copy email ── */
+  var copy = document.querySelector(".copy-btn");
+  if (copy && navigator.clipboard) {
+    copy.hidden = false;
+    copy.addEventListener("click", function () {
+      navigator.clipboard.writeText(copy.getAttribute("data-copy")).then(function () {
+        copy.textContent = "copied ✓"; copy.classList.add("done");
+        setTimeout(function () { copy.textContent = "copy"; copy.classList.remove("done"); }, 1800);
+      });
+    });
+  }
+  paintMeta();
+
+  /* ── wordmark: stamp each glyph with its column for the radar sweep ── */
+  document.querySelectorAll(".wordmark").forEach(function (pre) {
+    var col = 0;
+    pre.childNodes.forEach(function (n) {
+      if (n.nodeType === 3) {
+        var t = n.textContent, nl = t.lastIndexOf("\n");
+        col = nl < 0 ? col + t.length : t.length - nl - 1;
+      } else { n.style.setProperty("--c", col); col += n.textContent.length; }
+    });
+  });
+
+  /* ── section headings: wrap each word in a mask so it can rise ── */
+  document.querySelectorAll(".section-heading").forEach(function (h) {
+    var wi = 0, nodes = Array.prototype.slice.call(h.childNodes);
+    h.textContent = "";
+    function word(content) {
+      var w = document.createElement("span"), inner = document.createElement("span");
+      w.className = "w"; inner.style.setProperty("--wi", wi++);
+      if (typeof content === "string") inner.textContent = content; else inner.appendChild(content);
+      w.appendChild(inner); h.appendChild(w);
+    }
+    nodes.forEach(function (n) {
+      if (n.nodeType === 3) {
+        n.textContent.split(/(\s+)/).forEach(function (part) {
+          if (!part) return;
+          if (/^\s+$/.test(part)) h.appendChild(document.createTextNode(" "));
+          else word(part);
+        });
+      } else word(n);
+    });
+  });
+
+  /* ── reveal ── */
+  var items = Array.prototype.slice.call(document.querySelectorAll(".rv"));
+  // stagger siblings that don't set their own delay
+  items.forEach(function (el) {
+    if (el.style.getPropertyValue("--d")) return;
+    var sibs = Array.prototype.filter.call(el.parentElement.children, function (c) { return c.classList.contains("rv"); });
+    el.style.setProperty("--d", Math.min(sibs.indexOf(el) * 0.07, 0.42) + "s");
+  });
+  function show(el) { el.classList.add("in"); }
+  if (REDUCED || !IO) items.forEach(show);
+  else {
+    var hero = document.querySelector(".hero");
+    var io = new IntersectionObserver(function (entries) {
+      entries.forEach(function (e) { if (e.isIntersecting) { show(e.target); io.unobserve(e.target); } });
+    }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
+    items.forEach(function (el) {
+      if (hero && hero.contains(el)) setTimeout(function () { show(el); }, 30);
+      else io.observe(el);
+    });
+  }
+
+  /* ── nav scrollspy ── */
+  // active = the last section whose top has passed 40% of the viewport; the
+  // bottom of the page always lights the last one (contact is too short to reach 40%)
+  var strip = document.querySelector(".nav-links"), spyLinks = [], active = null;
+  document.querySelectorAll('.nav-links a[href^="#"]').forEach(function (a) {
+    var s = document.getElementById(a.getAttribute("href").slice(1));
+    if (s) spyLinks.push({ a: a, s: s });
+  });
+  function spy() {
+    var line = window.innerHeight * 0.4, hit = null;
+    spyLinks.forEach(function (l) { if (l.s.getBoundingClientRect().top <= line) hit = l; });
+    // scrollY > 0 guard: while the hatch locks the page it reads as "at the bottom"
+    if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) hit = spyLinks[spyLinks.length - 1];
+    if (hit === active) return;
+    active = hit;
+    spyLinks.forEach(function (l) { l.a.classList.toggle("on", l === hit); });
+    if (hit && strip && strip.scrollWidth > strip.clientWidth) strip.scrollLeft = hit.a.offsetLeft - strip.offsetLeft - 24;
+  }
+  window.addEventListener("scroll", spy, { passive: true });
+  window.addEventListener("resize", spy);
+  spy();
+
+  /* ── project screenshots live in other repos; if one can't load, drop it cleanly ── */
+  document.querySelectorAll(".work-img").forEach(function (img) {
+    function gone() { img.closest(".work-item").classList.add("no-img"); }
+    if (img.complete && img.naturalWidth === 0) gone(); else img.addEventListener("error", gone);
+  });
+
+  /* ── project card spotlight ── */
+  if (FINE) document.querySelectorAll(".work-item").forEach(function (card) {
+    card.addEventListener("pointermove", function (e) {
+      var r = card.getBoundingClientRect();
+      card.style.setProperty("--x", (e.clientX - r.left) + "px");
+      card.style.setProperty("--y", (e.clientY - r.top) + "px");
+    });
+  });
+
+})();
