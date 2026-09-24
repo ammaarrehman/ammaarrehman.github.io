@@ -1,6 +1,6 @@
 /* hands — the page background. two ascii hands (after the Sistine ceiling)
    start at the edges and reach toward each other as you scroll; by the end
-   of the page the fingertips spark. characters glint in the orb's pinks,
+   of the page the fingertips spark. characters glint in pink, violet, cyan and bone,
    and a soft lamp follows the pointer. still frame for reduced motion. */
 (function () {
   var cv = document.querySelector("canvas.hands");
@@ -8,7 +8,7 @@
   var ctx = cv.getContext("2d");
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var FINE = window.matchMedia && window.matchMedia("(pointer: fine)").matches;
-  var GLINT = ["#f454a6", "#ff96cd", "#ececec", "#9a9a9a"];
+  var GLINT = ["#f454a6", "#8b5cf6", "#4DD6E8", "#f4efe2"];
   var lines = null, split = 0, rows = 0, cols = 0;
   var W = 0, H = 0, dpr = 1, cw = 0, lh = 0, fs = 0, artW = 0, top = 0;
   var left = null, right = null, leftLit = null, rightLit = null, dark = true;
@@ -99,8 +99,8 @@
     if (near > 0) {
       var sx = (ax + bx) / 2, sy = (ay + by) / 2, pulse = REDUCED ? 1 : 0.75 + 0.25 * Math.sin(now / 160);
       var sg = ctx.createRadialGradient(sx, sy, 0, sx, sy, 40 * near);
-      sg.addColorStop(0, "rgba(255,150,205," + (0.55 * near * pulse).toFixed(3) + ")");
-      sg.addColorStop(0.4, "rgba(244,84,166," + (0.25 * near * pulse).toFixed(3) + ")");
+      sg.addColorStop(0, "rgba(244,84,166," + (0.55 * near * pulse).toFixed(3) + ")");
+      sg.addColorStop(0.4, "rgba(139,92,246," + (0.25 * near * pulse).toFixed(3) + ")");
       sg.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = sg; ctx.fillRect(sx - 40, sy - 40, 80, 80);
       ctx.fillStyle = "rgba(255,255,255," + (0.85 * near * pulse).toFixed(3) + ")"; ctx.fillRect(sx - 1, sy - 1, 2, 2);

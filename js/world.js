@@ -92,8 +92,10 @@
       var f = Math.sin(x * 0.42 + 1) + Math.sin(y * 0.5 + 2) + Math.sin((x + y) * 0.27 + 0.5);
       if ((f > 0.7 && h < 0.72) || h < 0.07) {
         if (near(x, y, 1, function (a, b) { return at(a, b) === PATH || at(a, b) === POND || solid[k(a, b)] || nearStation(a, b); })) continue;
-        props.push({ kind: h < 0.36 ? "tree" : "tree2", tx: x, ty: y }); solid[k(x, y)] = 1;
+        props.push({ kind: h < 0.25 ? "tree" : h < 0.5 ? "pine" : "tree2", tx: x, ty: y }); solid[k(x, y)] = 1;
       }
+    } else if (t === GRASS && hash(x * 7, y * 13) < 0.035 && !solid[k(x, y)]) {
+      props.push({ kind: "bush", tx: x, ty: y });           // decoration: pi can walk behind bushes
     } else if (t === SAND && h < 0.09) {
       if (near(x, y, 1, function (a, b) { return at(a, b) === PATH || at(a, b) === DOCK || solid[k(a, b)] || nearStation(a, b); })) continue;
       props.push({ kind: "palm", tx: x, ty: y, flip: h < 0.045 }); solid[k(x, y)] = 1;
@@ -101,23 +103,74 @@
       props.push({ kind: "rock", tx: x, ty: y });
     }
   }
+  [[25, 23], [32, 21], [27, dockY - 1], [30, dockY - 1]].forEach(function (l) {
+    if (land(at(l[0], l[1])) && at(l[0], l[1]) !== PATH) { props.push({ kind: "lamp", tx: l[0], ty: l[1] }); solid[k(l[0], l[1])] = 1; }
+  });
   function walkable(x, y) { var t = at(x, y); return (land(t) || t === DOCK) && !solid[k(x, y)]; }
   function solidPx(px, py) { return !walkable(Math.floor(px / T), Math.floor(py / T)); }
 
   /* ════════ sprites (drawn once into little canvases) ════════ */
   function sprite(w, h, fn) { var c = document.createElement("canvas"); c.width = w; c.height = h; var g = c.getContext("2d"); fn(function (x, y, w, h, col) { g.fillStyle = col; g.fillRect(x, y, w, h); }, g); return c; }
   function blob(r, cx, cy, rad, col) { for (var j = -rad; j <= rad; j++) { var w = Math.round(Math.sqrt(rad * rad - j * j)); r(cx - w, cy + j, w * 2, 1, col); } }
+  var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  // pick one of 4 tones for a shade in [0,1], ordered-dithered so the bands blend like 16-bit art
+  function tone(v, tones, x, y) {
+    var f = Math.max(0, Math.min(0.999, v)) * (tones.length - 1), i = Math.floor(f);
+    return (f - i) > (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 ? tones[Math.min(tones.length - 1, i + 1)] : tones[i];
+  }
+  function trunk(r, x, y, h) {
+    r(x, y, 5, h, "#6b4424"); r(x + 3, y, 2, h, "#4f311a"); r(x + 1, y + 2, 1, 3, "#8a5a33");
+    r(x - 1, y + h - 2, 7, 2, "#5a3a1e"); r(x - 2, y + h - 1, 2, 1, "#5a3a1e"); r(x + 5, y + h - 1, 2, 1, "#5a3a1e");
+  }
+  // a canopy is a union of circles; each pixel is lit from the upper left by its own blob's normal
+  function canopy(g, blobs, tones) {
+    var W = 64, H = 64;
+    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
+      var best = null, depth = 0;
+      blobs.forEach(function (b) { var d = b[2] - Math.hypot(x + 0.5 - b[0], y + 0.5 - b[1]); if (d > depth) { depth = d; best = b; } });
+      if (!best) continue;
+      var nx = (x - best[0]) / best[2], ny = (y - best[1]) / best[2];
+      var v = 0.62 - (nx * 0.55 + ny * 0.75) * 0.42 + (hash(x * 3, y * 5) - 0.5) * 0.22 - (depth < 1.5 ? 0.12 : 0);
+      g.fillStyle = tone(v, tones, x, y); g.fillRect(x, y, 1, 1);
+    }
+  }
+  // a 1px outline around everything opaque: the single biggest readability win in pixel art
+  function outline(src, col) {
+    var w0 = src.width, h0 = src.height, d = src.getContext("2d").getImageData(0, 0, w0, h0).data;
+    function A(x, y) { return x >= 0 && y >= 0 && x < w0 && y < h0 && d[(y * w0 + x) * 4 + 3] > 40; }
+    var c = document.createElement("canvas"); c.width = w0 + 2; c.height = h0 + 2;
+    var g = c.getContext("2d"); g.fillStyle = col;
+    for (var y = -1; y <= h0; y++) for (var x = -1; x <= w0; x++)
+      if (!A(x, y) && (A(x - 1, y) || A(x + 1, y) || A(x, y - 1) || A(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
+    g.drawImage(src, 1, 1);
+    return c;
+  }
   var SPR = {
-    tree: sprite(32, 42, function (r) {
-      r(14, 28, 5, 12, "#6b4424"); r(17, 28, 2, 12, "#553519");
-      blob(r, 16, 17, 14, "#2c6a2b"); blob(r, 15, 15, 12, "#3b8a34"); blob(r, 12, 11, 7, "#52a843"); blob(r, 10, 9, 3, "#6fc157");
-      [[21, 20], [8, 21], [19, 8], [24, 14]].forEach(function (p) { r(p[0], p[1], 2, 2, "#2c6a2b"); });
+    tree: sprite(32, 42, function (r, g) {
+      trunk(r, 14, 27, 13);
+      canopy(g, [[16, 17, 13], [10, 13, 8], [22, 12, 8], [16, 8, 8]], ["#1f4d22", "#2e6f2d", "#46963a", "#76c45a"]);
     }),
-    tree2: sprite(32, 44, function (r) {
-      r(14, 30, 5, 12, "#6b4424"); r(17, 30, 2, 12, "#553519");
-      blob(r, 16, 24, 11, "#2a6128"); blob(r, 16, 13, 11, "#347d30"); blob(r, 14, 18, 9, "#3f9137"); blob(r, 12, 9, 5, "#5bb14a");
-      r(20, 26, 2, 2, "#d95b5b"); r(9, 20, 2, 2, "#d95b5b"); r(22, 15, 2, 2, "#d95b5b");   // fruit
+    tree2: sprite(32, 44, function (r, g) {
+      trunk(r, 14, 30, 12);
+      canopy(g, [[16, 22, 11], [16, 12, 11], [9, 17, 7], [23, 17, 7]], ["#1d4a24", "#2b6a31", "#3f8c3c", "#6db957"]);
+      [[20, 25], [9, 19], [22, 13], [13, 9], [17, 29]].forEach(function (p) { r(p[0], p[1], 2, 2, "#d9483e"); r(p[0], p[1], 1, 1, "#ff8a6e"); });   // fruit
     }),
+    pine: sprite(26, 46, function (r, g) {
+      trunk(r, 11, 36, 9);
+      for (var tier = 0; tier < 4; tier++) {                       // stacked, dithered cones
+        var top = 4 + tier * 8, hgt = 14, half = 5 + tier * 2.2;
+        for (var yy = 0; yy < hgt; yy++) {
+          var w = Math.round(half * (yy + 1) / hgt + 1);
+          for (var xx = -w; xx <= w; xx++) {
+            var shade = 0.72 - (xx / (w + 1)) * 0.45 - yy / hgt * 0.35 + (hash(xx + 40, yy + tier * 20) - 0.5) * 0.18;
+            g.fillStyle = tone(shade, ["#173d22", "#23572e", "#317439", "#4f9a48"], xx + 13, top + yy);
+            g.fillRect(13 + xx, top + yy, 1, 1);
+          }
+        }
+      }
+    }),
+    lamp: sprite(7, 18, function (r) { r(3, 5, 1, 13, "#2b2b2b"); r(2, 16, 3, 2, "#2b2b2b"); r(1, 1, 5, 4, "#3a3a3a"); r(2, 2, 3, 2, "#ffe9b0"); r(3, 0, 1, 1, "#3a3a3a"); }),
+    bush: sprite(18, 12, function (r, g) { canopy(g, [[9, 7, 5], [5, 8, 4], [13, 8, 4]], ["#1f4d22", "#2e6f2d", "#46963a", "#76c45a"]); }),
     palm: sprite(34, 44, function (r) {
       for (var i = 0; i < 28; i++) { var px = 16 + Math.round(Math.sin(i / 10) * 4); r(px, 42 - i, 4, 1, i % 4 === 0 ? "#7a5230" : "#9a6b3f"); }
       var top = [20, 14];
@@ -179,22 +232,43 @@
     })
   };
 
+  Object.keys(SPR).forEach(function (k) {
+    SPR[k] = outline(SPR[k], /tree|pine|bush|palm/.test(k) ? "rgba(14,34,18,.9)" : "rgba(18,18,20,.88)");
+  });
+
   /* ════════ ground, drawn once ════════ */
   var COL = { deep: "#1f4e79", deep2: "#1a4470", shal: "#3d8fc4", shal2: "#4fa3d6", sand: "#ecd9a0", sand2: "#dcc586", wetsand: "#cdb57a",
               grass: "#5aa846", grass2: "#4b9339", grass3: "#74c257", path: "#cfae74", path2: "#bb9a60", pond: "#4aa3c9", pondrim: "#3b86a8", dock: "#8b5e34", dock2: "#6e4826" };
   var ground = document.createElement("canvas"); ground.width = MW * T; ground.height = MH * T;
+  // how far each water tile is from land, for depth shading
+  var DEPTH = [];
+  (function () {
+    var q = [], x, y;
+    for (y = 0; y < MH; y++) { DEPTH.push([]); for (x = 0; x < MW; x++) { var lt = land(map[y][x]) || map[y][x] === DOCK; DEPTH[y].push(lt ? 0 : 99); if (lt) q.push([x, y]); } }
+    while (q.length) {
+      var c = q.shift();
+      [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (n) {
+        var nx = c[0] + n[0], ny = c[1] + n[1];
+        if (nx < 0 || ny < 0 || nx >= MW || ny >= MH || DEPTH[ny][nx] <= DEPTH[c[1]][c[0]] + 1) return;
+        DEPTH[ny][nx] = DEPTH[c[1]][c[0]] + 1; q.push([nx, ny]);
+      });
+    }
+  })();
+  var WATER = ["#5cb6dd", "#4aa3d2", "#3b8dc2", "#3179b0", "#28669c", "#215888", "#1f4e79"];
   (function paint() {
     var g = ground.getContext("2d");
     function r(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
     var N = [[0, -1], [1, 0], [0, 1], [-1, 0]];
     for (var ty = 0; ty < MH; ty++) for (var tx = 0; tx < MW; tx++) {
       var t = map[ty][tx], X = tx * T, Y = ty * T, i, j, hh;
-      if (t === DEEP) {
-        r(X, Y, T, T, COL.deep);
-        for (i = 0; i < 3; i++) { hh = hash(tx * 3 + i, ty * 5); r(X + ((hh * 13) | 0), Y + ((hash(ty, tx * 7 + i) * 15) | 0), 3, 1, COL.deep2); }
-      } else if (t === SHAL || t === DOCK) {
-        var nearLand = N.some(function (n) { return land(at(tx + n[0], ty + n[1])); });
-        r(X, Y, T, T, nearLand ? COL.shal2 : COL.shal);
+      if (t === DEEP || t === SHAL || t === DOCK) {
+        // water gets deeper away from shore; dither toward the next band so there are no hard lines
+        var dp = Math.min(WATER.length - 1, Math.max(0, DEPTH[ty][tx] - 1));
+        for (j = 0; j < T; j += 2) for (i = 0; i < T; i += 2) {
+          var f = (j / T) * 0.5 + hash(tx * 16 + i, ty * 16 + j) * 0.12;
+          g.fillStyle = tone(dp / (WATER.length - 1) + f / (WATER.length - 1), WATER, (X + i) >> 1, (Y + j) >> 1); g.fillRect(X + i, Y + j, 2, 2);
+        }
+        for (i = 0; i < 2; i++) { hh = hash(tx * 3 + i, ty * 5); r(X + ((hh * 12) | 0), Y + ((hash(ty, tx * 7 + i) * 15) | 0), 3, 1, "rgba(255,255,255,.08)"); }
         if (t === DOCK) {
           for (j = 0; j < 4; j++) r(X, Y + j * 4, T, 3, j % 2 ? COL.dock : "#9a6a3c");
           r(X, Y, 2, T, COL.dock2); if (tx === CX + 1) r(X + T - 2, Y, 2, T, COL.dock2);
@@ -212,7 +286,12 @@
         });
         if (t === SAND && hash(tx, ty * 3) < 0.03) { r(X + 6, Y + 7, 3, 2, "#f6efe0"); r(X + 7, Y + 6, 1, 1, "#e9a3a3"); }   // shell
       } else if (t === GRASS) {
-        r(X, Y, T, T, COL.grass);
+        // grass in soft tonal patches instead of one flat green
+        var patch = (Math.sin(tx * 0.35) + Math.sin(ty * 0.41 + 1) + Math.sin((tx - ty) * 0.23 + 2)) / 3;
+        for (j = 0; j < T; j += 2) for (i = 0; i < T; i += 2) {
+          var gv = 0.5 + patch * 0.45 + (hash(tx * 8 + i, ty * 8 + j) - 0.5) * 0.25;
+          g.fillStyle = tone(gv, ["#4d9a3c", "#57a644", "#62b04e"], X + i, Y + j); g.fillRect(X + i, Y + j, 2, 2);
+        }
         for (i = 0; i < 6; i++) { hh = hash(tx * 5 + i, ty * 9); r(X + ((hh * 15) | 0), Y + ((hash(ty * 7 + i, tx * 2) * 14) | 0), 1, 2, hh < 0.5 ? COL.grass2 : COL.grass3); }
         hh = hash(tx * 31, ty * 17);
         if (hh < 0.06) { var fc = ["#ff8fb1", "#ffe066", "#ffffff", "#c9a4ff"][(hh * 66 | 0) % 4]; r(X + 6, Y + 6, 1, 1, fc); r(X + 5, Y + 7, 3, 1, fc); r(X + 6, Y + 8, 1, 1, fc); r(X + 6, Y + 7, 1, 1, "#ffcf33"); }
@@ -259,7 +338,7 @@
   var bubble = null;       // { text, t } speech over pi
 
   /* ════════ view ════════ */
-  var W = 0, H = 0, dpr = 1, S = 3, zoom = 1, zoomTo = 1, camX = 0, camY = 0;
+  var W = 0, H = 0, dpr = 1, S = 3, zoom = 1, zoomTo = 1, camX = 0, camY = 0, camF = { x: null, y: null };
   function size() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth; H = window.innerHeight;
@@ -276,12 +355,15 @@
   window.addEventListener("keydown", function (e) {
     if (!open) return;
     var d = dirKey(e);
-    if (d) { keys[d] = 1; pi.path = null; pi.want = null; e.preventDefault(); if (egg) egg.t = 99; return; }
+    if (d) { keys[d] = 1; pi.path = null; pi.want = null; car.target = null; e.preventDefault(); if (egg) egg.t = 99; return; }
+    if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
+    if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; return; }
     if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else exit(); return; }
     if (e.key === "e" || e.key === "E" || e.key === " " || e.key === "Enter") {
       if (document.activeElement && document.activeElement.tagName === "A") return;   // let links work
       e.preventDefault();
       if (egg) { egg.t = 99; return; }
+      if (riftBusy()) return;
       if (!dlg.hidden) { typing ? finishTyping() : closeDialog(); return; }
       var s = nearby(); if (s) interact(s);
     }
@@ -292,14 +374,19 @@
   cv.addEventListener("pointerdown", function (e) {
     if (!open) return;
     if (egg) { egg.t = 99; return; }
+    if (riftBusy()) return;
     if (!dlg.hidden) { typing ? finishTyping() : closeDialog(); return; }
     var E = S * zoom, wx = camX + e.clientX / E, wy = camY + e.clientY / E;
     var tx = Math.floor(wx / T), ty = Math.floor(wy / T);
+    if (car.driving) { car.target = { x: wx, y: wy }; return; }
     // tapped a landmark (its sprite reaches up a couple of tiles)? walk up to it
     var hit = STATIONS.filter(function (s) { return Math.abs(tx - s.x) <= (s.wide ? 1 : 0) && ty <= s.y && ty >= s.y - 2; })[0];
     if (!hit && Math.hypot(wx - rex.x, wy - rex.y + 6) < 12) hit = { id: "rex" };
+    if (!hit && Math.hypot(wx - car.x, wy - car.y) < 12) hit = { id: "car", gx: Math.floor(car.x / T), gy: Math.floor(car.y / T) };
+    if (!hit) critters.forEach(function (c) { if (!hit && Math.hypot(wx - c.x, wy - c.y + 5) < 10) hit = { id: "critter", ref: c, gx: Math.floor(c.x / T), gy: Math.floor(c.y / T) }; });
+    if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: 28, y: 19 };
     if (hit) {
-      var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : [hit.x, hit.y + 1];
+      var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [28, 20] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
       pi.path = bfs([Math.floor(pi.x / T), Math.floor(pi.y / T)], goal, true); pi.want = hit;
     } else {
       pi.path = bfs([Math.floor(pi.x / T), Math.floor(pi.y / T)], [tx, ty], false); pi.want = null;
@@ -327,12 +414,10 @@
   }
 
   function nearby() {
-    var best = null, bd = 26;
-    STATIONS.forEach(function (s) {
-      var d = Math.hypot(pi.x - (s.x * T + 8), pi.y - (s.y * T + 12));
-      if (d < bd) { bd = d; best = s; }
-    });
-    if (Math.hypot(pi.x - rex.x, pi.y - rex.y) < 20) best = { id: "rex", name: "rex" };
+    if (car.driving) return null;
+    var best = null, bd = 1e9;
+    nearCandidates().forEach(function (c) { if (c.d < c.max && c.d < bd) { bd = c.d; best = c.v; } });
+    if (rift && rift.phase === "reign" && Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) < 30) best = { id: "core", name: "the core" };
     return best;
   }
 
@@ -342,12 +427,16 @@
   function interact(s) {
     pi.path = null; pi.want = null; keys = {};
     if (s.id === "rex") { rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
+    if (s.id === "core") { coreSay(false); return; }
+    if (s.id === "car") { toggleCar(); bubble = { text: "pi:~$ vroom. arrows drive, space honks, e parks", t: 3.5 }; return; }
+    if (s.id === "critter" || s.id === "bird" || s.id === "pond") { sayLocal(s); return; }
     if (s.id === "drink") pi.boost = 10;
     if (s.found && !found[s.id]) {
       found[s.id] = 1; paintFound();
       try { sessionStorage.setItem("pi-found", JSON.stringify(Object.keys(found))); } catch (e) {}
     }
-    var extra = Object.keys(found).length === TOTAL && s.found ? " (that's all eight. pi is proud of you.)" : "";
+    var all = Object.keys(found).length === TOTAL && s.found, extra = "";
+    if (all && !rift) { extra = " (that's all eight. the ground just shifted. close this and look up.)"; pendingRift = true; }
     say(s.name, s.text + extra, s.links || []);
   }
   function say(name, text, links) {
@@ -355,6 +444,8 @@
     links.forEach(function (l) {
       var a = document.createElement("a"); a.textContent = l[0]; a.href = l[1] === "#exit" ? "#" : l[1];
       if (/^https?:|^mailto:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener"; }
+      else if (l[1] === "#rematch") a.addEventListener("click", function (e) { e.preventDefault(); rift = null; startRift(); });
+      else if (l[1] === "#eclipse") a.addEventListener("click", function (e) { e.preventDefault(); crown("eclipse"); });
       else a.addEventListener("click", function (e) { e.preventDefault(); exit(l[1] === "#exit" ? null : l[1]); });
       dLinks.appendChild(a);
     });
@@ -365,9 +456,523 @@
     typing = setInterval(function () { i += 2; dText.textContent = full.slice(0, i); if (i >= full.length) finishTyping(); }, 16);
   }
   function finishTyping() { clearInterval(typing); typing = null; dText.textContent = full; }
-  function closeDialog() { finishTyping(); dlg.hidden = true; cv.focus({ preventScroll: true }); }
-  function paintFound() { foundEl.textContent = "found " + Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length + "/" + TOTAL; }
+  function closeDialog() {
+    finishTyping(); dlg.hidden = true; cv.focus({ preventScroll: true });
+    if (pendingRift && open) { pendingRift = false; setTimeout(startRift, 400); }
+  }
+  function paintFound() {
+    foundEl.textContent = "found " + Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length + "/" + TOTAL
+      + (rift && rift.winner ? " · core: " + rift.winner : "");
+  }
   paintFound();
+
+  /* ════════ outlined, cached frames for everything that moves ════════ */
+  var frameCache = {};
+  function frameCanvas(rows, pal, w) {
+    var key = rows.join("|") + JSON.stringify(pal);
+    if (!frameCache[key]) {
+      var c = document.createElement("canvas"); c.width = w; c.height = rows.length;
+      var g = c.getContext("2d");
+      for (var y = 0; y < rows.length; y++) for (var x = 0; x < w; x++) {
+        var ch = rows[y][x]; if (!ch || ch === ".") continue;
+        g.fillStyle = pal[ch] || pal.W; g.fillRect(x, y, 1, 1);
+      }
+      frameCache[key] = outline(c, "rgba(16,16,20,.85)");
+    }
+    return frameCache[key];
+  }
+  // draw a frame with its feet at (x, y); flip mirrors it to face left
+  function drawFrame(rows, pal, w, x, y, flip) {
+    var c = frameCanvas(rows, pal, w), dx = Math.round(x - c.width / 2), dy = Math.round(y - c.height + 1);
+    if (!flip) { ctx.drawImage(c, dx, dy); return; }
+    ctx.save(); ctx.translate(dx + c.width, dy); ctx.scale(-1, 1); ctx.drawImage(c, 0, 0); ctx.restore();
+  }
+
+  /* ════════ the clock: the island keeps Ammaar's time (Ellicott City, America/New_York) ════════ */
+  var LAT = 39.27, LON = -76.80, TZ = "America/New_York";
+  var forced = /[?&]islandhour=([\d.]+)/.exec(location.search);          // ?islandhour=21 previews any hour
+  function nyNow() {
+    var d = new Date(), h = d.getHours() + d.getMinutes() / 60;
+    try {
+      var parts = new Intl.DateTimeFormat("en-US", { timeZone: TZ, hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(d);
+      var get = function (tp) { for (var i = 0; i < parts.length; i++) if (parts[i].type === tp) return +parts[i].value; return 0; };
+      h = get("hour") % 24 + get("minute") / 60;
+    } catch (e) {}
+    var utc = d.getUTCHours() + d.getUTCMinutes() / 60, off = ((h - utc + 36) % 24) - 12;
+    if (forced) h = +forced[1] % 24;
+    return { h: h, off: off, d: d };
+  }
+  // sunrise and sunset from the date (NOAA's simplified solar equations), in New York time
+  function sunTimes(d, off) {
+    var N = Math.floor((d - Date.UTC(d.getUTCFullYear(), 0, 0)) / 864e5);
+    var B = 2 * Math.PI * (N - 81) / 364, eot = 9.87 * Math.sin(2 * B) - 7.53 * Math.cos(B) - 1.5 * Math.sin(B);
+    var decl = 23.44 * Math.sin(2 * Math.PI * (284 + N) / 365) * Math.PI / 180, lat = LAT * Math.PI / 180;
+    var cosH = (Math.cos(90.833 * Math.PI / 180) - Math.sin(lat) * Math.sin(decl)) / (Math.cos(lat) * Math.cos(decl));
+    var half = Math.acos(Math.max(-1, Math.min(1, cosH))) * 180 / Math.PI / 15;
+    var noon = 12 - LON / 15 - eot / 60 + off;
+    return { rise: noon - half, set: noon + half };
+  }
+  var sky = { h: 12, rise: 7, set: 19, dark: 0, warm: 0 }, skyT = 0;
+  var clockEl = document.createElement("span"); clockEl.className = "w-clock";
+  foundEl.parentNode.appendChild(clockEl);
+  function readSky() {
+    var n = nyNow(), st = sunTimes(n.d, n.off), h = n.h;
+    function ramp(x, a, b) { return Math.max(0, Math.min(1, (x - a) / (b - a))); }
+    var light = Math.min(ramp(h, st.rise - 0.6, st.rise + 0.5), 1 - ramp(h, st.set - 0.5, st.set + 0.7));
+    sky.h = h; sky.rise = st.rise; sky.set = st.set; sky.dark = 1 - light;
+    sky.warm = Math.max(0, 1 - Math.abs(h - st.rise) / 0.9) + Math.max(0, 1 - Math.abs(h - st.set) / 0.9);
+    var hh = Math.floor(h), mm = Math.floor((h - hh) * 60), h12 = ((hh + 11) % 12) + 1;
+    var phase = sky.dark > 0.85 ? "night" : sky.warm > 0.35 ? (h < 12 ? "dawn" : "dusk") : "day";
+    clockEl.textContent = "· " + h12 + ":" + String(mm).padStart(2, "0") + (hh >= 12 ? " pm" : " am") + " ET · " + phase;
+  }
+  readSky();
+
+  // lights pushed while drawing the world, lit up after the night tint goes down
+  var lights = [], beamAt = null;
+  function light(x, y, r, rgb, a) { lights.push([x, y, r, rgb, a]); }
+  function drawSky(E) {
+    if (sky.dark > 0.01) {
+      var k = sky.dark * 0.8;
+      ctx.globalCompositeOperation = "multiply";
+      ctx.fillStyle = "rgb(" + Math.round(255 - k * 203) + "," + Math.round(255 - k * 185) + "," + Math.round(255 - k * 120) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+    if (sky.warm > 0.02) {
+      ctx.globalCompositeOperation = "soft-light";
+      ctx.fillStyle = "rgba(255,120,50," + Math.min(0.45, sky.warm * 0.4).toFixed(3) + ")";
+      ctx.fillRect(0, 0, W, H);
+    }
+    ctx.globalCompositeOperation = "lighter";
+    var night = sky.dark;
+    if (night > 0.05) {
+      lights.forEach(function (l) {
+        var sx = (l[0] - camX) * E, sy = (l[1] - camY) * E, rr = l[2] * E;
+        var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr);
+        g.addColorStop(0, "rgba(" + l[3] + "," + (l[4] * night).toFixed(3) + ")"); g.addColorStop(1, "rgba(" + l[3] + ",0)");
+        ctx.fillStyle = g; ctx.fillRect(sx - rr, sy - rr, rr * 2, rr * 2);
+      });
+      // the lighthouse sweeps the water after dark
+      if (beamAt) {
+        var bxs = (beamAt.x - camX) * E, bys = (beamAt.y - camY) * E, ba = t * 0.8, br = 180 * E;
+        ctx.fillStyle = "rgba(255,226,138," + (0.16 * night).toFixed(3) + ")";
+        [0, Math.PI].forEach(function (o) { ctx.beginPath(); ctx.moveTo(bxs, bys); ctx.arc(bxs, bys, br, ba + o - 0.16, ba + o + 0.16); ctx.closePath(); ctx.fill(); });
+      }
+      // fireflies drift over the grass, and the stars show up in the water
+      var VW = W / E, VH = H / E;
+      for (var i = 0; i < 26; i++) {
+        var fx = camX + ((hash(i, 3) * VW + Math.sin(t * 0.3 + i) * 30 + t * (4 + i % 5)) % VW), fy = camY + ((hash(3, i) * VH + Math.cos(t * 0.4 + i * 2) * 20) % VH);
+        if (at(Math.floor(fx / T), Math.floor(fy / T)) !== GRASS) continue;
+        var bl = 0.5 + 0.5 * Math.sin(t * 3 + i * 1.7);
+        ctx.fillStyle = "rgba(210,255,120," + (bl * night * 0.9).toFixed(3) + ")";
+        ctx.fillRect((fx - camX) * E, (fy - camY) * E, 2, 2);
+      }
+      var x0 = Math.max(0, Math.floor(camX / T)), y0 = Math.max(0, Math.floor(camY / T));
+      for (var ty = y0; ty < Math.min(MH, y0 + VH / T + 2); ty++) for (var tx = x0; tx < Math.min(MW, x0 + VW / T + 2); tx++) {
+        if (DEPTH[ty][tx] < 2 || hash(tx * 5, ty * 7) > 0.18) continue;
+        var tw = 0.5 + 0.5 * Math.sin(t * 2 + tx * 3 + ty);
+        ctx.fillStyle = "rgba(230,236,255," + (tw * night * 0.7).toFixed(3) + ")";
+        ctx.fillRect((tx * T + hash(tx, ty) * 14 - camX) * E, (ty * T + hash(ty, tx) * 14 - camY) * E, 1.5, 1.5);
+      }
+    }
+    ctx.globalCompositeOperation = "source-over";
+  }
+
+  /* ════════ the locals: dinos, robots, cats, cockatiels, koi ════════ */
+  var DINOS = {
+    trike: { w: 16, pal: { W: "#c77b3b", D: "#8a4f25", L: "#eccb95", H: "#f3ecd8", K: "#1a1a1a" }, sp: 11,
+      a: ["...........DD...","..........DWWD.H","...WWWWWWWDWWWHH","..WWWWWWWWWDWWKW",".WWWWWWWWWWWWWWW","WWLLLLLLLLLWWW..","...WW..WW.WW....","...WW..WW.WW...."],
+      b: ["...........DD...","..........DWWD.H","...WWWWWWWDWWWHH","..WWWWWWWWWDWWKW",".WWWWWWWWWWWWWWW","WWLLLLLLLLLWWW..","..WW..WW..WW....","...W...W...W...."],
+      say: "a triceratops. it's grazing and would like some personal space." },
+    brachio: { w: 14, pal: { W: "#5a9e8a", L: "#a9d8c6", K: "#1a1a1a" }, sp: 7,
+      a: ["..........WW..",".........WWKW.",".........WWWW.",".........WW...","........WW....","........WW....",".......WW.....",".......WW.....","..WWWWWWW.....",".WWWWWWWWW....","WWWWWWWWWWW...","W.LLLLLLLLL...","..WW.WW.WW....","..WW.WW.WW...."],
+      b: ["..........WW..",".........WWKW.",".........WWWW.",".........WW...","........WW....","........WW....",".......WW.....",".......WW.....","..WWWWWWW.....",".WWWWWWWWW....","WWWWWWWWWWW...","W.LLLLLLLLL...",".WW.WW.WW.....","..W..W..W....."],
+      say: "a brachiosaurus. it's eating the top off a tree, very slowly." },
+    stego: { w: 16, pal: { W: "#6f9a3d", L: "#c9dd9a", O: "#e0782f", K: "#1a1a1a" }, sp: 9,
+      a: ["......O.O.......",".....OOOOO......","....OWWWWWO.....","...WWWWWWWWW....","O.WWWWWWWWWWWWW.","OWWWWWWWWWWWWWKW",".WWLLLLLLLLLWW..","...WW..WW..WW...","...WW..WW..WW..."],
+      b: ["......O.O.......",".....OOOOO......","....OWWWWWO.....","...WWWWWWWWW....","O.WWWWWWWWWWWWW.","OWWWWWWWWWWWWWKW",".WWLLLLLLLLLWW..","..WW..WW..WW....","...W...W...W...."],
+      say: "a stegosaurus. those plates are mostly for show." },
+    raptor: { w: 12, pal: { W: "#7b6aa0", L: "#c8bde0", D: "#3d3350", K: "#1a1a1a" }, sp: 24,
+      a: [".........WW.","........WWKW","........WWWD","W......WWW..",".WWWWWWWW...","..WWLLWWW...","....WWWWD...","....W..W....","...WW..WW..."],
+      b: [".........WW.","........WWKW","........WWWD","W......WWW..",".WWWWWWWW...","..WWLLWWW...","....WWWWD...","...W...W....","..WW...WW..."],
+      say: "a velociraptor. it is definitely not testing the fences." },
+    baby: { w: 7, pal: { W: "#8fd46b", K: "#1a1a1a" }, sp: 13,
+      a: ["....WW.","....WKW","W.WWWW.",".WWWWW.","..W.W.."], b: ["....WW.","....WKW","W.WWWW.",".WWWWW.",".W...W."],
+      say: "a baby dino. it squeaks at pi." },
+    robot: { w: 8, pal: { M: "#b8c2cc", D: "#5c6670", E: "#4DD6E8", O: "#FF5252" }, sp: 12, paths: true,
+      a: ["...O....","...M....",".MMMMMM.",".MEMMEM.",".MMMMMM.","..DDDD..",".MMMMMM.","MMMMMMMM",".M.DD.M.",".DD..DD."],
+      b: ["...D....","...M....",".MMMMMM.",".MEMMEM.",".MMMMMM.","..DDDD..",".MMMMMM.","MMMMMMMM",".M.DD.M.","DD....DD"],
+      say: ["a maintenance bot. it beeps: 'dns healthy. failover armed.'", "a maintenance bot. it's labeling cables again.", "a maintenance bot. it asks pi if he's tried turning it off and on again."] },
+    roomba: { w: 8, pal: { D: "#2a2d33", M: "#4a4f58", G: "#4ADE80" }, sp: 9, paths: true,
+      a: ["..DDDD..",".DMMMMD.","DMMGMMMD",".DMMMMD.","..DDDD.."], b: ["..DDDD..",".DMMMMD.","DMMMMMMD",".DMMMMD.","..DDDD.."],
+      say: "a little cleaning bot, sweeping the plaza. it bumps pi and says sorry." },
+    cat: { w: 12, pal: { C: "#f1e6d2", L: "#fff8ec", D: "#5b4636", B: "#6fb7ff" }, sp: 10, cat: true,
+      a: [".........D.D","D........DDD","DCLLLLLCCDBD",".CCCCCCCCDDD",".CCCCCCCCCC.",".CCCCCCCCC..","..D.D...D.D."],
+      b: [".........D.D","D........DDD","DCLLLLLCCDBD",".CCCCCCCCDDD",".CCCCCCCCCC.",".CCCCCCCCC..","...D.D..D.D."],
+      z: ["....CCCC....","..CLLLLCCC..",".CCCCCCCCCD.",".CCCCCCCDDD.","..DDCCCCCC.."],
+      say: "one of Ammaar's two himalayan cats. very fluffy, fully unbothered.", sleepSay: "one of Ammaar's two himalayan cats. it's asleep in the sun. pi lets it be." }
+  };
+  function critter(kind, tx, ty, area) {
+    return { kind: kind, x: tx * T + 8, y: ty * T + 10, area: area, tx: 0, ty: 0, wait: Math.random() * 3, face: Math.random() < 0.5 ? 1 : -1, dist: 0, hop: 0, vy: 0, sleep: 0 };
+  }
+  var critters = [
+    critter("trike", 16, 25, [13, 23, 24, 29]), critter("trike", 20, 12, [14, 9, 26, 16]),
+    critter("brachio", 41, 16, [36, 13, 46, 20]), critter("stego", 17, 31, [12, 29, 23, 34]),
+    critter("raptor", 41, 25, [38, 23, 47, 29]), critter("raptor", 44, 26, [38, 23, 47, 29]),
+    critter("baby", 40, 18, [37, 15, 45, 20]), critter("baby", 42, 18, [37, 15, 45, 20]), critter("baby", 19, 26, [15, 24, 23, 28]),
+    critter("robot", 30, 22, [18, 15, 37, 22]), critter("robot", 22, 22, [13, 17, 30, 22]), critter("roomba", 28, 22, [26, 21, 31, 23]),
+    critter("cat", 36, 31, [33, 28, 44, 33]), critter("cat", 39, 30, [33, 28, 44, 33])
+  ];
+  function okFor(c, tx, ty) {
+    if (!walkable(tx, ty)) return false;
+    var tt = at(tx, ty), d = DINOS[c.kind];
+    if (d.paths) return tt === PATH;
+    if (d.cat) return tt !== DOCK;
+    return tt === GRASS;
+  }
+  function updateCritter(c, dt) {
+    var d = DINOS[c.kind];
+    if (c.hop) { c.vy += 9 * dt; c.hop += c.vy; if (c.hop >= 0) { c.hop = 0; c.vy = 0; } }
+    if (c.sleep > 0) { c.sleep -= dt; return; }
+    c.wait -= dt;
+    if (c.wait <= 0 && !c.tx) {
+      for (var tries = 0; tries < 6; tries++) {
+        var tx = c.area[0] + Math.floor(Math.random() * (c.area[2] - c.area[0] + 1)), ty = c.area[1] + Math.floor(Math.random() * (c.area[3] - c.area[1] + 1));
+        if (okFor(c, tx, ty)) { c.tx = tx * T + 8; c.ty = ty * T + 10; break; }
+      }
+      if (!c.tx) c.wait = 1;
+    }
+    if (c.tx) {
+      var dx = c.tx - c.x, dy = c.ty - c.y, dd = Math.hypot(dx, dy);
+      if (dd < 2) { c.tx = 0; c.wait = 1 + Math.random() * 4; if (d.cat && Math.random() < 0.4) c.sleep = 6 + Math.random() * 10; return; }
+      var bx = c.x, by = c.y, step = d.sp * dt;
+      move(c, dx / dd * step, dy / dd * step);
+      c.dist += step; if (Math.abs(dx) > 1) c.face = dx > 0 ? 1 : -1;
+      if (Math.hypot(c.x - bx, c.y - by) < 0.01) { c.tx = 0; c.wait = 0.5; }
+    }
+  }
+  function drawCritter(c) {
+    var d = DINOS[c.kind], rows = c.sleep > 0 && d.z ? d.z : (Math.floor(c.dist / 4) % 2 ? d.b : d.a);
+    if (c.kind === "robot") rows = Math.floor(t * 2) % 2 ? d.a : d.b;                      // antenna blinks
+    shadow(c.x, c.y, Math.max(6, d.w - 4));
+    drawFrame(rows, d.pal, d.w, c.x, c.y + c.hop, c.face < 0);
+    if (c.sleep > 0 && Math.floor(t * 1.5) % 2) { ctx.fillStyle = "#e8eefc"; ctx.fillRect(Math.round(c.x + 4), Math.round(c.y - 9 - (t * 3 % 3)), 2, 1); }   // z
+    if (c.kind === "robot") light(c.x, c.y - 6, 10, "77,214,232", 0.5);
+  }
+
+  // cockatiels: they perch on landmarks and trees near the plaza, and fly between them in a pair
+  var BIRD = {
+    pal: { Y: "#f6d64a", O: "#f08a3a", G: "#9a9a9a", W: "#f2f2f2", K: "#1a1a1a", P: "#e9a3a3" },
+    sit: ["....Y...", ".....Y..", "....YYY.", "....YKYP", "...GYOY.", ".GGGGGG.", "GGWWGGG.", "G..GGG..", "....P.P."],
+    up:  ["G.......G.", ".GG...GG..", "..GGYYY...", "...GGYOKP.", "....GGG...", "...G......"],
+    dn:  ["..........", "...GYYY...", "..GGGYOKP.", ".GG.GGG.G.", "G......GG.", "...G......"]
+  };
+  var perches = [];
+  (function () {
+    function top(id) { var s = STATIONS.filter(function (q) { return q.id === id; })[0]; return { x: s.x * T + 8, y: s.y * T + 17 - SPR[id].height, gy: s.y * T + 16 }; }
+    ["sign", "mailbox", "tablet", "rack", "uplink"].forEach(function (id) { perches.push(top(id)); });
+    props.filter(function (p) { return /tree/.test(p.kind) && Math.abs(p.tx - 28) < 9 && Math.abs(p.ty - 22) < 8; }).slice(0, 6).forEach(function (p) {
+      perches.push({ x: p.tx * T + 8, y: p.ty * T + 16 - SPR[p.kind].height + 4, gy: p.ty * T + 15 });
+    });
+  })();
+  var birds = [0, 1].map(function (i) { var p = perches[i]; return { i: i, x: p.x + i * 4, y: p.y, gy: p.gy, z: 0, perch: i, fly: null, face: i ? -1 : 1, rest: 3 + i * 2 }; });
+  function updateBirds(dt) {
+    birds.forEach(function (b, i) {
+      if (b.fly) {
+        var f = b.fly; f.t += dt / f.dur;
+        var u = Math.min(1, f.t), e = u * u * (3 - 2 * u);
+        b.x = f.x0 + (f.x1 - f.x0) * e; b.y = f.y0 + (f.y1 - f.y0) * e - Math.sin(u * Math.PI) * f.arc; b.gy = f.g0 + (f.g1 - f.g0) * e;
+        b.face = f.x1 > f.x0 ? 1 : -1;
+        if (u >= 1) { b.fly = null; b.rest = 4 + Math.random() * 9; }
+        return;
+      }
+      b.rest -= dt;
+      // the leader picks a new perch; the other follows a moment later
+      if (b.rest <= 0 && i === 0) {
+        var n = (Math.random() * perches.length) | 0; if (n === b.perch) n = (n + 1) % perches.length;
+        fly(b, n, 0); fly(birds[1], n, 0.5);
+      }
+    });
+  }
+  function fly(b, n, delay) {
+    var p = perches[n], off = b.i ? 4 : 0;
+    setTimeout(function () {
+      b.perch = n;
+      b.fly = { t: 0, dur: 1.4 + Math.hypot(p.x - b.x, p.y - b.y) / 160, x0: b.x, y0: b.y, g0: b.gy, x1: p.x + off, y1: p.y, g1: p.gy, arc: 18 + Math.random() * 16 };
+    }, delay * 1000);
+  }
+  function drawBird(b) {
+    if (b.fly) {
+      ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(Math.round(b.x) - 3, Math.round(b.gy), 6, 1);
+      drawFrame(Math.floor(t * 10) % 2 ? BIRD.up : BIRD.dn, BIRD.pal, 10, b.x, b.y, b.face < 0);
+    } else drawFrame(BIRD.sit, BIRD.pal, 8, b.x, b.y, b.face < 0);
+  }
+
+  // koi: five of them circling the pond under the lily pads
+  var KOI = [
+    ["#f5f5f0", "#e2462f", "#f5f5f0", "#e2462f", "#f5f5f0", "#f5f5f0"],   // kohaku
+    ["#1b1b1b", "#e2462f", "#f5f5f0", "#1b1b1b", "#e2462f", "#f5f5f0"],   // showa
+    ["#f2b53a", "#f2b53a", "#f6c75a", "#f2b53a", "#e8a52a", "#f6c75a"],   // yamabuki
+    ["#dfe4ea", "#c9d1d9", "#eef2f6", "#c9d1d9", "#dfe4ea", "#eef2f6"],   // ogon
+    ["#6e8fb3", "#6e8fb3", "#e2462f", "#6e8fb3", "#e2462f", "#dfe4ea"]    // asagi
+  ];
+  var koi = KOI.map(function (col, i) { return { x: 35 * T + (i - 2) * 9, y: 25 * T + (i % 2) * 8, a: i * 1.3, v: 7 + i, col: col, turn: 0 }; });
+  var ripples = [];
+  function updateKoi(dt) {
+    koi.forEach(function (f) {
+      f.turn += (Math.random() - 0.5) * dt * 3; f.turn *= 0.97; f.a += f.turn * dt * 2;
+      var nx = f.x + Math.cos(f.a) * f.v * dt, ny = f.y + Math.sin(f.a) * f.v * dt;
+      if (at(Math.floor((nx + Math.cos(f.a) * 5) / T), Math.floor((ny + Math.sin(f.a) * 5) / T)) !== POND) { f.a += 2.2; return; }
+      f.x = nx; f.y = ny;
+      if (Math.random() < dt * 0.08) ripples.push({ x: f.x, y: f.y, r: 1, life: 1 });
+    });
+    ripples.forEach(function (r) { r.r += dt * 8; r.life -= dt * 0.8; });
+    ripples = ripples.filter(function (r) { return r.life > 0; });
+  }
+  function drawKoi() {
+    koi.forEach(function (f) {
+      var cx = Math.cos(f.a), sy = Math.sin(f.a), wig = Math.sin(t * 8 + f.v) * 0.8;
+      ctx.globalAlpha = 0.92;
+      for (var i = 0; i < 6; i++) {
+        var o = (3 - i) * 1.6, tail = i > 3 ? wig * (i - 3) : 0;
+        var px = f.x + cx * o - sy * tail, py = f.y + sy * o + cx * tail, sz = i === 0 || i === 5 ? 1 : 2;
+        ctx.fillStyle = f.col[i]; ctx.fillRect(Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
+      }
+      // pectoral fins
+      ctx.fillStyle = f.col[2];
+      ctx.fillRect(Math.round(f.x + cx * 1.5 - sy * 2), Math.round(f.y + sy * 1.5 + cx * 2), 1, 1);
+      ctx.fillRect(Math.round(f.x + cx * 1.5 + sy * 2), Math.round(f.y + sy * 1.5 - cx * 2), 1, 1);
+      ctx.globalAlpha = 1;
+    });
+    ctx.strokeStyle = "rgba(255,255,255,.5)"; ctx.lineWidth = 0.6;
+    ripples.forEach(function (r) { ctx.globalAlpha = r.life * 0.6; ctx.beginPath(); ctx.ellipse(r.x, r.y, r.r, r.r * 0.55, 0, 0, 6.283); ctx.stroke(); });
+    ctx.globalAlpha = 1;
+  }
+
+  /* ════════ the BMW ════════ */
+  var CAR = {
+    rows: ["..HHBBBHH..", ".BBKKCKKBB.", "TBBBBBBBBBT", "TBNBBBBBNBT", "TBBBWUWBBBT", ".BBBUWUBBB.", ".BBBWUWBBB.", ".BBBBBBBBB.",
+           ".GGGGGGGGG.", "XGGGGGGGGGX", ".GGGGGGGGG.", ".BLLLLLLLB.", ".BLLLLLLLB.", ".BLLLLLLLB.", ".BLLLLLLLB.",
+           "TGGGGGGGGGT", "TGGGGGGGGGT", "TBBBBBBBBBT", ".BBBBBBBBB.", ".RRBBBBBRR.", "..CC...CC.."],
+    pal: { B: "#1f2a36", N: "#3b4b5e", L: "#28323e", G: "#5b7d96", K: "#0b0b0b", C: "#cfd6dc", H: "#fff4c2", R: "#ff3b3b", U: "#1c69d4", W: "#f4f4f4", T: "#0e0e0e", X: "#1f2a36" }
+  };
+  var car = { x: 33 * T + 8, y: 30 * T + 8, a: Math.PI / 2, v: 0, driving: false, target: null };
+  function carClear(x, y, a) {
+    var fx = Math.sin(a), fy = -Math.cos(a), rx = Math.cos(a), ry = Math.sin(a);
+    return [[8, 3.5], [8, -3.5], [-8, 3.5], [-8, -3.5]].every(function (p) {
+      return walkable(Math.floor((x + fx * p[0] + rx * p[1]) / T), Math.floor((y + fy * p[0] + ry * p[1]) / T));
+    });
+  }
+  function updateCar(dt) {
+    if (!car.driving) { car.v *= 0.9; return; }
+    var thr = (keys.u ? 1 : 0) - (keys.d ? 1 : 0), steer = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
+    if (car.target && !thr && !steer) {            // tap to drive: steer toward the tap
+      var dx = car.target.x - car.x, dy = car.target.y - car.y, dist = Math.hypot(dx, dy);
+      if (dist < 10) car.target = null;
+      else {
+        var want = Math.atan2(dx, -dy), diff = Math.atan2(Math.sin(want - car.a), Math.cos(want - car.a));
+        steer = Math.max(-1, Math.min(1, diff * 2)); thr = Math.abs(diff) > 2.2 ? -0.6 : 1;
+      }
+    }
+    if (riftBusy()) thr = -Math.sign(car.v);
+    car.v += thr * (thr * car.v < 0 ? 160 : 70) * dt;
+    car.v *= Math.pow(0.35, dt); car.v = Math.max(-40, Math.min(120, car.v));
+    car.a += steer * dt * 2.4 * Math.max(-1, Math.min(1, car.v / 45));
+    var nx = car.x + Math.sin(car.a) * car.v * dt, ny = car.y - Math.cos(car.a) * car.v * dt;
+    if (carClear(nx, ny, car.a)) { car.x = nx; car.y = ny; }
+    else { car.v *= -0.25; car.target = null; }
+    pi.x = car.x; pi.y = car.y;
+  }
+  function drawCar() {
+    var c = frameCanvas(CAR.rows, CAR.pal, 11), a = Math.round(car.a / (Math.PI / 8)) * (Math.PI / 8);   // 16 headings keep the pixels crisp
+    ctx.save(); ctx.translate(Math.round(car.x), Math.round(car.y)); ctx.rotate(a);
+    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(-6, -10, 13, 23);
+    ctx.drawImage(c, -Math.floor(c.width / 2), -Math.floor(c.height / 2));
+    ctx.restore();
+    // headlights and taillights
+    var fx = Math.sin(car.a), fy = -Math.cos(car.a);
+    light(car.x + fx * 16, car.y + fy * 16, 22, "255,244,194", 0.55);
+    light(car.x - fx * 11, car.y - fy * 11, 8, "255,59,59", car.driving ? 0.5 : 0.2);
+  }
+  function toggleCar() {
+    if (!car.driving) { car.driving = true; pi.path = null; bubble = { text: "pi:~$ vroom.", t: 1.6 }; return; }
+    // park: pi hops out beside the driver's door
+    car.driving = false; car.target = null;
+    var sx = Math.cos(car.a), sy = Math.sin(car.a);
+    for (var k2 = 10; k2 <= 22; k2 += 4) for (var sd = -1; sd <= 1; sd += 2) {
+      var px = car.x - sx * k2 * sd, py = car.y - sy * k2 * sd;
+      if (walkable(Math.floor(px / T), Math.floor(py / T))) { pi.x = px; pi.y = py; return; }
+    }
+  }
+
+  // one place to ask "what's near pi": landmarks, rex, the locals, the birds, the pond, the car, the core
+  function nearCandidates() {
+    var out = [];
+    STATIONS.forEach(function (s) { out.push({ d: Math.hypot(pi.x - (s.x * T + 8), pi.y - (s.y * T + 12)), max: 26, v: s }); });
+    out.push({ d: Math.hypot(pi.x - rex.x, pi.y - rex.y), max: 20, v: { id: "rex", name: "rex" } });
+    critters.forEach(function (c) { out.push({ d: Math.hypot(pi.x - c.x, pi.y - c.y), max: 18, v: { id: "critter", ref: c, ax: c.x, ay: c.y - DINOS[c.kind].a.length - 2 } }); });
+    birds.forEach(function (b) { if (!b.fly) out.push({ d: Math.hypot(pi.x - b.x, pi.y - b.gy), max: 22, v: { id: "bird", ax: b.x, ay: b.y - 10 } }); });
+    out.push({ d: Math.hypot(pi.x - car.x, pi.y - car.y), max: 20, v: { id: "car", ax: car.x, ay: car.y - 14 } });
+    var ptx = Math.floor(pi.x / T), pty = Math.floor(pi.y / T);
+    if (near(ptx, pty, 1, function (a, b) { return at(a, b) === POND; })) out.push({ d: 21, max: 22, v: { id: "pond", ax: pi.x, ay: pi.y - 16 } });
+    return out;
+  }
+  function sayLocal(v) {
+    if (v.id === "critter") {
+      var c = v.ref, d = DINOS[c.kind];
+      if (c.sleep <= 0) { c.hop = 1; c.vy = -2; }
+      var line = c.sleep > 0 && d.sleepSay ? d.sleepSay : Array.isArray(d.say) ? d.say[(Math.random() * d.say.length) | 0] : d.say;
+      say(c.kind === "cat" ? "a himalayan cat" : c.kind === "robot" || c.kind === "roomba" ? "a bot" : "a dinosaur", line, []);
+    } else if (v.id === "bird") say("a cockatiel", "one of Ammaar's two cockatiels. it whistles at pi, then preens.", []);
+    else if (v.id === "pond") say("the koi pond", "Ammaar's pond of japanese koi: a kohaku, a showa, a yamabuki, an ogon and an asagi, circling under the lily pads.", []);
+    else if (v.id === "car") { say("the BMW", "Ammaar's BMW. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
+  }
+
+  function updateLife(dt) {
+    skyT -= dt; if (skyT <= 0) { readSky(); skyT = 30; }
+    critters.forEach(function (c) { updateCritter(c, dt); });
+    updateBirds(dt); updateKoi(dt); updateCar(dt);
+  }
+
+  /* ════════ the rift: an easter egg for finding all eight ════════
+     the island darkens, five orbs fall out of the sky, and they fight for
+     control of the site. the last one standing takes the core, and runs the
+     orbs on the page for the rest of the session. walk up to it for a rematch. */
+  var ARENA = { x: 28 * T + 8, y: 19 * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
+  var RIVALS = ["eclipse", "bone", "halo", "fog", "void"];
+  var POWER = { eclipse: 1.7, bone: 1.2, halo: 1.1, fog: 0.9, void: 1.0 };
+  var rift = null, pendingRift = false, orbCache = {};
+  function orbArt(name) {
+    if (!orbCache[name] && window.Orb) orbCache[name] = window.Orb(document.createElement("canvas"), { offscreen: { w: 96, h: 96 }, palette: name, layers: [[26, 52, 1, 1], [14, 28, 0.78, 0.45]] });
+    return orbCache[name];
+  }
+  function riftBusy() { return rift && rift.phase !== "reign"; }
+  function dust(name) { var p = window.OrbPalettes && window.OrbPalettes[name]; return p ? p.dust : [230, 230, 230]; }
+  function burst(x, y, name, n, speed) {
+    var c = dust(name);
+    for (var i = 0; i < n; i++) {
+      var a = Math.random() * 6.283, v = speed * (0.3 + Math.random());
+      rift.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 10, life: 1, c: c });
+    }
+  }
+  function rival(name, i) {
+    var a = i / RIVALS.length * 6.283 - 1.57;
+    return { name: name, art: orbArt(name), a: a, x: ARENA.x + Math.cos(a) * 46, y: ARENA.y + Math.sin(a) * 22, z: 300 + i * 50, hp: 2, alive: true, scale: 1, flash: 0, vx: 0, vy: 0 };
+  }
+  function startRift() {
+    closeDialog(); keys = {}; pi.path = null; pi.want = null;
+    if (REDUCED || !window.Orb) { crown("eclipse"); return; }
+    rift = { phase: "dim", t: 0, orbs: RIVALS.map(rival), parts: [], shake: 0, dim: 0, next: 0, dash: null, winner: null, ring: 0 };
+    bubble = { text: "pi:~$ ...something's waking up.", t: 3.2 };
+  }
+  function crown(name) {
+    try { sessionStorage.setItem("orb-palette", name); sessionStorage.setItem("rift-done", name); } catch (e) {}
+    if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette(name); });
+    if (!rift) rift = { orbs: [], parts: [], shake: 0, dim: 0, ring: 0 };
+    rift.phase = "reign"; rift.winner = name; rift.t = 0;
+    var w = rift.orbs.filter(function (o) { return o.name === name; })[0] || (window.Orb ? rival(name, 0) : null);
+    if (w) { w.alive = true; w.x = ARENA.x; w.y = ARENA.y; w.z = 34; w.scale = 1.7; rift.orbs = [w]; }
+    paintFound();
+    coreSay(true);
+  }
+  function coreSay(fresh) {
+    var w = rift.winner, links = [["rematch ↻", "#rematch"]];
+    if (w !== "eclipse") links.push(["give eclipse control back", "#eclipse"]);
+    say("the core", fresh
+      ? "the orbs fought for control of the site. " + w + " won" + (w === "eclipse" ? ", as it usually does" : ", an upset") + ". it runs the orbs on the page for the rest of your visit. walk back up to it any time for a rematch."
+      : w + " holds the core. it runs the orbs on the page until you close the tab.", links);
+  }
+  function updateRift(dt) {
+    if (!rift) return;
+    rift.t += dt; rift.shake = Math.max(0, rift.shake - dt * 14); rift.ring = Math.max(0, rift.ring - dt * 0.8);
+    var alive = rift.orbs.filter(function (o) { return o.alive; });
+    if (rift.phase === "dim") {
+      rift.dim = Math.min(0.55, rift.t / 1.5 * 0.55); rift.shake = Math.max(rift.shake, 1.2);
+      if (rift.t > 1.7) { rift.phase = "fall"; rift.t = 0; }
+    } else if (rift.phase === "fall") {
+      rift.orbs.forEach(function (o, i) {
+        var u = Math.max(0, Math.min(1, (rift.t - i * 0.2) / 0.9)), e = 1 - Math.pow(1 - u, 3);
+        var z = 300 + i * 50 + (26 - 300 - i * 50) * e;
+        if (o.z > 40 && z <= 40) { rift.shake = 5; burst(o.x, o.y, o.name, 14, 50); }
+        o.z = z;
+      });
+      if (rift.t > 2.3) { rift.phase = "fight"; rift.t = 0; rift.next = 0.5; }
+    } else if (rift.phase === "fight") {
+      var ring = 20 + alive.length * 6;
+      alive.forEach(function (o) {
+        o.a += dt * 0.9;
+        if (rift.dash && rift.dash.a === o) return;
+        var hx = ARENA.x + Math.cos(o.a) * ring, hy = ARENA.y + Math.sin(o.a) * ring * 0.5;
+        o.vx *= 0.9; o.vy *= 0.9;
+        o.x += (hx - o.x) * 0.06 + o.vx * dt; o.y += (hy - o.y) * 0.06 + o.vy * dt;
+        o.z = 26 + Math.sin(rift.t * 3 + o.a * 2) * 3;
+      });
+      var d = rift.dash;
+      if (!d && alive.length > 1 && (rift.next -= dt) <= 0) {
+        // stronger orbs pick fights more often; the target is anyone else
+        var total = alive.reduce(function (s, o) { return s + POWER[o.name]; }, 0), r = Math.random() * total, att = alive[0];
+        for (var i = 0; i < alive.length; i++) { r -= POWER[alive[i].name]; if (r <= 0) { att = alive[i]; break; } }
+        var others = alive.filter(function (o) { return o !== att; });
+        rift.dash = { a: att, b: others[(Math.random() * others.length) | 0], t: 0, fx: att.x, fy: att.y };
+      } else if (d) {
+        d.t += dt / 0.3;
+        var k = Math.min(1, d.t * d.t);
+        d.a.x = d.fx + (d.b.x - d.fx) * k; d.a.y = d.fy + (d.b.y - d.fy) * k;
+        if (d.t >= 1) {
+          var dx = d.b.x - d.fx, dy = d.b.y - d.fy, len = Math.hypot(dx, dy) || 1;
+          d.b.hp--; d.b.flash = 1; d.a.flash = 0.6; rift.shake = 6;
+          d.b.vx = dx / len * 140; d.b.vy = dy / len * 90; d.a.vx = -dx / len * 60; d.a.vy = -dy / len * 40;
+          burst((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2, d.a.name, 12, 70); burst((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2, d.b.name, 12, 70);
+          if (d.b.hp <= 0) { d.b.alive = false; burst(d.b.x, d.b.y - d.b.z, d.b.name, 70, 110); rift.shake = 10; }
+          rift.dash = null; rift.next = 0.5 + Math.random() * 0.4;
+          if (rift.orbs.filter(function (o) { return o.alive; }).length === 1) { rift.phase = "crowning"; rift.t = 0; }
+        }
+      }
+    } else if (rift.phase === "crowning") {
+      var w = alive[0];
+      w.x += (ARENA.x - w.x) * 0.06; w.y += (ARENA.y - w.y) * 0.06; w.z += (34 - w.z) * 0.06;
+      w.scale = 1 + Math.min(1, rift.t / 1.4) * 0.7;
+      rift.dim = Math.max(0.2, rift.dim - dt * 0.2);
+      if (rift.t > 0.6 && !rift.ringed) { rift.ringed = true; rift.ring = 1; rift.shake = 7; burst(w.x, w.y - w.z, w.name, 50, 90); }
+      if (rift.t > 2.2) crown(w.name);
+    } else if (rift.phase === "reign") {
+      rift.dim = Math.max(0, rift.dim - dt * 0.3);
+      var o = rift.orbs[0]; if (o) o.z = 34 + Math.sin(rift.t * 1.6) * 3;
+    }
+    rift.orbs.forEach(function (o) { o.flash = Math.max(0, o.flash - dt * 2.5); });
+    rift.parts.forEach(function (p) { p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.97; p.vy *= 0.97; p.life -= dt * 1.1; });
+    rift.parts = rift.parts.filter(function (p) { return p.life > 0; });
+  }
+  function drawRift(E) {
+    if (!rift) return;
+    if (rift.dim > 0) { ctx.fillStyle = "rgba(3,4,10," + rift.dim.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+    var list = rift.orbs.filter(function (o) { return o.alive; }).slice().sort(function (a, b) { return a.y - b.y; });
+    list.forEach(function (o) {
+      var gx = (o.x - camX) * E, gy = (o.y - camY) * E, rr = OR * E * o.scale;
+      ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(gx, gy, rr * 0.8, rr * 0.25, 0, 0, 6.283); ctx.fill();
+    });
+    ctx.save(); ctx.globalCompositeOperation = "lighter";
+    list.forEach(function (o) {
+      var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale, size = 96 * rr / 31.7;
+      o.art.energy(rift.dash && rift.dash.a === o ? 1.3 : 0.25);
+      o.art.frame(t + o.a);
+      ctx.drawImage(o.art.canvas, sx - size / 2, sy - size / 2, size, size);
+      if (o.flash > 0) {
+        var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr * 1.6);
+        g.addColorStop(0, "rgba(255,255,255," + (0.6 * o.flash).toFixed(3) + ")"); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(sx - rr * 2, sy - rr * 2, rr * 4, rr * 4);
+      }
+    });
+    rift.parts.forEach(function (p) {
+      ctx.fillStyle = "rgba(" + p.c.join(",") + "," + Math.min(1, p.life).toFixed(3) + ")";
+      ctx.fillRect((p.x - camX) * E, (p.y - camY) * E, 2, 2);
+    });
+    if (rift.ring > 0) {
+      var cx0 = (ARENA.x - camX) * E, cy0 = (ARENA.y - 34 - camY) * E, rad = (1 - rift.ring) * 260 + 20;
+      ctx.strokeStyle = "rgba(240,236,226," + rift.ring.toFixed(3) + ")"; ctx.lineWidth = 2;
+      ctx.beginPath(); ctx.ellipse(cx0, cy0, rad, rad * 0.55, 0, 0, 6.283); ctx.stroke();
+    }
+    ctx.restore();
+  }
 
   /* ════════ simulation ════════ */
   function move(o, dx, dy) {
@@ -376,10 +981,13 @@
     if (dy && !solidPx(o.x - hw, o.y + dy + (dy > 0 ? 1 : -2)) && !solidPx(o.x + hw, o.y + dy + (dy > 0 ? 1 : -2))) o.y += dy;
   }
   function update(dt) {
+    updateRift(dt);
+    updateLife(dt);
     if (egg) { egg.t += dt; if (egg.t > 2.2) { egg = null; bubble = { text: "pi:~$ fresh hatch. hi.", t: 3 }; } return; }
     var sp = (pi.boost > 0 ? 95 : 58) * dt; pi.boost = Math.max(0, pi.boost - dt);
     var mx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), my = (keys.d ? 1 : 0) - (keys.u ? 1 : 0);
     if (!dlg.hidden) mx = my = 0;
+    if (riftBusy() || car.driving) { mx = my = 0; pi.path = null; }
     if (!mx && !my && pi.path && pi.path.length) {
       var n = pi.path[0], gx = n[0] * T + 8, gy = n[1] * T + 10, ddx = gx - pi.x, ddy = gy - pi.y, dd = Math.hypot(ddx, ddy);
       if (dd < 1.5) { pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
@@ -418,7 +1026,13 @@
   function render() {
     zoom += (zoomTo - zoom) * 0.08;
     var E = S * zoom, VW = W / E, VH = H / E;
-    camX = Math.max(0, Math.min(MW * T - VW, pi.x - VW / 2)); camY = Math.max(0, Math.min(MH * T - VH, pi.y - VH / 2));
+    // the camera follows pi, except while the orbs fight: then it watches the arena
+    var fx = riftBusy() ? ARENA.x : pi.x, fy = riftBusy() ? ARENA.y - 20 : pi.y;
+    if (camF.x === null) { camF.x = fx; camF.y = fy; }
+    camF.x += (fx - camF.x) * 0.06; camF.y += (fy - camF.y) * 0.06;
+    var sh = rift ? rift.shake : 0;
+    camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (Math.random() - 0.5) * sh;
+    camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh;
     camX = Math.round(camX * E) / E; camY = Math.round(camY * E) / E;
     ctx.setTransform(E * dpr, 0, 0, E * dpr, -camX * E * dpr, -camY * E * dpr);
     ctx.imageSmoothingEnabled = false;
@@ -442,24 +1056,31 @@
       }
     }
 
+    lights = []; beamAt = null;
+    drawKoi();
+
     // y-sorted scene
     var list = [];
+    critters.forEach(function (c) { list.push({ y: c.y, f: function () { drawCritter(c); } }); });
+    birds.forEach(function (b) { list.push({ y: b.fly ? b.gy + 40 : b.gy + 1, f: function () { drawBird(b); } }); });
+    list.push({ y: car.y + 8, f: drawCar });
     props.forEach(function (p) {
       if (p.tx < x0 - 2 || p.tx > x1 + 2 || p.ty < y0 - 1 || p.ty > y1 + 3) return;
       list.push({ y: p.ty * T + 14, f: function () {
         var bx = p.tx * T + 8, by = p.ty * T + 14, s = SPR[p.kind];
-        if (p.kind !== "rock") shadow(bx, by, p.kind === "palm" ? 12 : 18);
-        if (p.kind === "rock") { ctx.drawImage(s, bx - 8, by - 10 + Math.round(Math.sin(t + p.tx) * 0.5)); return; }
+        if (p.kind !== "rock") shadow(bx, by, p.kind === "palm" || p.kind === "pine" ? 12 : p.kind === "bush" ? 14 : 18);
+        if (p.kind === "rock") { ctx.drawImage(s, bx - 9, by - 11 + Math.round(Math.sin(t + p.tx) * 0.5)); return; }
         var sway = p.kind === "palm" && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
         if (p.flip) { ctx.save(); ctx.translate(bx * 2, 0); ctx.scale(-1, 1); }
         ctx.drawImage(s, bx - s.width / 2 + sway, by - s.height + 2);
         if (p.flip) ctx.restore();
+        if (p.kind === "lamp") light(bx, by - 14, 34, "255,210,140", 0.95);
       } });
     });
     STATIONS.forEach(function (s) { list.push({ y: s.y * T + 15, f: function () { drawStation(s); } }); });
     list.push({ y: rex.y, f: function () {
       shadow(rex.x, rex.y, 10);
-      pix(DINO[Math.floor(rex.dist / 5) % 2 ? "b" : "a"], rex.face < 0, Math.round(rex.x - 5), Math.round(rex.y - 13 + rex.hop), { W: "#ececec", K: "#141414" }, 11);
+      drawFrame(DINO[Math.floor(rex.dist / 5) % 2 ? "b" : "a"], { W: "#ececec", K: "#141414" }, 11, rex.x, rex.y - 1 + rex.hop, rex.face < 0);
     } });
     list.push({ y: pi.y, f: drawPi });
     list.sort(function (a, b) { return a.y - b.y; });
@@ -470,16 +1091,19 @@
     clouds.forEach(function (c) { ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w, c.w * 0.45, 0, 0, 6.283); ctx.fill(); });
     if (ptero.on) {
       ctx.fillStyle = "rgba(0,0,0,.18)"; ctx.fillRect(Math.round(ptero.x) + 3, Math.round(ptero.y) + 26, 8, 2);
-      pix(PTERO[Math.floor(t * 4) % 2 ? "up" : "down"], ptero.vx < 0, Math.round(ptero.x), Math.round(ptero.y), { W: "#5c5c5c" }, 14);
+      drawFrame(PTERO[Math.floor(t * 4) % 2 ? "up" : "down"], { W: "#6a6a6a" }, 14, ptero.x + 7, ptero.y + 5, ptero.vx < 0);
     }
 
-    // screen-space overlays: prompts and speech
+    // screen-space overlays: the rift, then prompts and speech
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    drawSky(E);
+    drawRift(E);
     var nb = !egg && dlg.hidden ? nearby() : null;
-    if (nb) {
+    if (nb && nb.ax !== undefined) tag(TOUCH ? "tap" : "E", (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
+    else if (nb) {
       // float the prompt just above the landmark's own sprite
-      var topY = nb.id === "rex" ? rex.y - 15 : nb.id === "boat" ? nb.y * T : nb.y * T + 16 - SPR[nb.id].height;
-      var sx = ((nb.id === "rex" ? rex.x : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
+      var topY = nb.id === "rex" ? rex.y - 15 : nb.id === "core" ? ARENA.y - 34 - OR * 1.9 : nb.id === "boat" ? nb.y * T : nb.y * T + 16 - SPR[nb.id].height;
+      var sx = ((nb.id === "rex" ? rex.x : nb.id === "core" ? ARENA.x : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
       tag(TOUCH ? "tap" : "E", sx, sy, true);
     }
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 16 - camY) * E - 6, false);
@@ -509,11 +1133,12 @@
       }
       return;
     }
+    if (car.driving) return;
     shadow(pi.x, pi.y, 10);
     var moving = (keys.u || keys.d || keys.l || keys.r || (pi.path && pi.path.length)) && dlg.hidden;
     var f = pi.dir === "up" ? FRAMES.back : moving ? (Math.floor(pi.dist / 4) % 2 ? FRAMES.walk1 : FRAMES.walk2) : FRAMES.idle;
     var bob = moving ? 0 : Math.round(Math.sin(t * 3) * 0.5);
-    pix(f, pi.face < 0, Math.round(pi.x - 5), Math.round(pi.y - 10 + bob), PC, 10);
+    drawFrame(f, PC, 10, pi.x, pi.y - 1 + bob, pi.face < 0);
     if (pi.boost > 0) { ctx.fillStyle = "#E879F9"; ctx.fillRect(Math.round(pi.x - 7 - pi.face * 3), Math.round(pi.y - 4), 2, 1); ctx.fillRect(Math.round(pi.x - 8 - pi.face * 5), Math.round(pi.y - 6), 2, 1); }
   }
 
@@ -522,18 +1147,26 @@
     if (s.id === "boat") {
       var bob = Math.round(Math.sin(t * 1.5) * 1);
       ctx.fillStyle = "rgba(255,255,255,.35)"; ctx.fillRect(bx - 16, by + 3 + bob, 34, 1);
-      ctx.drawImage(sp, bx - 14, by - 16 + bob); return;
+      ctx.drawImage(sp, bx - 15, by - 17 + bob); return;
     }
     shadow(bx, by, s.id === "desk" ? 30 : 14);
-    ctx.drawImage(sp, Math.round(bx - sp.width / 2), by - sp.height + 1);
-    var ox = Math.round(bx - sp.width / 2), oy = by - sp.height + 1, blink = Math.floor(t * 3);
+    // outlined sprites carry a 1px border, so live details are offset by one pixel into the art
+    var sx0 = Math.round(bx - sp.width / 2), sy0 = by - sp.height + 2;
+    ctx.drawImage(sp, sx0, sy0);
+    var ox = sx0 + 1, oy = sy0 + 1, blink = Math.floor(t * 3);
     if (s.id === "rack") for (var i = 0; i < 6; i++) { ctx.fillStyle = hash(i, blink) < 0.2 ? "#FFB000" : (hash(i + 9, blink) < 0.7 ? "#4ADE80" : "#1c3a24"); ctx.fillRect(ox + 11, oy + 4 + i * 4, 1, 1); ctx.fillStyle = hash(i, blink + 3) < 0.5 ? "#4DD6E8" : "#16323a"; ctx.fillRect(ox + 12, oy + 4 + i * 4, 1, 1); }
     if (s.id === "desk") { ctx.fillStyle = "#0b1a12"; ctx.fillRect(ox + 9, oy + 2, 13, 8); for (i = 0; i < 4; i++) { ctx.fillStyle = "#4ADE80"; ctx.fillRect(ox + 10, oy + 3 + i * 2, 3 + ((hash(i, blink) * 8) | 0), 1); } if (blink % 2) ctx.fillRect(ox + 10 + 11, oy + 9, 1, 1); }
     if (s.id === "tower") { ctx.strokeStyle = "#4ADE80"; ctx.lineWidth = 1; ctx.beginPath(); for (i = 0; i < 13; i++) { var gy = oy + 9 - Math.round((Math.sin(t * 2 + i * 0.8) * 0.5 + 0.5) * 4); if (i) ctx.lineTo(ox + 5 + i, gy + 0.5); else ctx.moveTo(ox + 5, gy + 0.5); } ctx.stroke(); }
     if (s.id === "uplink" && blink % 2) { ctx.fillStyle = "#FF5252"; ctx.fillRect(ox + 9, oy, 2, 1); }
     if (s.id === "macbook") { ctx.fillStyle = "rgba(139,92,246," + (0.5 + Math.sin(t * 2) * 0.3).toFixed(2) + ")"; ctx.fillRect(ox + 11, oy + 5, 8, 6); }
     if (s.id === "mailbox") { ctx.fillStyle = "#FFB000"; ctx.fillRect(ox + 10, oy + (found.mailbox ? 1 : 3), 2, found.mailbox ? 4 : 2); }
+    if (s.id === "desk") light(ox + 16, oy + 6, 18, "74,222,128", 0.55);
+    if (s.id === "macbook") light(ox + 15, oy + 8, 14, "180,160,255", 0.5);
+    if (s.id === "tower") light(ox + 11, oy + 8, 14, "74,222,128", 0.45);
+    if (s.id === "rack") light(ox + 12, oy + 14, 16, "77,214,232", 0.4);
     if (s.id === "lighthouse") {
+      light(bx, oy + 5, 60, "255,226,138", 0.9);
+      beamAt = { x: bx, y: oy + 5 };
       var a = t * 0.8, lx = bx, ly = oy + 5;
       ctx.save(); ctx.globalCompositeOperation = "lighter";
       ctx.fillStyle = "rgba(255,226,138,.12)";
@@ -571,13 +1204,13 @@
       streaks.forEach(function (s) {
         var prog = dir > 0 ? e : 1 - e;
         var r1 = c[2] * 0.4 + s.r + prog * far * s.v, r0 = r1 - (20 + prog * 260 * s.v);
-        var col = s.c < 0.45 ? "244,84,166" : s.c < 0.8 ? "255,150,205" : "236,236,236";   // the orb's pinks, and white
+        var col = s.c < 0.3 ? "244,84,166" : s.c < 0.55 ? "139,92,246" : s.c < 0.8 ? "77,214,232" : "252,248,238";   // pink, violet, cyan, white
         wctx.strokeStyle = "rgba(" + col + "," + (0.25 + 0.6 * Math.sin(p * Math.PI)).toFixed(3) + ")";
         wctx.lineWidth = 1 + prog * 2;
         wctx.beginPath(); wctx.moveTo(c[0] + Math.cos(s.a) * Math.max(0, r0), c[1] + Math.sin(s.a) * Math.max(0, r0)); wctx.lineTo(c[0] + Math.cos(s.a) * r1, c[1] + Math.sin(s.a) * r1); wctx.stroke();
       });
       // a white bloom at the peak of the jump
-      if (dir > 0 && p > 0.75) { wctx.fillStyle = "rgba(255,236,246," + ((p - 0.75) * 4 * 0.9).toFixed(3) + ")"; wctx.fillRect(0, 0, innerWidth, innerHeight); }
+      if (dir > 0 && p > 0.75) { wctx.fillStyle = "rgba(240,232,255," + ((p - 0.75) * 4 * 0.9).toFixed(3) + ")"; wctx.fillRect(0, 0, innerWidth, innerHeight); }
       wctx.globalCompositeOperation = "source-over";
       if (p < 1) requestAnimationFrame(frame); else done();
     })(start);
@@ -603,6 +1236,10 @@
       pi.x = 28 * T + 8; pi.y = 22 * T + 12; pi.path = null; keys = {};
       zoom = REDUCED ? 1 : 2.6; zoomTo = 1;
       if (!first) bubble = { text: "pi:~$ welcome back.", t: 2.5 };
+      camF.x = null;
+      var ruler = null; try { ruler = sessionStorage.getItem("rift-done"); } catch (e) {}
+      if (ruler && !rift && window.Orb) { rift = { phase: "reign", winner: ruler, t: 0, orbs: [rival(ruler, 0)], parts: [], shake: 0, dim: 0, ring: 0 }; var w0 = rift.orbs[0]; w0.x = ARENA.x; w0.y = ARENA.y; w0.z = 34; w0.scale = 1.7; paintFound(); }
+      else if (!ruler && !rift && Object.keys(found).length === TOTAL) setTimeout(function () { if (open && !rift) startRift(); }, first ? 3000 : 1200);
       last = performance.now(); raf = requestAnimationFrame(loop);
       cv.focus({ preventScroll: true });
       hideWarp();

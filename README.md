@@ -19,7 +19,8 @@ js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
 js/windows.js     working traffic lights: minimize to the dock, maximize, restore
 js/boot.js        vintage BIOS startup screen: first visit per session, and the footer's ↻ reboot
 js/orb.js         the pink dot orb in the neofetch hero (+ a small one at contact)
-js/world.js       pi's island: warp, top-down map, landmarks, dialog
+js/world.js       pi's island: warp, map, landmarks, locals, the BMW, day/night, the orb fight
+js/face.js        hover the headshot and it decodes into terminal ascii
 js/hands.js       the page background: ascii hands that reach as you scroll
 tools/marks.py    ASCII brand toolchain (wordmarks, crescent, favicon)
 assets/           ensō favicon (svg + png) + app icons, photo, resume, og.png (link preview card)
@@ -39,7 +40,16 @@ pi. Every landmark is a piece of the portfolio: the rack is the homelab, the
 desk is the Claude triage project, the uplink is the Terraform AWS build,
 the watchtower is monitoring, the lighthouse is the security work, the
 tablet is the academic record, the mailbox is contact. The boat sails back.
-rex the dino wanders the meadow; pterodactyls fly over.
+It's a tiny dino island: rex, triceratops, a brachiosaurus, a stegosaurus,
+raptors and babies roam the meadows, maintenance robots patrol the paths, and
+Ammaar's two cockatiels, two himalayan cats and koi pond live there too. His BMW
+is parked by the pond: walk up, press e, and drive it. The island keeps real
+time in Ellicott City (America/New_York), with sunrise and sunset worked out for
+the date: warm dawns and dusks, and at night the lamps, screens and lighthouse
+light up and fireflies come out. `?islandhour=22` previews any hour.
+
+Find all eight landmarks and the orbs fall out of the sky and fight for control
+of the site; the winner runs the hero orb for the rest of the session.
 
 - keyboard: wasd / arrows to walk, e / space / enter to look, esc to leave
 - pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look

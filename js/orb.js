@@ -1,31 +1,64 @@
 /* orb — a fluid AI orb made of dots, the neofetch art in the hero.
    two layers of points (an outer skin and a dimmer inner shell) sit on a
    surface pushed by slow, smooth waves; the pattern flows over the surface
-   while the whole thing breathes and drifts. lit by the surface normal:
-   hot pink in the light, soft rose and white on the highlights, deep
-   violet-pink in shadow. dots are batched by colour for speed.
-   window.Orb(canvas, opts) → { boost(), calm(), center(), pause(bool) } */
+   while the whole thing breathes and drifts. lit by the surface normal, in
+   one of several palettes: "eclipse" (a dark face lit only at the rim) by
+   default, or whichever orb won the fight on pi's island this session.
+   dots are batched by colour for speed.
+   window.Orb(canvas, opts) → { boost(), calm(), center(), pause(bool), palette(name) }
+   window.Orb(canvas, { offscreen: {w, h}, palette, layers }) → { canvas, frame(t), palette(name), energy(e) } */
 (function () {
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-  // shadow → light. change these to recolour the orb
-  var STOPS = [[92, 34, 110], [176, 52, 140], [244, 84, 166], [255, 150, 205], [255, 226, 240]];
-  function mix(u) {
-    u = Math.max(0, Math.min(0.999, u)) * (STOPS.length - 1);
-    var i = Math.floor(u), f = u - i, a = STOPS[i], b = STOPS[i + 1];
-    return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
-  }
-  var CB = 14, AB = 6, STYLE = [];                       // light-level × alpha buckets
-  for (var ci = 0; ci < CB; ci++) {
-    var c = mix(ci / (CB - 1));
-    for (var ai = 0; ai < AB; ai++) STYLE.push("rgba(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + "," + (0.25 + 0.75 * (ai + 1) / AB).toFixed(3) + ")");
+  // palettes: shadow → light stops, plus the glow behind the orb and its dust.
+  // pick one with data-palette="…" on the canvas; "bone" is the default
+  var PALETTES = {
+    bone:  { stops: [[26, 25, 24], [84, 81, 76], [160, 154, 143], [222, 215, 200], [252, 248, 238]], glow: [214, 206, 188], dust: [230, 224, 210] },
+    moon:  { stops: [[16, 20, 30], [62, 72, 92], [140, 154, 178], [208, 218, 232], [248, 251, 255]], glow: [150, 170, 210], dust: [210, 222, 240] },
+    ash:   { stops: [[14, 14, 14], [60, 60, 60], [128, 128, 128], [200, 200, 200], [255, 255, 255]], glow: [120, 120, 120], dust: [200, 200, 200] },
+    omen:  { stops: [[40, 6, 10], [96, 30, 30], [176, 160, 150], [230, 224, 214], [255, 252, 246]], glow: [120, 16, 24], dust: [220, 200, 196] },
+    // lighting variants: g = tone gamma (>1 is low-key and darker), rim / lit scale the edge glow and
+    // the front light, gs scales the glow behind the orb
+    fog:       { stops: [[30, 30, 30], [78, 78, 76], [128, 127, 124], [176, 174, 170], [214, 212, 206]], glow: [150, 150, 146], dust: [170, 170, 166], g: 0.85, gs: 1.6 },
+    eclipse:   { stops: [[8, 8, 8], [34, 33, 31], [110, 106, 98], [214, 208, 194], [255, 252, 242]], glow: [200, 194, 178], dust: [190, 186, 176], g: 1.6, rim: 2.2, lit: 0.35 },
+    phosphor:  { stops: [[18, 22, 18], [70, 80, 70], [150, 164, 148], [214, 228, 210], [244, 255, 240]], glow: [190, 214, 186], dust: [210, 232, 204] },
+    parchment: { stops: [[30, 24, 16], [92, 78, 58], [168, 150, 118], [226, 212, 182], [250, 243, 224]], glow: [214, 190, 140], dust: [226, 210, 176] },
+    void:      { stops: [[6, 6, 6], [24, 24, 24], [70, 70, 68], [180, 178, 172], [250, 248, 242]], glow: [90, 90, 88], dust: [140, 140, 136], g: 1.9, lit: 1.2 },
+    halo:      { stops: [[40, 40, 44], [110, 110, 116], [190, 190, 196], [236, 236, 240], [255, 255, 255]], glow: [230, 232, 245], dust: [240, 242, 255], gs: 2.4, rim: 1.4 },
+    ice:       { stops: [[14, 22, 28], [56, 80, 92], [132, 168, 182], [206, 230, 238], [246, 253, 255]], glow: [160, 210, 230], dust: [200, 236, 246] },
+    pink:  { stops: [[92, 34, 110], [176, 52, 140], [244, 84, 166], [255, 150, 205], [255, 226, 240]], glow: [244, 84, 166], dust: [255, 160, 210] }
+  };
+  var CB = 14, AB = 6;                                   // light-level × alpha buckets
+  function build(pal) {
+    var st = pal.stops, out = [];
+    function mix(u) {
+      u = Math.max(0, Math.min(0.999, u)) * (st.length - 1);
+      var i = Math.floor(u), f = u - i, a = st[i], b = st[i + 1];
+      return [a[0] + (b[0] - a[0]) * f, a[1] + (b[1] - a[1]) * f, a[2] + (b[2] - a[2]) * f];
+    }
+    for (var ci = 0; ci < CB; ci++) {
+      var c = mix(ci / (CB - 1));
+      for (var ai = 0; ai < AB; ai++) out.push("rgba(" + (c[0] | 0) + "," + (c[1] | 0) + "," + (c[2] | 0) + "," + (0.25 + 0.75 * (ai + 1) / AB).toFixed(3) + ")");
+    }
+    return out;
   }
 
   function Orb(canvas, opts) {
     opts = opts || {};
     var ctx = canvas.getContext("2d");
     var mini = !!opts.mini;
+    var off = opts.offscreen;                                // {w, h}: drawn on demand by someone else (the island)
+    var PAL, STYLE, GLOW, DUST, GAMMA, RIMK, LITK, GS;
+    function palette(name) {
+      PAL = PALETTES[name] || PALETTES.eclipse;
+      STYLE = build(PAL); GLOW = PAL.glow.join(","); DUST = PAL.dust.join(",");
+      GAMMA = PAL.g || 1; RIMK = PAL.rim || 1; LITK = PAL.lit || 1; GS = PAL.gs || 1;
+      if (!off) canvas.style.setProperty("--orb-glow", "rgba(" + GLOW + ",.3)");
+    }
+    // whoever won the fight on pi's island runs the site's orbs for the session
+    var won = null; try { won = sessionStorage.getItem("orb-palette"); } catch (e) {}
+    palette(opts.palette || (!off && won) || canvas.getAttribute("data-palette") || "eclipse");
     // layers: [rows, cols (point count = rows × cols), radius, brightness]
-    var LAYERS = mini ? [[40, 80, 1, 1], [22, 44, 0.78, 0.45]] : [[64, 128, 1, 1], [36, 72, 0.8, 0.42]];
+    var LAYERS = opts.layers || (mini ? [[40, 80, 1, 1], [22, 44, 0.78, 0.45]] : [[64, 128, 1, 1], [36, 72, 0.8, 0.42]]);
     // points on each layer follow a Fibonacci sphere: evenly spaced, no pinched poles
     var N = 0, LAT = [], LON = [];
     LAYERS.forEach(function (l) {
@@ -43,7 +76,7 @@
     for (var i = 0; i < (mini ? 60 : 180); i++) dust.push({ a: Math.random() * 6.283, r: 1.12 + Math.random() * 0.35, y: Math.random() * 2 - 1, s: 0.05 + Math.random() * 0.12, tw: Math.random() * 6.283 });
 
     function size() {
-      var r = canvas.getBoundingClientRect();
+      var r = off ? { width: off.w, height: off.h } : canvas.getBoundingClientRect();
       dpr = Math.min(window.devicePixelRatio || 1, 2);
       W = r.width; H = r.height;
       canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr));
@@ -84,9 +117,9 @@
             var nx1 = nx * cyw + nz * syw, nz1 = -nx * syw + nz * cyw, ny1 = ny * cp - nz1 * sp, nz2 = ny * sp + nz1 * cp;
             var nl = Math.sqrt(nx1 * nx1 + ny1 * ny1 + nz2 * nz2) || 1;
             var lit = Math.max(0, (nx1 * LX + ny1 * LY + nz2 * LZ) / nl);
-            var rim = Math.pow(1 - Math.abs(nz2 / nl), 2.5) * 0.55;
+            var rim = Math.pow(1 - Math.abs(nz2 / nl), 2.5) * 0.55 * RIMK;
             var depth = (z2 + 1.2) / 2.4;
-            var tone = Math.min(1, (0.08 + 0.72 * lit + rim) * (0.35 + 0.65 * depth)) * (0.6 + 0.4 * lum);
+            var tone = Math.pow(Math.min(1, (0.08 + 0.72 * lit * LITK + rim) * (0.35 + 0.65 * depth)) * (0.6 + 0.4 * lum), GAMMA);
             var f = 3.8 / (3.8 - z2);
             var q = Math.min(CB - 1, Math.round(tone * (CB - 1))) * AB + Math.min(AB - 1, Math.floor(depth * lum * AB));
             DX[idx] = ox + x1 * R * f; DY[idx] = oy + y1 * R * f; DS[idx] = dotR * (0.55 + 0.95 * depth) * (L ? 0.8 : 1); DQ[idx] = q; bn[q]++;
@@ -97,7 +130,7 @@
       ctx.clearRect(0, 0, W, H);
       ctx.globalCompositeOperation = "lighter";
       var g = ctx.createRadialGradient(ox, oy, 0, ox, oy, R * 1.35);
-      g.addColorStop(0, "rgba(244,84,166," + (0.1 + energy * 0.1).toFixed(3) + ")");
+      g.addColorStop(0, "rgba(" + GLOW + "," + Math.min(0.5, (0.1 + energy * 0.1) * GS).toFixed(3) + ")");
       g.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
       boff[0] = 0;
@@ -113,7 +146,7 @@
       for (i2 = 0; i2 < dust.length; i2++) {
         var p = dust[i2], ang = p.a + t * p.s, pr = p.r * R, tw = 0.5 + 0.5 * Math.sin(t * 1.3 + p.tw);
         var pz = Math.sin(ang), px2 = ox + Math.cos(ang) * pr * Math.sqrt(1 - p.y * p.y), py2 = oy + p.y * pr;
-        ctx.fillStyle = "rgba(255,160,210," + ((0.1 + 0.4 * tw) * (0.5 + 0.5 * pz)).toFixed(3) + ")";
+        ctx.fillStyle = "rgba(" + DUST + "," + ((0.1 + 0.4 * tw) * (0.5 + 0.5 * pz)).toFixed(3) + ")";
         ctx.fillRect(px2, py2, 1.3, 1.3);
       }
       ctx.globalCompositeOperation = "source-over";
@@ -128,7 +161,9 @@
     }
     function start() { if (!raf && !REDUCED && !paused && visible) raf = requestAnimationFrame(loop); }
 
-    size(); draw(4);
+    size();
+    if (off) return { canvas: canvas, frame: draw, palette: palette, energy: function (e) { target = e; } };
+    draw(4);
     if ("ResizeObserver" in window) new ResizeObserver(function () { size(); draw(REDUCED ? 4 : (performance.now() - t0) / 1000); }).observe(canvas);
     if ("IntersectionObserver" in window)
       new IntersectionObserver(function (en) { visible = en[0].isIntersecting; start(); }).observe(canvas);
@@ -147,13 +182,15 @@
       boost: function () { target = 1.4; if (REDUCED) draw(4); },
       calm: function () { target = 0; },
       center: function () { var r = canvas.getBoundingClientRect(); return [r.left + r.width / 2, r.top + r.height / 2, R]; },
-      pause: function (p) { paused = p; if (!p) start(); }
+      pause: function (p) { paused = p; if (!p) start(); },
+      palette: function (name) { palette(name); if (REDUCED || paused) draw(4); }
     };
   }
 
   window.Orb = Orb;
+  window.OrbPalettes = PALETTES;
   window.orbs = [];
   document.querySelectorAll("canvas.orb").forEach(function (c) {
-    window.orbs.push(Orb(c, { mini: c.classList.contains("orb-mini") }));
+    if (!c.hasAttribute("data-manual")) window.orbs.push(Orb(c, { mini: c.classList.contains("orb-mini") }));
   });
 })();
