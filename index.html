@@ -34,6 +34,11 @@
   /* before first paint: mark js on, apply a saved theme */
   (function () {
     var d = document.documentElement; d.classList.add("js");
+    // first visit this session: play the vintage boot screen (never for reduced motion or #island links)
+    try {
+      if (sessionStorage.getItem("booted") !== "1" && location.hash !== "#island" &&
+          !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) d.classList.add("booting");
+    } catch (e) {}
     try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {}
   })();
   </script>
@@ -44,19 +49,41 @@
   <link rel="me" href="https://www.linkedin.com/in/ammaarrehman/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Instrument+Serif:ital@0;1&family=JetBrains+Mono:wght@400;500;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
 
-  <canvas class="field" aria-hidden="true"></canvas>
+  <!-- ── boot: a vintage startup screen, first visit per session ── -->
+  <div id="boot" aria-hidden="true">
+    <pre class="boot-logo">   .-""""-.
+  /  .--.  \
+ |  (    )  |
+  \  '--'  /
+   '-....-'</pre>
+    <pre class="boot-log"></pre>
+    <p class="boot-foot">Press any key to skip</p>
+  </div>
+
+  <canvas class="hands" aria-hidden="true"></canvas>
   <a class="skip" href="#main">skip to content</a>
 
-  <!-- ── the hatch: first-visit entry ── -->
-  <div id="hatch" hidden aria-hidden="true">
-    <canvas width="72" height="84"></canvas>
-    <div class="hatch-hint">tap the egg · any key cracks it · esc skips</div>
+  <!-- ── pi's island: a walkable top-down world, reached through the orb ── -->
+  <div id="world" class="world" hidden role="dialog" aria-modal="true" aria-label="pi's island: a small walkable map of Ammaar's work">
+    <canvas class="w-cv" tabindex="-1" aria-hidden="true"></canvas>
+    <div class="w-hud">
+      <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found">found 0/8</span></div>
+      <div class="w-keys">wasd / arrows or tap to walk · e to look · esc to leave</div>
+      <button class="w-exit" type="button">leave ↩</button>
+    </div>
+    <div class="w-dialog" hidden aria-live="polite">
+      <div class="w-name"></div>
+      <p class="w-text"></p>
+      <div class="w-links"></div>
+      <span class="w-more" aria-hidden="true">e ▾</span>
+    </div>
   </div>
+  <canvas class="warp" hidden aria-hidden="true"></canvas>
 
   <!-- ── NAV ── -->
   <nav class="nav" aria-label="primary">
@@ -77,338 +104,380 @@
 
   <!-- ── HERO ── -->
   <header class="hero">
-    <div class="container hero-grid">
-      <div class="hero-text">
-        <p class="label rv" style="--d:.15s"><span class="wp" style="color:var(--amber)">&#9650;</span> ePortfolio</p>
-        <h1 class="name-mark"><span class="sr-only">Ammaar Rehman</span><pre class="wordmark rv" style="--d:.3s" aria-hidden="true"> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>
-<b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i>
-<b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><span style="color:#FFA94D">█</span><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><span style="color:#4DD6E8">█</span><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><i>╝</i>
-<b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i>
-<b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><i>═</i><i>╝</i> <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><i>═</i><i>╝</i> <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i>
-<i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i></pre>
-        <pre class="wordmark rv" style="--d:.4s" aria-hidden="true"><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╗</i>  <b>█</b><span style="color:#5B8DEF">█</span><i>╗</i><b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><i>╗</i>   <b>█</b><b>█</b><i>╗</i>
-<b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><i>═</i><i>═</i><i>╝</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><i>║</i>
-<span style="color:#FFA94D">█</span><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i>  <b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><b>█</b><b>█</b><i>╗</i> <b>█</b><b>█</b><i>║</i>
-<b>█</b><span style="color:#5B8DEF">█</span><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><i>╝</i>  <b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><span style="color:#5B8DEF">█</span><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╔</i><i>╝</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>╔</i><i>═</i><i>═</i><b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i><i>╚</i><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>║</i>
-<b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><b>█</b><i>╗</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><i>═</i><i>╝</i> <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i>  <b>█</b><b>█</b><i>║</i><b>█</b><b>█</b><i>║</i> <i>╚</i><b>█</b><b>█</b><b>█</b><b>█</b><i>║</i>
-<i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>═</i><i>═</i><i>═</i><i>═</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>     <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>╝</i><i>╚</i><i>═</i><i>╝</i>  <i>╚</i><i>═</i><i>═</i><i>═</i><i>╝</i></pre></h1>
-        <p class="hero-sub rv" style="--d:.55s">
-          Cyber security analyst in <b>Cyber Ready Clinic</b>'s internship cohort and
-          <b>Cloud &amp; AI Operations Intern</b> at NextGen Consulting. Incoming
-          Information Systems student at UMD Smith. Based in Ellicott City, MD.
-        </p>
-        <div class="tree rv" style="--d:.7s">
-          <div><span class="on">●</span> <span class="name">aws/cloud-practitioner</span> · certified</div>
-          <div><span class="on">●</span> <span class="name">comptia/tech-plus</span> · certified</div>
-          <div><span class="half">◐</span> <span class="name">crc/ready5-practitioner</span> · in cohort</div>
-          <div><a href="https://github.com/ammaarrehman/homelab" target="_blank" rel="noopener"><span class="on">●</span> <span class="name">homelab/ha-dns</span> · live, failover tested ↗</a></div>
+    <div class="container">
+      <!-- the hero is a terminal: a neofetch readout with the orb as its ascii art -->
+      <div class="term rv" style="--d:.1s">
+        <div class="term-bar">
+          <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
+          <span class="term-tab">zsh — ammaar@portfolio</span>
+          <span class="term-size" aria-hidden="true">~/ePortfolio</span>
         </div>
-        <div class="hero-links rv" style="--d:.85s">
-          <a class="primary" href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">resume ↗</a>
-          <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github</a>
-          <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin</a>
-          <a href="mailto:ammaarrehmanf@gmail.com">email</a>
+        <div class="term-body">
+          <p class="t-line t-dim t-in" style="--d:.2s">Last login: <span class="t-now">today</span> on ttys001</p>
+          <p class="t-line t-in" style="--d:.3s"><span class="t-prompt">ammaar@portfolio ~ %</span> <span class="t-type" data-text="neofetch">neofetch</span></p>
+
+          <div class="fetch">
+            <div class="fetch-art t-in" style="--d:.9s">
+              <button class="orb-btn" type="button" aria-label="Enter pi's island, a walkable map of Ammaar's projects">
+                <canvas class="orb" aria-hidden="true"></canvas>
+              </button>
+              <p class="orb-hint">[ click the orb · warp to pi's island ]</p>
+            </div>
+
+            <div class="fetch-info">
+              <p class="t-hey t-in" style="--d:1.0s">Hey, <span class="t-acc">visitor</span></p>
+              <h1 class="t-name t-in" style="--d:1.08s"><span class="sr-only">Ammaar Rehman</span><span aria-hidden="true">Ammaar<span class="t-at">@</span>Rehman</span></h1>
+              <p class="t-rule t-in" style="--d:1.12s" aria-hidden="true">-------------</p>
+
+              <section class="t-box t-in" style="--d:1.2s" aria-label="profile">
+                <h2 class="t-box-title">Profile</h2>
+                <dl>
+                  <div><dt>ROLE</dt><dd>Cyber Security Analyst <span class="t-dim">// Cyber Ready Clinic (intern cohort)</span></dd></div>
+                  <div><dt>ROLE</dt><dd>Cloud &amp; AI Operations Intern <span class="t-dim">// NextGen Consulting</span></dd></div>
+                  <div><dt>EDU</dt><dd>HCC A.A. <span class="t-dim">(Dec 2026)</span> → UMD Smith, B.S. IS <span class="t-dim">(Jan 2027)</span></dd></div>
+                  <div><dt>LOC</dt><dd>Ellicott City, MD</dd></div>
+                </dl>
+              </section>
+
+              <section class="t-box t-in" style="--d:1.32s" aria-label="certifications">
+                <h2 class="t-box-title">Certs</h2>
+                <dl>
+                  <div><dt>AWS</dt><dd>Cloud Practitioner <span class="t-bar full" aria-hidden="true"></span> <span class="t-ok">certified</span></dd></div>
+                  <div><dt>COMPTIA</dt><dd>Tech+ <span class="t-bar full" aria-hidden="true"></span> <span class="t-ok">certified</span></dd></div>
+                  <div><dt>READY5</dt><dd>Practitioner <span class="t-bar busy" aria-hidden="true"></span> <span class="t-warn">in cohort</span></dd></div>
+                </dl>
+              </section>
+
+              <section class="t-box t-in" style="--d:1.44s" aria-label="homelab">
+                <h2 class="t-box-title">Homelab</h2>
+                <dl>
+                  <div><dt>DNS</dt><dd><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener">HA pair, keepalived VIP ↗</a> <span class="t-ok">live</span></dd></div>
+                  <div><dt>OBS</dt><dd>Prometheus · Grafana · Uptime Kuma</dd></div>
+                </dl>
+              </section>
+
+              <p class="t-greet t-in" style="--d:1.56s"><span class="t-greeting">Good evening</span>, thanks for stopping by.</p>
+              <p class="t-swatch t-in" style="--d:1.62s" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></p>
+            </div>
+          </div>
+
+          <p class="t-line t-cmds t-in" style="--d:1.75s">
+            <span class="t-prompt">ammaar@portfolio ~ %</span>
+            <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">open resume.pdf</a>
+            <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github</a>
+            <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin</a>
+            <a href="mailto:ammaarrehmanf@gmail.com">mail</a>
+            <span class="cursor" aria-hidden="true"></span>
+          </p>
         </div>
-      </div>
-      <div class="room-wrap rv" style="--d:.5s">
-        <canvas class="net" data-layers="4,6,7,6,4" data-signals="16" aria-hidden="true"></canvas>
-        <span class="anno" aria-hidden="true" style="top:2px; left:20%">|&#8592;&nbsp;2/3&nbsp;&#8594;|</span>
-        <span class="anno" aria-hidden="true" style="top:2px; right:15%">70&#176;</span>
-        <span class="anno" aria-hidden="true" style="left:2px; top:44%">1/3</span>
-        <span class="anno anno-c" style="right:4px; top:22%">1</span>
-        <canvas id="room" width="200" height="144" aria-label="pi's island &#8212; drag pi onto the desk, drink, homelab, or macbook. mind the dinosaurs."></canvas>
-        <div id="room-bubble"></div>
-        <div class="room-hint">// pi's island &#183; drag him onto things. tap him. poke the dino.</div>
       </div>
     </div>
   </header>
 
-<main id="main">
+  <main id="main">
 
-<!-- — ABOUT — -->
-<div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--amber)">&#9650;</span> <b>##</b> about</span><span class="div-anno" aria-hidden="true">&#9312; &#183; 1/3 &#8594;</span></div></div>
+  <!-- every section is a terminal pane: a title set into the border, the command that "printed" it, then the output -->
 
-<section class="section" id="about">
-  <div class="container about-grid">
-    <figure class="about-photo rv">
-      <img src="assets/headshot.jpg" alt="Ammaar Rehman" width="720" height="707" loading="lazy" decoding="async" />
-      <figcaption>// ellicott city, md</figcaption>
-    </figure>
-    <div class="about-text rv">
-      <h2 class="section-heading">A quick <em>intro.</em></h2>
-      <p>
-        I'm finishing my A.A. at <b>Howard Community College</b> this December
-        on a <b>3.65 GPA, Dean's List</b>, and I start at the University of
-        Maryland's <b>Smith School of Business</b> in January 2027 to study
-        Information Systems.
-      </p>
-      <p>
-        This fall I joined <b>Cyber Ready Clinic</b>'s analyst cohort. Working
-        alongside senior practitioners, I help assess nonprofit clients' cyber
-        readiness with the Discover5 and Ready5 frameworks and map the gaps we
-        find to the <b>NIST Cybersecurity Framework</b> and <b>CIS Controls</b>.
-      </p>
-      <p>
-        At <b>NextGen Consulting</b> I started as an IT Operations Intern and
-        closed out 200+ user issues. I'm now a <b>Cloud &amp; AI Operations
-        Intern</b> on the same team, using Claude and AWS Kiro daily to
-        investigate errors and triage tickets, and I write the support docs
-        other staff end up reusing. In 2026 I earned
-        <b>AWS Certified Cloud Practitioner</b> and <b>CompTIA Tech+</b>, and
-        completed <b>Anthropic's AI Fluency &amp; Claude Developer Training</b>.
-      </p>
-      <p>
-        Most of my hands-on work happens in the homelab. Two Raspberry Pi 5
-        nodes run <b>high-availability DNS</b>: AdGuard Home and Unbound behind
-        a keepalived floating IP, with failover I've tested in both directions.
-        A Prometheus/Grafana stack handles monitoring, and everything I build
-        gets written up on
-        <a href="https://github.com/ammaarrehman/homelab" target="_blank" rel="noopener"><b>GitHub</b></a>,
-        this site included.
-      </p>
-      <div class="fact-list">
-        <b>→</b> AWS Certified Cloud Practitioner (CLF-C02)<br />
-        <b>→</b> CompTIA Tech+<br />
-        <b>→</b> Anthropic AI Fluency &amp; Claude Developer Training<br />
-        <b>→</b> Maryland House of Delegates · volunteer staff<br />
-        <b>→</b> FBLA State Champion, Regional Champion, National Qualifier<br />
-        <b>→</b> every project documented on GitHub
+  <!-- ── ABOUT ── -->
+  <section class="section" id="about">
+    <div class="container">
+      <div class="pane rv">
+        <h2 class="pane-title">about</h2>
+        <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> cat about.md</p>
+        <div class="about-grid">
+          <figure class="about-photo">
+            <div class="win-bar" aria-hidden="true"><span class="term-dots"><i></i><i></i><i></i></span><span>headshot.jpg</span></div>
+            <img src="assets/headshot.jpg" alt="Ammaar Rehman" width="720" height="707" loading="lazy" decoding="async" />
+            <figcaption>ellicott city, md</figcaption>
+          </figure>
+          <div class="about-text">
+            <p>
+              I'm finishing my A.A. at <b>Howard Community College</b> this December
+              on a <b>3.65 GPA, Dean's List</b>, and I start at the University of
+              Maryland's <b>Smith School of Business</b> in January 2027 to study
+              Information Systems.
+            </p>
+            <p>
+              This fall I joined <b>Cyber Ready Clinic</b>'s analyst cohort. Working
+              alongside senior practitioners, I help assess nonprofit clients' cyber
+              readiness with the Discover5 and Ready5 frameworks and map the gaps we
+              find to the <b>NIST Cybersecurity Framework</b> and <b>CIS Controls</b>.
+            </p>
+            <p>
+              At <b>NextGen Consulting</b> I started as an IT Operations Intern and
+              closed out 200+ user issues. I'm now a <b>Cloud &amp; AI Operations
+              Intern</b> on the same team, using Claude and AWS Kiro daily to
+              investigate errors and triage tickets, and I write the support docs
+              other staff end up reusing.
+            </p>
+            <p>
+              Outside work I build and test things in the open. Two Raspberry Pi 5
+              nodes run <b>high-availability DNS</b> behind a keepalived floating IP,
+              with failover tested in both directions. In <b>trading-lab</b> I wrote
+              the pass/fail rules for seven trading strategies before touching any
+              data, and rejected every one before a dollar moved. It's all on
+              <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener"><b>GitHub</b></a>, this site included.
+            </p>
+            <dl class="tree">
+              <div><dt>certs</dt><dd>AWS Cloud Practitioner (CLF-C02) · CompTIA Tech+</dd></div>
+              <div><dt>learning</dt><dd>Anthropic AI Fluency &amp; Claude developer courses</dd></div>
+              <div><dt>honors</dt><dd>FBLA State Champion, Regional Champion, National Qualifier</dd></div>
+              <div><dt>service</dt><dd>Maryland House of Delegates · volunteer staff</dd></div>
+            </dl>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-</section>
+  </section>
 
   <!-- ── SKILLS ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--cyan)">&#9650;</span> <b>##</b> skills</span><span class="div-anno" aria-hidden="true">&#9313; &#183; 2/3</span></div></div>
-
   <section class="section" id="skills">
     <div class="container" id="skills-app">
-      <h2 class="section-heading rv">The <em>toolbox.</em></h2>
-      <p class="section-sub rv">What I work with — certified, shipped, or currently being drilled.</p>
-      <div class="stack-tabs rv" role="tablist" aria-label="skill categories"></div>
-      <p class="stack-cmd">ammaar:~$ <b>ls ./<span class="stack-active">cloud_infra</span></b></p>
-      <div class="stack-chips" role="tabpanel" aria-live="polite"></div>
-      <p class="stack-note">// no frameworks. hand-rolled HTML/CSS/JS, plus Python in tools/.</p>
+      <div class="pane rv">
+        <h2 class="pane-title">skills</h2>
+        <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls ~/skills</p>
+        <p class="pane-sub">What I work with: certified, shipped, or currently being drilled.</p>
+        <div class="stack-tabs" role="tablist" aria-label="skill categories"></div>
+        <p class="stack-cmd"><span class="t-prompt">ammaar@portfolio ~ %</span> ls ./<span class="stack-active">cloud_infra</span></p>
+        <div class="stack-chips" role="tabpanel" aria-live="polite"></div>
+      </div>
     </div>
   </section>
 
   <!-- ── EXPERIENCE ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--acc)">&#9650;</span> <b>##</b> experience</span><span class="div-anno" aria-hidden="true">&#9314; &#183; nokta</span></div></div>
-
   <section class="section" id="experience">
     <div class="container">
-      <h2 class="section-heading rv">Where I've <em>worked.</em></h2>
-      <div class="xp-list">
+      <div class="pane rv">
+        <h2 class="pane-title">experience</h2>
+        <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> git log --format=career</p>
+        <div class="xp-list">
 
-        <div class="xp rv">
-          <div class="xp-when">SEP 2026 – PRESENT<br /><span class="where">internship cohort</span></div>
-          <div>
-            <h3>Cyber Ready Clinic</h3>
-            <p class="role">Cyber Security Analyst</p>
-            <ul>
-              <li>Assess nonprofit clients' cyber readiness with the Discover5 business-risk and Ready5 capability frameworks, mapping findings to the NIST Cybersecurity Framework and CIS Controls</li>
-              <li>Identify coverage gaps across endpoint, identity, email, edge, and response controls: EDR and MDR, MFA and Conditional Access, SPF/DKIM/DMARC, DNS filtering, immutable backup and restore testing</li>
-              <li>Take part in in-person client engagements alongside senior practitioners, including intake interviews with nonprofit leadership, capability interviews with client IT teams and MSPs, and close-out briefings</li>
-              <li>Working toward the Ready5 Practitioner digital badge, awarded on cohort completion</li>
-            </ul>
+          <div class="xp">
+            <div class="xp-when"><span class="xp-dot live" aria-hidden="true"></span>SEP 2026 – PRESENT<br /><span class="where">internship cohort</span></div>
+            <div>
+              <h3>Cyber Ready Clinic</h3>
+              <p class="role">Cyber Security Analyst</p>
+              <ul>
+                <li>Assess nonprofit clients' cyber readiness with the Discover5 business-risk and Ready5 capability frameworks, mapping findings to the NIST Cybersecurity Framework and CIS Controls</li>
+                <li>Identify coverage gaps across endpoint, identity, email, edge, and response controls: EDR and MDR, MFA and Conditional Access, SPF/DKIM/DMARC, DNS filtering, immutable backup and restore testing</li>
+                <li>Take part in in-person client engagements alongside senior practitioners, including intake interviews with nonprofit leadership, capability interviews with client IT teams and MSPs, and close-out briefings</li>
+                <li>Working toward the Ready5 Practitioner digital badge, awarded on cohort completion</li>
+              </ul>
+            </div>
           </div>
-        </div>
 
-        <div class="xp rv">
-          <div class="xp-when">MAY 2025 – PRESENT<br /><span class="where">DC–Baltimore area</span></div>
-          <div>
-            <h3>NextGen Consulting Inc.</h3>
-            <p class="role">Cloud &amp; AI Operations Intern</p>
-            <ul>
-              <li>Use AI-assisted tools (Claude, AWS Kiro) daily to investigate errors, summarize issues, and improve internal support documentation other staff reuse</li>
-              <li>Run configuration checks, service testing, and issue triage on active cloud projects</li>
-              <li>Translate technical problems into clear next steps for non-technical users and stakeholders</li>
-            </ul>
-            <p class="role" style="margin-top:14px;">Information Technology Operations Intern <span class="where">· Jun 2024 – May 2025</span></p>
-            <ul>
-              <li>Resolved 200+ user issues spanning account configuration, access, and mobile app troubleshooting</li>
-              <li>Tested app functionality, documented bugs, and built support documentation that reduced repeat-issue resolution time</li>
-            </ul>
+          <div class="xp">
+            <div class="xp-when"><span class="xp-dot live" aria-hidden="true"></span>MAY 2025 – PRESENT<br /><span class="where">DC–Baltimore area</span></div>
+            <div>
+              <h3>NextGen Consulting Inc.</h3>
+              <p class="role">Cloud &amp; AI Operations Intern</p>
+              <ul>
+                <li>Use AI-assisted tools (Claude, AWS Kiro) daily to investigate errors, summarize issues, and improve internal support documentation other staff reuse</li>
+                <li>Run configuration checks, service testing, and issue triage on active cloud projects</li>
+                <li>Translate technical problems into clear next steps for non-technical users and stakeholders</li>
+              </ul>
+              <p class="role role-2">Information Technology Operations Intern <span class="where">· Jun 2024 – May 2025</span></p>
+              <ul>
+                <li>Resolved 200+ user issues spanning account configuration, access, and mobile app troubleshooting</li>
+                <li>Tested app functionality, documented bugs, and built support documentation that reduced repeat-issue resolution time</li>
+              </ul>
+            </div>
           </div>
-        </div>
 
-        <div class="xp rv">
-          <div class="xp-when">AUG 2024 – PRESENT<br /><span class="where">Columbia, MD</span></div>
-          <div>
-            <h3>HCC Campus Store — Slingshot</h3>
-            <p class="role">Campus Operations Associate</p>
-            <ul>
-              <li>Operate order, fulfillment, and inventory systems serving students, faculty, staff, and departments in a fast-paced, high-volume environment</li>
-              <li>Troubleshoot order, delivery, and account issues, and identify recurring workflow problems to improve consistency during peak periods</li>
-            </ul>
+          <div class="xp">
+            <div class="xp-when"><span class="xp-dot live" aria-hidden="true"></span>AUG 2024 – PRESENT<br /><span class="where">Columbia, MD</span></div>
+            <div>
+              <h3>HCC Campus Store · Slingshot</h3>
+              <p class="role">Campus Operations Associate</p>
+              <ul>
+                <li>Operate order, fulfillment, and inventory systems serving students, faculty, staff, and departments in a fast-paced, high-volume environment</li>
+                <li>Troubleshoot order, delivery, and account issues, and identify recurring workflow problems to improve consistency during peak periods</li>
+              </ul>
+            </div>
           </div>
-        </div>
 
+        </div>
       </div>
     </div>
   </section>
 
   <!-- ── PROJECTS ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--mag)">&#9650;</span> <b>##</b> projects</span><span class="div-anno" aria-hidden="true">&#9315; &#183; 3/3</span></div></div>
-
   <section class="section" id="projects">
     <div class="container">
-      <h2 class="section-heading rv">On the <em>bench.</em></h2>
-      <p class="section-sub rv">Three featured builds, then the rest of the homelab. Every one is documented on GitHub.</p>
-      <div class="work-grid">
+      <div class="pane rv">
+        <h2 class="pane-title">projects</h2>
+        <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls -la ~/projects</p>
+        <p class="pane-sub">Four featured builds, then the rest. Every one is documented on GitHub.</p>
+        <div class="work-grid">
 
-        <article class="work-item work-feature rv">
-          <div class="work-meta">
-            <span class="status status-live">● LIVE</span>
-            <span class="work-type">homelab / networking</span>
-          </div>
-          <img class="work-img" width="1600" height="1000" decoding="async" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/ha-dns/screenshots/failover-after.png" alt="keepalived failover — the floating IP live on the backup node" loading="lazy" />
-          <h3 class="work-title">High-availability DNS</h3>
-          <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced between nodes every 10 minutes. The rack on pi's island is real.</p>
-          <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener">↗ repo</a></div>
-        </article>
+          <article class="work-item">
+            <div class="win-bar" aria-hidden="true"><span class="term-dots"><i></i><i></i><i></i></span><span>homelab/ha-dns</span></div>
+            <img class="work-img" src="assets/work/ha-dns.webp" width="982" height="792" loading="lazy" decoding="async" alt="keepalived failover: the floating IP now answering from the backup node" />
+            <div class="work-body">
+              <div class="work-meta"><span class="status status-live">LIVE</span><span class="work-type">homelab / networking</span></div>
+              <h3 class="work-title">High-availability DNS</h3>
+              <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced every 10 minutes.</p>
+              <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener">repo ↗</a></div>
+            </div>
+          </article>
 
-        <article class="work-item rv">
-          <div class="work-meta">
-            <span class="status status-shipped">● SHIPPED</span>
-            <span class="work-type">ai / automation</span>
-          </div>
-          <img class="work-img" width="1600" height="1000" decoding="async" src="https://raw.githubusercontent.com/ammaarrehman/claude-intake-triage/main/screenshots/sheet-output.png" alt="Triaged intake requests structured in Google Sheets" loading="lazy" />
-          <h3 class="work-title">Claude intake triage assistant</h3>
-          <p class="work-desc">Turns messy free-text help requests into structured, reviewable records — category, urgency, summary, next step, human-review flag — via Google Forms, Apps Script, and the Claude API. A 15-case eval harness drove classification accuracy to 100% and multi-need coverage from 0% to 90%.</p>
-          <div class="work-stack"><span>Claude API</span><span>Apps Script</span><span>Google Sheets</span><span>Python</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener">↗ repo</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener">↗ demo</a></div>
-        </article>
+          <article class="work-item">
+            <div class="win-bar" aria-hidden="true"><span class="term-dots"><i></i><i></i><i></i></span><span>trading-lab</span></div>
+            <img class="work-img" src="assets/work/trading-lab.webp" width="1200" height="560" loading="lazy" decoding="async" alt="Chart from trading-lab: $250 in the tested strategy grew to $307 from 2015 to 2026, against $1,125 buying and holding SPY" />
+            <div class="work-body">
+              <div class="work-meta"><span class="status status-shipped">DONE</span><span class="work-type">research / python</span></div>
+              <h3 class="work-title">trading-lab</h3>
+              <p class="work-desc">Do popular trading strategies actually have an edge? Seven experiments: stock mean reversion, a crypto trend filter, Kalshi 15-minute markets, dual momentum, copying Congress, a holiday effect, and a Kalshi model search. Pass/fail rules committed to git before any data, backtests built to catch their own bugs, each run once. All seven rejected, $0 lost.</p>
+              <div class="work-stack"><span>Python</span><span>pre-registration</span><span>backtesting</span><span>CI self-tests</span></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/trading-lab" target="_blank" rel="noopener">repo ↗</a></div>
+            </div>
+          </article>
 
-        <article class="work-item rv">
-          <div class="work-meta">
-            <span class="status status-shipped">● SHIPPED</span>
-            <span class="work-type">cloud / IaC</span>
-          </div>
-          <img class="work-img" width="1600" height="1000" decoding="async" src="https://raw.githubusercontent.com/ammaarrehman/homelab/main/terraform-aws-static-site/screenshots/terraform-apply.png" alt="terraform apply provisioning the AWS static site" loading="lazy" />
-          <h3 class="work-title">AWS static website deployment</h3>
-          <p class="work-desc">AWS static-site infrastructure provisioned end to end with Terraform — S3 hosting, CloudFront content delivery, Route 53 DNS routing, and IAM access controls — with a repeatable deploy/teardown workflow.</p>
-          <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>Route 53</span><span>IAM</span></div>
-          <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener">↗ repo</a></div>
-        </article>
+          <article class="work-item">
+            <div class="win-bar" aria-hidden="true"><span class="term-dots"><i></i><i></i><i></i></span><span>claude-intake-triage/evals</span></div>
+            <img class="work-img" src="assets/work/triage.webp" width="1000" height="584" loading="lazy" decoding="async" alt="Eval harness output: prompt v2 scores 15 of 15 on primary accuracy and 9 of 10 on multi-need coverage" />
+            <div class="work-body">
+              <div class="work-meta"><span class="status status-shipped">SHIPPED</span><span class="work-type">ai / automation</span></div>
+              <h3 class="work-title">Claude intake triage assistant</h3>
+              <p class="work-desc">Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took primary accuracy from 93% to 100% and multi-need coverage from 0% to 90%. Staff review every row.</p>
+              <div class="work-stack"><span>Claude API</span><span>Apps Script</span><span>Google Sheets</span><span>Python evals</span></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener">repo ↗</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener">demo ↗</a></div>
+            </div>
+          </article>
 
-      </div>
+          <article class="work-item">
+            <div class="win-bar" aria-hidden="true"><span class="term-dots"><i></i><i></i><i></i></span><span>homelab/terraform-aws-static-site</span></div>
+            <img class="work-img" src="assets/work/terraform.webp" width="1000" height="795" loading="lazy" decoding="async" alt="The deployed static site served from CloudFront, reading: served from a private S3 bucket via CloudFront, provisioned with Terraform" />
+            <div class="work-body">
+              <div class="work-meta"><span class="status status-shipped">SHIPPED</span><span class="work-type">cloud / IaC</span></div>
+              <h3 class="work-title">AWS static site with Terraform</h3>
+              <p class="work-desc">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployed and destroyed with one command, inside the AWS free tier, with a budget alarm.</p>
+              <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>OAC</span><span>AWS Budgets</span></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener">repo ↗</a></div>
+            </div>
+          </article>
 
-      <p class="rack-head rv">ammaar:~$ <b>ls ./homelab</b></p>
-      <div class="rack">
-        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener">
-          <span class="status status-live">● LIVE</span>
-          <span class="rack-title">DNS filtering + recursive resolution</span>
-          <span class="rack-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started.</span>
-          <span class="rack-go">↗</span>
-        </a>
-        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener">
-          <span class="status status-live">● LIVE</span>
-          <span class="rack-title">Metrics &amp; observability stack</span>
-          <span class="rack-desc">Prometheus + Grafana with node-exporter and cAdvisor, covering host and container health across the lab.</span>
-          <span class="rack-go">↗</span>
-        </a>
-        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener">
-          <span class="status status-live">● LIVE</span>
-          <span class="rack-title">Uptime monitoring</span>
-          <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for every homelab service.</span>
-          <span class="rack-go">↗</span>
-        </a>
-        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener">
-          <span class="status status-live">● LIVE</span>
-          <span class="rack-title">Homelab dashboard + kiosk</span>
-          <span class="rack-desc">Homepage dashboard with live widgets, running full-screen on a touchscreen in the rack via Chromium kiosk.</span>
-          <span class="rack-go">↗</span>
-        </a>
-        <a class="rack-row rv" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener">
-          <span class="status status-live">● LIVE</span>
-          <span class="rack-title">Mesh VPN remote access</span>
-          <span class="rack-desc">Tailscale for SSH and admin access to every node from anywhere, with nothing exposed to the public internet.</span>
-          <span class="rack-go">↗</span>
-        </a>
-        <a class="rack-row rv" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">
-          <span class="status status-active">● ACTIVE</span>
-          <span class="rack-title">This ePortfolio</span>
-          <span class="rack-desc">Hand-rolled ASCII design system, pixel critter, generated marks. Plain HTML, CSS, JS and Python with no frameworks.</span>
-          <span class="rack-go">↗</span>
-        </a>
+        </div>
+
+        <p class="stack-cmd rack-head" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls -la ~/projects/more</p>
+        <div class="rack">
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">dns-filtering/</span>
+            <span class="rack-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started.</span>
+            <span class="status status-live">LIVE</span>
+          </a>
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">monitoring-stack/</span>
+            <span class="rack-desc">Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose.</span>
+            <span class="status status-live">LIVE</span>
+          </a>
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">uptime-monitoring/</span>
+            <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for every homelab service.</span>
+            <span class="status status-live">LIVE</span>
+          </a>
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">homepage/</span>
+            <span class="rack-desc">A config-driven dashboard for the whole lab, running full-screen on the rack's touchscreen in kiosk mode.</span>
+            <span class="status status-live">LIVE</span>
+          </a>
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">remote-access/</span>
+            <span class="rack-desc">Tailscale mesh VPN (WireGuard underneath) for SSH and admin access from anywhere, with no router ports opened.</span>
+            <span class="status status-live">LIVE</span>
+          </a>
+          <a class="rack-row" href="https://github.com/ammaarrehman/sanas-cakes" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">sanas-cakes/</span>
+            <span class="rack-desc">A starter website for Sana's homemade cake business: home, about, popular cakes, order page.</span>
+            <span class="status status-shipped">SHIPPED</span>
+          </a>
+          <a class="rack-row" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">
+            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
+            <span class="rack-title">ammaarrehman.github.io/</span>
+            <span class="rack-desc">This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas.</span>
+            <span class="status status-active">ACTIVE</span>
+          </a>
+        </div>
       </div>
     </div>
   </section>
 
   <!-- ── EDUCATION & CERTS ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--blue)">&#9650;</span> <b>##</b> education &amp; certs</span><span class="div-anno" aria-hidden="true">&#9316; &#183; 70&#176;</span></div></div>
-
   <section class="section" id="education">
     <div class="container">
-      <h2 class="section-heading rv">Academic <em>record.</em></h2>
-      <div class="edu-grid">
+      <div class="pane rv">
+        <h2 class="pane-title">education &amp; certs</h2>
+        <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> cat education.txt</p>
+        <div class="edu-grid">
 
-        <div class="edu-item rv">
-          <div class="when"><span class="lit">● CURRENT</span><span>AUG 2024 – DEC 2026</span></div>
-          <h3>Howard Community College</h3>
-          <p>A.A. General Studies · <b>GPA 3.65</b> · Dean's List</p>
-          <p style="margin-top:8px;">Coursework: Accounting I &amp; II, Economics (Macro &amp; Micro), Business Calculus, Statistics, Marketing, Intro to Business, Computer Concepts, Python</p>
+          <section class="t-box" aria-label="Howard Community College">
+            <h3 class="t-box-title">Howard Community College</h3>
+            <dl>
+              <div><dt>DEGREE</dt><dd>A.A. General Studies</dd></div>
+              <div><dt>DATES</dt><dd>Aug 2024 – Dec 2026 <span class="status status-live">CURRENT</span></dd></div>
+              <div><dt>GPA</dt><dd>3.65 · Dean's List</dd></div>
+              <div><dt>COURSES</dt><dd>Accounting I &amp; II, Macro &amp; Micro Economics, Business Calculus, Statistics, Marketing, Intro to Business, Computer Concepts, Python</dd></div>
+            </dl>
+          </section>
+
+          <section class="t-box" aria-label="University of Maryland">
+            <h3 class="t-box-title">UMD · Smith School of Business</h3>
+            <dl>
+              <div><dt>DEGREE</dt><dd>B.S. Information Systems</dd></div>
+              <div><dt>DATES</dt><dd>Starts Jan 2027 · expected 2028 <span class="status status-active">INCOMING</span></dd></div>
+              <div><dt>ADMIT</dt><dd>Guaranteed transfer admission, Smith School direct-admit criteria met</dd></div>
+            </dl>
+          </section>
+
+          <section class="t-box" aria-label="certifications">
+            <h3 class="t-box-title">Certifications</h3>
+            <dl>
+              <div><dt>AWS</dt><dd>Certified Cloud Practitioner (CLF-C02) <span class="t-bar full" aria-hidden="true"></span> <span class="t-dim">Jun 2026</span></dd></div>
+              <div><dt>COMPTIA</dt><dd>Tech+ <span class="t-bar full" aria-hidden="true"></span> <span class="t-dim">Aug 2026</span></dd></div>
+              <div><dt>READY5</dt><dd>Practitioner, Cyber Ready Clinic <span class="t-bar busy" aria-hidden="true"></span> <span class="t-warn">in progress</span></dd></div>
+              <div><dt>ANTHROPIC</dt><dd>9 AI Fluency &amp; Claude developer courses, incl. Claude Code 101, Building with the Claude API, Intro to MCP <span class="t-dim">Jun 2026</span></dd></div>
+            </dl>
+          </section>
+
+          <section class="t-box" aria-label="honors and leadership">
+            <h3 class="t-box-title">Honors &amp; leadership</h3>
+            <dl>
+              <div><dt>FBLA</dt><dd>State Champion and Regional Champion</dd></div>
+              <div><dt>FBLA</dt><dd>National Qualifier, competed at the national level</dd></div>
+              <div><dt>MD HOUSE</dt><dd>Maryland House of Delegates · volunteer staff</dd></div>
+              <div><dt>HCC</dt><dd>Dean's List</dd></div>
+            </dl>
+          </section>
+
         </div>
-
-        <div class="edu-item rv">
-          <div class="when"><span>○ INCOMING</span><span>JAN 2027 · EXP. 2028</span></div>
-          <h3>UMD · Smith School of Business</h3>
-          <p><b>B.S. Information Systems</b></p>
-          <p style="margin-top:8px;">University of Maryland, Robert H. Smith School of Business. Starts January 2027. Guaranteed transfer admission, Smith School direct-admit criteria met.</p>
-        </div>
-
-        <div class="edu-item rv">
-          <div class="when"><span>CERTIFICATIONS</span></div>
-          <div class="cert-row">
-            <span class="c-name">AWS Certified Cloud Practitioner (CLF-C02)</span>
-            <span class="c-state done">● CERTIFIED JUN 2026</span>
-          </div>
-          <div class="cert-row">
-            <span class="c-name">CompTIA Tech+</span>
-            <span class="c-state done">● CERTIFIED AUG 2026</span>
-          </div>
-          <div class="cert-row">
-            <span class="c-name">Anthropic AI Fluency &amp; Claude Developer Training · 9 courses across the Claude Platform, API &amp; AI Fluency tracks</span>
-            <span class="c-state done">● COMPLETED JUN 2026</span>
-          </div>
-          <div class="cert-row">
-            <span class="c-name">Ready5 Practitioner · Cyber Ready Clinic</span>
-            <span class="c-state wip">◐ IN PROGRESS</span>
-          </div>
-        </div>
-
-        <div class="edu-item rv">
-          <div class="when"><span>HONORS &amp; LEADERSHIP</span></div>
-          <p>
-            <b>→</b> FBLA State Champion and Regional Champion<br />
-            <b>→</b> FBLA National Qualifier, competed at the national level<br />
-            <b>→</b> Maryland House of Delegates · volunteer staff<br />
-            <b>→</b> Dean's List · Howard Community College
-          </p>
-        </div>
-
       </div>
     </div>
   </section>
 
   <!-- ── CONTACT ── -->
-  <div class="divider"><div class="container divider-row"><span class="mono-label"><span class="wp" style="color:var(--red)">&#9650;</span> <b>##</b> contact</span><span class="div-anno" aria-hidden="true">&#9317; &#183; qalam &#8722; 1</span></div></div>
-
-  <section class="section" id="contact" style="border-bottom:none;">
+  <section class="section" id="contact">
     <div class="container">
-      <canvas class="net net-contact" data-layers="3,5,6,4" data-signals="8" aria-hidden="true"></canvas>
-      <h2 class="section-heading rv">Let's <em>talk.</em></h2>
-      <p class="section-sub rv">Want to talk? Email is the fastest way to reach me.</p>
-      <p class="prompt-line rv">
-        <span class="host">ammaar:~$ mail </span><a href="mailto:ammaarrehmanf@gmail.com">ammaarrehmanf@gmail.com</a><button class="copy-btn" type="button" data-copy="ammaarrehmanf@gmail.com" hidden>copy</button> <span class="cursor" aria-hidden="true"></span>
-      </p>
-      <div class="contact-rows rv">
-        <div><b>linkedin</b> <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin.com/in/ammaarrehman</a></div>
-        <div><b>github</b> <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github.com/ammaarrehman</a></div>
-        <div><b>phone</b> <a href="tel:3017685445">(301) 768-5445</a></div>
-        <div><b>resume</b> <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">Ammaar_Rehman_Resume.pdf ↗</a></div>
+      <div class="pane rv">
+        <canvas class="orb orb-mini" aria-hidden="true"></canvas>
+        <h2 class="pane-title">contact</h2>
+        <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> finger ammaar</p>
+        <p class="pane-sub">Want to talk? Email is the fastest way to reach me.</p>
+        <p class="prompt-line">
+          <span class="t-prompt">ammaar@portfolio ~ %</span> mail <a href="mailto:ammaarrehmanf@gmail.com">ammaarrehmanf@gmail.com</a><button class="copy-btn" type="button" data-copy="ammaarrehmanf@gmail.com" hidden>copy</button> <span class="cursor" aria-hidden="true"></span>
+        </p>
+        <dl class="tree contact-rows">
+          <div><dt>linkedin</dt><dd><a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin.com/in/ammaarrehman</a></dd></div>
+          <div><dt>github</dt><dd><a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github.com/ammaarrehman</a></dd></div>
+          <div><dt>phone</dt><dd><a href="tel:3017685445">(301) 768-5445</a></dd></div>
+          <div><dt>resume</dt><dd><a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">Ammaar_Rehman_Resume.pdf ↗</a></dd></div>
+        </dl>
       </div>
     </div>
   </section>
@@ -416,33 +485,19 @@
   </main>
 
   <!-- ── FOOTER ── -->
-  <footer class="footer" style="border-top:1px solid var(--line);">
+  <footer class="footer">
     <div class="container footer-inner">
       <span><b>AMMAAR REHMAN</b> © 2026 · Ellicott City, MD · updated Sep 2026</span>
-      <span>HTML / CSS / JS / Python · <a href="https://github.com/ammaarrehman/homelab" target="_blank" rel="noopener" style="color:var(--t3)">homelab on GitHub</a> · pi roams here</span>
+      <button class="reboot-btn" type="button">↻ reboot</button>
+      <span>HTML / CSS / JS / Python · <a href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">source on GitHub</a> · pi lives on the island</span>
     </div>
   </footer>
 
-  <script>
-  /* fit the ansi_shadow wordmarks to their column (jetbrains mono advance = .6em) */
-  (function () {
-    function fit() {
-      document.querySelectorAll(".wordmark").forEach(function (el) {
-        var chars = 0;
-        el.textContent.split("\n").forEach(function (l) { chars = Math.max(chars, l.length); });
-        if (!chars) return;
-        el.style.fontSize = Math.max(4.5, Math.min(15, el.parentElement.clientWidth / (chars * 0.615))) + "px";
-      });
-    }
-    window.addEventListener("resize", fit);
-    if (document.fonts && document.fonts.ready) document.fonts.ready.then(fit);
-    fit();
-  })();
-  </script>
-  <script src="js/pi.js"></script>
   <script src="js/skills.js"></script>
+  <script src="js/boot.js"></script>
   <script src="js/site.js"></script>
-  <script src="js/net.js"></script>
-  <script src="js/field.js"></script>
+  <script src="js/orb.js"></script>
+  <script src="js/world.js"></script>
+  <script src="js/hands.js"></script>
 </body>
 </html>

@@ -1,5 +1,6 @@
-/* site — theme toggle, hatch keys, copy email, scroll reveal, heading word-rise, nav scrollspy,
-   and the card spotlight. the network lives in js/net.js.
+/* site — theme toggle, copy email, scroll reveal, heading word-rise, nav scrollspy,
+   and the card spotlight. the orb is js/orb.js, the island js/world.js,
+   the background js/hands.js.
    everything here is progressive: with js off the page renders as-is. */
 (function () {
   var root = document.documentElement;
@@ -31,13 +32,12 @@
     document.startViewTransition(function () { setTheme(next); });
   });
 
-  /* ── the hatch: keyboard can crack the egg too (esc skips straight to the hatch) ── */
-  var hatch = document.getElementById("hatch");
-  if (hatch) window.addEventListener("keydown", function onKey(e) {
-    if (!document.body.classList.contains("hatching")) { window.removeEventListener("keydown", onKey); return; }
-    var n = e.key === "Escape" ? 12 : 1;
-    for (var i = 0; i < n; i++) hatch.dispatchEvent(new Event("pointerdown"));
-  });
+  /* ── the terminal: a real "last login" time and a greeting for the hour ── */
+  var now = new Date();
+  var nowEl = document.querySelector(".t-now");
+  if (nowEl) nowEl.textContent = now.toDateString().slice(0, 10) + " " + now.toTimeString().slice(0, 5);
+  var greet = document.querySelector(".t-greeting");
+  if (greet) { var hr = now.getHours(); greet.textContent = hr < 5 ? "Up late" : hr < 12 ? "Good morning" : hr < 18 ? "Good afternoon" : "Good evening"; }
 
   /* ── copy email ── */
   var copy = document.querySelector(".copy-btn");
@@ -51,17 +51,6 @@
     });
   }
   paintMeta();
-
-  /* ── wordmark: stamp each glyph with its column for the radar sweep ── */
-  document.querySelectorAll(".wordmark").forEach(function (pre) {
-    var col = 0;
-    pre.childNodes.forEach(function (n) {
-      if (n.nodeType === 3) {
-        var t = n.textContent, nl = t.lastIndexOf("\n");
-        col = nl < 0 ? col + t.length : t.length - nl - 1;
-      } else { n.style.setProperty("--c", col); col += n.textContent.length; }
-    });
-  });
 
   /* ── section headings: wrap each word in a mask so it can rise ── */
   document.querySelectorAll(".section-heading").forEach(function (h) {
@@ -100,7 +89,11 @@
       entries.forEach(function (e) { if (e.isIntersecting) { show(e.target); io.unobserve(e.target); } });
     }, { rootMargin: "0px 0px -8% 0px", threshold: 0.08 });
     items.forEach(function (el) {
-      if (hero && hero.contains(el)) setTimeout(function () { show(el); }, 30);
+      if (hero && hero.contains(el)) {
+        // the terminal boots after the vintage startup screen, so you see neofetch run
+        if (root.classList.contains("booting")) window.addEventListener("boot:done", function () { setTimeout(function () { show(el); }, 60); }, { once: true });
+        else setTimeout(function () { show(el); }, 30);
+      }
       else io.observe(el);
     });
   }
@@ -116,7 +109,7 @@
   function spy() {
     var line = window.innerHeight * 0.4, hit = null;
     spyLinks.forEach(function (l) { if (l.s.getBoundingClientRect().top <= line) hit = l; });
-    // scrollY > 0 guard: while the hatch locks the page it reads as "at the bottom"
+    // scrollY > 0 guard: while pi's island locks the page it reads as "at the bottom"
     if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) hit = spyLinks[spyLinks.length - 1];
     if (hit === active) return;
     active = hit;

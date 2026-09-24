@@ -5,8 +5,8 @@ AWS Certified Cloud Practitioner. Homelab and projects documented at
 [github.com/ammaarrehman/homelab](https://github.com/ammaarrehman/homelab).
 
 Hand-rolled design system: strict monochrome UI and ASCII art that carries
-all the color, over a faint living network that drifts behind the page. Type is all open source (SIL OFL): Instrument Serif for section
-headings, Geist for prose, JetBrains Mono for the UI and the ASCII marks.
+all the color, over ascii hands that reach for each other as you scroll. Type is all open source (SIL OFL): Instrument Serif for section
+headings, Geist for prose, Cascadia Mono for the UI and the terminal.
 Paper light mode follows the OS, with a ◐ toggle in the nav.
 
 ## Structure
@@ -14,42 +14,51 @@ Paper light mode follows the OS, with a ◐ toggle in the nav.
 ```
 index.html        single page
 css/styles.css    the design system
-js/pi.js          pi — the resident pixel critter + his floor of stations
 js/skills.js      skills tabs (vanilla, no framework)
 js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
-js/net.js         the neural network canvas (hero + contact)
-js/field.js       the page background: a sparse living network, fixed behind everything
+js/boot.js        vintage BIOS startup screen: first visit per session, and the footer's ↻ reboot
+js/orb.js         the pink dot orb in the neofetch hero (+ a small one at contact)
+js/world.js       pi's island: warp, top-down map, landmarks, dialog
+js/hands.js       the page background: ascii hands that reach as you scroll
 tools/marks.py    ASCII brand toolchain (wordmarks, crescent, favicon)
 assets/           favicon + app icons, photo, resume, og.png (link preview card)
+assets/work/      project screenshots, copied in from the project repos
+assets/hands.json the ascii hands, as a character grid
 404.html          lost-page screen (GitHub Pages serves it for any bad URL)
 robots.txt, sitemap.xml, site.webmanifest   search + install metadata
 ```
 
-## pi
+## the orb and pi's island
 
-First visit: an egg sits center-screen and slowly cracks — tapping speeds
-it up. pi hatches, plops onto his floating island, and the camera zooms out
-into the site.
+The hero is a grayscale terminal window running `neofetch`: a profile
+readout on the right, and on the left the orb (`js/orb.js`), a fluid AI orb
+made of ~10k dots in two layers, drifting and breathing in pinks. It's a button. Click it and the page warps into
+**pi's island** (`js/world.js`): a top-down pixel island you walk around as
+pi. Every landmark is a piece of the portfolio: the rack is the homelab, the
+desk is the Claude triage project, the uplink is the Terraform AWS build,
+the watchtower is monitoring, the lighthouse is the security work, the
+tablet is the academic record, the mailbox is contact. The boat sails back.
+rex the dino wanders the meadow; pterodactyls fly over.
 
-The hero is that island — a pixel diorama with a desk + PC, a MacBook,
-a homelab rack, a drink, the leftover eggshell, and a live sky: drifting
-bit-clouds, a crescent moon, radar waypoints, pterodactyls with dotted
-ATC tracks, and rex (a chrome-dino homage — click him, he hops).
-pi wanders on his own: codes at the desk, closes tickets when a rack LED
-goes red, sips the drink for a speed boost, runs design review on the
-MacBook. Drag him onto anything to trigger it; tap him for commentary.
-The blueprint marks around the frame are an homage to calligraphy
-construction diagrams.
+- keyboard: wasd / arrows to walk, e / space / enter to look, esc to leave
+- pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look
+- `#island` in the URL opens it directly
+- first visit per session: pi hatches from an egg on the plaza
 
-Behind the island runs the net: a multilayer neural network in the radar
-palette. Nodes drift, layers undulate, weighted connections sway, and
-signals fire input to output, lighting each node they reach. Three depth
-planes parallax against the pointer. A smaller one runs at the contact
-section, and a color pulse sweeps across the ASCII name every few seconds.
+The background (`js/hands.js`) is two ASCII hands after the Sistine ceiling,
+rendered from `assets/hands.json`. They reach toward each other as you
+scroll and spark at the bottom of the page.
 
-Reduced motion: no hatch intro, no auto-walk, the network holds still, no sweep, no
-scroll reveals. pi stays visible and grabbable.
-The hatch plays once per browser session (sessionStorage).
+Reduced motion: no warp (a plain cut), still orb and hands, no typing effect.
+
+## sections
+
+Below the hero every section is a terminal pane: the title sits in the
+border, a command line shows what "printed" it (`cat about.md`,
+`git log --format=career`, `ls -la ~/projects`), then the output. Grayscale
+throughout; pink is reserved for the orb and for things that are live or in
+progress. Project cards are small windows whose screenshots stay grayscale
+until hovered.
 
 ## Regenerating the marks
 
