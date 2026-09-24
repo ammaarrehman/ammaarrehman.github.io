@@ -42,7 +42,8 @@
     try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {}
   })();
   </script>
-  <link rel="icon" type="image/png" sizes="64x64" href="assets/favicon.png" />
+  <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
+  <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="manifest" href="site.webmanifest" />
   <link rel="me" href="https://github.com/ammaarrehman" />
@@ -106,7 +107,7 @@
   <header class="hero">
     <div class="container">
       <!-- the hero is a terminal: a neofetch readout with the orb as its ascii art -->
-      <div class="term rv" style="--d:.1s">
+      <div class="term rv" style="--d:.1s" data-win="zsh — neofetch">
         <div class="term-bar">
           <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="term-tab">zsh — ammaar@portfolio</span>
@@ -181,7 +182,7 @@
   <!-- ── ABOUT ── -->
   <section class="section" id="about">
     <div class="container">
-      <div class="pane rv">
+      <div class="pane rv" data-win="about.md">
         <h2 class="pane-title">about</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> cat about.md</p>
         <div class="about-grid">
@@ -233,7 +234,7 @@
   <!-- ── SKILLS ── -->
   <section class="section" id="skills">
     <div class="container" id="skills-app">
-      <div class="pane rv">
+      <div class="pane rv" data-win="skills">
         <h2 class="pane-title">skills</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls ~/skills</p>
         <p class="pane-sub">What I work with: certified, shipped, or currently being drilled.</p>
@@ -247,7 +248,7 @@
   <!-- ── EXPERIENCE ── -->
   <section class="section" id="experience">
     <div class="container">
-      <div class="pane rv">
+      <div class="pane rv" data-win="career.log">
         <h2 class="pane-title">experience</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> git log --format=career</p>
         <div class="xp-list">
@@ -304,7 +305,7 @@
   <!-- ── PROJECTS ── -->
   <section class="section" id="projects">
     <div class="container">
-      <div class="pane rv">
+      <div class="pane rv" data-win="projects">
         <h2 class="pane-title">projects</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls -la ~/projects</p>
         <p class="pane-sub">Four featured builds, then the rest. Every one is documented on GitHub.</p>
@@ -392,12 +393,6 @@
             <span class="rack-desc">Tailscale mesh VPN (WireGuard underneath) for SSH and admin access from anywhere, with no router ports opened.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/sanas-cakes" target="_blank" rel="noopener">
-            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
-            <span class="rack-title">sanas-cakes/</span>
-            <span class="rack-desc">A starter website for Sana's homemade cake business: home, about, popular cakes, order page.</span>
-            <span class="status status-shipped">SHIPPED</span>
-          </a>
           <a class="rack-row" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">ammaarrehman.github.io/</span>
@@ -412,7 +407,7 @@
   <!-- ── EDUCATION & CERTS ── -->
   <section class="section" id="education">
     <div class="container">
-      <div class="pane rv">
+      <div class="pane rv" data-win="education.txt">
         <h2 class="pane-title">education &amp; certs</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> cat education.txt</p>
         <div class="edu-grid">
@@ -464,7 +459,7 @@
   <!-- ── CONTACT ── -->
   <section class="section" id="contact">
     <div class="container">
-      <div class="pane rv">
+      <div class="pane rv" data-win="contact">
         <canvas class="orb orb-mini" aria-hidden="true"></canvas>
         <h2 class="pane-title">contact</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> finger ammaar</p>
@@ -496,6 +491,7 @@
   <script src="js/skills.js"></script>
   <script src="js/boot.js"></script>
   <script src="js/site.js"></script>
+  <script src="js/windows.js"></script>
   <script src="js/orb.js"></script>
   <script src="js/world.js"></script>
   <script src="js/hands.js"></script>

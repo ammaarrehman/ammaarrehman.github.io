@@ -16,12 +16,13 @@ index.html        single page
 css/styles.css    the design system
 js/skills.js      skills tabs (vanilla, no framework)
 js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
+js/windows.js     working traffic lights: minimize to the dock, maximize, restore
 js/boot.js        vintage BIOS startup screen: first visit per session, and the footer's ↻ reboot
 js/orb.js         the pink dot orb in the neofetch hero (+ a small one at contact)
 js/world.js       pi's island: warp, top-down map, landmarks, dialog
 js/hands.js       the page background: ascii hands that reach as you scroll
 tools/marks.py    ASCII brand toolchain (wordmarks, crescent, favicon)
-assets/           favicon + app icons, photo, resume, og.png (link preview card)
+assets/           ensō favicon (svg + png) + app icons, photo, resume, og.png (link preview card)
 assets/work/      project screenshots, copied in from the project repos
 assets/hands.json the ascii hands, as a character grid
 404.html          lost-page screen (GitHub Pages serves it for any bad URL)

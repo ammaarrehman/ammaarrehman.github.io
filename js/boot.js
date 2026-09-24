@@ -24,7 +24,7 @@
     ["Detecting cloud ............ AWS Certified Cloud Practitioner", 110],
     ["Detecting security ......... Cyber Ready Clinic, analyst cohort", 160],
     ["", 0],
-    ["Mounting /projects ......... <b>11</b> found", 120],
+    ["Mounting /projects ......... <b>10</b> found", 120],
     ["Loading pi.sys ............. <i>OK</i>", 140],
     ["Starting ePortfolio", 380]
   ];

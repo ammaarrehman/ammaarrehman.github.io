@@ -283,6 +283,67 @@ canvas.orb-mini {
   canvas.orb-mini { display:none; }
 }
 
+/* ── WINDOWS: working traffic lights, a dock, maximize (js/windows.js) ── */
+.win-ctl { display:flex; gap:7px; flex:none; }
+.pane > .win-ctl { position:absolute; top:-7px; right:18px; padding:0 8px; background:var(--bg); z-index:2; }
+.wb {
+  position:relative; width:12px; height:12px; padding:0; border:0; border-radius:50%; cursor:pointer;
+  background:#3a3a3a; transition:background-color .2s, transform .15s;
+}
+.wb::after {                                         /* the glyphs appear on hover, like macOS */
+  position:absolute; inset:0; display:grid; place-items:center; font:700 9px/1 var(--mono); color:rgba(0,0,0,.6); opacity:0; transition:opacity .15s;
+}
+.wb-close::after { content:"×"; } .wb-min::after { content:"–"; } .wb-max::after { content:"+"; }
+.win-ctl.live .wb-close, .win-ctl:hover .wb-close { background:#ff5f57; }
+.win-ctl.live .wb-min, .win-ctl:hover .wb-min { background:#febc2e; }
+.win-ctl.live .wb-max, .win-ctl:hover .wb-max { background:#28c840; }
+.win-ctl:hover .wb::after, .wb:focus-visible::after { opacity:1; }
+.wb:active { transform:scale(.88); }
+:root[data-theme="light"] .pane > .win-ctl .wb { background:#c9c1af; }
+@media (prefers-color-scheme: light) { :root:not([data-theme="dark"]) .pane > .win-ctl .wb { background:#c9c1af; } }
+:root[data-theme="light"] .pane > .win-ctl:hover .wb-close { background:#ff5f57; } :root[data-theme="light"] .pane > .win-ctl:hover .wb-min { background:#febc2e; } :root[data-theme="light"] .pane > .win-ctl:hover .wb-max { background:#28c840; }
+@media (prefers-color-scheme: light) {
+  :root:not([data-theme="dark"]) .pane > .win-ctl:hover .wb-close { background:#ff5f57; }
+  :root:not([data-theme="dark"]) .pane > .win-ctl:hover .wb-min { background:#febc2e; }
+  :root:not([data-theme="dark"]) .pane > .win-ctl:hover .wb-max { background:#28c840; }
+}
+/* minimized: the section folds shut, and stays out of the way */
+.section.folding, .hero.folding { overflow:hidden; padding-top:0 !important; padding-bottom:0 !important; }
+.section.min, .hero.min { display:none; }
+/* the dock */
+.dock {
+  position:fixed; left:50%; bottom:16px; translate:-50% 0; z-index:120; max-width:calc(100% - 24px);
+  display:flex; align-items:center; gap:6px; padding:6px; overflow-x:auto; scrollbar-width:none;
+  background:rgba(18,18,18,.82); backdrop-filter:blur(14px) saturate(1.3); -webkit-backdrop-filter:blur(14px) saturate(1.3);
+  border:1px solid #2e2e2e; border-radius:12px; box-shadow:0 18px 40px -16px rgba(0,0,0,.8);
+  animation:dock-in .35s cubic-bezier(.2,.9,.3,1);
+}
+.dock[hidden] { display:none; }
+@keyframes dock-in { from { translate:-50% 20px; opacity:0; } }
+.dock-item, .dock-all {
+  flex:none; font-family:var(--mono); font-size:12px; color:#e6e6e6; cursor:pointer; white-space:nowrap;
+  background:#1c1c1c; border:1px solid #2e2e2e; border-radius:8px; padding:7px 12px;
+  transition:translate .2s var(--ease), border-color .2s, color .2s;
+}
+.dock-item:hover { translate:0 -3px; border-color:var(--pink); }
+.dock-item.pop { animation:dock-pop .5s cubic-bezier(.2,.9,.3,1.4) .45s both; }
+@keyframes dock-pop { from { transform:scale(.6); } }
+.dock-glyph { color:#f454a6; margin-right:7px; font-size:10px; }
+.dock-all { background:none; color:#9a9a9a; border-style:dashed; }
+.dock-all:hover { color:#e6e6e6; }
+/* maximized: the window lifts over a blurred page */
+.win-backdrop { position:fixed; inset:0; z-index:130; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
+.win-backdrop[hidden] { display:none; }
+html.win-maxed { overflow:hidden; }
+.container.has-maxed { z-index:140; }
+.maxed {
+  position:fixed !important; inset:clamp(8px, 3vw, 28px); z-index:140; overflow:auto;
+  transform:none !important; opacity:1 !important; box-shadow:0 30px 80px -20px rgba(0,0,0,.9);
+}
+.pane.maxed { padding-top:44px; }
+.pane.maxed > .pane-title { position:absolute; top:14px; background:none; }
+.pane.maxed > .win-ctl { top:16px; background:none; }
+
 /* ── BOOT: vintage startup screen (js/boot.js), first visit per session ── */
 #boot { display:none; }
 html.booting { overflow:hidden; }
@@ -521,10 +582,11 @@ canvas.warp { position:fixed; inset:0; width:100vw; height:100vh; z-index:160; p
 /* ── PRINT: a clean one-pager for anyone printing the site ── */
 @media print {
   :root { --bg:#fff; --bg2:#fff; --line:#ccc; --line2:#bbb; --t1:#000; --t2:#222; --t3:#444; --t4:#777; --cream:#000; --acc:#136f39; --warn:#8f5400; --amber-dim:#6b4a00; --cyan-dim:#0b5560; }
-  .hands, .world, .warp, .fetch-art, .term-bar, canvas.orb-mini, .nav, .skip, .theme-btn, .copy-btn, .cursor, .stack-tabs, .stack-cmd, .pane-cmd, .win-bar, .reboot-btn, .work-img, .hero-links { display:none !important; }
+  .hands, .world, .warp, .dock, .win-backdrop, .win-ctl, .fetch-art, .term-bar, canvas.orb-mini, .nav, .skip, .theme-btn, .copy-btn, .cursor, .stack-tabs, .stack-cmd, .pane-cmd, .win-bar, .reboot-btn, .work-img, .hero-links { display:none !important; }
   .js .rv, .js .section-heading .w > span { opacity:1 !important; transform:none !important; }
   .section { padding:18px 0; break-inside:avoid-page; }
   .hero { padding:0 0 12px; }
+  .section.min, .hero.min { display:block !important; }
   .term { border:none; box-shadow:none; background:none; } .term-body::after { display:none; }
   .fetch { grid-template-columns:1fr; }
   .work-item, .t-box, .pane, .xp { break-inside:avoid; }

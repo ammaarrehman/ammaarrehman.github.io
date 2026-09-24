@@ -108,7 +108,7 @@
   });
   function spy() {
     var line = window.innerHeight * 0.4, hit = null;
-    spyLinks.forEach(function (l) { if (l.s.getBoundingClientRect().top <= line) hit = l; });
+    spyLinks.forEach(function (l) { if (!l.s.classList.contains("min") && l.s.getBoundingClientRect().top <= line) hit = l; });   // minimized sections don't count
     // scrollY > 0 guard: while pi's island locks the page it reads as "at the bottom"
     if (window.scrollY > 0 && window.innerHeight + window.scrollY >= document.documentElement.scrollHeight - 4) hit = spyLinks[spyLinks.length - 1];
     if (hit === active) return;
