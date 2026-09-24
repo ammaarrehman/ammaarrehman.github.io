@@ -1,5 +1,5 @@
 /* face — hover the headshot and it turns into terminal ascii. the photo is
-   sampled once into a character grid (darker pixels get denser glyphs);
+   sampled once into a character grid (brighter pixels get denser glyphs);
    on hover each cell decodes from noise into its glyph in a random order,
    and a scan line rolls down it. tap toggles it on touch screens. */
 (function () {
@@ -23,8 +23,7 @@
       var v = (0.3 * d[i * 4] + 0.59 * d[i * 4 + 1] + 0.11 * d[i * 4 + 2]) / 255;
       lum.push(v); lo = Math.min(lo, v); hi = Math.max(hi, v);
     }
-    // inverted: the photo has a light backdrop, so darks (hair, eyes, shirt) get the dense glyphs
-    cells = lum.map(function (v) { v = 1 - (v - lo) / (hi - lo || 1); v = Math.pow(v, 1.35); return { v: v, ch: RAMP[Math.min(RAMP.length - 1, Math.floor(v * RAMP.length))], at: Math.random() }; });
+    cells = lum.map(function (v) { v = (v - lo) / (hi - lo || 1); v = Math.pow(v, 1.15); return { v: v, ch: RAMP[Math.min(RAMP.length - 1, Math.floor(v * RAMP.length))], at: Math.random() }; });
   }
   function size() {
     W = img.offsetWidth; H = img.offsetHeight; dpr = Math.min(window.devicePixelRatio || 1, 2);

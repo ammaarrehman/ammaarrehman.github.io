@@ -30,10 +30,13 @@
   function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : map[y][x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND; }
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
-    var ex = (x + 0.5 - 35) / 3.4, ey = (y + 0.5 - 25) / 2.3;
-    if (ex * ex + ey * ey < 1 && map[y][x] === GRASS) map[y][x] = POND;
+  // the koi pond: a wobbly blob (tile units). < 1 is water
+  var PC = { x: 38.5, y: 25.5, rx: 5, ry: 1.9 };
+  function pondF(fx, fy) {
+    var dx = (fx - PC.x) / PC.rx, dy = (fy - PC.y) / PC.ry, a = Math.atan2(dy, dx);
+    return Math.sqrt(dx * dx + dy * dy) / (1 + 0.13 * Math.sin(3 * a + 0.8) + 0.08 * Math.sin(5 * a + 2.1) + 0.05 * Math.sin(7 * a));
   }
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (map[y][x] === GRASS && pondF(x + 0.5, y + 0.5) < 1) map[y][x] = POND;
   var dockY = CY; while (land(at(CX, dockY + 1))) dockY++;
   function seg(x0, y0, x1, y1) {
     var sx = Math.sign(x1 - x0), sy = Math.sign(y1 - y0);
@@ -53,10 +56,28 @@
   route([[29, 28], [33, 28]]);
   for (y = dockY + 1; y <= dockY + 4; y++) { map[y][CX] = DOCK; map[y][CX + 1] = DOCK; }
 
+  var ELEV = [];
+  for (y = 0; y < MH; y++) {
+    ELEV.push([]);
+    for (x = 0; x < MW; x++) {
+      var tl = map[y][x], lv = 0;
+      if (tl === GRASS || tl === PATH) {
+        var hx = (x + 0.5 - 28) / 9.5, hy = (y + 0.5 - 9.8) / 4.6, ha = Math.atan2(hy, hx);
+        var hw = 1 + 0.1 * Math.sin(3 * ha + 0.5) + 0.07 * Math.sin(5 * ha + 2);
+        if (hx * hx + hy * hy < hw * hw) lv = 1;
+        var px2 = (x + 0.5 - 26) / 4.2, py2 = (y + 0.5 - 7.6) / 2.1;
+        if (lv && px2 * px2 + py2 * py2 < 1) lv = 2;
+      }
+      ELEV[y].push(lv);
+    }
+  }
+  function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : ELEV[y][x]; }
+  function rim(x, y) { var l = lvl(x, y); return lvl(x + 1, y) !== l || lvl(x - 1, y) !== l || lvl(x, y + 1) !== l || lvl(x, y - 1) !== l; }
+
   /* ════════ the portfolio, as landmarks ════════ */
   var GH = "https://github.com/ammaarrehman/";
   var STATIONS = [
-    { id: "sign", x: 26, y: 20, name: "signpost", text: "pi's island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. the boat at the dock takes you back." },
+    { id: "sign", x: 26, y: 20, name: "signpost", text: "pi's island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back." },
     { id: "rack", x: 35, y: 16, name: "the rack", found: true, text: "the homelab. two Raspberry Pi 5 nodes run AdGuard Home and Unbound behind a keepalived floating IP. pull the plug on one and DNS keeps answering from the other within seconds. failover tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"]] },
     { id: "desk", x: 20, y: 17, name: "the desk", found: true, wide: true, text: "a Claude intake triage assistant. messy free-text help requests go in; structured records come out with category, urgency, summary, next step, and a human-review flag. a 15-case eval harness took classification accuracy to 100%.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"]] },
     { id: "uplink", x: 13, y: 21, name: "the uplink", found: true, text: "an AWS static site built end to end with Terraform: S3 hosting, CloudFront delivery, Route 53 DNS, IAM access controls. one command up, one command down. Ammaar is an AWS Certified Cloud Practitioner.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"]] },
@@ -85,6 +106,8 @@
     return false;
   }
   function near(x, y, r, fn) { for (var j = -r; j <= r; j++) for (var i = -r; i <= r; i++) if (fn(x + i, y + j)) return true; return false; }
+  // cliffs: tiles where the ground changes level can't be walked, except where a path makes stairs
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (map[y][x] !== PATH && (map[y][x] === GRASS || map[y][x] === SAND) && rim(x, y)) solid[k(x, y)] = 1;
   var props = [];     // trees, palms, rocks: static, y-sorted with everything else
   for (y = 1; y < MH - 1; y++) for (x = 1; x < MW - 1; x++) {
     var t = map[y][x], h = hash(x, y);
@@ -289,20 +312,65 @@
         // grass in soft tonal patches instead of one flat green
         var patch = (Math.sin(tx * 0.35) + Math.sin(ty * 0.41 + 1) + Math.sin((tx - ty) * 0.23 + 2)) / 3;
         for (j = 0; j < T; j += 2) for (i = 0; i < T; i += 2) {
-          var gv = 0.5 + patch * 0.45 + (hash(tx * 8 + i, ty * 8 + j) - 0.5) * 0.25;
-          g.fillStyle = tone(gv, ["#4d9a3c", "#57a644", "#62b04e"], X + i, Y + j); g.fillRect(X + i, Y + j, 2, 2);
+          var gv = 0.5 + patch * 0.45 + (hash(tx * 8 + i, ty * 8 + j) - 0.5) * 0.25 + ELEV[ty][tx] * 0.3;
+          g.fillStyle = tone(gv, ["#4d9a3c", "#57a644", "#62b04e", "#6fbd58", "#7dc862"], X + i, Y + j); g.fillRect(X + i, Y + j, 2, 2);
         }
         for (i = 0; i < 6; i++) { hh = hash(tx * 5 + i, ty * 9); r(X + ((hh * 15) | 0), Y + ((hash(ty * 7 + i, tx * 2) * 14) | 0), 1, 2, hh < 0.5 ? COL.grass2 : COL.grass3); }
         hh = hash(tx * 31, ty * 17);
         if (hh < 0.06) { var fc = ["#ff8fb1", "#ffe066", "#ffffff", "#c9a4ff"][(hh * 66 | 0) % 4]; r(X + 6, Y + 6, 1, 1, fc); r(X + 5, Y + 7, 3, 1, fc); r(X + 6, Y + 8, 1, 1, fc); r(X + 6, Y + 7, 1, 1, "#ffcf33"); }
         else if (hh < 0.14) { r(X + 4, Y + 9, 1, 3, COL.grass2); r(X + 6, Y + 8, 1, 4, COL.grass2); r(X + 8, Y + 9, 1, 3, COL.grass2); }
       } else if (t === POND) {
-        r(X, Y, T, T, COL.pond);
-        N.forEach(function (n, q) {
-          if (at(tx + n[0], ty + n[1]) !== POND) { if (q === 0) r(X, Y, T, 2, COL.pondrim); if (q === 1) r(X + T - 2, Y, 2, T, COL.pondrim); if (q === 2) r(X, Y + T - 2, T, 2, COL.pondrim); if (q === 3) r(X, Y, 2, T, COL.pondrim); }
-        });
-        if (hash(tx * 7, ty * 11) < 0.25) { r(X + 5, Y + 5, 5, 4, "#3f9137"); r(X + 6, Y + 4, 3, 1, "#3f9137"); r(X + 8, Y + 6, 1, 1, "#ff8fb1"); }
+        r(X, Y, T, T, "#57a644");                          // grass under the pond; the water is drawn per pixel below
       }
+    }
+
+    // the pond, pixel by pixel: deeper toward the middle, a stone rim, reeds and lily pads
+    for (var py = Math.floor((PC.y - 3) * T); py < (PC.y + 3) * T; py++) for (var px = Math.floor((PC.x - 7) * T); px < (PC.x + 7) * T; px++) {
+      var pf = pondF((px + 0.5) / T, (py + 0.5) / T);
+      if (pf < 1) g.fillStyle = tone(1 - pf * 0.95, ["#4aa3c9", "#3d8fc0", "#2f78a8", "#24628f"], px, py);
+      else if (pf < 1.07) g.fillStyle = ["#8f8a7c", "#6f6a5e", "#a8a291", "#7d786b"][(hash(px >> 1, py >> 1) * 4) | 0];
+      else if (pf < 1.1) g.fillStyle = "rgba(0,0,0,.18)";
+      else continue;
+      g.fillRect(px, py, 1, 1);
+    }
+    for (var n2 = 0; n2 < 26; n2++) {
+      var la = hash(n2, 77) * 6.283, lr = 0.25 + hash(77, n2) * 0.6, lx = (PC.x + Math.cos(la) * lr * PC.rx) * T, ly = (PC.y + Math.sin(la) * lr * PC.ry) * T;
+      if (pondF(lx / T, ly / T) > 0.85) continue;
+      g.fillStyle = "#3f9137"; g.beginPath(); g.arc(lx, ly, 2.6, 0.5, 6.1); g.lineTo(lx, ly); g.fill();
+      g.fillStyle = "#58ad47"; g.fillRect(Math.round(lx) - 1, Math.round(ly) - 1, 1, 1);
+      if (n2 % 4 === 0) { g.fillStyle = "#ff9ec4"; g.fillRect(Math.round(lx), Math.round(ly) - 1, 2, 2); g.fillStyle = "#ffe066"; g.fillRect(Math.round(lx), Math.round(ly) - 1, 1, 1); }
+    }
+    for (n2 = 0; n2 < 40; n2++) {                          // reeds around the rim
+      var ra = hash(n2, 91) * 6.283, rr2 = 1.08, rx0 = (PC.x + Math.cos(ra) * rr2 * PC.rx * 1.05) * T, ry0 = (PC.y + Math.sin(ra) * rr2 * PC.ry * 1.1) * T;
+      if (hash(91, n2) < 0.5 || at(Math.floor(rx0 / T), Math.floor(ry0 / T)) === PATH) continue;
+      g.fillStyle = "#2f6f2c"; g.fillRect(Math.round(rx0), Math.round(ry0) - 4, 1, 5); g.fillRect(Math.round(rx0) + 2, Math.round(ry0) - 3, 1, 4);
+      g.fillStyle = "#6b4a2a"; g.fillRect(Math.round(rx0), Math.round(ry0) - 6, 1, 2);
+    }
+
+    // cliffs: a rock face under every drop in level, walls down the sides, stairs where a path climbs
+    var ROCK = ["#5c4632", "#7a5f45", "#957658", "#b3936f"];
+    for (var cy2 = 1; cy2 < MH; cy2++) for (var cx2 = 0; cx2 < MW; cx2++) {
+      var X2 = cx2 * T, Y2 = cy2 * T, L0 = lvl(cx2, cy2), Lup = lvl(cx2, cy2 - 1);
+      var isPath = map[cy2][cx2] === PATH, upPath = map[cy2 - 1][cx2] === PATH;
+      if (Lup > L0) {
+        if (isPath || upPath) {                              // stairs
+          for (var st = 0; st < T; st += 3) { r(X2 + 2, Y2 + st, T - 4, 2, "#b99c68"); r(X2 + 2, Y2 + st + 2, T - 4, 1, "#8a6f45"); }
+          r(X2, Y2, 2, T, "#6f573f"); r(X2 + T - 2, Y2, 2, T, "#6f573f");
+        } else {
+          var fh = 11;
+          for (var fy2 = 0; fy2 < fh; fy2++) for (var fx2 = 0; fx2 < T; fx2++) {
+            var strata = ((fy2 + (hash(cx2, 3) * 3 | 0)) % 4 === 0) ? -0.25 : 0;
+            g.fillStyle = tone(0.75 - fy2 / fh * 0.6 + strata + (hash(X2 + fx2, Y2 + fy2) - 0.5) * 0.2, ROCK, X2 + fx2, Y2 + fy2);
+            g.fillRect(X2 + fx2, Y2 + fy2, 1, 1);
+          }
+          r(X2, Y2, T, 1, "#6fbd58");                        // the grass lip hangs over the edge
+          for (var lp = 0; lp < T; lp += 2) if (hash(cx2 * 16 + lp, cy2) < 0.5) r(X2 + lp, Y2 + 1, 2, 1, "#57a644");
+          r(X2, Y2 + fh, T, 3, "rgba(0,0,0,.22)");            // cast shadow at the foot
+        }
+      }
+      if (lvl(cx2 - 1, cy2) > L0 && !isPath) { r(X2, Y2, 3, T, ROCK[1]); r(X2, Y2, 1, T, ROCK[0]); r(X2 + 3, Y2, 2, T, "rgba(0,0,0,.15)"); }
+      if (lvl(cx2 + 1, cy2) > L0 && !isPath) { r(X2 + T - 3, Y2, 3, T, ROCK[1]); r(X2 + T - 1, Y2, 1, T, ROCK[0]); r(X2 + T - 5, Y2, 2, T, "rgba(0,0,0,.15)"); }
+      if (L0 > Lup && !isPath) r(X2, Y2, T, 1, "rgba(255,255,255,.18)");   // back edge of a raised tile
     }
   })();
 
@@ -605,9 +673,9 @@
     roomba: { w: 8, pal: { D: "#2a2d33", M: "#4a4f58", G: "#4ADE80" }, sp: 9, paths: true,
       a: ["..DDDD..",".DMMMMD.","DMMGMMMD",".DMMMMD.","..DDDD.."], b: ["..DDDD..",".DMMMMD.","DMMMMMMD",".DMMMMD.","..DDDD.."],
       say: "a little cleaning bot, sweeping the plaza. it bumps pi and says sorry." },
-    cat: { w: 12, pal: { C: "#f1e6d2", L: "#fff8ec", D: "#5b4636", B: "#6fb7ff" }, sp: 10, cat: true,
-      a: [".........D.D","D........DDD","DCLLLLLCCDBD",".CCCCCCCCDDD",".CCCCCCCCCC.",".CCCCCCCCC..","..D.D...D.D."],
-      b: [".........D.D","D........DDD","DCLLLLLCCDBD",".CCCCCCCCDDD",".CCCCCCCCCC.",".CCCCCCCCC..","...D.D..D.D."],
+    cat: { w: 12, pal: { C: "#f1e6d2", L: "#fff8ec", D: "#5b4636", B: "#6fb7ff", Q: "#ff7eb6" }, sp: 10, cat: true,
+      a: [".........D.D","D........DDD","DCLLLLLCCDBD",".CCCCCCCQDDD",".CCCCCCCCCC.",".CCCCCCCCC..","..D.D...D.D."],
+      b: [".........D.D","D........DDD","DCLLLLLCCDBD",".CCCCCCCQDDD",".CCCCCCCCCC.",".CCCCCCCCC..","...D.D..D.D."],
       z: ["....CCCC....","..CLLLLCCC..",".CCCCCCCCCD.",".CCCCCCCDDD.","..DDCCCCCC.."],
       say: "one of Ammaar's two himalayan cats. very fluffy, fully unbothered.", sleepSay: "one of Ammaar's two himalayan cats. it's asleep in the sun. pi lets it be." }
   };
@@ -622,6 +690,10 @@
     critter("robot", 30, 22, [18, 15, 37, 22]), critter("robot", 22, 22, [13, 17, 30, 22]), critter("roomba", 28, 22, [26, 21, 31, 23]),
     critter("cat", 36, 31, [33, 28, 44, 33]), critter("cat", 39, 30, [33, 28, 44, 33])
   ];
+  // Ammaar's cats: jasmine (pink collar) and prince (blue collar)
+  var cats = critters.filter(function (c) { return c.kind === "cat"; });
+  cats[0].name = "jasmine"; cats[0].pal = { Q: "#ff7eb6" }; cats[0].say = "jasmine, one of Ammaar's two himalayan cats. she's very fluffy and fully unbothered.";
+  cats[1].name = "prince"; cats[1].pal = { Q: "#4f8fff" }; cats[1].say = "prince, one of Ammaar's two himalayan cats. he inspects pi, then goes back to supervising.";
   function okFor(c, tx, ty) {
     if (!walkable(tx, ty)) return false;
     var tt = at(tx, ty), d = DINOS[c.kind];
@@ -654,7 +726,7 @@
     var d = DINOS[c.kind], rows = c.sleep > 0 && d.z ? d.z : (Math.floor(c.dist / 4) % 2 ? d.b : d.a);
     if (c.kind === "robot") rows = Math.floor(t * 2) % 2 ? d.a : d.b;                      // antenna blinks
     shadow(c.x, c.y, Math.max(6, d.w - 4));
-    drawFrame(rows, d.pal, d.w, c.x, c.y + c.hop, c.face < 0);
+    drawFrame(rows, c.pal ? Object.assign({}, d.pal, c.pal) : d.pal, d.w, c.x, c.y + c.hop, c.face < 0);
     if (c.sleep > 0 && Math.floor(t * 1.5) % 2) { ctx.fillStyle = "#e8eefc"; ctx.fillRect(Math.round(c.x + 4), Math.round(c.y - 9 - (t * 3 % 3)), 2, 1); }   // z
     if (c.kind === "robot") light(c.x, c.y - 6, 10, "77,214,232", 0.5);
   }
@@ -707,21 +779,28 @@
     } else drawFrame(BIRD.sit, BIRD.pal, 8, b.x, b.y, b.face < 0);
   }
 
-  // koi: five of them circling the pond under the lily pads
+  // koi: about twenty, every one a different variety and size
   var KOI = [
-    ["#f5f5f0", "#e2462f", "#f5f5f0", "#e2462f", "#f5f5f0", "#f5f5f0"],   // kohaku
-    ["#1b1b1b", "#e2462f", "#f5f5f0", "#1b1b1b", "#e2462f", "#f5f5f0"],   // showa
-    ["#f2b53a", "#f2b53a", "#f6c75a", "#f2b53a", "#e8a52a", "#f6c75a"],   // yamabuki
-    ["#dfe4ea", "#c9d1d9", "#eef2f6", "#c9d1d9", "#dfe4ea", "#eef2f6"],   // ogon
-    ["#6e8fb3", "#6e8fb3", "#e2462f", "#6e8fb3", "#e2462f", "#dfe4ea"]    // asagi
+    ["kohaku", "#f5f3ea", ["#e2462f"]], ["sanke", "#f5f3ea", ["#e2462f", "#161616"]], ["showa", "#161616", ["#e2462f", "#f5f3ea"]],
+    ["tancho", "#f5f3ea", []], ["ogon", "#e9d9a0", []], ["platinum", "#e6ebef", []], ["yamabuki", "#f2b53a", []],
+    ["chagoi", "#8a5a33", []], ["soragoi", "#8a98a8", []], ["karasu", "#1d1d1d", []], ["kigoi", "#f3dc4a", []],
+    ["benigoi", "#d8341f", []], ["asagi", "#6e8fb3", ["#e2462f"]], ["shusui", "#8aa6c8", ["#e2462f"]],
+    ["goshiki", "#3b3f58", ["#e2462f", "#f5f3ea"]], ["shiro utsuri", "#161616", ["#f5f3ea"]], ["orenji ogon", "#f28a2a", []],
+    ["hi utsuri", "#161616", ["#e2462f"]], ["kujaku", "#c9c9b8", ["#e2462f", "#d9b44a"]], ["ochiba", "#9aa7b4", ["#b8834e"]]
   ];
-  var koi = KOI.map(function (col, i) { return { x: 35 * T + (i - 2) * 9, y: 25 * T + (i % 2) * 8, a: i * 1.3, v: 7 + i, col: col, turn: 0 }; });
+  var koi = KOI.map(function (v, i) {
+    var len = 5 + Math.floor(hash(i, 5) * 6), col = [];
+    for (var j = 0; j < len; j++) col.push(v[2].length && hash(i * 9 + j, 7) < 0.45 ? v[2][(hash(j, i) * v[2].length) | 0] : v[1]);
+    if (v[0] === "tancho") col[1] = "#e2462f";                 // the single red spot on the head
+    var a0 = hash(i, 13) * 6.283, r0 = hash(13, i) * 0.6;
+    return { x: (PC.x + Math.cos(a0) * r0 * PC.rx) * T, y: (PC.y + Math.sin(a0) * r0 * PC.ry) * T, a: a0 * 2, v: 11 - len * 0.8 + hash(i, 2) * 3, col: col, len: len, turn: 0 };
+  });
   var ripples = [];
   function updateKoi(dt) {
     koi.forEach(function (f) {
       f.turn += (Math.random() - 0.5) * dt * 3; f.turn *= 0.97; f.a += f.turn * dt * 2;
       var nx = f.x + Math.cos(f.a) * f.v * dt, ny = f.y + Math.sin(f.a) * f.v * dt;
-      if (at(Math.floor((nx + Math.cos(f.a) * 5) / T), Math.floor((ny + Math.sin(f.a) * 5) / T)) !== POND) { f.a += 2.2; return; }
+      if (pondF((nx + Math.cos(f.a) * f.len) / T, (ny + Math.sin(f.a) * f.len) / T) > 0.86) { f.a += 2.2 + Math.random(); return; }
       f.x = nx; f.y = ny;
       if (Math.random() < dt * 0.08) ripples.push({ x: f.x, y: f.y, r: 1, life: 1 });
     });
@@ -730,15 +809,18 @@
   }
   function drawKoi() {
     koi.forEach(function (f) {
-      var cx = Math.cos(f.a), sy = Math.sin(f.a), wig = Math.sin(t * 8 + f.v) * 0.8;
-      ctx.globalAlpha = 0.92;
-      for (var i = 0; i < 6; i++) {
-        var o = (3 - i) * 1.6, tail = i > 3 ? wig * (i - 3) : 0;
-        var px = f.x + cx * o - sy * tail, py = f.y + sy * o + cx * tail, sz = i === 0 || i === 5 ? 1 : 2;
+      var cx = Math.cos(f.a), sy = Math.sin(f.a), wig = Math.sin(t * 8 + f.v * 3) * 0.8, n = f.len, mid = n / 2;
+      ctx.globalAlpha = 0.93;
+      for (var i = 0; i < n; i++) {
+        var o = (mid - i) * 1.4, tail = i > n * 0.6 ? wig * (i - n * 0.6) * 0.8 : 0;
+        var px = f.x + cx * o - sy * tail, py = f.y + sy * o + cx * tail;
+        var sz = i === 0 || i === n - 1 ? 1 : n > 7 && i > 1 && i < n - 2 ? 3 : 2;
         ctx.fillStyle = f.col[i]; ctx.fillRect(Math.round(px - sz / 2), Math.round(py - sz / 2), sz, sz);
       }
-      // pectoral fins
-      ctx.fillStyle = f.col[2];
+      var tx2 = f.x + cx * (mid - n) * 1.4, ty2 = f.y + sy * (mid - n) * 1.4;   // tail fin
+      ctx.fillStyle = f.col[n - 1];
+      ctx.fillRect(Math.round(tx2 - sy * 1.5), Math.round(ty2 + cx * 1.5), 1, 1); ctx.fillRect(Math.round(tx2 + sy * 1.5), Math.round(ty2 - cx * 1.5), 1, 1);
+      ctx.fillStyle = f.col[2];                                           // pectoral fins
       ctx.fillRect(Math.round(f.x + cx * 1.5 - sy * 2), Math.round(f.y + sy * 1.5 + cx * 2), 1, 1);
       ctx.fillRect(Math.round(f.x + cx * 1.5 + sy * 2), Math.round(f.y + sy * 1.5 - cx * 2), 1, 1);
       ctx.globalAlpha = 1;
@@ -750,15 +832,16 @@
 
   /* ════════ the BMW ════════ */
   var CAR = {
-    rows: ["..HHBBBHH..", ".BBKKCKKBB.", "TBBBBBBBBBT", "TBNBBBBBNBT", "TBBBWUWBBBT", ".BBBUWUBBB.", ".BBBWUWBBB.", ".BBBBBBBBB.",
-           ".GGGGGGGGG.", "XGGGGGGGGGX", ".GGGGGGGGG.", ".BLLLLLLLB.", ".BLLLLLLLB.", ".BLLLLLLLB.", ".BLLLLLLLB.",
-           "TGGGGGGGGGT", "TGGGGGGGGGT", "TBBBBBBBBBT", ".BBBBBBBBB.", ".RRBBBBBRR.", "..CC...CC.."],
-    pal: { B: "#1f2a36", N: "#3b4b5e", L: "#28323e", G: "#5b7d96", K: "#0b0b0b", C: "#cfd6dc", H: "#fff4c2", R: "#ff3b3b", U: "#1c69d4", W: "#f4f4f4", T: "#0e0e0e", X: "#1f2a36" }
+    rows: ["..HHBBBBBHH..", ".BBBKKBKKBBB.", "TBBBKKBKKBBBT", "TBNBBMmRBBNBT", "TBBNBWUWBNBBT", ".BBNBUWUBNBB.", ".BBBBWUWBBBB.", ".BBBBBBBBBBB.",
+           ".GGGGGGGGGGG.", "XGGGGGGGGGGGX", ".GGGGGGGGGGG.", ".BCCCCCCCCCB.", ".BCcCcCcCcCB.", ".BCCCCCCCCCB.", ".BCcCcCcCcCB.",
+           "TGGGGGGGGGGGT", "TGGGGGGGGGGGT", "TBBBBBBBBBBBT", ".BBBBBBBBBBB.", ".KKKKKKKKKKK.", ".RRBBBBBBBRR.", "..EE.....EE.."],
+    pal: { B: "#8b9096", N: "#a9aeb3", C: "#161616", c: "#2a2a2a", G: "#34465a", K: "#0b0b0b", E: "#cfd6dc", H: "#fff4c2", R: "#e0231f",
+           U: "#1c69d4", W: "#f4f4f4", T: "#0e0e0e", X: "#8b9096", M: "#3fa9f5", m: "#1f3f9e" }
   };
   var car = { x: 33 * T + 8, y: 30 * T + 8, a: Math.PI / 2, v: 0, driving: false, target: null };
   function carClear(x, y, a) {
     var fx = Math.sin(a), fy = -Math.cos(a), rx = Math.cos(a), ry = Math.sin(a);
-    return [[8, 3.5], [8, -3.5], [-8, 3.5], [-8, -3.5]].every(function (p) {
+    return [[9, 4.5], [9, -4.5], [-9, 4.5], [-9, -4.5]].every(function (p) {
       return walkable(Math.floor((x + fx * p[0] + rx * p[1]) / T), Math.floor((y + fy * p[0] + ry * p[1]) / T));
     });
   }
@@ -783,9 +866,9 @@
     pi.x = car.x; pi.y = car.y;
   }
   function drawCar() {
-    var c = frameCanvas(CAR.rows, CAR.pal, 11), a = Math.round(car.a / (Math.PI / 8)) * (Math.PI / 8);   // 16 headings keep the pixels crisp
+    var c = frameCanvas(CAR.rows, CAR.pal, 13), a = Math.round(car.a / (Math.PI / 8)) * (Math.PI / 8);   // 16 headings keep the pixels crisp
     ctx.save(); ctx.translate(Math.round(car.x), Math.round(car.y)); ctx.rotate(a);
-    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(-6, -10, 13, 23);
+    ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(-7, -10, 15, 24);
     ctx.drawImage(c, -Math.floor(c.width / 2), -Math.floor(c.height / 2));
     ctx.restore();
     // headlights and taillights
@@ -820,11 +903,12 @@
     if (v.id === "critter") {
       var c = v.ref, d = DINOS[c.kind];
       if (c.sleep <= 0) { c.hop = 1; c.vy = -2; }
-      var line = c.sleep > 0 && d.sleepSay ? d.sleepSay : Array.isArray(d.say) ? d.say[(Math.random() * d.say.length) | 0] : d.say;
-      say(c.kind === "cat" ? "a himalayan cat" : c.kind === "robot" || c.kind === "roomba" ? "a bot" : "a dinosaur", line, []);
+      var line = c.name ? (c.sleep > 0 ? c.name + " is asleep in the sun. pi lets " + (c.name === "jasmine" ? "her" : "him") + " be." : c.say)
+        : c.sleep > 0 && d.sleepSay ? d.sleepSay : Array.isArray(d.say) ? d.say[(Math.random() * d.say.length) | 0] : d.say;
+      say(c.name ? c.name : c.kind === "cat" ? "a himalayan cat" : c.kind === "robot" || c.kind === "roomba" ? "a bot" : "a dinosaur", line, []);
     } else if (v.id === "bird") say("a cockatiel", "one of Ammaar's two cockatiels. it whistles at pi, then preens.", []);
-    else if (v.id === "pond") say("the koi pond", "Ammaar's pond of japanese koi: a kohaku, a showa, a yamabuki, an ogon and an asagi, circling under the lily pads.", []);
-    else if (v.id === "car") { say("the BMW", "Ammaar's BMW. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
+    else if (v.id === "pond") say("the koi pond", "Ammaar's koi pond: about twenty koi, every one a different color and size. kohaku, showa, tancho, chagoi, karasu, a big platinum ogon, and the rest, circling under the lily pads.", []);
+    else if (v.id === "car") { say("the M3", "Ammaar's BMW M3. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
   }
 
   function updateLife(dt) {
@@ -1044,6 +1128,7 @@
     for (var ty = y0; ty <= y1; ty++) for (var tx = x0; tx <= x1; tx++) {
       var tt = map[ty][tx];
       if (!wet(tt)) continue;
+      if (tt === POND && pondF(tx + 0.5, ty + 0.5) > 0.9) continue;
       var ph = hash(tx, ty), cyc = Math.floor(t * 0.9 + ph * 7);
       if (hash(tx * 3 + cyc, ty) < 0.16) { ctx.fillStyle = tt === DEEP ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.35)"; ctx.fillRect(tx * T + ((hash(cyc, tx) * 11) | 0), ty * T + ((hash(ty, cyc) * 14) | 0), 4, 1); }
       if (tt !== POND) {

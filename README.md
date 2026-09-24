@@ -42,8 +42,10 @@ the watchtower is monitoring, the lighthouse is the security work, the
 tablet is the academic record, the mailbox is contact. The boat sails back.
 It's a tiny dino island: rex, triceratops, a brachiosaurus, a stegosaurus,
 raptors and babies roam the meadows, maintenance robots patrol the paths, and
-Ammaar's two cockatiels, two himalayan cats and koi pond live there too. His BMW
-is parked by the pond: walk up, press e, and drive it. The island keeps real
+Ammaar's two cockatiels, his himalayan cats jasmine and prince, and about
+twenty koi (every one a different variety and size) live there too. The island
+has height: a hill with a higher peak, cliffs, and stairs up to the watchtower.
+His BMW M3 is parked by the pond: walk up, press e, and drive it. The island keeps real
 time in Ellicott City (America/New_York), with sunrise and sunset worked out for
 the date: warm dawns and dusks, and at night the lamps, screens and lighthouse
 light up and fireflies come out. `?islandhour=22` previews any hour.
