@@ -744,9 +744,20 @@
     back:  ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWWWWWWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","..WW..WW..","..GG..GG.."]
   };
   var PIPAL = { W: "#f4f4f4", G: "#a9a9a9", K: "#141414" };
+  // middle path, as pi grows into it: a small grey kaiju, about pi's size, spikes down its back,
+  // a stubby tail and a big grin. side on, facing the camera, or walking away
+  var KJ = {
+    side: { w: 14, idle: ["........GGGG..", ".....DGGGGGGG.", ".....DGGGEGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", ".GGGGGGGLGG...", "...GGGGGGG....", "...FF...FF....", "...FF...FF...."], blink: ["........GGGG..", ".....DGGGGGGG.", ".....DGGGMGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", ".GGGGGGGLGG...", "...GGGGGGG....", "...FF...FF....", "...FF...FF...."], walk1: ["........GGGG..", ".....DGGGGGGG.", ".....DGGGEGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", ".GGGGGGGLGG...", "...GGGGGGG....", "..FF.....FF...", "..FF......FF.."], walk2: ["..............", "........GGGG..", ".....DGGGGGGG.", ".....DGGGEGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", "..GGGGGGGG....", "....FFFF......", "....FF.FF....."] },
+    front: { w: 12, idle: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGEGGGGEGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "...FF..FF...", "...FF..FF..."], blink: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGMGGGGMGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "...FF..FF...", "...FF..FF..."], walk1: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGEGGGGEGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "...FF...FF..", "...FF......."], walk2: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGEGGGGEGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "..FF...FF...", ".........FF."] },
+    back: { w: 12, idle: ["....GGGG....", "..GGGDDGGG..", ".DGGGDDGGGD.", ".DGGDDDDGGD.", "DDGGGDDGGGDD", ".DGGDDDDGGD.", "..GGGDDGGG..", ".GGGDDDDGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "...FFGGFF...", "...FF.GGFF.."], walk1: ["....GGGG....", "..GGGDDGGG..", ".DGGGDDGGGD.", ".DGGDDDDGGD.", "DDGGGDDGGGDD", ".DGGDDDDGGD.", "..GGGDDGGG..", ".GGGDDDDGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "...FFGG.FF..", "...FF..GG..."], walk2: ["....GGGG....", "..GGGDDGGG..", ".DGGGDDGGGD.", ".DGGDDDDGGD.", "DDGGGDDGGGDD", ".DGGDDDDGGD.", "..GGGDDGGG..", ".GGGDDDDGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "..FF.GGFF...", ".......GGFF."] }
+  };
+  var KJPAL = { G: "#8b8f98", D: "#4a4d55", L: "#c4c7cd", E: "#141414", M: "#5a5d65", F: "#6a6e76" };
   // pi's frame for a mode ("idle", "walk", "blink"), or middle path's once pi has evolved
-  function piArt(mode, i, up) {
-    if (pi.kaiju) return dinoFrame("kaiju", mode, i);
+  function piArt(mode, i, up, profile) {
+    if (pi.kaiju) {
+      var set = KJ[profile ? "side" : up ? "back" : pi.view === "down" ? "front" : "side"];
+      return frameCanvas(mode === "walk" ? (i % 2 ? set.walk1 : set.walk2) : mode === "blink" && set.blink ? set.blink : set.idle, KJPAL, set.w);
+    }
     var f = up ? (mode === "walk" && i % 2 ? FRAMES.walk1 : FRAMES.back) : mode === "walk" ? (i % 2 ? FRAMES.walk1 : FRAMES.walk2) : mode === "blink" ? FRAMES.blink : FRAMES.idle;
     return frameCanvas(f, PIPAL, 10);
   }
@@ -796,10 +807,19 @@
     if (amb) { Object.keys(amb).forEach(function (k2) { amb[k2].stop(); }); amb = null; }
   }
   var shoreT = 0, shore = 0;
+  function hush(names) { names.forEach(function (k2) { amb[k2].set({ vol: 0 }); }); }
   function updateSound(dt) {
-    if (!amb) return;
-    if (room) { ["waves", "falls", "rumble", "buzz", "rotor", "engine", "aura"].forEach(function (k2) { amb[k2].set({ vol: 0 }); }); SND.music(sky.dark > 0.6 ? "night" : "day"); return; }
-    SND.music(riftBusy() && rift.phase !== "dim" ? (reality.cur === "future" ? "future" : reality.cur === "chaos" ? "chaos" : "battle") : sky.dark > 0.6 ? "night" : "day");
+    if (!amb || side) return;                        // the shrine sets its own sound
+    if (room) { hush(["waves", "falls", "rumble", "buzz", "rotor", "engine", "aura"]); SND.music(sky.dark > 0.6 ? "night" : "day"); return; }
+    if (riftBusy()) {
+      // when the orbs wake, the island goes silent: no surf, no birds, no music. then the dark
+      // score creeps in out of nothing, and it only gets worse from there
+      hush(["waves", "falls", "rumble", "buzz", "rotor", "engine"]);
+      SND.music(rift.phase === "dim" || rift.phase === "fall" ? null : reality.cur === "future" ? "doom-future" : reality.cur === "chaos" ? "doom-chaos" : "doom");
+      amb.aura.set({ vol: rift.phase === "dim" ? 0 : rift.phase === "fall" ? 0.14 : 0.24 + (rift.act ? 0.18 : 0), rate: rift.act ? 1 : 0.3 });
+      return;
+    }
+    SND.music(sky.dark > 0.6 ? "night" : "day");
     shoreT -= dt;
     if (shoreT <= 0) {                               // how much water is around pi, for the surf
       shoreT = 0.3; var wn = 0, tx0 = Math.floor(pi.x / T), ty0 = Math.floor(pi.y / T);
@@ -807,24 +827,79 @@
       shore = wn / 121;
     }
     var vd = Math.hypot(pi.x - VX, pi.y - (VOLC.y - 20));
-    amb.waves.set({ vol: 0.05 + shore * 0.5 });
+    amb.waves.set({ vol: 0.04 + shore * 0.4 });
     var WF = FALLS.reduce(function (m, f) { return !m || Math.hypot(pi.x - f.x, pi.y - f.y) < Math.hypot(pi.x - m.x, pi.y - m.y) ? f : m; }, null) || { x: -9999, y: -9999 };
-    amb.falls.set({ vol: Math.max(0, 1 - Math.hypot(pi.x - WF.x, pi.y - WF.y) / 260) * 0.35, pan: Math.max(-1, Math.min(1, (WF.x - pi.x) / 200)) });
+    amb.falls.set({ vol: Math.pow(Math.max(0, 1 - Math.hypot(pi.x - WF.x, pi.y - WF.y) / 230), 1.6) * 0.1, pan: Math.max(-1, Math.min(1, (WF.x - pi.x) / 200)) });
     var dn = drones.reduce(function (m, d) { return Math.min(m, Math.hypot(pi.x - d.x, pi.y - d.y)); }, 1e9);
-    amb.buzz.set({ vol: Math.max(0, 1 - dn / 200) * 0.05 });
-    amb.aura.set({ vol: rift && rift.phase !== "reign" ? 0.55 : rift ? 0.12 * Math.max(0, 1 - Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) / 200) : 0, rate: rift && rift.dash ? 1 : 0.3 });
-    amb.rumble.set({ vol: Math.max(0, 1 - vd / 380) * 0.5, pan: Math.max(-1, Math.min(1, (VX - pi.x) / 300)) });
+    amb.buzz.set({ vol: Math.pow(Math.max(0, 1 - dn / 150), 1.5) * 0.018 });
+    amb.aura.set({ vol: rift ? 0.1 * Math.max(0, 1 - Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) / 200) : 0, rate: 0.2 });
+    amb.rumble.set({ vol: Math.max(0, 1 - vd / 380) * 0.4, pan: Math.max(-1, Math.min(1, (VX - pi.x) / 300)) });
     if (vd < 300 && (popT -= dt) <= 0) { popT = 0.4 + Math.random() * 1.6; sfx("pop", VX + (Math.random() - 0.5) * 30, VY); }
     var hd = Math.hypot(heli.x - pi.x, heli.y - pi.y);
-    amb.rotor.set({ vol: heli.spin * (aboard() ? 0.42 : 0.4 * Math.max(0, 1 - hd / 360)), rate: heli.spin });
-    amb.engine.set({ vol: car.driving ? 0.1 + Math.min(1, Math.abs(car.v) / 120) * 0.14 : 0, rate: Math.min(1, Math.abs(car.v) / 120) });
+    amb.rotor.set({ vol: heli.spin * (aboard() ? 0.2 : 0.2 * Math.max(0, 1 - hd / 320)), rate: heli.spin });
+    amb.engine.set({ vol: car.driving ? 0.08 + Math.min(1, Math.abs(car.v) / 120) * 0.12 : 0, rate: Math.min(1, Math.abs(car.v) / 120) });
   }
+  if (SND && SND.onRestart) SND.onRestart(function () { amb = null; if (open) startSound(); });
   if (SND) SND.onChange(function (on) { paintSound(on); });
   var soundBtn = root.querySelector(".w-sound");
   function paintSound(on) { if (soundBtn) { soundBtn.innerHTML = "♪<span class=\"w-sound-l\"> sound " + (on ? "on" : "off") + "</span>"; soundBtn.setAttribute("aria-pressed", on ? "true" : "false"); soundBtn.setAttribute("aria-label", "Sound " + (on ? "on" : "off")); } }
   if (soundBtn) {
     if (!SND) soundBtn.hidden = true;
     else { paintSound(SND.on()); soundBtn.addEventListener("click", function () { SND.toggle(); if (open) startSound(); cv.focus({ preventScroll: true }); }); }
+  }
+
+  /* ════════ settings ════════
+     the gear in the corner: a level for each part of the sound (everything, the music, the
+     effects, the ambience), a button that restarts the sound engine if the browser has got it
+     stuck, and some comfort switches: how much the screen shakes, whether big hits flash the
+     screen white, and the minimap. it all stays for next time (this browser only). */
+  var OPT = { shake: 1, flash: true, map: true };
+  try { var so0 = JSON.parse(localStorage.getItem("island-opts") || "{}"); if (typeof so0.shake === "number") OPT.shake = Math.max(0, Math.min(1, so0.shake)); if (so0.flash === false) OPT.flash = false; if (so0.map === false) OPT.map = false; } catch (e) {}
+  function saveOpt() { try { localStorage.setItem("island-opts", JSON.stringify(OPT)); } catch (e) {} }
+  function flashOK() { return OPT.flash; }
+  var gearBtn = root.querySelector(".w-gear"), setEl = root.querySelector(".w-set");
+  function setOpen() { return setEl && !setEl.hidden; }
+  function buildSettings() {
+    var mix = SND ? SND.mix() : null;
+    function slider(key, label, val) { return '<label>' + label + '<input type="range" min="0" max="100" step="1" value="' + Math.round(val * 100) + '" data-k="' + key + '"><output>' + Math.round(val * 100) + '</output></label>'; }
+    setEl.innerHTML = '<h3>settings</h3>'
+      + (SND ? '<h4>sound</h4><label class="w-chk"><input type="checkbox" data-k="on"' + (SND.on() ? " checked" : "") + '>sound on (m)</label>'
+        + slider("master", "master", mix.master) + slider("music", "music", mix.music) + slider("sfx", "effects", mix.sfx) + slider("amb", "ambience", mix.amb)
+        + '<div class="w-row"><button type="button" data-a="restart">restart sound engine</button></div><div class="w-note">if the sound cuts out or stutters, this rebuilds it from scratch.</div>' : "")
+      + '<h4>comfort</h4>' + slider("shake", "shake", OPT.shake)
+      + '<label class="w-chk"><input type="checkbox" data-k="flash"' + (OPT.flash ? " checked" : "") + '>bright flashes</label>'
+      + '<label class="w-chk"><input type="checkbox" data-k="map"' + (OPT.map ? " checked" : "") + '>minimap</label>'
+      + '<div class="w-row"><button type="button" data-a="close">close</button></div>';
+  }
+  function toggleSettings(on) {
+    if (!setEl) return;
+    on = on === undefined ? setEl.hidden : on;
+    if (on) buildSettings();
+    setEl.hidden = !on; if (gearBtn) gearBtn.setAttribute("aria-expanded", on ? "true" : "false");
+    keys = {};
+    if (on) { var f = setEl.querySelector("input"); if (f) f.focus({ preventScroll: true }); } else cv.focus({ preventScroll: true });
+  }
+  if (gearBtn && setEl) {
+    gearBtn.addEventListener("click", function () { if (SND) SND.unlock(); toggleSettings(); });
+    setEl.addEventListener("input", function (e) {
+      var el = e.target, k2 = el.getAttribute("data-k"); if (!k2) return;
+      if (el.type === "range") {
+        var v = el.value / 100; el.nextElementSibling.textContent = el.value;
+        if (k2 === "shake") { OPT.shake = v; saveOpt(); } else if (SND) { SND.setMix(k2, v); if (k2 !== "music") sfx("blip"); }
+      }
+    });
+    setEl.addEventListener("change", function (e) {
+      var el = e.target, k2 = el.getAttribute("data-k"); if (el.type !== "checkbox") return;
+      if (k2 === "on" && SND) { if (SND.on() !== el.checked) SND.toggle(); if (open) startSound(); }
+      else if (k2 === "flash") { OPT.flash = el.checked; saveOpt(); }
+      else if (k2 === "map") { OPT.map = el.checked; mapOn = el.checked; saveOpt(); }
+    });
+    setEl.addEventListener("click", function (e) {
+      var a2 = e.target.getAttribute && e.target.getAttribute("data-a");
+      if (a2 === "close") toggleSettings(false);
+      else if (a2 === "restart" && SND) { SND.restart(); if (open) startSound(); sfx("blip"); e.target.textContent = "restarted ✓"; }
+    });
+    setEl.addEventListener("keydown", function (e) { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); toggleSettings(false); } });
   }
 
   /* ════════ input ════════ */
@@ -834,7 +909,7 @@
     return c === "arrowup" || c === "w" ? "u" : c === "arrowdown" || c === "s" ? "d" : c === "arrowleft" || c === "a" ? "l" : c === "arrowright" || c === "d" ? "r" : null;
   }
   window.addEventListener("keydown", function (e) {
-    if (!open || termOpen) return;
+    if (!open || termOpen || setOpen()) return;
     var d = dirKey(e);
     if (d) { keys[d] = 1; pi.path = null; pi.want = null; car.target = null; heli.target = null; e.preventDefault(); if (egg) egg.t = 99; return; }
     if (aboard() && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleHeli(); return; }
@@ -1095,10 +1170,10 @@
      dark outline that goes near black underneath, a few speckles. the pterosaur is the original
      sprite, pixel for pixel. middle path is traced from Ammaar's drawing. every sprite faces
      right with its feet on the bottom row; SHEET says where each frame of each mode sits. */
-  var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":47,"h":26,"f":[[0,46],[48,46],[96,46],[144,46],[192,46],[240,46],[288,46],[336,46],[384,46],[432,46],[480,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":68,"h":67,"f":[[0,73],[69,73],[138,73],[207,73],[276,73],[345,73],[414,73],[483,73],[552,73],[621,73],[690,73],[759,73],[828,73]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,141],[60,141],[120,141],[180,141],[240,141],[300,141],[360,141],[420,141],[480,141],[540,141],[600,141],[660,141],[720,141]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,182],[59,182],[118,182],[177,182],[236,182],[295,182],[354,182],[413,182],[472,182],[531,182],[590,182],[649,182],[708,182]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,219],[55,219],[110,219],[165,219],[220,219],[275,219],[330,219],[385,219],[440,219],[495,219],[550,219],[605,219],[660,219]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":56,"h":25,"f":[[0,262],[57,262],[114,262],[171,262],[228,262],[285,262],[342,262],[399,262],[456,262],[513,262],[570,262],[627,262],[684,262]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,288],[91,288],[182,288],[273,288],[364,288],[455,288],[546,288],[637,288],[728,288],[819,288],[910,288]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":46,"h":35,"f":[[0,340],[47,340],[94,340],[141,340],[188,340],[235,340],[282,340],[329,340],[376,340],[423,340],[470,340],[517,340],[564,340]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":41,"h":28,"f":[[0,376],[42,376],[84,376],[126,376],[168,376],[210,376],[252,376],[294,376],[336,376],[378,376],[420,376],[462,376],[504,376]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,405],[39,405],[78,405],[117,405],[156,405],[195,405],[234,405],[273,405],[312,405],[351,405],[390,405]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":22,"h":12,"f":[[0,446],[23,446],[46,446],[69,446],[92,446],[115,446],[138,446],[161,446],[184,446],[207,446],[230,446]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,459],[22,459],[44,459],[66,459],[88,459],[110,459],[132,459],[154,459],[176,459],[198,459],[220,459]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,478],[22,478],[44,478],[66,478],[88,478],[110,478],[132,478],[154,478],[176,478],[198,478],[220,478]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"kaiju":{"w":39,"h":48,"f":[[0,497],[40,497],[80,497],[120,497],[160,497],[200,497],[240,497],[280,497],[320,497],[360,497]],"m":{"idle":[0,1,2,3],"walk":[4,5,6,7,8,9],"blink":[0]}},"ptero":{"w":63,"h":78,"f":[[0,546]],"m":{"fly":[0,0,0,0]}}};
+  var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":33,"h":20,"f":[[0,46],[34,46],[68,46],[102,46],[136,46],[170,46],[204,46],[238,46],[272,46],[306,46],[340,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":84,"h":83,"f":[[0,67],[85,67],[170,67],[255,67],[340,67],[425,67],[510,67],[595,67],[680,67],[765,67],[850,67],[935,67],[1020,67]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,151],[60,151],[120,151],[180,151],[240,151],[300,151],[360,151],[420,151],[480,151],[540,151],[600,151],[660,151],[720,151]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,192],[59,192],[118,192],[177,192],[236,192],[295,192],[354,192],[413,192],[472,192],[531,192],[590,192],[649,192],[708,192]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,229],[55,229],[110,229],[165,229],[220,229],[275,229],[330,229],[385,229],[440,229],[495,229],[550,229],[605,229],[660,229]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":46,"h":21,"f":[[0,272],[47,272],[94,272],[141,272],[188,272],[235,272],[282,272],[329,272],[376,272],[423,272],[470,272],[517,272],[564,272]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,294],[91,294],[182,294],[273,294],[364,294],[455,294],[546,294],[637,294],[728,294],[819,294],[910,294]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":41,"h":32,"f":[[0,346],[42,346],[84,346],[126,346],[168,346],[210,346],[252,346],[294,346],[336,346],[378,346],[420,346],[462,346],[504,346]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":31,"h":22,"f":[[0,379],[32,379],[64,379],[96,379],[128,379],[160,379],[192,379],[224,379],[256,379],[288,379],[320,379],[352,379],[384,379]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,402],[39,402],[78,402],[117,402],[156,402],[195,402],[234,402],[273,402],[312,402],[351,402],[390,402]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":17,"h":10,"f":[[0,443],[18,443],[36,443],[54,443],[72,443],[90,443],[108,443],[126,443],[144,443],[162,443],[180,443]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,454],[22,454],[44,454],[66,454],[88,454],[110,454],[132,454],[154,454],[176,454],[198,454],[220,454]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,473],[22,473],[44,473],[66,473],[88,473],[110,473],[132,473],[154,473],[176,473],[198,473],[220,473]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"ptero":{"w":32,"h":45,"f":[[0,492],[33,492],[66,492],[99,492],[132,492],[165,492],[198,492],[231,492],[264,492],[297,492],[330,492],[363,492],[396,492],[429,492],[462,492],[495,492],[528,492]],"m":{"fly":[0,1,2,3,4,5,6,7,8,9,10,11],"glide":[12,13,14,15],"blink":[16]}}};
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20260926";
   var DART = {}, BLANK = document.createElement("canvas"); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -1502,7 +1577,13 @@
     pal: { B: "#8b9096", N: "#a9aeb3", C: "#161616", c: "#2a2a2a", G: "#34465a", K: "#0b0b0b", E: "#cfd6dc", H: "#fff4c2", R: "#e0231f",
            U: "#1c69d4", W: "#f4f4f4", T: "#0e0e0e", X: "#8b9096", M: "#3fa9f5", m: "#1f3f9e" }
   };
-  var car = { x: 36 * T + 8, y: 62 * T + 8, a: Math.PI / 2, v: 0, driving: false, target: null };
+  /* the M3 drives like a car, not a cursor. it has a drive and a reverse gear (tap s or down
+     when it's stopped or rolling back and it drops into reverse, with a clunk and the reversing
+     lights on), a torque curve that fades toward top speed, brakes that bite, and grip: the
+     tyres kill sideways slide, until you pull the handbrake (shift) and the back steps out into
+     a drift, laying rubber on the ground. hit something and it bumps off it. */
+  var car = { x: 36 * T + 8, y: 62 * T + 8, a: Math.PI / 2, v: 0, vx: 0, vy: 0, driving: false, target: null, gear: "D", brake: false, skidT: 0 };
+  var skids = [];
   function carClear(x, y, a) {
     var fx = Math.sin(a), fy = -Math.cos(a), rx = Math.cos(a), ry = Math.sin(a);
     return [[9, 4.5], [9, -4.5], [-9, 4.5], [-9, -4.5]].every(function (p) {
@@ -1510,24 +1591,55 @@
     });
   }
   function updateCar(dt) {
-    if (!car.driving) { car.v *= 0.9; return; }
-    var thr = (keys.u ? 1 : 0) - (keys.d ? 1 : 0), steer = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
-    if (car.target && !thr && !steer) {            // tap to drive: steer toward the tap
+    skids.forEach(function (m) { m.life -= dt / 14; }); if (skids.length && skids[0].life <= 0) skids = skids.filter(function (m) { return m.life > 0; });
+    if (!car.driving) { car.vx *= 0.9; car.vy *= 0.9; car.v *= 0.9; car.brake = false; return; }
+    var fwx = Math.sin(car.a), fwy = -Math.cos(car.a), rtx = Math.cos(car.a), rty = Math.sin(car.a);
+    var vf = car.vx * fwx + car.vy * fwy, vl = car.vx * rtx + car.vy * rty;
+    var thr = (keys.u ? 1 : 0) - (keys.d ? 1 : 0), steer = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), hand = !!keys.run;
+    if (car.target && !thr && !steer) {            // tap to drive: steer toward the tap, back out if it's behind you and close
       var dx = car.target.x - car.x, dy = car.target.y - car.y, dist = Math.hypot(dx, dy);
-      if (dist < 10) car.target = null;
+      if (dist < 12) car.target = null;
       else {
         var want = Math.atan2(dx, -dy), diff = Math.atan2(Math.sin(want - car.a), Math.cos(want - car.a));
-        steer = Math.max(-1, Math.min(1, diff * 2)); thr = Math.abs(diff) > 2.2 ? -0.6 : 1;
+        if (Math.abs(diff) > 2.1 && dist < 110) { thr = -1; steer = diff > 0 ? -1 : 1; }
+        else { steer = Math.max(-1, Math.min(1, diff * 2)); thr = dist < 50 ? 0.5 : 1; }
       }
     }
-    if (riftBusy()) thr = -Math.sign(car.v);
-    car.v += thr * (thr * car.v < 0 ? 160 : 70) * dt;
-    car.v *= Math.pow(0.35, dt); car.v = Math.max(-40, Math.min(120, car.v));
-    car.a += steer * dt * 2.4 * Math.max(-1, Math.min(1, car.v / 45));
-    var nx = car.x + Math.sin(car.a) * car.v * dt, ny = car.y - Math.cos(car.a) * car.v * dt;
+    if (riftBusy()) { thr = 0; hand = true; }
+    if (thr < 0 && vf < 6 && car.gear !== "R") { car.gear = "R"; sfx("gear"); bubble = { text: "R", t: 0.8 }; }
+    if (thr > 0 && vf > -6 && car.gear !== "D") { car.gear = "D"; sfx("gear"); }
+    var braking = false;
+    if (car.gear === "D") { if (thr > 0) vf += 150 * thr * Math.max(0, 1 - Math.max(0, vf) / 165) * dt; else if (thr < 0) braking = true; }
+    else { if (thr < 0) vf -= 95 * Math.max(0, 1 - Math.max(0, -vf) / 58) * dt; else if (thr > 0) braking = true; }
+    if (braking) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 280 * dt);
+    if (hand) vf -= Math.sign(vf) * Math.min(Math.abs(vf), 70 * dt);
+    vf -= Math.sign(vf) * Math.min(Math.abs(vf), (10 + Math.abs(vf) * 0.3) * dt);     // rolling resistance and air
+    var sp = Math.abs(vf), steerK = Math.min(1, sp / 36) * (1 - Math.min(0.45, sp / 380));
+    car.a += steer * dt * (hand ? 3.6 : 2.7) * steerK * (vf < 0 ? -1 : 1);
+    var grip = hand && sp > 28 ? 2 : 11;
+    vl -= vl * Math.min(1, grip * dt);
+    fwx = Math.sin(car.a); fwy = -Math.cos(car.a); rtx = Math.cos(car.a); rty = Math.sin(car.a);
+    car.vx = fwx * vf + rtx * vl; car.vy = fwy * vf + rty * vl; car.v = vf; car.brake = braking || hand;
+    // rubber on the road when the tyres slide
+    if (Math.abs(vl) > 20 || (braking && sp > 55)) {
+      [-4, 4].forEach(function (o2) { skids.push({ x: car.x - fwx * 8 + rtx * o2, y: car.y - fwy * 8 + rty * o2, life: 1 }); });
+      if (skids.length > 500) skids.splice(0, skids.length - 500);
+      if ((car.skidT -= dt) <= 0) { car.skidT = 0.22; sfx("skid", car.x, car.y, { vol: Math.min(1, (Math.abs(vl) + sp * 0.3) / 60) }); }
+    }
+    var nx = car.x + car.vx * dt, ny = car.y + car.vy * dt;
     if (carClear(nx, ny, car.a)) { car.x = nx; car.y = ny; }
-    else { car.v *= -0.25; car.target = null; }
+    else {
+      var hitV = Math.hypot(car.vx, car.vy);
+      if (carClear(nx, car.y, car.a)) { car.x = nx; car.vy *= -0.3; }
+      else if (carClear(car.x, ny, car.a)) { car.y = ny; car.vx *= -0.3; }
+      else { car.vx *= -0.3; car.vy *= -0.3; }
+      if (hitV > 35) { sfx("thud", car.x, car.y); quake = Math.max(quake, Math.min(3, hitV / 45)); }
+      car.target = null;
+    }
     pi.x = car.x; pi.y = car.y;
+  }
+  function drawSkids() {
+    skids.forEach(function (m) { ctx.fillStyle = "rgba(20,16,14," + (0.4 * m.life).toFixed(3) + ")"; ctx.fillRect(Math.round(m.x) - 1, Math.round(m.y) - 1, 2, 2); });
   }
   function drawCar() {
     var c = frameCanvas(CAR.rows, CAR.pal, 13), a = Math.round(car.a / (Math.PI / 8)) * (Math.PI / 8);   // 16 headings keep the pixels crisp
@@ -1538,10 +1650,11 @@
     // headlights and taillights
     var fx = Math.sin(car.a), fy = -Math.cos(car.a);
     light(car.x + fx * 16, car.y + fy * 16, 22, "255,244,194", 0.55);
-    light(car.x - fx * 11, car.y - fy * 11, 8, "255,59,59", car.driving ? 0.5 : 0.2);
+    light(car.x - fx * 11, car.y - fy * 11, car.brake ? 12 : 8, "255,59,59", car.brake ? 0.95 : car.driving ? 0.45 : 0.2);
+    if (car.driving && car.gear === "R") light(car.x - fx * 12, car.y - fy * 12, 14, "240,244,255", 0.6);      // reversing lights
   }
   function toggleCar() {
-    if (!car.driving) { car.driving = true; pi.path = null; bubble = { text: "pi:~$ vroom.", t: 1.6 }; return; }
+    if (!car.driving) { car.driving = true; car.gear = "D"; pi.path = null; bubble = { text: TOUCH ? "tap to drive. e parks." : "w/s drive and reverse · shift drifts · e parks", t: 3 }; return; }
     // park: pi hops out beside the driver's door
     car.driving = false; car.target = null;
     var sx = Math.cos(car.a), sy = Math.sin(car.a);
@@ -1728,14 +1841,30 @@
     });
     embers.forEach(function (e) { ctx.fillStyle = "rgba(255," + (140 + (e.life * 100 | 0)) + ",60," + e.life.toFixed(3) + ")"; ctx.fillRect(Math.round(e.x), Math.round(e.y), 1, 1); });
   }
+  // pterosaurs fly the way big soaring birds do: three deep wingbeats (the body lifts a little
+  // on each downstroke), then a long glide, sinking slowly, wings swaying; now and then a blink
+  var BEAT = 0.62, BEATS = 3, PCYC = 6.4;
+  function pteroFlight(i) {
+    var c = (t + i * 2.3) % PCYC, flapT = BEAT * BEATS, f, lift;
+    if (c < flapT) {
+      var ph = (c / BEAT) % 1;
+      f = dinoFrame("ptero", "fly", (Math.floor(ph * 12) + 2) % 12);
+      lift = Math.sin(ph * 6.283) * 1.6 - (c / flapT) * 7;                  // climbing through the beats
+    } else {
+      var g = (c - flapT) / (PCYC - flapT);
+      f = dinoFrame("ptero", hash(Math.floor(t * 4) + i * 7, 3) < 0.03 ? "blink" : "glide", Math.floor(t * 1.5 + i) % 4);
+      lift = -7 + g * g * (3 - 2 * g) * 7;                                    // then sinking back down the thermal
+    }
+    return { f: f, lift: lift };
+  }
   function drawPteros() {
     pteros.forEach(function (p, i) {
       ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + p.alt, 20, 5, 0, 0, 6.283); ctx.fill();
-      drawArt(dinoFrame("ptero", "fly", 0), p.x, Math.round(p.y + 30 + Math.sin(t * 1.6 + i * 2) * 2.5), p.face < 0);       // gliding: it rides the thermals off the volcano
+      var pf = pteroFlight(i); drawArt(pf.f, p.x, Math.round(p.y + 30 + pf.lift), p.face < 0);
     });
     if (ptero.on) {
       ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(ptero.x, ptero.y + 60, 20, 5, 0, 0, 6.283); ctx.fill();
-      drawArt(dinoFrame("ptero", "fly", 0), ptero.x, Math.round(ptero.y + 30 + Math.sin(t * 2) * 2.5), ptero.vx < 0);
+      var pf2 = pteroFlight(7); drawArt(pf2.f, ptero.x, Math.round(ptero.y + 30 + pf2.lift), ptero.vx < 0);
     }
   }
   // fence posts every tile, three wires to the next post, a warning sign now and then
@@ -1819,7 +1948,7 @@
       tx = s.x; ty = s.y + 1;
     }
     if (room) exitRoom();
-    else { tx = p[0]; ty = p[1]; }
+    if (tx === undefined) { tx = p[0]; ty = p[1]; }
     var spot = null;
     for (var r2 = 0; !spot && r2 < 4; r2++) for (var j = -r2; j <= r2 && !spot; j++) for (var i = -r2; i <= r2 && !spot; i++) if (walkable(tx + i, ty + j)) spot = [tx + i, ty + j];
     if (!spot) return false;
@@ -1904,7 +2033,7 @@
         KAIJU_ART.forEach(function (l) { print(l, "hi"); });
         print("pi evolved into MIDDLE PATH. (devolve to go back)", "ok");
         pi.kaiju = true; try { sessionStorage.setItem("pi-kaiju", "1"); } catch (e) {}
-        sfx("roar", undefined, undefined, { vol: 0.8 });
+        sfx("grunt"); setTimeout(function () { sfx("squeak"); }, 260);             // a small roar, for a small kaiju
       }, 1900);
     },
     devolve: function () { if (!pi.kaiju) { print("pi is as small as it gets."); return; } pi.kaiju = false; try { sessionStorage.removeItem("pi-kaiju"); } catch (e) {} print("pi is pi again.", "ok"); },
@@ -2039,27 +2168,42 @@
       rift.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 10, life: 1, c: c });
     }
   }
+  /* the fight. the orbs don't circle a spot and take turns: they range over the whole
+     clearing, each at its own height, and each fights its own way:
+       eclipse  charges: winds up, trembling, then tears across the field through its target
+       bone     binds: locks onto its target and the two spiral in like a binary star, faster
+                and tighter, until they merge and blow apart
+       halo     burns: hangs back, gathers light, and fires a beam
+       fog      blinks: folds out of the world and unfolds right beside its target
+       void     devours: opens a gravity well and drags its target in
+     every hit is two stars colliding: the screen goes white, a fireball swells out of the point
+     of impact, a field of pressure rolls outward across the island, embers scatter, the ground
+     is scorched, and reality tears. a killing blow is a supernova. */
+  var STYLE = { eclipse: "charge", bone: "bind", halo: "beam", fog: "blink", void: "well" };
+  var FIELD = { rx: 170, ry: 92 };
   function rival(name, i) {
     var a = i / RIVALS.length * 6.283 - 1.57;
-    return { name: name, art: orbArt(name), a: a, x: ARENA.x + Math.cos(a) * 46, y: ARENA.y + Math.sin(a) * 22, z: 300 + i * 50, hp: 2, alive: true, scale: 1, flash: 0, vx: 0, vy: 0 };
+    return { name: name, art: orbArt(name), a: a, x: ARENA.x + Math.cos(a) * 120, y: ARENA.y + Math.sin(a) * 60, z: 300 + i * 50, hp: 2, alive: true, scale: 1, flash: 0, vx: 0, vy: 0,
+             style: STYLE[name] || "charge", goal: null, gt: 0, alpha: 1, trail: [], hz: 26 + i * 7 };
   }
+  function fieldPoint() { var a = Math.random() * 6.283, r = Math.sqrt(Math.random()); return { x: ARENA.x + Math.cos(a) * FIELD.rx * r, y: ARENA.y + Math.sin(a) * FIELD.ry * r }; }
   function startRift() {
     closeDialog(); keys = {}; pi.path = null; pi.want = null;
     if (car.driving) toggleCar();
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; zoomTo = 1; }
-    if (Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) > 200) { pi.x = ARENA.x; pi.y = ARENA.y + 70; camF.x = null; }
+    if (Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) > 200) { pi.x = ARENA.x; pi.y = ARENA.y + FIELD.ry + 30; camF.x = null; }
     if (REDUCED || !window.Orb) { crown("eclipse"); return; }
-    rift = { phase: "dim", t: 0, orbs: RIVALS.map(rival), parts: [], shake: 0, dim: 0, next: 0, dash: null, winner: null, ring: 0 };
+    rift = { phase: "dim", t: 0, orbs: RIVALS.map(rival), parts: [], shake: 0, dim: 0, next: 0, act: null, winner: null, ring: 0, novas: [], scorch: [], flash: 0, hits: 0 };
     bubble = { text: "pi:~$ ...something's waking up.", t: 3.2 };
   }
   function crown(name) {
     if (reality.cur !== "dino") shiftReality("dino", ARENA.x, ARENA.y - 34);
     try { sessionStorage.setItem("orb-palette", name); sessionStorage.setItem("rift-done", name); } catch (e) {}
     if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette(name); });
-    if (!rift) rift = { orbs: [], parts: [], shake: 0, dim: 0, ring: 0 };
-    rift.phase = "reign"; rift.winner = name; rift.t = 0;
+    if (!rift) rift = { orbs: [], parts: [], shake: 0, dim: 0, ring: 0, novas: [], scorch: [], flash: 0 };
+    rift.phase = "reign"; rift.winner = name; rift.t = 0; rift.act = null;
     var w = rift.orbs.filter(function (o) { return o.name === name; })[0] || (window.Orb ? rival(name, 0) : null);
-    if (w) { w.alive = true; w.x = ARENA.x; w.y = ARENA.y; w.z = 34; w.scale = 1.7; rift.orbs = [w]; }
+    if (w) { w.alive = true; w.alpha = 1; w.x = ARENA.x; w.y = ARENA.y; w.z = 34; w.scale = 1.7; rift.orbs = [w]; }
     paintFound();
     coreSay(true);
   }
@@ -2070,141 +2214,242 @@
       ? "the orbs fought for control of the site. " + w + " won" + (w === "eclipse" ? ", as it usually does" : ", an upset") + ". it runs the orbs on the page for the rest of your visit. walk back up to it any time for a rematch."
       : w + " holds the core. it runs the orbs on the page until you close the tab.", links);
   }
+  // two stars meet at (x, y): b takes the hit
+  function nova(a, b, x, y) {
+    var kill = --b.hp <= 0, big = kill ? 2.3 : 1;
+    b.flash = 1; a.flash = 0.6; rift.hits++;
+    rift.shake = kill ? 16 : 11; hitstop = kill ? 0.32 : 0.12; rift.flash = kill ? 1 : 0.7;
+    rift.novas.push({ x: x, y: y, t: 0, dur: kill ? 3.4 : 2.2, R: big, c1: dust(a.name), c2: dust(b.name) });
+    rift.scorch.push({ x: x, y: y + 26, r: 30 * big, life: 1 });
+    lens = { x: x, y: y, t: 0 };
+    for (var i = 0; i < (kill ? 160 : 80); i++) {
+      var sa = Math.random() * 6.283, sv = (40 + Math.random() * 200) * (kill ? 1.4 : 1);
+      rift.parts.push({ x: x, y: y + 26, vx: Math.cos(sa) * sv, vy: Math.sin(sa) * sv * 0.6, life: 1 + Math.random() * 1.2, c: i % 3 ? dust(i % 2 ? a.name : b.name) : [255, 244, 220], drag: 0.94, size: Math.random() < 0.2 ? 3 : 2 });
+    }
+    var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
+    b.vx += dx / len * 220; b.vy += dy / len * 130; a.vx -= dx / len * 90; a.vy -= dy / len * 60;
+    var others = ["dino", "future", "chaos"].filter(function (r2) { return r2 !== reality.cur; });
+    shiftReality(others[(Math.random() * others.length) | 0], x, y);
+    sfx("nova", x, y, { vol: kill ? 1.25 : 1 });
+    if (kill) { b.alive = false; setTimeout(function () { sfx("nova", x, y, { vol: 0.7 }); }, 700); }
+  }
+  function begin(att, tgt) {
+    rift.act = { a: att, b: tgt, kind: att.style, t: 0, fx: att.x, fy: att.y, ang: Math.atan2(att.y - tgt.y, att.x - tgt.x), done: false };
+    att.trail = [];
+    if (att.style === "blink") sfx("whoosh", att.x, att.y); else sfx("dash", att.x, att.y);
+  }
+  function updateAct(dt) {
+    var d = rift.act, a = d.a, b = d.b; d.t += dt;
+    if (!a.alive || !b.alive) { rift.act = null; return; }
+    if (d.kind === "charge") {
+      if (d.t < 0.6) { a.vx *= 0.8; a.vy *= 0.8; a.x += (Math.random() - 0.5) * 3; a.rage = d.t / 0.6; d.fx = a.x; d.fy = a.y; }
+      else {
+        var k = Math.min(1, Math.pow((d.t - 0.6) / 0.28, 2));
+        a.trail.push({ x: a.x, y: a.y, z: a.z }); if (a.trail.length > 10) a.trail.shift();
+        a.x = d.fx + (b.x - d.fx) * k; a.y = d.fy + (b.y - d.fy) * k; a.z += (b.z - a.z) * k;
+        if (k >= 1) { nova(a, b, b.x, b.y - b.z); a.vx += (b.x - d.fx) * 0.8; a.vy += (b.y - d.fy) * 0.8; rift.act = null; }
+      }
+    } else if (d.kind === "bind") {
+      var D = 2, u = Math.min(1, d.t / D), mx = (a.x + b.x) / 2, my = (a.y + b.y) / 2, rr = 46 * Math.pow(1 - u, 1.3) + 2;
+      d.ang += dt * (2.5 + u * u * 16);
+      a.x += (mx + Math.cos(d.ang) * rr - a.x) * 0.3; a.y += (my + Math.sin(d.ang) * rr * 0.55 - a.y) * 0.3;
+      b.x += (mx - Math.cos(d.ang) * rr - b.x) * 0.3; b.y += (my - Math.sin(d.ang) * rr * 0.55 - b.y) * 0.3;
+      a.z += (34 - a.z) * 0.1; b.z += (34 - b.z) * 0.1; a.vx = a.vy = b.vx = b.vy = 0;
+      if (Math.random() < dt * 30) rift.parts.push({ x: mx + (Math.random() - 0.5) * rr * 2, y: my + 26 + (Math.random() - 0.5) * rr, vx: 0, vy: 0, life: 0.8, c: dust(Math.random() < 0.5 ? a.name : b.name), swirl: 5, size: 2 });
+      if (u >= 1) { nova(a, b, mx, my - 34); rift.act = null; }
+    } else if (d.kind === "beam") {
+      a.vx *= 0.85; a.vy *= 0.85; a.rage = Math.min(1, d.t / 0.8);
+      if (d.t > 0.8 && !d.done) { d.done = true; d.beam = { t: 0 }; nova(a, b, b.x, b.y - b.z); }
+      if (d.beam) { d.beam.t += dt; if (d.beam.t > 0.4) rift.act = null; }
+    } else if (d.kind === "blink") {
+      if (d.t < 0.35) { a.alpha = 1 - d.t / 0.35; if (Math.random() < dt * 60) rift.parts.push({ x: a.x + (Math.random() - 0.5) * 30, y: a.y + 26 + (Math.random() - 0.5) * 20, vx: 0, vy: 0, life: 0.5, c: dust(a.name), pull: a, size: 2 }); }
+      else if (!d.moved) { d.moved = true; var ang = Math.random() * 6.283; a.x = b.x + Math.cos(ang) * 30; a.y = b.y + Math.sin(ang) * 16; a.vx = a.vy = 0; }
+      else { a.alpha = Math.min(1, (d.t - 0.35) / 0.15); if (d.t > 0.55) { nova(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2 - 30); a.alpha = 1; rift.act = null; } }
+    } else if (d.kind === "well") {
+      var ddx = a.x - b.x, ddy = a.y - b.y, dist = Math.hypot(ddx, ddy) || 1;
+      a.vx *= 0.8; a.vy *= 0.8; a.rage = 1;
+      b.vx += ddx / dist * dt * (260 + d.t * 400); b.vy += ddy / dist * dt * (160 + d.t * 260);
+      if (Math.random() < dt * 40) { var pa = Math.random() * 6.283, pr = 40 + Math.random() * 50; rift.parts.push({ x: a.x + Math.cos(pa) * pr, y: a.y + 26 + Math.sin(pa) * pr * 0.55, vx: 0, vy: 0, life: 1, c: [20, 8, 30], pull: a, swirl: 4, size: 2 }); }
+      if (dist < 20 || d.t > 2.2) { nova(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2 - 30); rift.act = null; }
+    }
+  }
   function updateRift(dt) {
     if (!rift) return;
-    rift.t += dt; rift.shake = Math.max(0, rift.shake - dt * 14); rift.ring = Math.max(0, rift.ring - dt * 0.8);
+    rift.t += dt; rift.shake = Math.max(0, rift.shake - dt * 14); rift.ring = Math.max(0, rift.ring - dt * 0.8); rift.flash = Math.max(0, (rift.flash || 0) - dt * 2.6);
     var alive = rift.orbs.filter(function (o) { return o.alive; });
+    if (SND && rift.phase !== "reign") SND.intensity(rift.phase === "fight" ? Math.min(1, 0.12 + rift.hits * 0.07 + rift.t * 0.006) : 0);
     if (rift.phase === "dim") {
-      rift.dim = Math.min(0.62, rift.t / 1.5 * 0.62); rift.shake = Math.max(rift.shake, 1.2);
-      if (rift.t > 1.7) { rift.phase = "fall"; rift.t = 0; }
+      rift.dim = Math.min(0.66, rift.t / 2.5 * 0.66); rift.shake = Math.max(rift.shake, 0.8);
+      if (rift.t > 3) { rift.phase = "fall"; rift.t = 0; }                            // a long silence first
     } else if (rift.phase === "fall") {
       rift.orbs.forEach(function (o, i) {
-        var u = Math.max(0, Math.min(1, (rift.t - i * 0.2) / 0.9)), e = 1 - Math.pow(1 - u, 3);
-        var z = 300 + i * 50 + (26 - 300 - i * 50) * e;
-        if (o.z > 40 && z <= 40) { rift.shake = 5; burst(o.x, o.y, o.name, 14, 50); sfx("thud", o.x, o.y); }
+        var u = Math.max(0, Math.min(1, (rift.t - i * 0.35) / 0.9)), e = 1 - Math.pow(1 - u, 3);
+        var z = 300 + i * 50 + (o.hz - 300 - i * 50) * e;
+        if (o.z > 40 && z <= 40) { rift.shake = 6; burst(o.x, o.y, o.name, 20, 60); sfx("thud", o.x, o.y); rift.scorch.push({ x: o.x, y: o.y, r: 16, life: 1 }); }
         o.z = z;
       });
-      if (rift.t > 2.3) { rift.phase = "fight"; rift.t = 0; rift.next = 0.5; }
+      if (rift.t > 3) { rift.phase = "fight"; rift.t = 0; rift.next = 0.8; }
     } else if (rift.phase === "fight") {
-      var ring = 20 + alive.length * 6;
       alive.forEach(function (o) {
-        o.a += dt * 0.9;
-        if (rift.dash && rift.dash.a === o) return;
-        var hx = ARENA.x + Math.cos(o.a) * ring, hy = ARENA.y + Math.sin(o.a) * ring * 0.5;
-        o.vx *= 0.9; o.vy *= 0.9;
-        o.x += (hx - o.x) * 0.06 + o.vx * dt; o.y += (hy - o.y) * 0.06 + o.vy * dt;
-        o.z = 26 + Math.sin(rift.t * 3 + o.a * 2) * 3;
+        if (rift.act && (rift.act.a === o || (rift.act.kind === "bind" && rift.act.b === o))) return;
+        // roam: each picks somewhere on the field, drifts there, picks again
+        o.gt -= dt;
+        if (!o.goal || o.gt <= 0 || Math.hypot(o.goal.x - o.x, o.goal.y - o.y) < 12) { o.goal = fieldPoint(); o.gt = 1.5 + Math.random() * 2.5; }
+        var sp = o.style === "blink" ? 70 : o.style === "charge" ? 55 : 40, gx = o.goal.x - o.x, gy = o.goal.y - o.y, gl = Math.hypot(gx, gy) || 1;
+        o.vx += (gx / gl * sp - o.vx) * dt * 1.6; o.vy += (gy / gl * sp * 0.7 - o.vy) * dt * 1.6;
+        o.x += o.vx * dt; o.y += o.vy * dt;
+        var ex = (o.x - ARENA.x) / FIELD.rx, ey = (o.y - ARENA.y) / FIELD.ry, ed = Math.hypot(ex, ey);
+        if (ed > 1.1) { o.x = ARENA.x + ex / ed * 1.1 * FIELD.rx; o.y = ARENA.y + ey / ed * 1.1 * FIELD.ry; o.vx *= -0.4; o.vy *= -0.4; }
+        o.z += (o.hz + Math.sin(rift.t * 2 + o.a * 3) * 6 - o.z) * dt * 2;
+        o.rage = Math.max(0, (o.rage || 0) - dt);
+        o.trail.length = 0;
       });
-      var d = rift.dash;
-      if (!d && alive.length > 1 && (rift.next -= dt) <= 0) {
-        // stronger orbs pick fights more often; the target is anyone else
+      if (rift.act) updateAct(dt);
+      else if (alive.length > 1 && (rift.next -= dt) <= 0) {
+        // the strong pick fights more often; the target is anyone else
         var total = alive.reduce(function (s, o) { return s + POWER[o.name]; }, 0), r = Math.random() * total, att = alive[0];
         for (var i = 0; i < alive.length; i++) { r -= POWER[alive[i].name]; if (r <= 0) { att = alive[i]; break; } }
         var others = alive.filter(function (o) { return o !== att; });
-        rift.dash = { a: att, b: others[(Math.random() * others.length) | 0], t: 0, fx: att.x, fy: att.y };
-        sfx("dash", att.x, att.y);
-      } else if (d) {
-        d.t += dt / 0.3;
-        var k = Math.min(1, d.t * d.t);
-        d.a.x = d.fx + (d.b.x - d.fx) * k; d.a.y = d.fy + (d.b.y - d.fy) * k;
-        if (d.t >= 1) {
-          var dx = d.b.x - d.fx, dy = d.b.y - d.fy, len = Math.hypot(dx, dy) || 1;
-          d.b.hp--; d.b.flash = 1; d.a.flash = 0.6; rift.shake = 9; hitstop = 0.12;
-          var ix0 = (d.a.x + d.b.x) / 2, iy0 = (d.a.y + d.b.y) / 2 - 26;
-          rift.impacts = rift.impacts || []; rift.impacts.push({ x: ix0, y: iy0, t: 0, dur: 1.1, c1: dust(d.a.name), c2: dust(d.b.name), rot: Math.random() * 6 });
-          lens = { x: ix0, y: iy0, t: 0 };
-          for (var sp2 = 0; sp2 < 50; sp2++) { var sa = Math.random() * 6.283, sv = 40 + Math.random() * 120; rift.parts.push({ x: ix0, y: iy0 + 26, vx: Math.cos(sa) * sv, vy: Math.sin(sa) * sv * 0.6, life: 1.3, c: sp2 % 2 ? dust(d.a.name) : dust(d.b.name), swirl: 3 }); }
-          var others2 = ["dino", "future", "chaos"].filter(function (r2) { return r2 !== reality.cur; });
-          shiftReality(others2[(Math.random() * others2.length) | 0], (d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2 - 26);
-          d.b.vx = dx / len * 140; d.b.vy = dy / len * 90; d.a.vx = -dx / len * 60; d.a.vy = -dy / len * 40;
-          burst((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2, d.a.name, 12, 70); burst((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2, d.b.name, 12, 70);
-          if (d.b.hp <= 0) { d.b.alive = false; burst(d.b.x, d.b.y - d.b.z, d.b.name, 70, 110); rift.shake = 10; sfx("burst", d.b.x, d.b.y); hitstop = 0.14; }
-          rift.dash = null; rift.next = 0.5 + Math.random() * 0.4;
-          if (rift.orbs.filter(function (o) { return o.alive; }).length === 1) { rift.phase = "crowning"; rift.t = 0; }
-        }
+        begin(att, others[(Math.random() * others.length) | 0]);
+        rift.next = 0.9 + Math.random() * 1.1;
       }
+      if (!rift.act && rift.orbs.filter(function (o) { return o.alive; }).length === 1) { rift.phase = "crowning"; rift.t = 0; }
     } else if (rift.phase === "crowning") {
       var w = alive[0];
-      w.x += (ARENA.x - w.x) * 0.06; w.y += (ARENA.y - w.y) * 0.06; w.z += (34 - w.z) * 0.06;
-      w.scale = 1 + Math.min(1, rift.t / 1.4) * 0.7;
-      rift.dim = Math.max(0.2, rift.dim - dt * 0.2);
-      if (rift.t > 0.6 && !rift.ringed) { rift.ringed = true; rift.ring = 1; rift.shake = 7; burst(w.x, w.y - w.z, w.name, 50, 90); sfx("crown"); }
-      if (rift.t > 2.2) crown(w.name);
+      w.x += (ARENA.x - w.x) * 0.04; w.y += (ARENA.y - w.y) * 0.04; w.z += (34 - w.z) * 0.04; w.alpha = 1;
+      w.scale = 1 + Math.min(1, rift.t / 2.4) * 0.7;
+      rift.dim = Math.max(0.3, rift.dim - dt * 0.1);
+      if (rift.t > 1.2 && !rift.ringed) { rift.ringed = true; rift.ring = 1; rift.shake = 7; burst(w.x, w.y - w.z, w.name, 60, 90); sfx("crown"); }
+      if (rift.t > 4) crown(w.name);
     } else if (rift.phase === "reign") {
       rift.dim = Math.max(0, rift.dim - dt * 0.3);
       var o = rift.orbs[0]; if (o) o.z = 34 + Math.sin(rift.t * 1.6) * 3;
     }
     rift.orbs.forEach(function (o) { o.flash = Math.max(0, o.flash - dt * 2.5); });
     rift.parts.forEach(function (p) {
-      if (p.swirl) { var ca = Math.cos(p.swirl * dt), sa2 = Math.sin(p.swirl * dt), vx = p.vx; p.vx = vx * ca - p.vy * sa2; p.vy = vx * sa2 + p.vy * ca; }   // debris spirals like an accretion disc
-      p.x += p.vx * dt; p.y += p.vy * dt; p.vx *= 0.97; p.vy *= 0.97; p.life -= dt * 1.1;
+      if (p.pull) { var px2 = p.pull.x - p.x, py2 = p.pull.y + 26 - p.y, pl = Math.hypot(px2, py2) || 1; p.vx += px2 / pl * 300 * dt; p.vy += py2 / pl * 300 * dt; }
+      if (p.swirl) { var ca = Math.cos(p.swirl * dt), sa2 = Math.sin(p.swirl * dt), vx = p.vx; p.vx = vx * ca - p.vy * sa2; p.vy = vx * sa2 + p.vy * ca; }
+      p.x += p.vx * dt; p.y += p.vy * dt; var dr = p.drag || 0.97; p.vx *= dr; p.vy *= dr; p.life -= dt * 1.1;
     });
-    (rift.impacts || []).forEach(function (im) { im.t += dt; });
-    if (rift.impacts) rift.impacts = rift.impacts.filter(function (im) { return im.t < im.dur; });
+    rift.novas = (rift.novas || []).filter(function (n) { n.t += dt; return n.t < n.dur; });
+    rift.scorch = (rift.scorch || []).filter(function (s) { s.life -= dt / 9; return s.life > 0; });
     rift.parts = rift.parts.filter(function (p) { return p.life > 0; });
+  }
+  function orbFocus() {
+    // the camera watches the fight, not one spot: the middle of the living orbs, pulled toward the arena
+    if (!rift || !rift.orbs.length) return { x: ARENA.x, y: ARENA.y - 20 };
+    var al = rift.orbs.filter(function (o) { return o.alive; }), sx = 0, sy = 0;
+    al.forEach(function (o) { sx += o.x; sy += o.y - o.z * 0.5; });
+    return al.length ? { x: (sx / al.length + ARENA.x) / 2, y: (sy / al.length + ARENA.y - 20) / 2 } : { x: ARENA.x, y: ARENA.y - 20 };
+  }
+  function drawOrb(o, E, alpha) {
+    var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale, size = 96 * rr / 31.7;
+    ctx.globalAlpha = alpha;
+    o.art.energy(o.rage > 0 ? 0.6 + o.rage : 0.3);
+    o.art.frame(t + o.a);
+    ctx.drawImage(o.art.canvas, sx - size / 2, sy - size / 2, size, size);
+    ctx.globalAlpha = 1;
   }
   function drawRift(E) {
     if (!rift) return;
     if (rift.dim > 0) { ctx.fillStyle = "rgba(3,4,10," + rift.dim.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+    // scorched ground where the stars met
+    (rift.scorch || []).forEach(function (s) {
+      var gx = (s.x - camX) * E, gy = (s.y - camY) * E, g0 = ctx.createRadialGradient(gx, gy, 0, gx, gy, s.r * E);
+      g0.addColorStop(0, "rgba(8,2,2," + (0.7 * s.life).toFixed(3) + ")"); g0.addColorStop(0.6, "rgba(40,8,4," + (0.35 * s.life).toFixed(3) + ")"); g0.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = g0; ctx.beginPath(); ctx.ellipse(gx, gy, s.r * E, s.r * E * 0.55, 0, 0, 6.283); ctx.fill();
+    });
     var list = rift.orbs.filter(function (o) { return o.alive; }).slice().sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (o) {
-      var gx = (o.x - camX) * E, gy = (o.y - camY) * E, rr = OR * E * o.scale;
-      ctx.fillStyle = "rgba(0,0,0,.35)"; ctx.beginPath(); ctx.ellipse(gx, gy, rr * 0.8, rr * 0.25, 0, 0, 6.283); ctx.fill();
+      var gx = (o.x - camX) * E, gy = (o.y - camY) * E, rr = OR * E * o.scale * (1 - Math.min(0.5, o.z / 160));
+      ctx.fillStyle = "rgba(0,0,0," + (0.35 * o.alpha).toFixed(3) + ")"; ctx.beginPath(); ctx.ellipse(gx, gy, rr * 0.8, rr * 0.25, 0, 0, 6.283); ctx.fill();
     });
-    // the aura: a pool of darkness around each orb, dark motes falling into it like matter into a
-    // well, and for an instant now and then, a pair of red eyes looking back
+    var act = rift.act;
+    // the gravity well: a field of darkness around void while it feeds
+    if (act && act.kind === "well") {
+      var wx = (act.a.x - camX) * E, wy = (act.a.y - act.a.z - camY) * E, wr = (70 + act.t * 20) * E / 3 * 3;
+      var wg = ctx.createRadialGradient(wx, wy, 0, wx, wy, wr);
+      wg.addColorStop(0, "rgba(0,0,0,.95)"); wg.addColorStop(0.4, "rgba(10,0,16,.6)"); wg.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = wg; ctx.beginPath(); ctx.arc(wx, wy, wr, 0, 6.283); ctx.fill();
+    }
+    // each orb pools darkness around itself; motes fall into it; now and then a pair of red eyes
     list.forEach(function (o, oi) {
-      var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale, rage = rift.dash && rift.dash.a === o ? 1 : 0.4;
+      var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale, rage = o.rage || 0.3;
       var ag = ctx.createRadialGradient(sx, sy, rr * 0.4, sx, sy, rr * (2.6 + rage));
-      ag.addColorStop(0, "rgba(0,0,0,.8)"); ag.addColorStop(0.55, "rgba(" + (o.name === "void" || o.name === "eclipse" ? "40,0,20" : "10,6,20") + ",.4)"); ag.addColorStop(1, "rgba(0,0,0,0)");
+      ag.addColorStop(0, "rgba(0,0,0," + (0.8 * o.alpha).toFixed(2) + ")"); ag.addColorStop(0.55, "rgba(" + (o.name === "void" || o.name === "eclipse" ? "40,0,20" : "10,6,20") + "," + (0.4 * o.alpha).toFixed(2) + ")"); ag.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = ag; ctx.fillRect(sx - rr * 4, sy - rr * 4, rr * 8, rr * 8);
-      for (var m = 0; m < 16; m++) {
+      for (var m = 0; m < 14; m++) {
         var ph = (t * (0.35 + (m % 5) * 0.06) + m * 0.137 + oi * 0.3) % 1, ang = m * 2.4 + t * (0.8 + rage) + ph * 3, dd2 = rr * (2.8 - ph * 1.9);
-        ctx.fillStyle = "rgba(6,4,12," + (0.9 * Math.sin(ph * Math.PI)).toFixed(2) + ")";
+        ctx.fillStyle = "rgba(6,4,12," + (0.9 * Math.sin(ph * Math.PI) * o.alpha).toFixed(2) + ")";
         ctx.fillRect(Math.round(sx + Math.cos(ang) * dd2), Math.round(sy + Math.sin(ang) * dd2 * 0.8), 2, 2);
       }
-      if (Math.sin(t * 9 + oi * 2) > 0.94) { ctx.fillStyle = "rgba(208,20,44,.9)"; ctx.fillRect(sx - 3, sy - 1, 2, 1); ctx.fillRect(sx + 2, sy - 1, 2, 1); }
+      if (Math.sin(t * 9 + oi * 2) > 0.95) { ctx.fillStyle = "rgba(208,20,44,.9)"; ctx.fillRect(sx - 3, sy - 1, 2, 1); ctx.fillRect(sx + 2, sy - 1, 2, 1); }
     });
     ctx.save(); ctx.globalCompositeOperation = "lighter";
+    // afterimages behind a charge
+    list.forEach(function (o) { o.trail.forEach(function (p, i) { drawOrb({ x: p.x, y: p.y, z: p.z, scale: o.scale * (0.6 + i * 0.04), art: o.art, a: o.a, rage: 1 }, E, 0.08 + i * 0.03); }); });
     list.forEach(function (o) {
-      var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale, size = 96 * rr / 31.7;
-      o.art.energy(rift.dash && rift.dash.a === o ? 1.3 : 0.25);
-      o.art.frame(t + o.a);
-      ctx.drawImage(o.art.canvas, sx - size / 2, sy - size / 2, size, size);
-      if (o.flash > 0) {
-        var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr * 1.6);
-        g.addColorStop(0, "rgba(255,255,255," + (0.6 * o.flash).toFixed(3) + ")"); g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g; ctx.fillRect(sx - rr * 2, sy - rr * 2, rr * 4, rr * 4);
+      drawOrb(o, E, o.alpha);
+      var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale;
+      if (o.flash > 0 || o.rage > 0.2) {
+        var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr * (1.6 + o.rage));
+        g.addColorStop(0, "rgba(255,255,255," + (0.6 * Math.max(o.flash, o.rage * 0.4)).toFixed(3) + ")"); g.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = g; ctx.fillRect(sx - rr * 3, sy - rr * 3, rr * 6, rr * 6);
       }
     });
-    // stars colliding: a white-hot core, shockwaves in both orbs' colours, a burst of light spikes
-    (rift.impacts || []).forEach(function (im) {
-      var ix = (im.x - camX) * E, iy = (im.y - camY) * E, u = im.t / im.dur, e = 1 - Math.pow(1 - u, 3), fade = 1 - u;
-      var core = ctx.createRadialGradient(ix, iy, 0, ix, iy, (18 + e * 140) * E / 3);
-      core.addColorStop(0, "rgba(255,255,255," + (0.95 * fade).toFixed(3) + ")"); core.addColorStop(0.3, "rgba(" + im.c1.join(",") + "," + (0.6 * fade).toFixed(3) + ")"); core.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = core; ctx.fillRect(ix - 200 * E, iy - 200 * E, 400 * E, 400 * E);
-      for (var k3 = 0; k3 < 3; k3++) {
-        var ru = Math.max(0, u - k3 * 0.09), rr3 = (10 + (1 - Math.pow(1 - ru, 2)) * (160 + k3 * 70)) * E / 3;
-        if (ru <= 0) continue;
-        ctx.strokeStyle = "rgba(" + (k3 % 2 ? im.c2 : im.c1).join(",") + "," + (0.8 * (1 - ru)).toFixed(3) + ")"; ctx.lineWidth = Math.max(1, (4 - k3) * (1 - ru) * 2);
-        ctx.beginPath(); ctx.ellipse(ix, iy, rr3, rr3 * 0.62, 0, 0, 6.283); ctx.stroke();
+    // the binary: a bridge of light between the two as they spiral in
+    if (act && act.kind === "bind") {
+      var ax = (act.a.x - camX) * E, ay = (act.a.y - act.a.z - camY) * E, bx = (act.b.x - camX) * E, by = (act.b.y - act.b.z - camY) * E, bu = Math.min(1, act.t / 2);
+      var lg = ctx.createLinearGradient(ax, ay, bx, by); lg.addColorStop(0, "rgba(" + dust(act.a.name).join(",") + "," + (0.3 + bu * 0.6).toFixed(2) + ")"); lg.addColorStop(1, "rgba(" + dust(act.b.name).join(",") + "," + (0.3 + bu * 0.6).toFixed(2) + ")");
+      ctx.strokeStyle = lg; ctx.lineWidth = (1 + bu * 5) * E / 3; ctx.beginPath(); ctx.moveTo(ax, ay); ctx.lineTo(bx, by); ctx.stroke();
+    }
+    // halo's beam: a core of white inside a wide glow, flickering
+    if (act && act.kind === "beam") {
+      var hx = (act.a.x - camX) * E, hy = (act.a.y - act.a.z - camY) * E, tx2 = (act.b.x - camX) * E, ty2 = (act.b.y - act.b.z - camY) * E;
+      if (!act.beam) { ctx.strokeStyle = "rgba(255,255,255," + (0.15 * act.t).toFixed(3) + ")"; ctx.lineWidth = 1; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx2, ty2); ctx.stroke(); ctx.setLineDash([]); }
+      else {
+        var bf = 1 - act.beam.t / 0.4, fl = 0.8 + Math.random() * 0.4;
+        [[18, 0.18], [9, 0.4], [3, 0.95]].forEach(function (lw, i) { ctx.strokeStyle = i === 2 ? "rgba(255,255,255," + (lw[1] * bf).toFixed(3) + ")" : "rgba(" + dust(act.a.name).join(",") + "," + (lw[1] * bf).toFixed(3) + ")"; ctx.lineWidth = lw[0] * fl * E / 3; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx2, ty2); ctx.stroke(); });
       }
-      for (var k4 = 0; k4 < 12; k4++) {
-        var ra = im.rot + k4 * Math.PI / 6 + u * 0.4, rl = (k4 % 3 === 0 ? 1 : 0.55) * (30 + e * 260) * E / 3, rw = (k4 % 3 === 0 ? 3.2 : 1.6) * fade;
-        ctx.fillStyle = "rgba(255,250,240," + (0.55 * fade).toFixed(3) + ")";
-        ctx.beginPath(); ctx.moveTo(ix + Math.cos(ra + 1.57) * rw, iy + Math.sin(ra + 1.57) * rw); ctx.lineTo(ix + Math.cos(ra) * rl, iy + Math.sin(ra) * rl * 0.7); ctx.lineTo(ix + Math.cos(ra - 1.57) * rw, iy + Math.sin(ra - 1.57) * rw); ctx.fill();
+    }
+    // the collisions: fields, not lines. a fireball swelling out of the impact, a band of
+    // pressure rolling outward over the island, and at the heart, for a moment, a black hole
+    (rift.novas || []).forEach(function (n) {
+      var ix = (n.x - camX) * E, iy = (n.y - camY) * E, u = n.t / n.dur, e = 1 - Math.pow(1 - Math.min(1, u * 1.6), 3), fade = 1 - u;
+      var Rf = (14 + e * 95) * n.R * E / 3 * 1.8;
+      var fb = ctx.createRadialGradient(ix, iy, 0, ix, iy, Rf);
+      fb.addColorStop(0, "rgba(255,255,255," + Math.max(0, 1 - u * 1.6).toFixed(3) + ")");
+      fb.addColorStop(0.22, "rgba(" + n.c1.join(",") + "," + (0.85 * fade).toFixed(3) + ")");
+      fb.addColorStop(0.5, "rgba(" + n.c2.join(",") + "," + (0.55 * fade).toFixed(3) + ")");
+      fb.addColorStop(0.78, "rgba(120,20,16," + (0.35 * fade).toFixed(3) + ")");
+      fb.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = fb; ctx.beginPath(); ctx.arc(ix, iy, Rf, 0, 6.283); ctx.fill();
+      for (var k3 = 0; k3 < 2; k3++) {                                          // the pressure fronts
+        var su = Math.max(0, u - k3 * 0.12); if (su <= 0) continue;
+        var Rs = (20 + (1 - Math.pow(1 - su, 2.2)) * 300 * n.R) * E / 3 * 1.6, band = Math.max(8, Rs * 0.28);
+        var sg = ctx.createRadialGradient(ix, iy, Math.max(0, Rs - band), ix, iy, Rs + band * 0.3);
+        sg.addColorStop(0, "rgba(0,0,0,0)"); sg.addColorStop(0.75, "rgba(" + (k3 ? n.c2 : [255, 236, 214]).join(",") + "," + (0.32 * (1 - su)).toFixed(3) + ")"); sg.addColorStop(1, "rgba(0,0,0,0)");
+        ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(ix, iy, Rs + band * 0.3, (Rs + band * 0.3) * 0.62, 0, 0, 6.283); ctx.fill();
       }
     });
     rift.parts.forEach(function (p) {
       ctx.fillStyle = "rgba(" + p.c.join(",") + "," + Math.min(1, p.life).toFixed(3) + ")";
-      ctx.fillRect((p.x - camX) * E, (p.y - camY) * E, 2, 2);
+      ctx.fillRect((p.x - camX) * E, (p.y - camY) * E, p.size || 2, p.size || 2);
     });
     if (rift.ring > 0) {
-      var cx0 = (ARENA.x - camX) * E, cy0 = (ARENA.y - 34 - camY) * E, rad = (1 - rift.ring) * 260 + 20;
-      ctx.strokeStyle = "rgba(240,236,226," + rift.ring.toFixed(3) + ")"; ctx.lineWidth = 2;
-      ctx.beginPath(); ctx.ellipse(cx0, cy0, rad, rad * 0.55, 0, 0, 6.283); ctx.stroke();
+      var cx0 = (ARENA.x - camX) * E, cy0 = (ARENA.y - 34 - camY) * E, rad = (1 - rift.ring) * 320 + 20, rgd = ctx.createRadialGradient(cx0, cy0, Math.max(0, rad - 40), cx0, cy0, rad + 8);
+      rgd.addColorStop(0, "rgba(0,0,0,0)"); rgd.addColorStop(0.8, "rgba(200,190,210," + (0.3 * rift.ring).toFixed(3) + ")"); rgd.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = rgd; ctx.beginPath(); ctx.ellipse(cx0, cy0, rad + 8, (rad + 8) * 0.6, 0, 0, 6.283); ctx.fill();
     }
     ctx.restore();
+    // black holes at the hearts of the fresh collisions, and the white-out
+    (rift.novas || []).forEach(function (n) {
+      var u = n.t / n.dur; if (u < 0.25 || u > 0.7) return;
+      var ix = (n.x - camX) * E, iy = (n.y - camY) * E, br = Math.sin((u - 0.25) / 0.45 * Math.PI) * 10 * n.R * E / 3 * 1.8;
+      var bh = ctx.createRadialGradient(ix, iy, 0, ix, iy, br * 2); bh.addColorStop(0, "rgba(0,0,0,.95)"); bh.addColorStop(0.5, "rgba(0,0,0,.7)"); bh.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = bh; ctx.beginPath(); ctx.arc(ix, iy, br * 2, 0, 6.283); ctx.fill();
+    });
+    if (rift.flash > 0 && !REDUCED) { ctx.fillStyle = "rgba(255,248,236," + (Math.min(1, rift.flash) * (flashOK() ? 0.75 : 0.25)).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
   }
 
   /* ════════ realities ════════
@@ -2331,9 +2576,9 @@
   }
   // the tear isn't a circle: a jagged, rotating star of a hole, its points flickering
   function tearPath(cx, cy, r, seed) {
-    var n = 30; ctx.beginPath();
+    var n = 72, s0 = (seed | 0) % 97; ctx.beginPath();
     for (var i = 0; i <= n; i++) {
-      var a = i / n * 6.283 + t * 0.35, k2 = (0.7 + 0.3 * hash(i % n, seed | 0) + 0.12 * Math.sin(a * 5 + t * 7)) * (i % 2 ? 0.78 : 1.18);
+      var a = i / n * 6.283, k2 = 1 + 0.1 * Math.sin(a * 3 + s0 + t * 1.3) + 0.06 * Math.sin(a * 7 - s0 * 0.7 - t * 2.1) + 0.03 * Math.sin(a * 13 + t * 4);
       var px = cx + Math.cos(a) * r * k2, py = cy + Math.sin(a) * r * k2 * 0.9;
       if (i) ctx.lineTo(px, py); else ctx.moveTo(px, py);
     }
@@ -2510,6 +2755,7 @@
   ];
   function groundY(x) { return 150 - 14 * Math.sin(x * 0.004 + 1) - 8 * Math.sin(x * 0.011) - (x > 1330 ? Math.min(30, (x - 1330) * 0.35) : 0); }
   function buildSideArt() {
+    function hillY(x) { return 118 - 16 * Math.sin(x * Math.PI * 2 / 1400 + 2) - 6 * Math.sin(x * Math.PI * 2 * 5 / 1400); }
     function cloudLayer(w, h, seed, tones, n) {
       var c = document.createElement("canvas"); c.width = w; c.height = h; var g = c.getContext("2d");
       for (var i = 0; i < n; i++) {
@@ -2541,11 +2787,12 @@
         }
       });
     }
-    var isle = sprite(170, 150, function (r, g) {
-      for (var y = 60; y < 150; y++) { var hw = Math.max(0, (1 - (y - 60) / 90) * 70); for (var x = -hw; x < hw; x++) { g.fillStyle = tone(0.7 - (y - 60) / 90 * 0.5 + (hash(x >> 2, y >> 2) - 0.5) * 0.2 - x / 200, ["#3a3e5a", "#50567a", "#6a7298", "#8a92b4"], x, y); g.fillRect(85 + x, y, 1, 1); } }
-      for (x = 15; x < 155; x++) { r(x, 57 + Math.round(Math.sin(x * 0.2) * 1.5), 1, 5, x % 3 ? "#4a9a3a" : "#6ab84a"); }
-      g.drawImage(willow(110, 90), 20, -28);
-      r(118, 34, 6, 24, "#6a6e84"); r(119, 30, 4, 4, "#8a8ea2");
+    var isle = sprite(170, 180, function (r, g) {                            // (drawn 30px down, so the willow's crown fits)
+      var O = 30;
+      for (var y = 60; y < 150; y++) { var hw = Math.max(0, (1 - (y - 60) / 90) * 70); for (var x = -hw; x < hw; x++) { g.fillStyle = tone(0.7 - (y - 60) / 90 * 0.5 + (hash(x >> 2, y >> 2) - 0.5) * 0.2 - x / 200, ["#3a3e5a", "#50567a", "#6a7298", "#8a92b4"], x, y); g.fillRect(85 + x, y + O, 1, 1); } }
+      for (x = 15; x < 155; x++) { r(x, 57 + O + Math.round(Math.sin(x * 0.2) * 1.5), 1, 5, x % 3 ? "#4a9a3a" : "#6ab84a"); }
+      g.drawImage(willow(110, 90), 20, O - 28);
+      r(118, 34 + O, 6, 24, "#6a6e84"); r(119, 30 + O, 4, 4, "#8a8ea2");
     });
     var totem = [0, 1, 2].map(function (n) {
       return sprite(20, 44 - n * 8, function (r, g) {
@@ -2560,20 +2807,32 @@
     for (var y = 0; y < 260; y++) for (var x = 0; x < 64; x++) { sg2.fillStyle = tone(0.15 + y / 260 * 0.85, ["#2a4a8a", "#3a6ab0", "#5a9ae0", "#8ac0f4", "#b8dcfa"], x, y); sg2.fillRect(x, y, 1, 1); }
     var hills = document.createElement("canvas"); hills.width = 1400; hills.height = 260; var hg = hills.getContext("2d");
     for (x = 0; x < hills.width; x++) {
-      var hy = 118 - 16 * Math.sin(x * 0.006 + 2) - 6 * Math.sin(x * 0.021);
+      var hy = hillY(x);
       for (y = Math.floor(hy); y < 260; y++) { hg.fillStyle = tone(0.62 - (y - hy) / 70 * 0.45 + (hash(x >> 1, y >> 1) - 0.5) * 0.12, ["#1f4a2a", "#2c6636", "#3c8440", "#58a44a", "#76c05a"], x, y); hg.fillRect(x, y, 1, 1); }
       if (hash(x, 17) < 0.3) { hg.fillStyle = "#6ab84a"; hg.fillRect(x, Math.floor(hy) - 1 - ((hash(x, 5) * 2) | 0), 1, 2); }
     }
-    for (var n = 0; n < 9; n++) { var tx2 = 90 + n * 150 + hash(n, 2) * 40, tt2 = totem[n % 3]; hg.drawImage(tt2, Math.round(tx2), Math.round(118 - 16 * Math.sin(tx2 * 0.006 + 2) - 6 * Math.sin(tx2 * 0.021) - tt2.height + 6)); }
+    for (var n = 0; n < 9; n++) { var tx2 = 90 + n * 150 + hash(n, 2) * 40, tt2 = totem[n % 3]; hg.drawImage(tt2, Math.round(tx2), Math.round(hillY(tx2 + 10) - tt2.height + 8)); }
+    // far mountains, a periodic strip too, cold and hazy
+    var mtn = document.createElement("canvas"); mtn.width = 1200; mtn.height = 260; var mg = mtn.getContext("2d");
+    for (x = 0; x < mtn.width; x++) {
+      var my0 = 96 - 26 * Math.abs(Math.sin(x * Math.PI * 3 / 1200 + 0.4)) - 10 * Math.sin(x * Math.PI * 14 / 1200) - 5 * Math.sin(x * Math.PI * 38 / 1200 + 1);
+      for (y = Math.floor(my0); y < 150; y++) { mg.fillStyle = tone(0.5 - (y - my0) / 90 * 0.3 + (hash(x >> 2, y >> 2) - 0.5) * 0.08 + (y - my0 < 3 ? 0.2 : 0), ["#3a4666", "#4a5880", "#5c6c96", "#7888b0"], x, y); mg.fillRect(x, y, 1, 1); }
+    }
     var grnd = document.createElement("canvas"); grnd.width = SIDEW; grnd.height = 260; var gg = grnd.getContext("2d");
     for (x = 0; x < SIDEW; x++) {
       var g0 = groundY(x);
-      for (y = Math.floor(g0); y < 260; y++) { var dd = y - g0; gg.fillStyle = dd < 6 ? tone(0.82 - dd / 6 * 0.35 + (hash(x >> 1, y) - 0.5) * 0.2, ["#3c8a3a", "#5aac46", "#7ccc58", "#a2e070"], x, y) : tone(0.42 - dd / 80 * 0.3 + (hash(x >> 2, y >> 2) - 0.5) * 0.18, ["#140f0a", "#241a12", "#382a1c", "#4e3a26"], x, y); gg.fillRect(x, y, 1, 1); }
+      for (y = Math.floor(g0); y < 260; y++) {
+        var dd = y - g0, strata = Math.sin((y + Math.sin(x * 0.03) * 3) * 0.45) > 0.85 ? -0.14 : 0, stone = 0;
+        gg.fillStyle = dd < 9 ? tone(0.86 - dd / 9 * 0.45 + (hash(x >> 1, y) - 0.5) * 0.2, ["#2f7a34", "#4a9a40", "#6cbc50", "#94d868"], x, y)
+          : tone(0.62 - Math.min(1, dd / 110) * 0.42 + strata + stone + (hash(x >> 2, y >> 2) - 0.5) * 0.14, ["#2a1c14", "#3e2a1c", "#584030", "#735840", "#8e7458"], x, y);
+        gg.fillRect(x, y, 1, 1);
+      }
+      if (hash(x, 11) < 0.04) { gg.fillStyle = "#4a3222"; for (var rt = 0; rt < 12; rt++) gg.fillRect(x + Math.round(Math.sin(rt * 0.7) * 2), Math.floor(g0) + 9 + rt, 1, 1); }   // a root
       if (hash(x, 3) < 0.45) { gg.fillStyle = hash(x, 4) < 0.5 ? "#5aac46" : "#7ccc58"; gg.fillRect(x, Math.floor(g0) - 1 - ((hash(x, 6) * 3) | 0), 1, 3); }
       if (hash(x >> 2, 7) < 0.03 && x % 4 === 0) { gg.fillStyle = "#f6f0e0"; gg.fillRect(x - 1, Math.floor(g0) - 4, 3, 1); gg.fillRect(x, Math.floor(g0) - 5, 1, 3); gg.fillStyle = "#ffb060"; gg.fillRect(x, Math.floor(g0) - 4, 1, 1); }
     }
     for (var st = 0; st < 8; st++) { var sx3 = 1330 + st * 12, sy3 = Math.round(groundY(sx3)); gg.fillStyle = "#8a8ea2"; gg.fillRect(sx3, sy3, 12, 3); gg.fillStyle = "#5a5e76"; gg.fillRect(sx3, sy3 + 3, 12, 2); }
-    return { sky: sky2, hills: hills, ground: grnd, far: cloudLayer(900, 170, 3, ["#a8c8f0", "#c8def6", "#e4f0fc", "#ffffff"], 26), near: cloudLayer(1100, 190, 9, ["#8ab4e8", "#b4d2f4", "#dceafa", "#ffffff"], 18), isle: isle, willow: willow(300, 230), totem: totem, deity: window.Orb ? window.Orb(document.createElement("canvas"), { offscreen: { w: 200, h: 200 }, palette: "void", layers: [[30, 60, 1, 1], [16, 32, 0.8, 0.5]] }) : null };
+    return { sky: sky2, hills: hills, ground: grnd, far: cloudLayer(900, 170, 3, ["#a8c8f0", "#c8def6", "#e4f0fc", "#ffffff"], 26), near: cloudLayer(1100, 190, 9, ["#8ab4e8", "#b4d2f4", "#dceafa", "#ffffff"], 18), isle: isle, willow: willow(190, 150), mtn: mtn, totem: totem, deity: window.Orb ? window.Orb(document.createElement("canvas"), { offscreen: { w: 200, h: 200 }, palette: "void", layers: [[30, 60, 1, 1], [16, 32, 0.8, 0.5]] }) : null };
   }
   function enterSide() {
     closeDialog();
@@ -2581,7 +2840,7 @@
     sideArt = sideArt || buildSideArt();
     side = { x: 60, y: groundY(60), vy: 0, ground: true, face: 1, dist: 0, phase: "walk", t: 0, line: 0, warp: 0 };
     fade = 1; keys = {}; sfx("warp");
-    if (SND) SND.music(null);
+    if (SND) SND.music("dread");
   }
   function sideTalk() {
     if (side.line >= DEITY_LINES.length) { side.phase = "warp"; side.t = 0; sfx("warp"); return; }
@@ -2590,7 +2849,9 @@
   }
   function updateSide(dt) {
     side.t += dt;
-    if (amb) { amb.aura.set({ vol: 0.12 + Math.max(0, (side.x - 500) / 900) * 0.5, rate: side.phase === "warp" ? 1 : 0.3 }); ["waves", "falls", "rumble", "buzz", "rotor", "engine"].forEach(function (k2) { amb[k2].set({ vol: 0 }); }); }
+    var dread = side.phase === "walk" ? Math.max(0, Math.min(1, (side.x - 600) / 780)) : 1;
+    if (SND) SND.intensity(dread);
+    if (amb) { amb.aura.set({ vol: 0.04 + dread * 0.22, rate: side.phase === "warp" ? 1 : dread * 0.5 }); hush(["waves", "falls", "rumble", "buzz", "rotor", "engine"]); }
     if (side.phase === "walk") {
       var mx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0);
       if (side.tap) mx = side.tap;
@@ -2611,45 +2872,69 @@
   function renderSide() {
     var E = Math.max(2, Math.min(5, Math.floor(Math.min(H / 190, W / 240)))), VW = W / E, VH = H / E;
     var cam = Math.max(0, Math.min(SIDEW - VW, side.x - VW * 0.4)), oy = Math.max(0, VH - 230) * 0.6;
-    var shx = (Math.random() - 0.5) * quake, shy = (Math.random() - 0.5) * quake;
+    var shx = (Math.random() - 0.5) * quake * OPT.shake, shy = (Math.random() - 0.5) * quake * OPT.shake;
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "#2a4a8a"; ctx.fillRect(0, 0, W, oy * E + 1);
     ctx.setTransform(E * dpr, 0, 0, E * dpr, shx * dpr, (shy + oy * E) * dpr); ctx.imageSmoothingEnabled = false; VH -= oy;
-    // the sky, darkening toward the deity
-    var dk = Math.max(0, (side.x - 900) / 600), A = sideArt;
-    ctx.drawImage(A.sky, 0, 0, VW, 260); ctx.fillStyle = "#b8dcfa"; ctx.fillRect(0, 259, VW, VH);
-    if (dk > 0) { ctx.fillStyle = "rgba(20,10,40," + (dk * 0.45).toFixed(3) + ")"; ctx.fillRect(0, 0, VW, VH); }   // the sky darkens as you near it
+    // the sky: a smooth gradient that sinks from a clear afternoon into a bruised dusk as you
+    // get closer, and the stars come out over it
+    var dk = side.phase === "walk" ? Math.max(0, Math.min(1, (side.x - 760) / 620)) : 1, A = sideArt;
+    var skyG = ctx.createLinearGradient(0, 0, 0, 200);
+    function mixc(c1, c2, k) { return "rgb(" + c1.map(function (v, i) { return Math.round(v + (c2[i] - v) * k); }).join(",") + ")"; }
+    skyG.addColorStop(0, mixc([58, 106, 176], [8, 6, 18], dk)); skyG.addColorStop(0.6, mixc([120, 176, 232], [40, 16, 42], dk)); skyG.addColorStop(1, mixc([190, 222, 248], [96, 34, 44], dk));
+    ctx.fillStyle = skyG; ctx.fillRect(0, 0, VW, VH);
+    if (dk > 0.3) for (var st2 = 0; st2 < 60; st2++) { var sxs = hash(st2, 1) * VW, sys = hash(1, st2) * 110; ctx.fillStyle = "rgba(230,226,255," + ((dk - 0.3) * (0.5 + 0.5 * Math.sin(t * 2 + st2))).toFixed(2) + ")"; ctx.fillRect(Math.round(sxs), Math.round(sys), 1, 1); }
     function par(img, k, yy) { var off = -((cam * k) % img.width); for (var x = off; x < VW; x += img.width) ctx.drawImage(img, Math.round(x), yy); }
-    par(A.far, 0.12, 8); par(A.near, 0.25, 40);
-    ctx.drawImage(A.isle, Math.round(260 - cam * 0.35), 14 + Math.round(Math.sin(t * 0.5) * 3));
-    ctx.drawImage(A.isle, Math.round(1100 - cam * 0.35), 40 + Math.round(Math.sin(t * 0.4 + 2) * 3));
+    ctx.globalAlpha = 1 - dk * 0.5; par(A.far, 0.12, 8); ctx.globalAlpha = 1;
+    par(A.mtn, 0.2, 0);
+    ctx.globalAlpha = 1 - dk * 0.35; par(A.near, 0.28, 40); ctx.globalAlpha = 1;
+    ctx.drawImage(A.isle, Math.round(300 - cam * 0.35), -14 + Math.round(Math.sin(t * 0.5) * 3));
+    ctx.drawImage(A.isle, Math.round(820 - cam * 0.35), 14 + Math.round(Math.sin(t * 0.4 + 2) * 3));
     par(A.hills, 0.6, 0);
-    ctx.drawImage(A.willow, Math.round(1030 - cam * 0.8), Math.round(groundY(1150) - A.willow.height + 18));
+    ctx.drawImage(A.willow, Math.round(1060 - cam * 0.85), Math.round(groundY(1140) - A.willow.height + 10));
     ctx.drawImage(A.ground, -Math.round(cam), 0);
-    if (VH > 260) { ctx.fillStyle = "#140f0a"; ctx.fillRect(0, 259, VW, VH); }
-    var ax = 1500 - cam, ay = groundY(1500) - 70 + Math.sin(t * 0.9) * 4;
-    var halo = ctx.createRadialGradient(ax, ay, 10, ax, ay, 150); halo.addColorStop(0, "rgba(0,0,0,.85)"); halo.addColorStop(0.5, "rgba(20,0,30,.45)"); halo.addColorStop(1, "rgba(0,0,0,0)");
-    ctx.fillStyle = halo; ctx.fillRect(ax - 160, ay - 160, 320, 320);
-    for (var ring = 0; ring < 3; ring++) {                                  // rune rings turning around it
-      var rr2 = 58 + ring * 16, rot = t * (0.3 - ring * 0.12) * (ring % 2 ? -1 : 1);
-      for (var gl = 0; gl < 24; gl++) { var ga = rot + gl / 24 * 6.283; ctx.fillStyle = "rgba(190,160,255," + (0.35 + 0.35 * Math.sin(t * 2 + gl)).toFixed(2) + ")"; ctx.fillRect(Math.round(ax + Math.cos(ga) * rr2), Math.round(ay + Math.sin(ga) * rr2 * 0.35), gl % 3 ? 2 : 3, gl % 4 ? 1 : 2); }
+    if (VH > 260) { ctx.fillStyle = "#2a1c14"; ctx.fillRect(0, 259, VW, VH); }
+    if (dk > 0) { ctx.fillStyle = "rgba(14,4,16," + (dk * 0.4).toFixed(3) + ")"; ctx.fillRect(0, 0, VW, VH); }      // the whole world dims toward it
+    // the first orb. no face: the orb itself. far off it's a slow dark thing; as you close in it
+    // turns, in violent jerks, through colours that don't belong together (arterial red, acid
+    // green, a bruised violet, dead white, black), it throbs like a heart, splits into offset
+    // copies of itself, and the dark around it breathes in and out
+    var ax = 1500 - cam, ay = groundY(1500) - 56 + Math.sin(t * 0.9) * 4;
+    var near = side.phase === "walk" ? Math.max(0, Math.min(1, (side.x - 950) / 380)) : 1, rage = side.phase === "warp" ? 1 : near;
+    var beat = Math.pow(Math.max(0, Math.sin(t * (2.2 + rage * 3))), 8), R0 = 60 * (1 + beat * 0.12 * rage);
+    var halo = ctx.createRadialGradient(ax, ay, 10, ax, ay, 150 + beat * 30 * rage);
+    halo.addColorStop(0, "rgba(0,0,0,.9)"); halo.addColorStop(0.45, "rgba(24,0,18," + (0.5 + rage * 0.3).toFixed(2) + ")"); halo.addColorStop(1, "rgba(0,0,0,0)");
+    ctx.fillStyle = halo; ctx.fillRect(ax - 190, ay - 190, 380, 380);
+    if (A.deity) {
+      A.deity.energy(0.35 + rage * 1.4); A.deity.frame(t * (1 + rage * 2));
+      var VIOLENT = ["#ff0a3a", "#7cff00", "#6a00ff", "#ffffff", "#000000", "#ff5200", "#00f0ff"];
+      var slot = Math.floor(t * (1.5 + rage * 9) + hash(Math.floor(t * 3), 5) * 3), col = VIOLENT[slot % VIOLENT.length];
+      var dc = A.dc || (A.dc = document.createElement("canvas")); dc.width = dc.height = 140; var dg = dc.getContext("2d");
+      dg.clearRect(0, 0, 140, 140); dg.drawImage(A.deity.canvas, 10, 10, 120, 120);
+      if (rage > 0.05) { dg.globalCompositeOperation = "source-atop"; dg.globalAlpha = Math.min(0.85, rage * (0.55 + 0.35 * Math.random())); dg.fillStyle = col; dg.fillRect(0, 0, 140, 140); dg.globalAlpha = 1; dg.globalCompositeOperation = "source-over"; }
+      var sz = R0 * 2 / 120 * 140, jx = (Math.random() - 0.5) * rage * 4, jy = (Math.random() - 0.5) * rage * 4;
+      if (rage > 0.3) {                                                      // it splits: offset ghosts of itself
+        ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.35 * rage;
+        ctx.drawImage(dc, ax - sz / 2 - 5 * rage + jx, ay - sz / 2 + jy, sz, sz); ctx.drawImage(dc, ax - sz / 2 + 5 * rage - jx, ay - sz / 2 - jy, sz, sz);
+        ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
+      }
+      ctx.drawImage(dc, ax - sz / 2 + jx, ay - sz / 2 + jy, sz, sz);
     }
-    if (A.deity) { A.deity.energy(side.phase === "warp" ? 1.6 : 0.4); A.deity.frame(t); ctx.globalCompositeOperation = "lighter"; ctx.drawImage(A.deity.canvas, ax - 60, ay - 60, 120, 120); ctx.globalCompositeOperation = "source-over"; }
-    var open2 = side.phase === "walk" ? Math.max(0, (side.x - 1100) / 230) : 1;       // an eye opens as you come close
-    if (open2 > 0) { ctx.fillStyle = "#050505"; ctx.beginPath(); ctx.ellipse(ax, ay, 16, 7 * Math.min(1, open2), 0, 0, 6.283); ctx.fill(); ctx.fillStyle = "#d0142c"; ctx.beginPath(); ctx.ellipse(ax + Math.max(-6, Math.min(6, (side.x - 1500 + cam - cam) / 60)), ay, 3.5 * open2, 5 * Math.min(1, open2), 0, 0, 6.283); ctx.fill(); }
     // pi (or what pi became), in profile
-    var art = piArt(side.ground && (keys.l || keys.r || side.tap) && side.phase === "walk" ? "walk" : "idle", side.ground && (keys.l || keys.r || side.tap) ? Math.floor(side.dist / (pi.kaiju ? 3 : 4)) % 6 : Math.floor(t * 1.6) % 4, false);
+    var art = piArt(side.ground && (keys.l || keys.r || side.tap) && side.phase === "walk" ? "walk" : "idle", side.ground && (keys.l || keys.r || side.tap) ? Math.floor(side.dist / 4) % 6 : Math.floor(t * 1.6) % 4, false, true);
     var px = side.x - cam; ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(Math.round(px - 6), Math.round(groundY(side.x)), 12, 2);
     if (side.face < 0) { ctx.save(); ctx.translate(Math.round(px + art.width / 2), 0); ctx.scale(-1, 1); ctx.drawImage(art, 0, Math.round(side.y - art.height + 2)); ctx.restore(); } else ctx.drawImage(art, Math.round(px - art.width / 2), Math.round(side.y - art.height + 2));
-    // dark leaves hanging into the frame
-    ctx.fillStyle = "#101a14"; for (var lf = 0; lf < 16; lf++) { var lx = ((lf * 97 - cam * 1.3) % (VW + 80) + VW + 80) % (VW + 80) - 40; ctx.beginPath(); ctx.ellipse(lx, VH - 4 + (lf % 3) * 3, 16, 7, lf, 0, 6.283); ctx.fill(); }
+    // grass in the foreground, dark against the scene
+    for (var lf = 0; lf < 70; lf++) { var lx = ((lf * 37 - cam * 1.3) % (VW + 40) + VW + 40) % (VW + 40) - 20, lh = 4 + hash(lf, 3) * 9; ctx.fillStyle = lf % 3 ? "#0e1a10" : "#162a18"; ctx.fillRect(Math.round(lx), Math.round(VH - lh), 1, lh); ctx.fillRect(Math.round(lx + 1), Math.round(VH - lh * 0.6), 1, lh * 0.6); }
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     if (side.phase === "warp") {
-      // reality comes apart: the colours invert in flashes, the tear opens from the orb, everything shakes
+      // reality comes apart: the colours invert in flashes, a hole opens out of the orb, everything shakes
       var u = side.warp, ex = (ax) * E, ey = (ay + oy) * E;
-      if (Math.random() < 0.25 + u * 0.4) { ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over"; }
-      ctx.fillStyle = "#000"; tearPath(ex, ey, u * u * Math.max(W, H) * 1.3, 7); ctx.fill();
-      ctx.strokeStyle = "rgba(190,160,255,.9)"; ctx.lineWidth = 3; tearPath(ex, ey, u * u * Math.max(W, H) * 1.3, 7); ctx.stroke();
-      if (u > 0.85) { ctx.fillStyle = "rgba(255,255,255," + ((u - 0.85) / 0.15).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+      if (OPT.flash && Math.random() < 0.2 + u * 0.35) { ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over"; }
+      var hr = u * u * Math.max(W, H) * 1.3;
+      var hole = ctx.createRadialGradient(ex, ey, hr * 0.6, ex, ey, hr * 1.05); hole.addColorStop(0, "rgba(0,0,0,1)"); hole.addColorStop(0.8, "rgba(40,0,30,.8)"); hole.addColorStop(1, "rgba(0,0,0,0)");
+      ctx.fillStyle = "#000"; tearPath(ex, ey, hr * 0.6, 7); ctx.fill();
+      ctx.fillStyle = hole; ctx.beginPath(); ctx.arc(ex, ey, hr * 1.05, 0, 6.283); ctx.fill();
+      if (u > 0.85) { ctx.fillStyle = OPT.flash ? "rgba(255,255,255," + ((u - 0.85) / 0.15).toFixed(3) + ")" : "rgba(0,0,0," + ((u - 0.85) / 0.15).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
       glitchSlices();
     }
     tag("← →  walk   space  jump", W / 2, H - 16, false);
@@ -2712,14 +2997,14 @@
       if (moved < 0.01 && !len) pi.vx = pi.vy = 0;
       pi.dist += moved;
       if (Math.abs(pi.vx) > 6) pi.face = pi.vx > 0 ? 1 : -1;
-      if (len) pi.dir = my < -0.5 ? "up" : "down";
+      if (len) { pi.dir = my < -0.5 ? "up" : "down"; pi.view = Math.abs(mx) >= Math.abs(my) * 0.8 ? "side" : pi.dir; }
       if (pi.path && moved < 0.01) pi.path = null;   // stuck: give up
       footfall(moved);
     }
     // rex wanders the meadow
     rex.wait -= dt;
     if (rex.wait <= 0 && !rex.tx) {
-      var tx = 27 + Math.floor(Math.random() * 7), ty = 31 + Math.floor(Math.random() * 6);
+      var tx = 38 + Math.floor(Math.random() * 12), ty = 60 + Math.floor(Math.random() * 3);
       if (walkable(tx, ty)) { rex.tx = tx * T + 8; rex.ty = ty * T + 10; }
     }
     if (rex.tx) {
@@ -2776,7 +3061,7 @@
     var tx = Math.floor(pi.x / T), ty = Math.floor((pi.y - 2) / T), tt = at(tx, ty), side = (pi.dist / stride | 0) % 2 ? 2 : -2;
     if (room) { sfx("step", undefined, undefined, { surface: room.id === "visitor" ? "dock" : "gravel", vol: 0.7 }); return; }
     sfx("step", undefined, undefined, { surface: tt === DOCK ? "dock" : tt === GRASS ? "grass" : "gravel", vol: keys.run ? 1.2 : 0.8 });
-    if (pi.kaiju) { sfx("stomp", undefined, undefined, { vol: 0.5 }); quake = Math.max(quake, 0.5); }     // middle path is heavier than pi
+    if (pi.kaiju) sfx("stomp", undefined, undefined, { vol: 0.18 });     // middle path is a little heavier than pi
     if (tt === PATH || tt === SAND || tt === PAD || keys.run) {
       for (var i = 0; i < (keys.run ? 3 : 1); i++) puffs.push({ x: pi.x + side + (Math.random() - 0.5) * 3, y: pi.y, vx: -pi.vx * 0.08 + (Math.random() - 0.5) * 6, vy: -3 - Math.random() * 4, life: 1, c: tt === GRASS ? "150,190,110" : tt === SAND ? "230,214,170" : "200,170,120" });
     }
@@ -2794,17 +3079,18 @@
   }
   function drawPrints() {
     prints.forEach(function (p2) { ctx.fillStyle = "rgba(150,120,70," + (0.45 * p2.life).toFixed(3) + ")"; ctx.fillRect(p2.x - 1, p2.y - 1, 2, 2); });
+    drawSkids();
   }
   function drawDust() {
     puffs.forEach(function (d) { ctx.fillStyle = "rgba(" + d.c + "," + Math.min(1, d.life * (d.leaf ? 1 : 0.6)).toFixed(3) + ")"; ctx.fillRect(Math.round(d.x), Math.round(d.y), d.leaf ? 2 : 1, d.leaf ? 1 : 1); });
   }
 
   /* ════════ the minimap: bottom right, click it to fold it away ════════ */
-  var mini = document.createElement("canvas"), MINI = 2, mapOn = true, mapRect = null;
+  var mini = document.createElement("canvas"), MINI = 2, mapOn = OPT.map, mapRect = null;
   mini.width = MW * MINI; mini.height = MH * MINI;
   (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
   function drawMinimap() {
-    if (W < 760) { mapRect = null; return; }
+    if (W < 760 || riftBusy() || !OPT.map) { mapRect = null; return; }
     var sc = 1.5, mw = mini.width * sc, mh = mini.height * sc, x0 = W - mw - 16, y0 = H - mh - 16;
     mapRect = [x0, y0, mw, mh];
     ctx.fillStyle = "#0a0a0a"; ctx.fillRect(x0 - 3, y0 - 3, mapOn ? mw + 6 : 58, mapOn ? mh + 6 : 22);
@@ -2948,10 +3234,10 @@
     var lvx = car.driving ? Math.sin(car.a) * car.v * 0.3 : aboard() ? heli.vx * 0.3 : pi.vx * 0.22, lvy = car.driving ? -Math.cos(car.a) * car.v * 0.3 : aboard() ? heli.vy * 0.3 : pi.vy * 0.22;
     var lk = car.driving || aboard() ? 30 : 14;
     look.x += (Math.max(-lk, Math.min(lk, lvx)) - look.x) * 0.03; look.y += (Math.max(-lk * 0.6, Math.min(lk * 0.6, lvy)) - look.y) * 0.03;
-    var fx = riftBusy() ? ARENA.x : pi.x + look.x, fy = riftBusy() ? ARENA.y - 20 : pi.y + look.y;
+    var foc = riftBusy() ? orbFocus() : null, fx = foc ? foc.x : pi.x + look.x, fy = foc ? foc.y : pi.y + look.y;
     if (camF.x === null) { camF.x = fx; camF.y = fy; }
     camF.x += (fx - camF.x) * 0.06; camF.y += (fy - camF.y) * 0.06;
-    var sh = (rift ? rift.shake : 0) + quake;
+    var sh = ((rift ? rift.shake : 0) + quake) * OPT.shake;
     camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (Math.random() - 0.5) * sh;
     camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh;
     camX = Math.round(camX * E) / E; camY = Math.round(camY * E) / E;
@@ -2963,9 +3249,9 @@
       REAL = reality.cur; drawWorld(E, VW, VH);
       ctx.restore();
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      ctx.strokeStyle = reality.cur === "chaos" ? "rgba(0,0,0,.9)" : reality.cur === "future" ? "rgba(41,216,255,.9)" : "rgba(240,236,226,.9)"; ctx.lineWidth = 3;
-      tearPath(wsx, wsy, wr, reality.wipe.seed); ctx.stroke();
-      ctx.strokeStyle = "rgba(255,79,160,.6)"; ctx.lineWidth = 1; tearPath(wsx + 3, wsy, wr + 5, reality.wipe.seed + 1); ctx.stroke();
+      // the edge of the tear glows like a heat front: soft bands, widest and faintest outside
+      var ec = reality.cur === "chaos" ? "0,0,0" : reality.cur === "future" ? "41,216,255" : "255,226,200";
+      [[22, 0.08], [12, 0.16], [5, 0.35], [2, 0.8]].forEach(function (b2) { ctx.strokeStyle = "rgba(" + ec + "," + b2[1] + ")"; ctx.lineWidth = b2[0]; tearPath(wsx, wsy, wr, reality.wipe.seed); ctx.stroke(); });
     } else { REAL = reality.cur; drawWorld(E, VW, VH); }
 
     // screen-space overlays: the rift, then prompts and speech
@@ -3014,12 +3300,12 @@
       return;
     }
     if (car.driving || aboard()) return;
-    shadow(pi.x, pi.y, pi.kaiju ? 24 : 10);
+    shadow(pi.x, pi.y, pi.kaiju ? 12 : 10);
     var moving = (Math.abs(pi.vx) + Math.abs(pi.vy) > 4) && dlg.hidden;
     var blink = hash(Math.floor(t * 3), 9) < 0.06;
-    var fr = moving ? Math.floor(pi.dist / (pi.kaiju ? 3.2 : 4)) % 6 : pi.kaiju ? Math.floor(t * 1.6) % 4 : 0;
-    var bob = moving || pi.kaiju ? 0 : Math.round(Math.sin(t * 3) * 0.5);
-    drawArt(piArt(moving ? "walk" : blink && !pi.kaiju ? "blink" : "idle", fr, pi.dir === "up"), pi.x, pi.y + (pi.kaiju ? 1 : 0) + bob, pi.face < 0);
+    var fr = moving ? Math.floor(pi.dist / 4) % 6 : 0;
+    var bob = moving ? 0 : Math.round(Math.sin(t * 3) * 0.5);
+    drawArt(piArt(moving ? "walk" : blink ? "blink" : "idle", fr, pi.dir === "up" && pi.view !== "side"), pi.x, pi.y + bob, pi.face < 0);
     if (pi.boost > 0) { ctx.fillStyle = "#E879F9"; ctx.fillRect(Math.round(pi.x - 7 - pi.face * 3), Math.round(pi.y - 4), 2, 1); ctx.fillRect(Math.round(pi.x - 8 - pi.face * 5), Math.round(pi.y - 6), 2, 1); }
   }
 

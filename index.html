@@ -51,7 +51,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Cascadia+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
-  <link rel="stylesheet" href="css/styles.css" />
+  <link rel="stylesheet" href="css/styles.css?v=20260926" />
 </head>
 <body>
 
@@ -72,9 +72,11 @@
   <!-- ── pi's island: a walkable top-down world, reached through the orb ── -->
   <div id="world" class="world" hidden role="dialog" aria-modal="true" aria-label="pi's island: a small walkable map of Ammaar's work">
     <canvas class="w-cv" tabindex="-1" aria-hidden="true"></canvas>
+    <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
     <div class="w-hud">
       <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found">found 0/8</span></div>
       <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc to leave</div>
+      <button class="w-gear" type="button" aria-expanded="false" aria-controls="w-set" aria-label="Settings">⚙<span class="w-sound-l"> settings</span></button>
       <button class="w-sound" type="button" aria-pressed="true" aria-label="Sound on">♪<span class="w-sound-l"> sound on</span></button>
       <button class="w-exit" type="button">leave ↩</button>
     </div>
@@ -494,13 +496,13 @@
     </div>
   </footer>
 
-  <script src="js/skills.js"></script>
-  <script src="js/boot.js"></script>
-  <script src="js/site.js"></script>
-  <script src="js/windows.js"></script>
-  <script src="js/face.js"></script>
-  <script src="js/orb.js"></script>
-  <script src="js/audio.js"></script>
-  <script src="js/hands.js"></script>
+  <script src="js/skills.js?v=20260926"></script>
+  <script src="js/boot.js?v=20260926"></script>
+  <script src="js/site.js?v=20260926"></script>
+  <script src="js/windows.js?v=20260926"></script>
+  <script src="js/face.js?v=20260926"></script>
+  <script src="js/orb.js?v=20260926"></script>
+  <script src="js/audio.js?v=20260926"></script>
+  <script src="js/hands.js?v=20260926"></script>
 </body>
 </html>

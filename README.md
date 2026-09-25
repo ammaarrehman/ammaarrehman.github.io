@@ -62,10 +62,14 @@ stegosaurus with two rows of plates, a brachiosaurus rising from long forelimbs,
 raptors, a sail-backed spinosaurus fishing the river. The cast: t-rex, raptors,
 brachiosaurus, stegosaurus, triceratops, ankylosaurus, parasaurolophus, spinosaurus,
 dilophosaurus (it fans its frill when it calls), a pair of head-butting pachycephalosaurs, a
-skittish gallimimus herd, a flock of compys, babies by the nests, and pterosaurs gliding
-round the volcano. They walk with six-frame gaits, breathe, blink, graze and call, and big
-feet thud. pi is the little white one it always was; evolved, pi becomes Middle Path, traced
-from Ammaar's drawing: sitting, head tipped up, spikes down its back, blowing a bubble.
+skittish gallimimus herd, a flock of compys, babies by the nests, and pterosaurs round the
+volcano (a twelve-frame wingbeat made by hinging the supplied sprite's wing at the shoulder,
+three strokes then a long sinking glide, eyes open, the odd blink). They walk with
+six-frame gaits, breathe, blink, graze and call, and big feet thud. Sizes follow one scale,
+about 6 px to the metre (what pi and the robots already were), bent only where a true size
+would be unreadable (compys, raptors) or would swallow the screen. pi is the little white
+one it always was; evolved, pi becomes Middle Path: a small grey kaiju about pi's size,
+spikes down its back and a stubby tail, drawn side on, facing the camera, and walking away.
 
 A robot crew runs the place: cargo bots haul crates from the dock to the supply depot and
 the visitor centre, drones fly parcels out to the landmarks, a welder patches the raptor
@@ -76,7 +80,9 @@ rack and the triage desk are in there), the visitor centre, or the depot. Trees 
 buildings turn see-through when pi walks behind them.
 
 His BMW M3 is parked on the coast road and a
-helicopter sits on the helipad: walk up, press e, and drive or fly. The island keeps real
+helicopter sits on the helipad: walk up, press e, and drive or fly. The M3 has a drive and a
+reverse gear (s or down when it's stopped), a torque curve, brakes that bite, and grip that
+lets go on the handbrake (shift) so the back steps out and lays rubber. The island keeps real
 time in Ellicott City (America/New_York), with sunrise and sunset worked out for the date.
 `?islandhour=22` previews any hour.
 
@@ -85,15 +91,21 @@ of the site; the winner runs the hero orb for the rest of the session. Every cla
 reality open from the point of impact and the island underneath is somewhere else: the
 jurassic island, a neon future city (every tree a lit tower, roads of light, flying
 traffic), or chaos (ink on paper, a black nervous system of strands and spheres, flickering
-neural connections, grain everywhere). The score changes with each reality, and the tear closes when a winner
-is crowned. Each clash hits like colliding stars: a white-hot core, shockwaves in both
-orbs' colours, spikes of light, debris spiralling out, and the frame bulging around the
-impact like gravitational lensing, while reality tears open as a jagged star. The orbs pool
-darkness and draw motes into themselves; their presence is a beating sub drone, a
-ring-modulated alien tone, a wail that slides between wrong notes, and whispering formants,
-and every clash sounds like the world's audio collapsing into a long dark reverb.
+neural connections, grain everywhere), and the tear closes when a winner is crowned. The
+orbs range over the whole clearing and each fights its own way: eclipse charges, bone binds
+its target into a death spiral like a binary star, halo fires beams, fog blinks out and
+unfolds beside its target, and void opens a gravity well and drags it in. Every hit is two
+stars colliding: the screen whites out, a fireball swells from the impact, a field of
+pressure rolls out across the island, embers scatter, the ground is scorched, and a killing
+blow is a supernova. When the orbs wake the island goes silent: no surf, no birds, no music.
+Then a score of pure dread creeps in (a sub drone, a cluster that slowly opens, a heartbeat
+that quickens with the fight, a tolling bell, something groaning a long way off) and it
+never turns into a tune.
 
-Up on the highland, at the end of a trail from the brachio meadow, there's an old shrine. (The gardener bot won't go near it.) There's
+Up on the highland, at the end of a trail from the brachio meadow, there's an old shrine
+(the gardener bot won't go near it). Step through and the island turns side-on: a painted
+sky that sinks into a starry dark as you climb, and at the top the first orb, which turns
+through violent colours and splits into copies of itself as you close in. There's
 also a terminal left logged in, in a cave at the foot of the volcano (a robot will
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early.
@@ -107,8 +119,11 @@ blinks, grazing, and a roar.
 
 Sound is all synthesized in the browser (`js/audio.js`): footsteps that change with the
 ground, surf, insects, the volcano's rumble, the rotor and the M3's engine, the t-rex, the
-orb fight, and a little chiptune score for day, night, and battle. It starts on the click
-into the island, `m` or the ♪ button mutes it, and the choice is remembered.
+orb fight, a little chiptune score for day and night, and dark scores for the shrine and the
+fight. It starts on the click into the island, `m` or the ♪ button mutes it, and the ⚙
+settings panel has levels for the master, music, effects and ambience, a button that
+restarts the sound engine, and comfort switches for screen shake, bright flashes and the
+minimap. Everything is remembered in this browser.
 
 - keyboard: wasd / arrows to walk, shift to run, e / space / enter to look, m to mute, esc to leave
 - pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look
