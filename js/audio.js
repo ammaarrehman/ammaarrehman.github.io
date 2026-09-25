@@ -15,7 +15,7 @@
    Sound.toggle() / .on()    mute switch (persists in localStorage) */
 (function () {
   var AC = window.AudioContext || window.webkitAudioContext;
-  var ctx = null, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
+  var ctx = null, live = 0, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
   var BASE = { master: 0.85, music: 0.42, sfx: 0.9, amb: 0.9 };
   var MIX = { master: 1, music: 0.8, sfx: 1, amb: 0.8 };
   try { enabled = localStorage.getItem("sound") !== "off"; } catch (e) {}
@@ -24,6 +24,12 @@
   function init() {
     if (ctx || !AC) return ctx;
     ctx = new AC();
+    // count every source from start to end (the debug overlay shows it), and unhook each one
+    // from the graph the moment it finishes so nothing lingers
+    ["createOscillator", "createBufferSource"].forEach(function (m) {
+      var make = ctx[m].bind(ctx);
+      ctx[m] = function () { var n = make(); live++; n.addEventListener("ended", function () { live--; try { n.disconnect(); } catch (e) {} }); return n; };
+    });
     var comp = ctx.createDynamicsCompressor();
     comp.threshold.value = -18; comp.ratio.value = 5; comp.attack.value = 0.004; comp.release.value = 0.25;
     var lim = ctx.createDynamicsCompressor();
@@ -399,7 +405,7 @@
     if (ctx) {
       clearInterval(seq); seq = null; mood = null; moodGain = null; held = []; loops = [];
       try { ctx.close(); } catch (e) {}
-      ctx = null;
+      ctx = null; live = 0;
     }
     init(); unlock();
     restartListeners.forEach(function (f) { f(); });
@@ -415,6 +421,7 @@
     setMix: function (k, v) { if (!(k in MIX)) return; MIX[k] = Math.max(0, Math.min(1, v)); try { localStorage.setItem("sound-mix", JSON.stringify(MIX)); } catch (e) {} applyMix(); },
     restart: restart,
     onRestart: function (f) { restartListeners.push(f); },
+    stats: function () { return { state: ctx ? ctx.state : "none", sources: live, voices: 0, loops: loops.length, mood: mood }; },
     ready: function () { return !!ctx && ctx.state === "running"; },
     on: function () { return enabled; },
     toggle: function () { unlock(); setEnabled(!enabled); return enabled; },

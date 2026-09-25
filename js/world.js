@@ -15,6 +15,14 @@
   var foundEl = root.querySelector(".w-found");
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
+  // ?debug=1 shows a readout of the frame time, particles, audio, canvases, state and the save;
+  // ?seed=n makes the fight play out the same way every time
+  var DEBUG = /[?&]debug=1(&|$)/.test(location.search);
+  var SEED = (location.search.match(/[?&]seed=(\d+)/) || [])[1];
+  var frand = SEED ? (function (a) { return function () { a = (a + 0x6d2b79f5) | 0; var q = Math.imul(a ^ (a >>> 15), 1 | a); q = (q + Math.imul(q ^ (q >>> 7), 61 | q)) ^ q; return ((q ^ (q >>> 14)) >>> 0) / 4294967296; }; })(+SEED) : Math.random;
+  // every offscreen canvas is made here, so they can be counted (and their memory estimated)
+  var CANVASES = [];
+  function mkCanvas() { var c = document.createElement("canvas"); CANVASES.push(c); return c; }
 
   /* ════════ map ════════ */
   var T = 16, MW = 100, MH = 80, CX = 48, CY = 40, DOCKX = 51;
@@ -261,7 +269,7 @@
   function solidPx(px, py) { return !walkable(Math.floor(px / T), Math.floor(py / T)); }
 
   /* ════════ sprites (drawn once into little canvases) ════════ */
-  function sprite(w, h, fn) { var c = document.createElement("canvas"); c.width = w; c.height = h; var g = c.getContext("2d"); fn(function (x, y, w, h, col) { g.fillStyle = col; g.fillRect(x, y, w, h); }, g); return c; }
+  function sprite(w, h, fn) { var c = mkCanvas(); c.width = w; c.height = h; var g = c.getContext("2d"); fn(function (x, y, w, h, col) { g.fillStyle = col; g.fillRect(x, y, w, h); }, g); return c; }
   function blob(r, cx, cy, rad, col) { for (var j = -rad; j <= rad; j++) { var w = Math.round(Math.sqrt(rad * rad - j * j)); r(cx - w, cy + j, w * 2, 1, col); } }
   var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   // pick one of a few tones for a shade in [0,1], ordered-dithered so the bands blend like 16-bit art
@@ -314,7 +322,7 @@
   function outline(src, col) {
     var w0 = src.width, h0 = src.height, d = src.getContext("2d").getImageData(0, 0, w0, h0).data;
     function A(x, y) { return x >= 0 && y >= 0 && x < w0 && y < h0 && d[(y * w0 + x) * 4 + 3] > 40; }
-    var c = document.createElement("canvas"); c.width = w0 + 2; c.height = h0 + 2;
+    var c = mkCanvas(); c.width = w0 + 2; c.height = h0 + 2;
     var g = c.getContext("2d"); g.fillStyle = col;
     for (var y = -1; y <= h0; y++) for (var x = -1; x <= w0; x++)
       if (!A(x, y) && (A(x - 1, y) || A(x + 1, y) || A(x, y - 1) || A(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
@@ -517,7 +525,7 @@
   /* ════════ ground, drawn once ════════ */
   var COL = { deep: "#1f4e79", deep2: "#1a4470", shal: "#3d8fc4", shal2: "#4fa3d6", sand: "#ecd9a0", sand2: "#dcc586", wetsand: "#cdb57a",
               grass: "#4f9a3e", grass2: "#3f8433", grass3: "#6cb452", path: "#c69a66", path2: "#a97c4c", pond: "#4aa3c9", pondrim: "#3b86a8", dock: "#8b5e34", dock2: "#6e4826" };
-  var ground = document.createElement("canvas"); ground.width = MW * T; ground.height = MH * T;
+  var ground = mkCanvas(); ground.width = MW * T; ground.height = MH * T;
   function jungle(x, y) { return (Math.sin(x * 0.31 + 1) + Math.sin(y * 0.37 + 2) + Math.sin((x + y) * 0.23 + 0.5) + Math.sin((x - y) * 0.17)) / 4 + (x < 30 ? 0.12 : 0); }
   // how far each water tile is from land, for depth shading
   var DEPTH = [];
@@ -1051,7 +1059,7 @@
   function frameCanvas(rows, pal, w) {
     var key = rows.join("|") + JSON.stringify(pal);
     if (!frameCache[key]) {
-      var c = document.createElement("canvas"); c.width = w; c.height = rows.length;
+      var c = mkCanvas(); c.width = w; c.height = rows.length;
       var g = c.getContext("2d");
       for (var y = 0; y < rows.length; y++) for (var x = 0; x < w; x++) {
         var ch = rows[y][x]; if (!ch || ch === ".") continue;
@@ -1174,12 +1182,12 @@
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
   SHEET_IMG.src = "assets/island/dinos.png?v=20260926";
-  var DART = {}, BLANK = document.createElement("canvas"); BLANK.width = BLANK.height = 1;
+  var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
     var list = d.m[mode] || d.m.idle || d.m.fly, n = list[((i | 0) % list.length + list.length) % list.length], key = kind + ":" + n;
     if (!DART[key]) {
-      var c = document.createElement("canvas"); c.width = d.w; c.height = d.h;
+      var c = mkCanvas(); c.width = d.w; c.height = d.h;
       c.getContext("2d").drawImage(SHEET_IMG, d.f[n][0], d.f[n][1], d.w, d.h, 0, 0, d.w, d.h);
       DART[key] = c;
     }
@@ -1789,7 +1797,7 @@
       var gully = (Math.sin(a * 13 + d * 0.06) * 0.6 + Math.sin(a * 5 + 1.3) * 0.4) * 5 * k2;
       return Math.pow(1 - d / R, 1.25) * Hm + gully + (d < rc + 5 ? (rc + 5 - d) * 0.6 : 0);   // a raised lip round the crater
     }
-    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var c = mkCanvas(); c.width = w; c.height = h;
     var g = c.getContext("2d"), ybuf = [], lava = [], flows = [];
     for (var i = 0; i < w; i++) ybuf.push(h);
     for (var v = depth; v >= -depth; v -= 0.5) for (var sx = 0; sx < w; sx++) {
@@ -2156,7 +2164,7 @@
   var POWER = { eclipse: 1.7, bone: 1.2, halo: 1.1, fog: 0.9, void: 1.0 };
   var rift = null, pendingRift = false, orbCache = {};
   function orbArt(name) {
-    if (!orbCache[name] && window.Orb) orbCache[name] = window.Orb(document.createElement("canvas"), { offscreen: { w: 96, h: 96 }, palette: name, layers: [[26, 52, 1, 1], [14, 28, 0.78, 0.45]] });
+    if (!orbCache[name] && window.Orb) orbCache[name] = window.Orb(mkCanvas(), { offscreen: { w: 96, h: 96 }, palette: name, layers: [[26, 52, 1, 1], [14, 28, 0.78, 0.45]] });
     return orbCache[name];
   }
   function riftBusy() { return rift && rift.phase !== "reign"; }
@@ -2164,7 +2172,7 @@
   function burst(x, y, name, n, speed) {
     var c = dust(name);
     for (var i = 0; i < n; i++) {
-      var a = Math.random() * 6.283, v = speed * (0.3 + Math.random());
+      var a = frand() * 6.283, v = speed * (0.3 + frand());
       rift.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 10, life: 1, c: c });
     }
   }
@@ -2186,7 +2194,7 @@
     return { name: name, art: orbArt(name), a: a, x: ARENA.x + Math.cos(a) * 120, y: ARENA.y + Math.sin(a) * 60, z: 300 + i * 50, hp: 2, alive: true, scale: 1, flash: 0, vx: 0, vy: 0,
              style: STYLE[name] || "charge", goal: null, gt: 0, alpha: 1, trail: [], hz: 26 + i * 7 };
   }
-  function fieldPoint() { var a = Math.random() * 6.283, r = Math.sqrt(Math.random()); return { x: ARENA.x + Math.cos(a) * FIELD.rx * r, y: ARENA.y + Math.sin(a) * FIELD.ry * r }; }
+  function fieldPoint() { var a = frand() * 6.283, r = Math.sqrt(frand()); return { x: ARENA.x + Math.cos(a) * FIELD.rx * r, y: ARENA.y + Math.sin(a) * FIELD.ry * r }; }
   function startRift() {
     closeDialog(); keys = {}; pi.path = null; pi.want = null;
     if (car.driving) toggleCar();
@@ -2223,13 +2231,13 @@
     rift.scorch.push({ x: x, y: y + 26, r: 30 * big, life: 1 });
     lens = { x: x, y: y, t: 0 };
     for (var i = 0; i < (kill ? 160 : 80); i++) {
-      var sa = Math.random() * 6.283, sv = (40 + Math.random() * 200) * (kill ? 1.4 : 1);
-      rift.parts.push({ x: x, y: y + 26, vx: Math.cos(sa) * sv, vy: Math.sin(sa) * sv * 0.6, life: 1 + Math.random() * 1.2, c: i % 3 ? dust(i % 2 ? a.name : b.name) : [255, 244, 220], drag: 0.94, size: Math.random() < 0.2 ? 3 : 2 });
+      var sa = frand() * 6.283, sv = (40 + frand() * 200) * (kill ? 1.4 : 1);
+      rift.parts.push({ x: x, y: y + 26, vx: Math.cos(sa) * sv, vy: Math.sin(sa) * sv * 0.6, life: 1 + frand() * 1.2, c: i % 3 ? dust(i % 2 ? a.name : b.name) : [255, 244, 220], drag: 0.94, size: frand() < 0.2 ? 3 : 2 });
     }
     var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
     b.vx += dx / len * 220; b.vy += dy / len * 130; a.vx -= dx / len * 90; a.vy -= dy / len * 60;
     var others = ["dino", "future", "chaos"].filter(function (r2) { return r2 !== reality.cur; });
-    shiftReality(others[(Math.random() * others.length) | 0], x, y);
+    shiftReality(others[(frand() * others.length) | 0], x, y);
     sfx("nova", x, y, { vol: kill ? 1.25 : 1 });
     if (kill) { b.alive = false; setTimeout(function () { sfx("nova", x, y, { vol: 0.7 }); }, 700); }
   }
@@ -2242,7 +2250,7 @@
     var d = rift.act, a = d.a, b = d.b; d.t += dt;
     if (!a.alive || !b.alive) { rift.act = null; return; }
     if (d.kind === "charge") {
-      if (d.t < 0.6) { a.vx *= 0.8; a.vy *= 0.8; a.x += (Math.random() - 0.5) * 3; a.rage = d.t / 0.6; d.fx = a.x; d.fy = a.y; }
+      if (d.t < 0.6) { a.vx *= 0.8; a.vy *= 0.8; a.x += (frand() - 0.5) * 3; a.rage = d.t / 0.6; d.fx = a.x; d.fy = a.y; }
       else {
         var k = Math.min(1, Math.pow((d.t - 0.6) / 0.28, 2));
         a.trail.push({ x: a.x, y: a.y, z: a.z }); if (a.trail.length > 10) a.trail.shift();
@@ -2255,21 +2263,21 @@
       a.x += (mx + Math.cos(d.ang) * rr - a.x) * 0.3; a.y += (my + Math.sin(d.ang) * rr * 0.55 - a.y) * 0.3;
       b.x += (mx - Math.cos(d.ang) * rr - b.x) * 0.3; b.y += (my - Math.sin(d.ang) * rr * 0.55 - b.y) * 0.3;
       a.z += (34 - a.z) * 0.1; b.z += (34 - b.z) * 0.1; a.vx = a.vy = b.vx = b.vy = 0;
-      if (Math.random() < dt * 30) rift.parts.push({ x: mx + (Math.random() - 0.5) * rr * 2, y: my + 26 + (Math.random() - 0.5) * rr, vx: 0, vy: 0, life: 0.8, c: dust(Math.random() < 0.5 ? a.name : b.name), swirl: 5, size: 2 });
+      if (frand() < dt * 30) rift.parts.push({ x: mx + (frand() - 0.5) * rr * 2, y: my + 26 + (frand() - 0.5) * rr, vx: 0, vy: 0, life: 0.8, c: dust(frand() < 0.5 ? a.name : b.name), swirl: 5, size: 2 });
       if (u >= 1) { nova(a, b, mx, my - 34); rift.act = null; }
     } else if (d.kind === "beam") {
       a.vx *= 0.85; a.vy *= 0.85; a.rage = Math.min(1, d.t / 0.8);
       if (d.t > 0.8 && !d.done) { d.done = true; d.beam = { t: 0 }; nova(a, b, b.x, b.y - b.z); }
       if (d.beam) { d.beam.t += dt; if (d.beam.t > 0.4) rift.act = null; }
     } else if (d.kind === "blink") {
-      if (d.t < 0.35) { a.alpha = 1 - d.t / 0.35; if (Math.random() < dt * 60) rift.parts.push({ x: a.x + (Math.random() - 0.5) * 30, y: a.y + 26 + (Math.random() - 0.5) * 20, vx: 0, vy: 0, life: 0.5, c: dust(a.name), pull: a, size: 2 }); }
-      else if (!d.moved) { d.moved = true; var ang = Math.random() * 6.283; a.x = b.x + Math.cos(ang) * 30; a.y = b.y + Math.sin(ang) * 16; a.vx = a.vy = 0; }
+      if (d.t < 0.35) { a.alpha = 1 - d.t / 0.35; if (frand() < dt * 60) rift.parts.push({ x: a.x + (frand() - 0.5) * 30, y: a.y + 26 + (frand() - 0.5) * 20, vx: 0, vy: 0, life: 0.5, c: dust(a.name), pull: a, size: 2 }); }
+      else if (!d.moved) { d.moved = true; var ang = frand() * 6.283; a.x = b.x + Math.cos(ang) * 30; a.y = b.y + Math.sin(ang) * 16; a.vx = a.vy = 0; }
       else { a.alpha = Math.min(1, (d.t - 0.35) / 0.15); if (d.t > 0.55) { nova(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2 - 30); a.alpha = 1; rift.act = null; } }
     } else if (d.kind === "well") {
       var ddx = a.x - b.x, ddy = a.y - b.y, dist = Math.hypot(ddx, ddy) || 1;
       a.vx *= 0.8; a.vy *= 0.8; a.rage = 1;
       b.vx += ddx / dist * dt * (260 + d.t * 400); b.vy += ddy / dist * dt * (160 + d.t * 260);
-      if (Math.random() < dt * 40) { var pa = Math.random() * 6.283, pr = 40 + Math.random() * 50; rift.parts.push({ x: a.x + Math.cos(pa) * pr, y: a.y + 26 + Math.sin(pa) * pr * 0.55, vx: 0, vy: 0, life: 1, c: [20, 8, 30], pull: a, swirl: 4, size: 2 }); }
+      if (frand() < dt * 40) { var pa = frand() * 6.283, pr = 40 + frand() * 50; rift.parts.push({ x: a.x + Math.cos(pa) * pr, y: a.y + 26 + Math.sin(pa) * pr * 0.55, vx: 0, vy: 0, life: 1, c: [20, 8, 30], pull: a, swirl: 4, size: 2 }); }
       if (dist < 20 || d.t > 2.2) { nova(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2 - 30); rift.act = null; }
     }
   }
@@ -2294,7 +2302,7 @@
         if (rift.act && (rift.act.a === o || (rift.act.kind === "bind" && rift.act.b === o))) return;
         // roam: each picks somewhere on the field, drifts there, picks again
         o.gt -= dt;
-        if (!o.goal || o.gt <= 0 || Math.hypot(o.goal.x - o.x, o.goal.y - o.y) < 12) { o.goal = fieldPoint(); o.gt = 1.5 + Math.random() * 2.5; }
+        if (!o.goal || o.gt <= 0 || Math.hypot(o.goal.x - o.x, o.goal.y - o.y) < 12) { o.goal = fieldPoint(); o.gt = 1.5 + frand() * 2.5; }
         var sp = o.style === "blink" ? 70 : o.style === "charge" ? 55 : 40, gx = o.goal.x - o.x, gy = o.goal.y - o.y, gl = Math.hypot(gx, gy) || 1;
         o.vx += (gx / gl * sp - o.vx) * dt * 1.6; o.vy += (gy / gl * sp * 0.7 - o.vy) * dt * 1.6;
         o.x += o.vx * dt; o.y += o.vy * dt;
@@ -2307,11 +2315,11 @@
       if (rift.act) updateAct(dt);
       else if (alive.length > 1 && (rift.next -= dt) <= 0) {
         // the strong pick fights more often; the target is anyone else
-        var total = alive.reduce(function (s, o) { return s + POWER[o.name]; }, 0), r = Math.random() * total, att = alive[0];
+        var total = alive.reduce(function (s, o) { return s + POWER[o.name]; }, 0), r = frand() * total, att = alive[0];
         for (var i = 0; i < alive.length; i++) { r -= POWER[alive[i].name]; if (r <= 0) { att = alive[i]; break; } }
         var others = alive.filter(function (o) { return o !== att; });
-        begin(att, others[(Math.random() * others.length) | 0]);
-        rift.next = 0.9 + Math.random() * 1.1;
+        begin(att, others[(frand() * others.length) | 0]);
+        rift.next = 0.9 + frand() * 1.1;
       }
       if (!rift.act && rift.orbs.filter(function (o) { return o.alive; }).length === 1) { rift.phase = "crowning"; rift.t = 0; }
     } else if (rift.phase === "crowning") {
@@ -2465,7 +2473,7 @@
   var SKINS = { future: ["#03050f", "#070b22", "#0d1238", "#161a52", "#24206e", "#3c2388", "#7a2a9e", "#29b8ff", "#8af0ff", "#e8fdff"], chaos: ["#000000", "#060606", "#0e0e0e", "#161616", "#e9e5dc", "#ffffff"] };
   var skinCache = typeof Map !== "undefined" ? new Map() : null;
   function duotone(src, ramp, contrast) {
-    var w = src.width, h = src.height, c = document.createElement("canvas"); c.width = w; c.height = h;
+    var w = src.width, h = src.height, c = mkCanvas(); c.width = w; c.height = h;
     var g = c.getContext("2d"); g.drawImage(src, 0, 0);
     var im = g.getImageData(0, 0, w, h), d = im.data, rgb = ramp.map(function (hx) { var n = parseInt(hx.slice(1), 16); return [n >> 16 & 255, n >> 8 & 255, n & 255]; });
     for (var i = 0; i < d.length; i += 4) {
@@ -2499,7 +2507,7 @@
         if (h < 0.35) { g.fillStyle = "rgba(41,216,255,.45)"; if (h < 0.18) g.fillRect(X, Y + 8, T, 1); else g.fillRect(X + 8, Y, 1, T); g.fillStyle = "#c8fdff"; g.fillRect(X + 7, Y + 7, 2, 2); }
       }
     } else {
-      c = document.createElement("canvas"); c.width = ground.width; c.height = ground.height; g = c.getContext("2d");
+      c = mkCanvas(); c.width = ground.width; c.height = ground.height; g = c.getContext("2d");
       g.fillStyle = "#ece8df"; g.fillRect(0, 0, c.width, c.height);
       g.globalAlpha = 0.35; g.drawImage(duotone(ground, ["#b8b4ab", "#d4d0c7", "#e6e2d8", "#ece8df"], 1.4), 0, 0); g.globalAlpha = 1;
       // a nervous system in ink: hundreds of tangled strands pouring out of the arena
@@ -2596,7 +2604,7 @@
   }
   function shiftReality(to, x, y) {
     if (to === reality.cur) return;
-    reality.wipe = { from: reality.cur, x: x, y: y, r: 0, seed: (Math.random() * 1000) | 0 };
+    reality.wipe = { from: reality.cur, x: x, y: y, r: 0, seed: (frand() * 1000) | 0 };
     reality.cur = to; reality.glitch = 0.35;
     sfx("warp");
   }
@@ -2757,7 +2765,7 @@
   function buildSideArt() {
     function hillY(x) { return 118 - 16 * Math.sin(x * Math.PI * 2 / 1400 + 2) - 6 * Math.sin(x * Math.PI * 2 * 5 / 1400); }
     function cloudLayer(w, h, seed, tones, n) {
-      var c = document.createElement("canvas"); c.width = w; c.height = h; var g = c.getContext("2d");
+      var c = mkCanvas(); c.width = w; c.height = h; var g = c.getContext("2d");
       for (var i = 0; i < n; i++) {
         var cx = hash(i, seed) * w, cy = h * (0.25 + hash(seed, i) * 0.6), rr = 14 + hash(i * 3, seed) * 34;
         for (var y = -rr; y < rr; y++) for (var x = -rr * 1.8; x < rr * 1.8; x++) {
@@ -2803,9 +2811,9 @@
       });
     });
     // the sky, the hills with their standing stones, and the ground are painted once into long strips
-    var sky2 = document.createElement("canvas"); sky2.width = 64; sky2.height = 260; var sg2 = sky2.getContext("2d");
+    var sky2 = mkCanvas(); sky2.width = 64; sky2.height = 260; var sg2 = sky2.getContext("2d");
     for (var y = 0; y < 260; y++) for (var x = 0; x < 64; x++) { sg2.fillStyle = tone(0.15 + y / 260 * 0.85, ["#2a4a8a", "#3a6ab0", "#5a9ae0", "#8ac0f4", "#b8dcfa"], x, y); sg2.fillRect(x, y, 1, 1); }
-    var hills = document.createElement("canvas"); hills.width = 1400; hills.height = 260; var hg = hills.getContext("2d");
+    var hills = mkCanvas(); hills.width = 1400; hills.height = 260; var hg = hills.getContext("2d");
     for (x = 0; x < hills.width; x++) {
       var hy = hillY(x);
       for (y = Math.floor(hy); y < 260; y++) { hg.fillStyle = tone(0.62 - (y - hy) / 70 * 0.45 + (hash(x >> 1, y >> 1) - 0.5) * 0.12, ["#1f4a2a", "#2c6636", "#3c8440", "#58a44a", "#76c05a"], x, y); hg.fillRect(x, y, 1, 1); }
@@ -2813,12 +2821,12 @@
     }
     for (var n = 0; n < 9; n++) { var tx2 = 90 + n * 150 + hash(n, 2) * 40, tt2 = totem[n % 3]; hg.drawImage(tt2, Math.round(tx2), Math.round(hillY(tx2 + 10) - tt2.height + 8)); }
     // far mountains, a periodic strip too, cold and hazy
-    var mtn = document.createElement("canvas"); mtn.width = 1200; mtn.height = 260; var mg = mtn.getContext("2d");
+    var mtn = mkCanvas(); mtn.width = 1200; mtn.height = 260; var mg = mtn.getContext("2d");
     for (x = 0; x < mtn.width; x++) {
       var my0 = 96 - 26 * Math.abs(Math.sin(x * Math.PI * 3 / 1200 + 0.4)) - 10 * Math.sin(x * Math.PI * 14 / 1200) - 5 * Math.sin(x * Math.PI * 38 / 1200 + 1);
       for (y = Math.floor(my0); y < 150; y++) { mg.fillStyle = tone(0.5 - (y - my0) / 90 * 0.3 + (hash(x >> 2, y >> 2) - 0.5) * 0.08 + (y - my0 < 3 ? 0.2 : 0), ["#3a4666", "#4a5880", "#5c6c96", "#7888b0"], x, y); mg.fillRect(x, y, 1, 1); }
     }
-    var grnd = document.createElement("canvas"); grnd.width = SIDEW; grnd.height = 260; var gg = grnd.getContext("2d");
+    var grnd = mkCanvas(); grnd.width = SIDEW; grnd.height = 260; var gg = grnd.getContext("2d");
     for (x = 0; x < SIDEW; x++) {
       var g0 = groundY(x);
       for (y = Math.floor(g0); y < 260; y++) {
@@ -2832,7 +2840,7 @@
       if (hash(x >> 2, 7) < 0.03 && x % 4 === 0) { gg.fillStyle = "#f6f0e0"; gg.fillRect(x - 1, Math.floor(g0) - 4, 3, 1); gg.fillRect(x, Math.floor(g0) - 5, 1, 3); gg.fillStyle = "#ffb060"; gg.fillRect(x, Math.floor(g0) - 4, 1, 1); }
     }
     for (var st = 0; st < 8; st++) { var sx3 = 1330 + st * 12, sy3 = Math.round(groundY(sx3)); gg.fillStyle = "#8a8ea2"; gg.fillRect(sx3, sy3, 12, 3); gg.fillStyle = "#5a5e76"; gg.fillRect(sx3, sy3 + 3, 12, 2); }
-    return { sky: sky2, hills: hills, ground: grnd, far: cloudLayer(900, 170, 3, ["#a8c8f0", "#c8def6", "#e4f0fc", "#ffffff"], 26), near: cloudLayer(1100, 190, 9, ["#8ab4e8", "#b4d2f4", "#dceafa", "#ffffff"], 18), isle: isle, willow: willow(190, 150), mtn: mtn, totem: totem, deity: window.Orb ? window.Orb(document.createElement("canvas"), { offscreen: { w: 200, h: 200 }, palette: "void", layers: [[30, 60, 1, 1], [16, 32, 0.8, 0.5]] }) : null };
+    return { sky: sky2, hills: hills, ground: grnd, far: cloudLayer(900, 170, 3, ["#a8c8f0", "#c8def6", "#e4f0fc", "#ffffff"], 26), near: cloudLayer(1100, 190, 9, ["#8ab4e8", "#b4d2f4", "#dceafa", "#ffffff"], 18), isle: isle, willow: willow(190, 150), mtn: mtn, totem: totem, deity: window.Orb ? window.Orb(mkCanvas(), { offscreen: { w: 200, h: 200 }, palette: "void", layers: [[30, 60, 1, 1], [16, 32, 0.8, 0.5]] }) : null };
   }
   function enterSide() {
     closeDialog();
@@ -2908,7 +2916,7 @@
       A.deity.energy(0.35 + rage * 1.4); A.deity.frame(t * (1 + rage * 2));
       var VIOLENT = ["#ff0a3a", "#7cff00", "#6a00ff", "#ffffff", "#000000", "#ff5200", "#00f0ff"];
       var slot = Math.floor(t * (1.5 + rage * 9) + hash(Math.floor(t * 3), 5) * 3), col = VIOLENT[slot % VIOLENT.length];
-      var dc = A.dc || (A.dc = document.createElement("canvas")); dc.width = dc.height = 140; var dg = dc.getContext("2d");
+      var dc = A.dc || (A.dc = mkCanvas()); dc.width = dc.height = 140; var dg = dc.getContext("2d");
       dg.clearRect(0, 0, 140, 140); dg.drawImage(A.deity.canvas, 10, 10, 120, 120);
       if (rage > 0.05) { dg.globalCompositeOperation = "source-atop"; dg.globalAlpha = Math.min(0.85, rage * (0.55 + 0.35 * Math.random())); dg.fillStyle = col; dg.fillRect(0, 0, 140, 140); dg.globalAlpha = 1; dg.globalCompositeOperation = "source-over"; }
       var sz = R0 * 2 / 120 * 140, jx = (Math.random() - 0.5) * rage * 4, jy = (Math.random() - 0.5) * rage * 4;
@@ -3086,7 +3094,7 @@
   }
 
   /* ════════ the minimap: bottom right, click it to fold it away ════════ */
-  var mini = document.createElement("canvas"), MINI = 2, mapOn = OPT.map, mapRect = null;
+  var mini = mkCanvas(), MINI = 2, mapOn = OPT.map, mapRect = null;
   mini.width = MW * MINI; mini.height = MH * MINI;
   (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
   function drawMinimap() {
@@ -3366,11 +3374,53 @@
     }
   }
 
+  /* ════════ ?debug=1: a readout in the corner ════════ */
+  var dbg = null, dbgT = 0, frameMs = [];
+  function gameState() {
+    if (!open) return "closed";
+    if (side) return "cutscene (shrine: " + side.phase + ")";
+    if (termOpen) return "terminal";
+    if (setOpen()) return "settings";
+    if (room) return "room (" + room.id + ")";
+    if (riftBusy()) return "fight (" + rift.phase + (rift.act ? ", " + rift.act.kind : "") + ")";
+    if (car.driving) return "vehicle (car, " + car.gear + ")";
+    if (aboard()) return "vehicle (heli, " + heli.state + ")";
+    if (!dlg.hidden) return "dialog";
+    return "explore";
+  }
+  function particleCount() {
+    return (rift ? rift.parts.length : 0) + sparks.length + ripples.length + skids.length + smoke.length + embers.length + puffs.length + prints.length + rustling.length;
+  }
+  function saveDump() {
+    var o = {};
+    [["s", sessionStorage], ["l", localStorage]].forEach(function (st) {
+      try { for (var i = 0; i < st[1].length; i++) { var kk = st[1].key(i); o[st[0] + ":" + kk] = st[1].getItem(kk); } } catch (e) {}
+    });
+    return JSON.stringify(o, null, 1);
+  }
+  function drawDebug(ms) {
+    frameMs.push(ms); if (frameMs.length > 240) frameMs.shift();
+    if ((dbgT -= ms / 1000) > 0) return;
+    dbgT = 0.25;
+    if (!dbg) { dbg = document.createElement("pre"); dbg.className = "w-debug"; dbg.setAttribute("aria-hidden", "true"); root.appendChild(dbg); }
+    var sorted = frameMs.slice().sort(function (a, b) { return a - b; }), avg = frameMs.reduce(function (a, b) { return a + b; }, 0) / frameMs.length;
+    var live = CANVASES.filter(function (c) { return c.width * c.height > 0; }), mb = live.reduce(function (a, c) { return a + c.width * c.height * 4; }, cv.width * cv.height * 4) / 1048576;
+    var au = SND && SND.stats ? SND.stats() : null;
+    dbg.textContent = "fps " + (1000 / avg).toFixed(0) + "   frame avg " + avg.toFixed(1) + " ms   p95 " + sorted[Math.floor(sorted.length * 0.95)].toFixed(1) + " ms\n"
+      + "state " + gameState() + (SEED ? "   seed " + SEED : "") + "\n"
+      + "particles " + particleCount() + "   novas " + (rift && rift.novas ? rift.novas.length : 0) + "\n"
+      + "audio " + (au ? au.state + "   sources " + au.sources + "   voices " + au.voices + "   loops " + au.loops + "   mood " + (au.mood || "-") : "none") + "\n"
+      + "dpr " + dpr + "   css " + W + "x" + H + "   backing " + cv.width + "x" + cv.height + "   scale " + S + "\n"
+      + "canvases " + live.length + " live / " + CANVASES.length + " made   ~" + mb.toFixed(1) + " MB\n"
+      + "save " + saveDump();
+  }
+
   function loop(now) {
     raf = 0;
     if (!open) return;
-    var dt = Math.min(0.05, (now - last) / 1000 || 0.016); last = now; t += dt;
+    var ms = now - last, dt = Math.min(0.05, ms / 1000 || 0.016); last = now; t += dt;
     update(dt); render();
+    if (DEBUG) drawDebug(ms);
     raf = requestAnimationFrame(loop);
   }
 

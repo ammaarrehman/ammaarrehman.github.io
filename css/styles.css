@@ -407,6 +407,7 @@ html.in-world, html.in-world body { overflow:hidden; }
   background:rgba(10,10,10,.75); border:1px solid rgba(244,244,244,.5); padding:7px 12px;
 }
 .w-sound[aria-pressed="false"] { color:#9a9a9a; }
+.w-debug { position:absolute; left:8px; bottom:8px; z-index:9; margin:0; max-width:min(560px, calc(100vw - 16px)); max-height:46vh; overflow:hidden; padding:8px 10px; background:rgba(0,0,0,.78); color:#b8f5c0; font:11px/1.45 "Cascadia Mono", ui-monospace, monospace; white-space:pre-wrap; word-break:break-all; pointer-events:none; border:1px solid #2a2a2a; }
 /* the island's settings: sound levels and comfort switches, top right under the hud */
 .w-set {
   position:absolute; top:58px; right:18px; z-index:6; width:min(300px, calc(100% - 24px)); max-height:calc(100% - 80px); overflow:auto;
