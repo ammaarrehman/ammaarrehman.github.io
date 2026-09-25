@@ -861,10 +861,43 @@
      effects, the ambience), a button that restarts the sound engine if the browser has got it
      stuck, and some comfort switches: how much the screen shakes, whether big hits flash the
      screen white, and the minimap. it all stays for next time (this browser only). */
-  var OPT = { shake: 1, flash: true, map: true };
-  try { var so0 = JSON.parse(localStorage.getItem("island-opts") || "{}"); if (typeof so0.shake === "number") OPT.shake = Math.max(0, Math.min(1, so0.shake)); if (so0.flash === false) OPT.flash = false; if (so0.map === false) OPT.map = false; } catch (e) {}
-  function saveOpt() { try { localStorage.setItem("island-opts", JSON.stringify(OPT)); } catch (e) {} }
+  // with nothing saved, shake and flashes start from the system's reduced-motion setting, and follow it
+  var OPT = { shake: REDUCED ? 0 : 1, flash: !REDUCED, map: true }, OPT_SAVED = {};
+  try {
+    var so0 = JSON.parse(localStorage.getItem("island-opts") || "{}"); if (so0 && typeof so0 === "object") OPT_SAVED = so0;
+    if (typeof so0.shake === "number") OPT.shake = Math.max(0, Math.min(1, so0.shake));
+    if (typeof so0.flash === "boolean") OPT.flash = so0.flash;
+    if (so0.map === false) OPT.map = false;
+  } catch (e) {}
+  function saveOpt() { OPT_SAVED = { shake: OPT.shake, flash: OPT.flash, map: OPT.map }; try { localStorage.setItem("island-opts", JSON.stringify(OPT)); } catch (e) {} }
+  var RMQ = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
+  if (RMQ && RMQ.addEventListener) RMQ.addEventListener("change", function (e) {
+    REDUCED = e.matches;
+    if (typeof OPT_SAVED.shake !== "number") OPT.shake = REDUCED ? 0 : 1;
+    if (typeof OPT_SAVED.flash !== "boolean") OPT.flash = !REDUCED;
+  });
   function flashOK() { return OPT.flash; }
+  /* every flash on the island goes through this gate, so nothing can strobe: at most three new
+     flashes in any one second, none at all with reduced motion. with bright flashes off, a
+     whiteout peaks at 0.35 and takes at least 250 ms to fade, and nothing inverts the screen.
+     shakes all pass through shakeBy, which applies the shake setting. */
+  var flashTimes = [];
+  function flashGate() {
+    if (REDUCED) return false;
+    var n = performance.now(); flashTimes = flashTimes.filter(function (x) { return n - x < 1000; });
+    if (flashTimes.length >= 3) return false;
+    flashTimes.push(n); return true;
+  }
+  function whiteout(a) {
+    if (a <= 0 || REDUCED) return;
+    ctx.fillStyle = "rgba(255,248,236," + Math.min(OPT.flash ? 0.75 : 0.35, a * (OPT.flash ? 0.75 : 0.35)).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H);
+  }
+  function invertFlash() {
+    if (!OPT.flash || !flashGate()) return;
+    ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over";
+  }
+  function shakeBy(v) { return REDUCED ? 0 : v * OPT.shake; }
+  function flashNote(on) { return "bright flashes: " + (on ? "on" : "off"); }
   var gearBtn = root.querySelector(".w-gear"), setEl = root.querySelector(".w-set");
   function setOpen() { return setEl && !setEl.hidden; }
   function buildSettings() {
@@ -925,6 +958,7 @@
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
     if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); return; }
     if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { side = null; fade = 1; } else if (!side) exit(); return; }
+    if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
     if (e.key === "Shift") { keys.run = 1; return; }
     if (side && e.key === " " && dlg.hidden) { e.preventDefault(); keys.jump = 1; return; }
     if ((e.key === "m" || e.key === "M") && SND) { SND.toggle(); return; }
@@ -997,6 +1031,7 @@
     var best = null, bd = 1e9;
     nearCandidates().forEach(function (c) { if (c.d < c.max && c.d < bd) { bd = c.d; best = c.v; } });
     if (rift && rift.phase === "reign" && Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) < 30) best = { id: "core", name: "the core" };
+    if (!rift && !best && countFound() === TOTAL && Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) < 34) best = { id: "wake", name: "the clearing", ax: ARENA.x, ay: ARENA.y - 8 };
     return best;
   }
 
@@ -1008,7 +1043,8 @@
     if (s.id === "rex") { rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
     if (s.id === "core") { coreSay(false); return; }
     if (s.id === "cave") { openTerm(); return; }
-    if (s.id === "shrine") { say("an old shrine", "a standing stone, older than the park, with a ring carved into it. the ring is warm. something on the other side of it is breathing.", [["step through", "#descend"]]); return; }
+    if (s.id === "shrine") { say("an old shrine", "a standing stone, older than the park, with a ring carved into it. the ring is warm. something on the other side of it is breathing. (what's through it contains flashing lights and loud sound.)", [["step through", "#descend"], [flashNote(OPT.flash), "#flash"]]); return; }
+    if (s.id === "wake") { askRift(); return; }
     if (s.id === "heli") { toggleHeli(); return; }
     if (s.id === "car") { toggleCar(); bubble = { text: "pi:~$ vroom. arrows drive, space honks, e parks", t: 3.5 }; return; }
     if (s.id === "critter" || s.id === "bird" || s.id === "pond" || s.id === "nest" || s.id === "fence") { sayLocal(s); return; }
@@ -1021,7 +1057,7 @@
       try { sessionStorage.setItem("pi-found", JSON.stringify(Object.keys(found))); } catch (e) {}
     }
     var all = Object.keys(found).length === TOTAL && s.found, extra = "";
-    if (all && !rift) { extra = " (that's all eight. the ground just shifted. close this and look up.)"; pendingRift = true; }
+    if (all && !rift) { extra = " (that's all eight. the ground just shifted.)"; pendingRift = true; }
     say(s.name, s.text + extra, s.links || []);
   }
   function say(name, text, links) {
@@ -1029,7 +1065,10 @@
     links.forEach(function (l) {
       var a = document.createElement("a"); a.textContent = l[0]; a.href = l[1] === "#exit" ? "#" : l[1];
       if (/^https?:|^mailto:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener"; }
-      else if (l[1] === "#rematch") a.addEventListener("click", function (e) { e.preventDefault(); rift = null; startRift(); });
+      else if (l[1] === "#rematch") a.addEventListener("click", function (e) { e.preventDefault(); askRift(); });
+      else if (l[1] === "#wake") a.addEventListener("click", function (e) { e.preventDefault(); wakeOrbs(true); });
+      else if (l[1] === "#later") a.addEventListener("click", function (e) { e.preventDefault(); wakeOrbs(false); });
+      else if (l[1] === "#flash") a.addEventListener("click", function (e) { e.preventDefault(); OPT.flash = !OPT.flash; saveOpt(); a.textContent = flashNote(OPT.flash); });
       else if (l[1] === "#eclipse") a.addEventListener("click", function (e) { e.preventDefault(); crown("eclipse"); });
       else if (l[1] === "#descend") a.addEventListener("click", function (e) { e.preventDefault(); enterSide(); });
       else if (l[1] === "#drive") a.addEventListener("click", function (e) { e.preventDefault(); closeDialog(); if (!car.driving) toggleCar(); });
@@ -1046,7 +1085,8 @@
   function finishTyping() { clearInterval(typing); typing = null; dText.textContent = full; }
   function closeDialog() {
     finishTyping(); dlg.hidden = true; cv.focus({ preventScroll: true });
-    if (pendingRift && open) { pendingRift = false; setTimeout(startRift, 400); }
+    asking = false;
+    if (pendingRift && open) { pendingRift = false; askRift(); }
   }
   function paintFound() {
     foundEl.textContent = "found " + Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length + "/" + TOTAL
@@ -2058,7 +2098,7 @@
       if (line.trim().toLowerCase() === "eclipse") {
         sudoTries = -1; setPrompt();
         print("access granted.", "ok"); sfx("grant"); print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
-        setTimeout(function () { closeTerm(); rift = null; startRift(); }, 900);
+        setTimeout(function () { closeTerm(); askRift(); }, 900);
       } else if (++sudoTries >= 3) { sudoTries = -1; setPrompt(); print("sudo: 3 incorrect password attempts. a raptor has been notified.", "err"); }
       else print("sorry, try again.", "err");
       return;
@@ -2195,6 +2235,17 @@
              style: STYLE[name] || "charge", goal: null, gt: 0, alpha: 1, trail: [], hz: 26 + i * 7 };
   }
   function fieldPoint() { var a = frand() * 6.283, r = Math.sqrt(frand()); return { x: ARENA.x + Math.cos(a) * FIELD.rx * r, y: ARENA.y + Math.sin(a) * FIELD.ry * r }; }
+  // before the orbs wake, ask, and say what's coming: the fight flashes and it's loud
+  var asking = false;
+  function askRift() {
+    if (REDUCED || !window.Orb) { startRift(); return; }
+    say("the clearing", "five orbs are waking up under the clearing, and they want control of the site. wake them? it gets loud and flashy: contains flashing lights and loud sound.", [["wake them (y)", "#wake"], ["not now (n)", "#later"], [flashNote(OPT.flash), "#flash"]]);
+    asking = true;
+  }
+  function wakeOrbs(yes) {
+    asking = false; closeDialog();
+    if (yes) { rift = null; startRift(); } else bubble = { text: "pi:~$ they can wait. the clearing, whenever.", t: 3 };
+  }
   function startRift() {
     closeDialog(); keys = {}; pi.path = null; pi.want = null;
     if (car.driving) toggleCar();
@@ -2226,7 +2277,7 @@
   function nova(a, b, x, y) {
     var kill = --b.hp <= 0, big = kill ? 2.3 : 1;
     b.flash = 1; a.flash = 0.6; rift.hits++;
-    rift.shake = kill ? 16 : 11; hitstop = kill ? 0.32 : 0.12; rift.flash = kill ? 1 : 0.7;
+    rift.shake = kill ? 16 : 11; hitstop = kill ? 0.32 : 0.12; if (flashGate()) rift.flash = kill ? 1 : 0.7;
     rift.novas.push({ x: x, y: y, t: 0, dur: kill ? 3.4 : 2.2, R: big, c1: dust(a.name), c2: dust(b.name) });
     rift.scorch.push({ x: x, y: y + 26, r: 30 * big, life: 1 });
     lens = { x: x, y: y, t: 0 };
@@ -2426,7 +2477,7 @@
       var ix = (n.x - camX) * E, iy = (n.y - camY) * E, u = n.t / n.dur, e = 1 - Math.pow(1 - Math.min(1, u * 1.6), 3), fade = 1 - u;
       var Rf = (14 + e * 95) * n.R * E / 3 * 1.8;
       var fb = ctx.createRadialGradient(ix, iy, 0, ix, iy, Rf);
-      fb.addColorStop(0, "rgba(255,255,255," + Math.max(0, 1 - u * 1.6).toFixed(3) + ")");
+      fb.addColorStop(0, "rgba(" + (OPT.flash ? "255,255,255" : n.c1.join(",")) + "," + (Math.max(0, 1 - u * 1.6) * (OPT.flash ? 1 : 0.6)).toFixed(3) + ")");
       fb.addColorStop(0.22, "rgba(" + n.c1.join(",") + "," + (0.85 * fade).toFixed(3) + ")");
       fb.addColorStop(0.5, "rgba(" + n.c2.join(",") + "," + (0.55 * fade).toFixed(3) + ")");
       fb.addColorStop(0.78, "rgba(120,20,16," + (0.35 * fade).toFixed(3) + ")");
@@ -2457,7 +2508,7 @@
       var bh = ctx.createRadialGradient(ix, iy, 0, ix, iy, br * 2); bh.addColorStop(0, "rgba(0,0,0,.95)"); bh.addColorStop(0.5, "rgba(0,0,0,.7)"); bh.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = bh; ctx.beginPath(); ctx.arc(ix, iy, br * 2, 0, 6.283); ctx.fill();
     });
-    if (rift.flash > 0 && !REDUCED) { ctx.fillStyle = "rgba(255,248,236," + (Math.min(1, rift.flash) * (flashOK() ? 0.75 : 0.25)).toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
+    whiteout(Math.min(1, rift.flash || 0));
   }
 
   /* ════════ realities ════════
@@ -2579,7 +2630,7 @@
       ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(41,216,255,.05)"; for (var y = (t * 40) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1);
     } else if (R === "chaos") {
       for (var i = 0; i < 700; i++) { ctx.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.55)"; ctx.fillRect(Math.random() * W, Math.random() * H, 1 + (Math.random() < 0.1 ? 2 : 0), 1); }
-      if (Math.random() < 0.04) { ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over"; }
+      if (Math.random() < 0.04) invertFlash();
     }
   }
   // the tear isn't a circle: a jagged, rotating star of a hole, its points flickering
@@ -2880,7 +2931,7 @@
   function renderSide() {
     var E = Math.max(2, Math.min(5, Math.floor(Math.min(H / 190, W / 240)))), VW = W / E, VH = H / E;
     var cam = Math.max(0, Math.min(SIDEW - VW, side.x - VW * 0.4)), oy = Math.max(0, VH - 230) * 0.6;
-    var shx = (Math.random() - 0.5) * quake * OPT.shake, shy = (Math.random() - 0.5) * quake * OPT.shake;
+    var shx = (Math.random() - 0.5) * shakeBy(quake), shy = (Math.random() - 0.5) * shakeBy(quake);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "#2a4a8a"; ctx.fillRect(0, 0, W, oy * E + 1);
     ctx.setTransform(E * dpr, 0, 0, E * dpr, shx * dpr, (shy + oy * E) * dpr); ctx.imageSmoothingEnabled = false; VH -= oy;
     // the sky: a smooth gradient that sinks from a clear afternoon into a bruised dusk as you
@@ -2913,12 +2964,14 @@
     halo.addColorStop(0, "rgba(0,0,0,.9)"); halo.addColorStop(0.45, "rgba(24,0,18," + (0.5 + rage * 0.3).toFixed(2) + ")"); halo.addColorStop(1, "rgba(0,0,0,0)");
     ctx.fillStyle = halo; ctx.fillRect(ax - 190, ay - 190, 380, 380);
     if (A.deity) {
-      A.deity.energy(0.35 + rage * 1.4); A.deity.frame(t * (1 + rage * 2));
-      var VIOLENT = ["#ff0a3a", "#7cff00", "#6a00ff", "#ffffff", "#000000", "#ff5200", "#00f0ff"];
-      var slot = Math.floor(t * (1.5 + rage * 9) + hash(Math.floor(t * 3), 5) * 3), col = VIOLENT[slot % VIOLENT.length];
+      A.deity.energy(0.35 + rage * 1.4); A.fph = (A.fph || 0) + Math.max(0, Math.min(0.1, t - (A.ft || t))) * (1 + rage * 2); A.ft = t; A.deity.frame(A.fph);
+      // it changes colour at most three times a second (slower with flashes off) and never flickers in between
+      var VIOLENT = OPT.flash && !REDUCED ? ["#ff0a3a", "#7cff00", "#6a00ff", "#ffffff", "#000000", "#ff5200", "#00f0ff"] : ["#8a0a22", "#3c6a10", "#3a1070", "#5a2a10"];
+      A.cph = (A.cph || 0) + Math.max(0, Math.min(0.1, t - (A.ct || t))) * (OPT.flash && !REDUCED ? 1 + rage * 2 : 0.4 + rage * 0.6); A.ct = t;
+      var col = VIOLENT[Math.floor(A.cph) % VIOLENT.length];
       var dc = A.dc || (A.dc = mkCanvas()); dc.width = dc.height = 140; var dg = dc.getContext("2d");
       dg.clearRect(0, 0, 140, 140); dg.drawImage(A.deity.canvas, 10, 10, 120, 120);
-      if (rage > 0.05) { dg.globalCompositeOperation = "source-atop"; dg.globalAlpha = Math.min(0.85, rage * (0.55 + 0.35 * Math.random())); dg.fillStyle = col; dg.fillRect(0, 0, 140, 140); dg.globalAlpha = 1; dg.globalCompositeOperation = "source-over"; }
+      if (rage > 0.05) { dg.globalCompositeOperation = "source-atop"; dg.globalAlpha = Math.min(OPT.flash ? 0.85 : 0.5, rage * (0.6 + 0.2 * Math.sin(t * 2.4))); dg.fillStyle = col; dg.fillRect(0, 0, 140, 140); dg.globalAlpha = 1; dg.globalCompositeOperation = "source-over"; }
       var sz = R0 * 2 / 120 * 140, jx = (Math.random() - 0.5) * rage * 4, jy = (Math.random() - 0.5) * rage * 4;
       if (rage > 0.3) {                                                      // it splits: offset ghosts of itself
         ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.35 * rage;
@@ -2937,7 +2990,7 @@
     if (side.phase === "warp") {
       // reality comes apart: the colours invert in flashes, a hole opens out of the orb, everything shakes
       var u = side.warp, ex = (ax) * E, ey = (ay + oy) * E;
-      if (OPT.flash && Math.random() < 0.2 + u * 0.35) { ctx.globalCompositeOperation = "difference"; ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, W, H); ctx.globalCompositeOperation = "source-over"; }
+      if (Math.random() < 0.2 + u * 0.35) invertFlash();
       var hr = u * u * Math.max(W, H) * 1.3;
       var hole = ctx.createRadialGradient(ex, ey, hr * 0.6, ex, ey, hr * 1.05); hole.addColorStop(0, "rgba(0,0,0,1)"); hole.addColorStop(0.8, "rgba(40,0,30,.8)"); hole.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = "#000"; tearPath(ex, ey, hr * 0.6, 7); ctx.fill();
@@ -3245,7 +3298,7 @@
     var foc = riftBusy() ? orbFocus() : null, fx = foc ? foc.x : pi.x + look.x, fy = foc ? foc.y : pi.y + look.y;
     if (camF.x === null) { camF.x = fx; camF.y = fy; }
     camF.x += (fx - camF.x) * 0.06; camF.y += (fy - camF.y) * 0.06;
-    var sh = ((rift ? rift.shake : 0) + quake) * OPT.shake;
+    var sh = shakeBy((rift ? rift.shake : 0) + quake);
     camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (Math.random() - 0.5) * sh;
     camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh;
     camX = Math.round(camX * E) / E; camY = Math.round(camY * E) / E;
@@ -3434,7 +3487,7 @@
     warp.width = innerWidth * d; warp.height = innerHeight * d;
     streaks = [];
     for (var i = 0; i < 260; i++) streaks.push({ a: Math.random() * 6.283, r: Math.random() * 40, v: 0.5 + Math.random(), c: Math.random() });
-    var start = performance.now(), dur = dir > 0 ? 1000 : 650, far = Math.hypot(innerWidth, innerHeight);
+    var start = performance.now(), dur = dir > 0 ? 1000 : 650, far = Math.hypot(innerWidth, innerHeight), bloom = dir > 0 && OPT.flash && flashGate();
     (function frame(now) {
       var p = Math.min(1, (now - start) / dur), e = dir > 0 ? p * p * p : 1 - Math.pow(1 - p, 3);
       wctx.setTransform(d, 0, 0, d, 0, 0);
@@ -3450,7 +3503,7 @@
         wctx.beginPath(); wctx.moveTo(c[0] + Math.cos(s.a) * Math.max(0, r0), c[1] + Math.sin(s.a) * Math.max(0, r0)); wctx.lineTo(c[0] + Math.cos(s.a) * r1, c[1] + Math.sin(s.a) * r1); wctx.stroke();
       });
       // a white bloom at the peak of the jump
-      if (dir > 0 && p > 0.75) { wctx.fillStyle = "rgba(240,232,255," + ((p - 0.75) * 4 * 0.9).toFixed(3) + ")"; wctx.fillRect(0, 0, innerWidth, innerHeight); }
+      if (dir > 0 && p > 0.75 && bloom) { wctx.fillStyle = "rgba(240,232,255," + ((p - 0.75) * 4 * 0.9).toFixed(3) + ")"; wctx.fillRect(0, 0, innerWidth, innerHeight); }
       wctx.globalCompositeOperation = "source-over";
       if (p < 1) requestAnimationFrame(frame); else done();
     })(start);
@@ -3482,7 +3535,7 @@
       camF.x = null;
       var ruler = null; try { ruler = sessionStorage.getItem("rift-done"); } catch (e) {}
       if (ruler && !rift && window.Orb) { rift = { phase: "reign", winner: ruler, t: 0, orbs: [rival(ruler, 0)], parts: [], shake: 0, dim: 0, ring: 0 }; var w0 = rift.orbs[0]; w0.x = ARENA.x; w0.y = ARENA.y; w0.z = 34; w0.scale = 1.7; paintFound(); }
-      else if (!ruler && !rift && Object.keys(found).length === TOTAL) setTimeout(function () { if (open && !rift) startRift(); }, first ? 3000 : 1200);
+      else if (!ruler && !rift && Object.keys(found).length === TOTAL) setTimeout(function () { if (open && !rift && dlg.hidden) askRift(); }, first ? 3000 : 1200);
       last = performance.now(); raf = requestAnimationFrame(loop);
       cv.focus({ preventScroll: true });
       hideWarp();
