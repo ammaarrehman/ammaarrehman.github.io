@@ -781,12 +781,30 @@
 
   /* ════════ view ════════ */
   var W = 0, H = 0, dpr = 1, S = 3, zoom = 1, zoomTo = 1, camX = 0, camY = 0, camF = { x: null, y: null }, look = { x: 0, y: 0 };
+  /* the backing store is the css size times the pixel ratio (capped at 2), rounded down, and
+     the game scale is a whole number of device pixels per world pixel, so sprites stay crisp at
+     125% zoom or on a 1.5x screen. setting the canvas size resets the context (smoothing comes
+     back on), so its state is put back every time */
   function size() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
-    W = window.innerWidth; H = window.innerHeight;
-    cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
-    S = Math.max(2, Math.min(5, Math.floor(Math.min(W / 300, H / 190))));
+    W = root.clientWidth || window.innerWidth; H = root.clientHeight || window.innerHeight;
+    var bw = Math.floor(W * dpr), bh = Math.floor(H * dpr);
+    if (cv.width !== bw || cv.height !== bh) { cv.width = bw; cv.height = bh; }
+    ctx.imageSmoothingEnabled = false;
+    var sc = Math.max(2, Math.min(5, Math.floor(Math.min(W / 300, H / 190))));
+    S = crisp(sc);
   }
+  function crisp(sc) { return Math.max(1, Math.round(sc * dpr)) / dpr; }             // a css scale that's whole device pixels
+  // the pixel ratio changes when the window moves to another screen or the page is zoomed
+  var dprQ = null;
+  function watchDpr() {
+    if (!window.matchMedia) return;
+    if (dprQ) dprQ.removeEventListener ? dprQ.removeEventListener("change", onDpr) : dprQ.removeListener(onDpr);
+    dprQ = window.matchMedia("(resolution: " + (window.devicePixelRatio || 1) + "dppx)");
+    if (dprQ.addEventListener) dprQ.addEventListener("change", onDpr); else if (dprQ.addListener) dprQ.addListener(onDpr);
+  }
+  function onDpr() { if (open) size(); watchDpr(); }
+  watchDpr();
 
   /* ════════ sound ════════
      positional one-shots are panned by where they are on screen and fade with distance
@@ -1010,11 +1028,12 @@
     window.addEventListener("keyup", onKeyUp, o);
     window.addEventListener("blur", clearKeys, o);
     window.addEventListener("resize", onResize, o);
+    if (window.visualViewport) window.visualViewport.addEventListener("resize", onResize, o);     // the ios url bar
     document.addEventListener("visibilitychange", onVis, o);
   }
   function unbindSession() {
     if (session) session.abort();
-    else { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", clearKeys); window.removeEventListener("resize", onResize); document.removeEventListener("visibilitychange", onVis); }
+    else { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", clearKeys); window.removeEventListener("resize", onResize); document.removeEventListener("visibilitychange", onVis); if (window.visualViewport) window.visualViewport.removeEventListener("resize", onResize); }
     session = null; clearKeys();
   }
 
@@ -2823,7 +2842,7 @@
     if (it.kind === "charger") { r(X, Y - 4, w, 12, "#2c3238"); r(X + 2, Y - 2, 4, 3, "#4ADE80"); r(X + 10, Y + 2, 16, 8, "#9aa6b2"); r(X + 12, Y + 3, 2, 2, "#4DD6E8"); r(X + 18, Y + 3, 2, 2, "#4DD6E8"); return; }
   }
   function renderRoom() {
-    var R = room, E = Math.max(2, Math.min(5, Math.floor(Math.min(W / (R.w * T + 40), H / (R.h * T + 60))))) * 1;
+    var R = room, E = crisp(Math.max(2, Math.min(5, Math.floor(Math.min(W / (R.w * T + 40), H / (R.h * T + 60))))));
     var ox = (W / E - R.w * T) / 2, oy = (H / E - R.h * T) / 2 + 10;
     camX = -ox; camY = -oy;
     ctx.setTransform(E * dpr, 0, 0, E * dpr, ox * E * dpr, oy * E * dpr);
@@ -2987,7 +3006,7 @@
     }
   }
   function renderSide() {
-    var E = Math.max(2, Math.min(5, Math.floor(Math.min(H / 190, W / 240)))), VW = W / E, VH = H / E;
+    var E = crisp(Math.max(2, Math.min(5, Math.floor(Math.min(H / 190, W / 240))))), VW = W / E, VH = H / E;
     var cam = Math.max(0, Math.min(SIDEW - VW, side.x - VW * 0.4)), oy = Math.max(0, VH - 230) * 0.6;
     var shx = (Math.random() - 0.5) * shakeBy(quake), shy = (Math.random() - 0.5) * shakeBy(quake);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "#2a4a8a"; ctx.fillRect(0, 0, W, oy * E + 1);
@@ -3371,7 +3390,7 @@
     var sh = shakeBy((rift ? rift.shake : 0) + quake);
     camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (Math.random() - 0.5) * sh;
     camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh;
-    camX = Math.round(camX * E) / E; camY = Math.round(camY * E) / E;
+    camX = Math.round(camX * E * dpr) / (E * dpr); camY = Math.round(camY * E * dpr) / (E * dpr);        // whole device pixels: no shimmer
     if (reality.wipe) {
       REAL = reality.wipe.from; drawWorld(E, VW, VH);
       ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -3579,7 +3598,7 @@
     var c = window.orbs && window.orbs[0] ? window.orbs[0].center() : [innerWidth / 2, innerHeight / 2, 100];
     warp.hidden = false;
     var d = Math.min(window.devicePixelRatio || 1, 2);
-    warp.width = innerWidth * d; warp.height = innerHeight * d;
+    warp.width = Math.floor(innerWidth * d); warp.height = Math.floor(innerHeight * d);
     streaks = [];
     for (var i = 0; i < 260; i++) streaks.push({ a: Math.random() * 6.283, r: Math.random() * 40, v: 0.5 + Math.random(), c: Math.random() });
     var start = performance.now(), dur = dir > 0 ? 1000 : 650, far = Math.hypot(innerWidth, innerHeight), bloom = dir > 0 && OPT.flash && flashGate();
