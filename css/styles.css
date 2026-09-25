@@ -293,6 +293,7 @@ canvas.orb-mini {
 .wb::after {                                         /* the glyphs appear on hover, like macOS */
   position:absolute; inset:0; display:grid; place-items:center; font:700 9px/1 var(--mono); color:rgba(0,0,0,.6); opacity:0; transition:opacity .15s;
 }
+@media (pointer: coarse) { .wb::before { content:""; position:absolute; inset:-6px -3px; } }   /* a 24px tap target around each 12px light */
 .wb-close::after { content:"×"; } .wb-min::after { content:"–"; } .wb-max::after { content:"+"; }
 .win-ctl.live .wb-close, .win-ctl:hover .wb-close { background:#ff5f57; }
 .win-ctl.live .wb-min, .win-ctl:hover .wb-min { background:#febc2e; }
@@ -329,7 +330,7 @@ canvas.orb-mini {
 .dock-item.pop { animation:dock-pop .5s cubic-bezier(.2,.9,.3,1.4) .45s both; }
 @keyframes dock-pop { from { transform:scale(.6); } }
 .dock-glyph { color:#f454a6; margin-right:7px; font-size:10px; }
-.dock-all { background:none; color:#9a9a9a; border-style:dashed; }
+.dock-all { color:#b4b4b4; border-style:dashed; }
 .dock-all:hover { color:#e6e6e6; }
 /* maximized: the window lifts over a blurred page */
 .win-backdrop { position:fixed; inset:0; z-index:130; background:rgba(0,0,0,.55); backdrop-filter:blur(6px); -webkit-backdrop-filter:blur(6px); }
@@ -399,7 +400,12 @@ html.in-world, html.in-world body { overflow:hidden; }
   pointer-events:auto; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer;
   background:rgba(10,10,10,.75); border:1px solid rgba(244,244,244,.5); padding:7px 14px;
 }
-.w-exit:hover { border-color:#f4f4f4; }
+.w-exit:hover, .w-sound:hover { border-color:#f4f4f4; }
+.w-sound {
+  pointer-events:auto; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; white-space:nowrap;
+  background:rgba(10,10,10,.75); border:1px solid rgba(244,244,244,.5); padding:7px 12px;
+}
+.w-sound[aria-pressed="false"] { color:#9a9a9a; }
 .w-dialog {
   position:absolute; left:50%; bottom:22px; translate:-50% 0; z-index:3; width:min(640px, calc(100% - 28px));
   background:#0a0a0a; color:#efefef; border:2px solid #f4f4f4; box-shadow:4px 4px 0 rgba(0,0,0,.5);
@@ -416,7 +422,10 @@ html.in-world, html.in-world body { overflow:hidden; }
 .w-more { position:absolute; right:14px; bottom:8px; font-size:10px; color:#7c7c7c; animation:blink 1.2s steps(1) infinite; }
 @media (max-width:680px) {
   .w-keys { display:none; }
-  .w-hud { justify-content:space-between; }
+  .w-hud { justify-content:space-between; gap:8px; padding:12px; }
+  .w-title { min-width:0; overflow:hidden; text-overflow:ellipsis; }
+  .w-clock { display:none; }
+  .w-sound-l { display:none; }
   .w-text { font-size:14px; }
 }
 /* the cave terminal on the island */

@@ -107,9 +107,12 @@
     }
   }
 
+  var lastDraw = 0;
   function loop(now) {
     raf = 0;
-    if (document.documentElement.classList.contains("in-world")) { raf = requestAnimationFrame(loop); return; }
+    // 30fps is plenty for a background, and it sits idle while the island is open
+    if (document.documentElement.classList.contains("in-world") || now - lastDraw < 32) { raf = requestAnimationFrame(loop); return; }
+    lastDraw = now;
     draw(now);
     raf = requestAnimationFrame(loop);
   }

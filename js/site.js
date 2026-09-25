@@ -135,4 +135,25 @@
     });
   });
 
+  /* ── pi's island is big, so it loads the first time someone reaches for the orb
+     (hover, focus or touch), or straight away if the URL asks for #island ── */
+  var orbBtn = document.querySelector(".orb-btn");
+  if (orbBtn) {
+    var island = 0, go = false;
+    var loadIsland = function () {
+      if (island) return;
+      island = 1;
+      var sc = document.createElement("script");
+      sc.src = "js/world.js";
+      sc.onload = function () { island = 2; if (go && window.islandEnter) window.islandEnter(); };
+      sc.onerror = function () { island = 0; };
+      document.body.appendChild(sc);
+    };
+    orbBtn.addEventListener("pointerenter", loadIsland);
+    orbBtn.addEventListener("focus", loadIsland);
+    orbBtn.addEventListener("touchstart", loadIsland, { passive: true });
+    orbBtn.addEventListener("click", function () { if (island !== 2) { go = true; loadIsland(); } });
+    if (location.hash === "#island") { go = true; loadIsland(); }
+  }
+
 })();

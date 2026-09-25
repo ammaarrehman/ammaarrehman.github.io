@@ -55,6 +55,7 @@
     finished = true; clearTimeout(timer);
     window.removeEventListener("keydown", off); window.removeEventListener("pointerdown", off);
     el.classList.add("off");
+    if (window.Sound) window.Sound.sfx("beep");       // one short beep: POST passed (only heard on a reboot; browsers mute page loads)
     try { sessionStorage.setItem("booted", "1"); } catch (e) {}
     setTimeout(function () {
       root.classList.remove("booting");
@@ -75,6 +76,7 @@
   window.reboot = function () {
     if (root.classList.contains("booting")) return;
     window.scrollTo(0, 0);
+    if (window.Sound) window.Sound.unlock();
     if (REDUCED) return;
     run();
     window.addEventListener("boot:done", function () {

@@ -50,7 +50,7 @@
   <link rel="me" href="https://www.linkedin.com/in/ammaarrehman/" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Instrument+Serif:ital@0;1&family=Cascadia+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@300..600&family=Cascadia+Mono:wght@400;600;700&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
 </head>
 <body>
@@ -74,7 +74,8 @@
     <canvas class="w-cv" tabindex="-1" aria-hidden="true"></canvas>
     <div class="w-hud">
       <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found">found 0/8</span></div>
-      <div class="w-keys">wasd / arrows or tap to walk · e to look · esc to leave</div>
+      <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc to leave</div>
+      <button class="w-sound" type="button" aria-pressed="true" aria-label="Sound on">♪<span class="w-sound-l"> sound on</span></button>
       <button class="w-exit" type="button">leave ↩</button>
     </div>
     <div class="w-dialog" hidden aria-live="polite">
@@ -499,7 +500,7 @@
   <script src="js/windows.js"></script>
   <script src="js/face.js"></script>
   <script src="js/orb.js"></script>
-  <script src="js/world.js"></script>
+  <script src="js/audio.js"></script>
   <script src="js/hands.js"></script>
 </body>
 </html>

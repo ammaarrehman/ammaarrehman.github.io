@@ -41,7 +41,7 @@
   wins.forEach(function (w) {
     var ctl = document.createElement("span");
     ctl.className = "win-ctl" + (w.classList.contains("term") ? " live" : "");
-    [["close", "Minimize"], ["min", "Minimize"], ["max", "Maximize"]].forEach(function (b) {
+    [["close", "Close"], ["min", "Minimize"], ["max", "Maximize"]].forEach(function (b) {
       var btn = document.createElement("button");
       btn.type = "button"; btn.className = "wb wb-" + b[0];
       btn.setAttribute("aria-label", b[1] + " the " + name(w) + " window");

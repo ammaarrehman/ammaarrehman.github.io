@@ -60,7 +60,7 @@
   var HELI = { x: 29, y: 42 };                                         // the helipad, 3x3 tiles
   for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) map[y][x] = PAD;
 
-  // height: a plateau across the north, a volcanic cone on top of it, lava in the crater
+  // height: a plateau across the north; the volcano stands on top of it
   var ELEV = [];
   for (y = 0; y < MH; y++) {
     ELEV.push([]);
@@ -70,15 +70,15 @@
         var hx = (x + 0.5 - 34) / 12.5, hy = (y + 0.5 - 14.2) / 5.6, ha = Math.atan2(hy, hx);
         var hw = 1 + 0.08 * Math.sin(3 * ha + 0.5) + 0.06 * Math.sin(5 * ha + 2);
         if (hx * hx + hy * hy < hw * hw) lv = 1;
-        var px2 = (x + 0.5 - 33) / 6.5, py2 = (y + 0.5 - 11.8) / 3.1;
-        if (lv && px2 * px2 + py2 * py2 < 1) lv = 2;
       }
       ELEV[y].push(lv);
     }
   }
-  var VOLC = { x: 33, y: 11, rx: 2.6, ry: 1.15 };
-  function craterF(fx, fy) { var a = (fx - VOLC.x) / VOLC.rx, b = (fy - VOLC.y) / VOLC.ry; return Math.sqrt(a * a + b * b); }
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (ELEV[y][x] === 2 && craterF(x + 0.5, y + 0.5) < 1) map[y][x] = LAVA;
+  // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
+  // (x, y) is the centre of its footprint; squash flattens the footprint front to back
+  var VOLC = { x: 33 * T + 8, y: 11 * T + 4, R: 118, H: 104, sq: 1.65, rc: 27 };
+  function volcD(wx, wy) { var u = wx - VOLC.x, v = (wy - VOLC.y) * VOLC.sq; return Math.sqrt(u * u + v * v); }
+  var RIMH = Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H;
   function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : ELEV[y][x]; }
   function rim(x, y) { var l = lvl(x, y); return lvl(x + 1, y) !== l || lvl(x - 1, y) !== l || lvl(x, y + 1) !== l || lvl(x, y - 1) !== l; }
 
@@ -117,6 +117,8 @@
   function near(x, y, r, fn) { for (var j = -r; j <= r; j++) for (var i = -r; i <= r; i++) if (fn(x + i, y + j)) return true; return false; }
   // cliffs: tiles where the ground changes level can't be walked, except where a path makes stairs
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (map[y][x] !== PATH && (map[y][x] === GRASS || map[y][x] === SAND) && rim(x, y)) solid[k(x, y)] = 1;
+  // nobody climbs the volcano
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (volcD(x * T + 8, y * T + 8) < VOLC.R * 0.93) solid[k(x, y)] = 1;
   // the park gate over the north road, and the electric fences around the paddocks
   var GATE = { x: 36, y: 23 };
   solid[k(GATE.x - 2, GATE.y)] = 1; solid[k(GATE.x + 2, GATE.y)] = 1;
@@ -137,7 +139,7 @@
   function busy(a, b) { var q = at(a, b); return q === PATH || q === POND || q === PAD || q === DOCK || q === LAVA || fence[k(a, b)] || nearStation(a, b) || Math.abs(a - GATE.x) <= 3 && Math.abs(b - GATE.y) <= 1; }
   for (y = 1; y < MH - 1; y++) for (x = 1; x < MW - 1; x++) {
     var t = map[y][x], h = hash(x, y);
-    if (t === GRASS && ELEV[y][x] === 2) continue;         // nothing grows on the volcano's cone
+    if (volcD(x * T + 8, y * T + 8) < VOLC.R + 6) continue;      // nothing grows on the volcano
     if (t === GRASS && !solid[k(x, y)]) {
       // the jungle: thick where the noise says so, thickest to the west and on the plateau
       var J = (Math.sin(x * 0.31 + 1) + Math.sin(y * 0.37 + 2) + Math.sin((x + y) * 0.23 + 0.5) + Math.sin((x - y) * 0.17)) / 4 + (x < 30 ? 0.12 : 0) + (ELEV[y][x] ? 0.15 : 0);
@@ -420,17 +422,6 @@
           }
         });
         if (t === SAND && hash(tx, ty * 3) < 0.03) { r(X + 6, Y + 7, 3, 2, "#f6efe0"); r(X + 7, Y + 6, 1, 1, "#e9a3a3"); }   // shell
-      } else if (t === GRASS && ELEV[ty][tx] === 2) {
-        // the volcano's cone: ash and rock in ridges that run down from the crater, lit from the
-        // upper left, with old lava channels cooling on the south slope
-        for (j = 0; j < T; j += 2) for (i = 0; i < T; i += 2) {
-          var qx = (X + i + 1) / T - VOLC.x, qy = ((Y + j + 1) / T - VOLC.y) * 2.2, qa = Math.atan2(qy, qx), qd = Math.hypot(qx, qy);
-          var ridge = Math.sin(qa * 11 + Math.sin(qd * 1.3) * 0.8), cv = 0.95 - qd * 0.1 - Math.max(0, ridge) * 0.26 + Math.min(0, ridge) * -0.1 - (qx + qy) * 0.04;
-          cv += (hash(tx * 8 + i, ty * 8 + j) - 0.5) * 0.2;
-          var chan = Math.abs(Math.sin(qa * 3 + 0.9)) < 0.07 && qy > 0 && qd < 5;
-          g.fillStyle = chan ? (hash(X + i, Y + j) < 0.5 ? "#7a2a10" : "#4a1c0c") : tone(cv, ASH, X + i, Y + j); g.fillRect(X + i, Y + j, 2, 2);
-        }
-        if (hash(tx * 13, ty * 7) < 0.3) { r(X + 3 + ((hash(tx, ty) * 8) | 0), Y + 5, 4, 3, "#2a231e"); r(X + 3 + ((hash(tx, ty) * 8) | 0), Y + 5, 3, 1, "#6d6054"); }
       } else if (t === GRASS) {
         // grass in soft tonal patches, darker and lusher under the jungle, brighter up high
         var patch = (Math.sin(tx * 0.35) + Math.sin(ty * 0.41 + 1) + Math.sin((tx - ty) * 0.23 + 2)) / 3, jg = jungle(tx, ty);
@@ -444,8 +435,6 @@
         else if (hh < 0.16) { r(X + 4, Y + 9, 1, 3, COL.grass2); r(X + 6, Y + 8, 1, 4, COL.grass2); r(X + 8, Y + 9, 1, 3, COL.grass2); }
       } else if (t === POND) {
         r(X, Y, T, T, "#4f9a3e");                          // grass under the pond; the water is drawn per pixel below
-      } else if (t === LAVA) {
-        r(X, Y, T, T, "#2a120a");                          // the live lava is drawn every frame
       }
     }
 
@@ -472,10 +461,10 @@
       g.fillStyle = "#6b4a2a"; g.fillRect(Math.round(rx0), Math.round(ry0) - 6, 1, 2);
     }
 
-    // the crater: a basalt lip around the lava, cracked and glowing at the edge
-    for (py = Math.floor((VOLC.y - 2.5) * T); py < (VOLC.y + 2.5) * T; py++) for (px = Math.floor((VOLC.x - 4) * T); px < (VOLC.x + 4) * T; px++) {
-      var cf = craterF((px + 0.5) / T, (py + 0.5) / T);
-      if (cf >= 1 && cf < 1.32) { g.fillStyle = tone(0.2 + (cf - 1) * 1.6 + (hash(px >> 1, py >> 1) - 0.5) * 0.3, ["#140c08", "#231812", "#35271e", "#4a3a2e"], px, py); g.fillRect(px, py, 1, 1); }
+    // the volcano's shadow falls to the east across the plateau
+    for (py = VOLC.y - 60; py < VOLC.y + 90; py++) for (px = VOLC.x - 40; px < VOLC.x + 170; px++) {
+      var sd = Math.hypot((px - VOLC.x - 38) / (VOLC.R * 1.02), (py - VOLC.y - 12) / (VOLC.R / VOLC.sq * 1.05));
+      if (sd < 1 && volcD(px, py) > VOLC.R - 4 && (BAYER[(py & 3) * 4 + (px & 3)] + 0.5) / 16 < (1 - sd) * 1.6) { g.fillStyle = "rgba(10,20,10,.22)"; g.fillRect(px, py, 1, 1); }
     }
 
     // the helipad: a concrete disc, a painted ring and a big H
@@ -501,10 +490,10 @@
     }
 
     // cliffs: a rock face under every drop in level, walls down the sides, stairs where a path climbs
-    var ROCK = ["#5c4632", "#7a5f45", "#957658", "#b3936f"], BASALT = ["#231c18", "#352b25", "#4a3d34", "#615145"];
+    var ROCK = ["#5c4632", "#7a5f45", "#957658", "#b3936f"];
     for (var cy2 = 1; cy2 < MH; cy2++) for (var cx2 = 0; cx2 < MW; cx2++) {
       var X2 = cx2 * T, Y2 = cy2 * T, L0 = lvl(cx2, cy2), Lup = lvl(cx2, cy2 - 1);
-      var isPath = map[cy2][cx2] === PATH, upPath = map[cy2 - 1][cx2] === PATH, RK = Lup === 2 ? BASALT : ROCK;
+      var isPath = map[cy2][cx2] === PATH, upPath = map[cy2 - 1][cx2] === PATH, RK = ROCK;
       if (Lup > L0) {
         if (isPath || upPath) {                              // stairs
           for (var st = 0; st < T; st += 3) { r(X2 + 2, Y2 + st, T - 4, 2, "#b99c68"); r(X2 + 2, Y2 + st + 2, T - 4, 1, "#8a6f45"); }
@@ -516,9 +505,9 @@
             g.fillStyle = tone(0.75 - fy2 / fh * 0.6 + strata + (hash(X2 + fx2, Y2 + fy2) - 0.5) * 0.2, RK, X2 + fx2, Y2 + fy2);
             g.fillRect(X2 + fx2, Y2 + fy2, 1, 1);
           }
-          r(X2, Y2, T, 1, Lup === 2 ? "#6d6054" : "#76c25c");  // the lip hangs over the edge
-          if (Lup !== 2) for (var lp = 0; lp < T; lp += 2) if (hash(cx2 * 16 + lp, cy2) < 0.5) r(X2 + lp, Y2 + 1, 2, 1, "#5aa846");
-          if (Lup !== 2 && hash(cx2, cy2 * 3) < 0.5) for (var vn = 0; vn < 6 + hash(cy2, cx2) * 4; vn++) r(X2 + 3 + ((hash(cx2, 9) * 9) | 0), Y2 + 1 + vn, 1, 1, vn % 2 ? "#2f6f2c" : "#4f9a3e");   // a hanging vine
+          r(X2, Y2, T, 1, "#76c25c");  // the lip hangs over the edge
+          for (var lp = 0; lp < T; lp += 2) if (hash(cx2 * 16 + lp, cy2) < 0.5) r(X2 + lp, Y2 + 1, 2, 1, "#5aa846");
+          if (hash(cx2, cy2 * 3) < 0.5) for (var vn = 0; vn < 6 + hash(cy2, cx2) * 4; vn++) r(X2 + 3 + ((hash(cx2, 9) * 9) | 0), Y2 + 1 + vn, 1, 1, vn % 2 ? "#2f6f2c" : "#4f9a3e");   // a hanging vine
           r(X2, Y2 + fh, T, 3, "rgba(0,0,0,.22)");            // cast shadow at the foot
         }
       }
@@ -549,7 +538,7 @@
   function shadow(x, y, w) { ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(x - w / 2 + 1, y - 1, w - 2, 1); ctx.fillRect(x - w / 2, y, w, 2); ctx.fillRect(x - w / 2 + 1, y + 2, w - 2, 1); }
 
   var SPAWN = { x: 36 * T + 8, y: 29 * T + 12 };
-  var pi = { x: SPAWN.x, y: SPAWN.y, face: 1, dir: "down", dist: 0, boost: 0, path: null, want: null, hop: 0 };
+  var pi = { x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
   var rex = { x: 31 * T + 8, y: 33 * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
   var ptero = { on: false, x: 0, y: 0, vx: 0, next: 4 };
   var clouds = [0, 1, 2].map(function (i) { return { x: hash(i, 9) * MW * T, y: hash(9, i) * MH * T, w: 90 + i * 30, v: 5 + i * 2 }; });
@@ -557,12 +546,65 @@
   var bubble = null;       // { text, t } speech over pi
 
   /* ════════ view ════════ */
-  var W = 0, H = 0, dpr = 1, S = 3, zoom = 1, zoomTo = 1, camX = 0, camY = 0, camF = { x: null, y: null };
+  var W = 0, H = 0, dpr = 1, S = 3, zoom = 1, zoomTo = 1, camX = 0, camY = 0, camF = { x: null, y: null }, look = { x: 0, y: 0 };
   function size() {
     dpr = Math.min(window.devicePixelRatio || 1, 2);
     W = window.innerWidth; H = window.innerHeight;
     cv.width = Math.round(W * dpr); cv.height = Math.round(H * dpr);
     S = Math.max(2, Math.min(5, Math.floor(Math.min(W / 300, H / 190))));
+  }
+
+  /* ════════ sound ════════
+     positional one-shots are panned by where they are on screen and fade with distance
+     from the middle of the view. the ambience (surf, jungle insects, the volcano's rumble)
+     and the rotor and engine are held loops whose volume follows the scene. */
+  var SND = window.Sound || null, amb = null, popT = 0;
+  function sfx(name, x, y, o) {
+    if (!SND) return;
+    o = o || {};
+    if (x !== undefined) {
+      var E0 = S * zoom, cx0 = camX + W / E0 / 2, cy0 = camY + H / E0 / 2, dd = Math.hypot(x - cx0, y - cy0);
+      o.pan = Math.max(-1, Math.min(1, (x - cx0) / (W / E0 / 2 || 1)));
+      o.vol = (o.vol || 1) * Math.max(0, 1 - dd / 420);
+      if (o.vol < 0.03) return;
+    }
+    SND.sfx(name, o);
+  }
+  function startSound() {
+    if (!SND) return;
+    SND.unlock();
+    if (!amb) amb = { waves: SND.loop("waves"), jungle: SND.loop("jungle"), rumble: SND.loop("rumble"), rotor: SND.loop("rotor"), engine: SND.loop("engine") };
+  }
+  function stopSound() {
+    if (!SND) return;
+    SND.music(null);
+    if (amb) { Object.keys(amb).forEach(function (k2) { amb[k2].stop(); }); amb = null; }
+  }
+  var shoreT = 0, shore = 0;
+  function updateSound(dt) {
+    if (!amb) return;
+    SND.music(riftBusy() && rift.phase !== "dim" ? "battle" : sky.dark > 0.6 ? "night" : "day");
+    shoreT -= dt;
+    if (shoreT <= 0) {                               // how much water is around pi, for the surf
+      shoreT = 0.3; var wn = 0, tx0 = Math.floor(pi.x / T), ty0 = Math.floor(pi.y / T);
+      for (var j = -5; j <= 5; j += 1) for (var i = -5; i <= 5; i += 1) if (at(tx0 + i, ty0 + j) === DEEP || at(tx0 + i, ty0 + j) === SHAL) wn++;
+      shore = wn / 121;
+    }
+    var vd = Math.hypot(pi.x - VX, pi.y - (VOLC.y - 20));
+    amb.waves.set({ vol: 0.05 + shore * 0.5 });
+    amb.jungle.set({ vol: (0.03 + sky.dark * 0.1) * (1 - shore) });
+    amb.rumble.set({ vol: Math.max(0, 1 - vd / 380) * 0.5, pan: Math.max(-1, Math.min(1, (VX - pi.x) / 300)) });
+    if (vd < 300 && (popT -= dt) <= 0) { popT = 0.4 + Math.random() * 1.6; sfx("pop", VX + (Math.random() - 0.5) * 30, VY); }
+    var hd = Math.hypot(heli.x - pi.x, heli.y - pi.y);
+    amb.rotor.set({ vol: heli.spin * (aboard() ? 0.42 : 0.4 * Math.max(0, 1 - hd / 360)), rate: heli.spin });
+    amb.engine.set({ vol: car.driving ? 0.1 + Math.min(1, Math.abs(car.v) / 120) * 0.14 : 0, rate: Math.min(1, Math.abs(car.v) / 120) });
+  }
+  if (SND) SND.onChange(function (on) { paintSound(on); });
+  var soundBtn = root.querySelector(".w-sound");
+  function paintSound(on) { if (soundBtn) { soundBtn.innerHTML = "♪<span class=\"w-sound-l\"> sound " + (on ? "on" : "off") + "</span>"; soundBtn.setAttribute("aria-pressed", on ? "true" : "false"); soundBtn.setAttribute("aria-label", "Sound " + (on ? "on" : "off")); } }
+  if (soundBtn) {
+    if (!SND) soundBtn.hidden = true;
+    else { paintSound(SND.on()); soundBtn.addEventListener("click", function () { SND.toggle(); if (open) startSound(); cv.focus({ preventScroll: true }); }); }
   }
 
   /* ════════ input ════════ */
@@ -578,8 +620,10 @@
     if (aboard() && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleHeli(); return; }
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
-    if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; return; }
+    if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); return; }
     if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else exit(); return; }
+    if (e.key === "Shift") { keys.run = 1; return; }
+    if ((e.key === "m" || e.key === "M") && SND) { SND.toggle(); return; }
     if (e.key === "e" || e.key === "E" || e.key === " " || e.key === "Enter") {
       if (document.activeElement && document.activeElement.tagName === "A") return;   // let links work
       e.preventDefault();
@@ -589,11 +633,12 @@
       var s = nearby(); if (s) interact(s);
     }
   });
-  window.addEventListener("keyup", function (e) { var d = dirKey(e); if (d) keys[d] = 0; });
+  window.addEventListener("keyup", function (e) { var d = dirKey(e); if (d) keys[d] = 0; if (e.key === "Shift") keys.run = 0; });
   window.addEventListener("blur", function () { keys = {}; });
 
   cv.addEventListener("pointerdown", function (e) {
     if (!open || termOpen) return;
+    if (mapRect && e.clientX >= mapRect[0] && e.clientX <= mapRect[0] + mapRect[2] && e.clientY >= mapRect[1] && e.clientY <= mapRect[1] + mapRect[3]) { mapOn = !mapOn; sfx("blip"); return; }
     if (egg) { egg.t = 99; return; }
     if (riftBusy()) return;
     if (!dlg.hidden) { typing ? finishTyping() : closeDialog(); return; }
@@ -658,7 +703,7 @@
     if (s.id === "critter" || s.id === "bird" || s.id === "pond" || s.id === "nest" || s.id === "fence") { sayLocal(s); return; }
     if (s.id === "drink") pi.boost = 10;
     if (s.found && !found[s.id]) {
-      found[s.id] = 1; paintFound();
+      found[s.id] = 1; paintFound(); setTimeout(function () { sfx("found"); }, 120);
       try { sessionStorage.setItem("pi-found", JSON.stringify(Object.keys(found))); } catch (e) {}
     }
     var all = Object.keys(found).length === TOTAL && s.found, extra = "";
@@ -680,7 +725,8 @@
     if (REDUCED) { dText.textContent = full; typing = null; return; }
     var i = 0;
     clearInterval(typing);
-    typing = setInterval(function () { i += 2; dText.textContent = full.slice(0, i); if (i >= full.length) finishTyping(); }, 16);
+    sfx("open");
+    typing = setInterval(function () { i += 2; dText.textContent = full.slice(0, i); if (i % 8 === 0) sfx("type"); if (i >= full.length) finishTyping(); }, 16);
   }
   function finishTyping() { clearInterval(typing); typing = null; dText.textContent = full; }
   function closeDialog() {
@@ -810,6 +856,8 @@
      whole pixels, then shaded by hand-rolled rules: lit along the back, darker toward
      the belly, a rim of light on top, spots dithered in, far legs pushed into shadow. */
   function bez(p, u) { var q = p.map(function (a) { return a.slice(); }); for (var n = q.length - 1; n > 0; n--) for (var i = 0; i < n; i++) { q[i][0] += (q[i + 1][0] - q[i][0]) * u; q[i][1] += (q[i + 1][1] - q[i][1]) * u; } return q[0]; }
+  // outline in a darker shade of the creature's own colour instead of flat black ("sel-out")
+  function selout(hex) { var n = parseInt(hex.slice(1), 16); return "rgb(" + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) { return Math.round(c * 0.45); }).join(",") + ")"; }
   function shapeArt(w, h, pal, draw, fr) {
     var kind = [], i;
     for (i = 0; i < w * h; i++) kind.push(null);
@@ -847,122 +895,153 @@
       }
       og.fillRect(x, y, 1, 1);
     }
-    return outline(out, pal.o || "rgba(20,12,8,.92)");
+    return outline(out, pal.o || selout(pal.B[0]));
   }
+  /* poses. every dinosaur is drawn from a pose P = { mode, ph }: mode is walk, idle, graze,
+     roar or fly, and ph runs 0..1 through the cycle. walks are six frames. four-legged dinos
+     step in a four-beat walk (near hind, near fore, far hind, far fore, a quarter apart);
+     two-legged ones alternate. each foot slides back along the ground for half its cycle and
+     lifts and swings forward for the other half; the body bobs twice per cycle, and the tail
+     and head follow a beat behind. idles breathe and blink. */
+  function gait(P, off) {
+    if (P.mode !== "walk") return { dx: 0, lift: 0 };
+    var p = (P.ph + off) % 1;
+    return p < 0.5 ? { dx: 1 - p * 4, lift: 0 } : { dx: -1 + (p - 0.5) * 4, lift: Math.sin((p - 0.5) * 2 * Math.PI) };
+  }
+  function limb(a, key, hx, hy, fy, stride, liftH, g, r0, r1, bend) {
+    var fx = hx + g.dx * stride, ly = fy - g.lift * liftH, kx = (hx + fx) / 2 + (bend || 0) * (1 + g.lift * 1.5);
+    a.tube(key, [[hx, hy], [kx, (hy + ly) / 2], [fx, ly]], r0, r1);
+    return [fx, ly];
+  }
+  function foot(a, key, f, back, front) { a.poly(key, [[f[0] - back, f[1] - 1], [f[0] + front, f[1] - 1], [f[0] + front, f[1] + 1.4], [f[0] - back, f[1] + 1.4]]); }
+  function bobOf(P, amp) { return P.mode === "walk" ? -Math.abs(Math.sin(P.ph * Math.PI * 2)) * amp : 0; }
+  function breathe(P) { return P.mode === "idle" || P.mode === "blink" ? Math.sin(P.ph * Math.PI * 2) * 0.35 : 0; }
+  function swayOf(P) { return Math.sin(P.ph * Math.PI * 2 + 1) * (P.mode === "walk" ? 1.3 : 0.9); }
+  function eye(a, P, x, y) { a.px(P.mode === "blink" ? "B" : "K", Math.round(x), Math.round(y)); }
   var ART = {
-    brachio: { w: 42, h: 47, pal: { B: ["#3f4a14", "#58661c", "#768a26", "#96aa36", "#b8c858"], L: ["#8a9058", "#a9ae76", "#cacd98"], spots: 0.14, spotV: -0.3, seed: 11 },
-      draw: function (a, f) {
-        var s = f ? 1.5 : -1.5;
-        a.tube("F", [[28, 33], [28 - s, 46]], 2.6, 2.2); a.tube("F", [[12, 34], [12 + s, 46]], 2.8, 2.3);
-        a.tube("B", [[9, 31], [2, 33], [1, 41]], 4.2, 0.8);
-        a.ell("B", 18, 31, 12.5, 7.5, -0.12);
-        a.tube("B", [[25, 28], [32, 20], [32.5, 7]], 4.6, 2.6);
-        a.ell("B", 34.5, 5.5, 4.4, 2.8, 0.15); a.tube("B", [[36, 6], [40, 7.5]], 2.1, 1.4);
-        a.tube("L", [[28, 30], [34.3, 20], [35, 9]], 1.3, 0.9);
-        a.ell("L", 18, 36.5, 9, 2.2);
-        a.tube("B", [[25, 34], [25 + s, 46]], 3.1, 2.6); a.tube("B", [[10, 35], [10 - s, 46]], 3.3, 2.7);
-        a.px("K", 35, 4); a.px("K", 39, 8);
+    brachio: { w: 45, h: 48, pal: { B: ["#3f4a14", "#58661c", "#768a26", "#96aa36", "#b8c858"], L: ["#8a9058", "#a9ae76", "#cacd98"], spots: 0.14, spotV: -0.3, seed: 11 },
+      draw: function (a, P) {
+        var b = bobOf(P, 0.8), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0, chew = gz && P.ph >= 0.5 ? 0.8 : 0;
+        limb(a, "F", 28, 33 + b, 47, 2.4, 2, gait(P, 0.75), 2.6, 2.2, 0.6);
+        limb(a, "F", 12, 34 + b, 47, 2.4, 2, gait(P, 0.5), 2.8, 2.3, -0.6);
+        a.tube("B", [[9, 31 + b], [2, 33 + b + sw * 0.4], [1 + sw * 0.3, 41 + sw]], 4.2, 0.8);
+        a.ell("B", 18, 31 + b, 12.5, 7.5 + br, -0.12);
+        var hx = 32.5 + gz * 1.5 + (P.mode === "walk" ? Math.sin(P.ph * Math.PI * 4) * 0.5 : 0), hy = 8 + b * 0.6 - gz * 1.5 + br;
+        a.tube("B", [[25, 28 + b], [32, 20 + b], [hx, hy]], 4.6, 2.6);
+        a.ell("B", hx + 2, hy - 1.5, 4.4, 2.8, 0.15); a.tube("B", [[hx + 3.5, hy - 1], [hx + 7.5, hy + 0.5 + chew]], 2.1, 1.4);
+        a.tube("L", [[28, 30 + b], [34.3, 20 + b], [hx + 2.5, hy + 2]], 1.3, 0.9);
+        a.ell("L", 18, 36.5 + b, 9, 2.2);
+        limb(a, "B", 25, 34 + b, 47, 2.4, 2, gait(P, 0.25), 3.1, 2.6, 0.6);
+        limb(a, "B", 10, 35 + b, 47, 2.4, 2, gait(P, 0), 3.3, 2.7, -0.6);
+        eye(a, P, hx + 2.5, hy - 3); a.px("K", Math.round(hx + 6.5), Math.round(hy));
       } },
-    trex: { w: 33, h: 29, pal: { B: ["#132f1a", "#1d4a24", "#28662e", "#3c8a3a", "#5eac50"], L: ["#6f9a52", "#94b86e", "#bcd694"], H: ["#d2cbb6", "#f4efe0"], spots: 0.06, spotV: -0.25, seed: 23 },
-      draw: function (a, f) {
-        var s = f ? 2 : -2;
-        a.tube("F", [[15, 18], [17 - s * 0.5, 23], [16 - s, 27.5]], 2.6, 1.8); a.poly("F", [[13 - s, 26.5], [19 - s, 26.5], [19 - s, 29], [13 - s, 29]]);
-        a.tube("B", [[10, 13], [4, 11], [0, 14]], 4.4, 0.8);
-        a.ell("B", 15, 14, 7.8, 5.6, -0.35);
-        a.tube("B", [[19, 11], [22, 7]], 4.2, 3.8);
-        a.poly("B", [[19, 2], [27, 1.5], [30.5, 4], [31.5, 8.5], [26, 9.5], [20, 9.5]]);
-        a.poly("B", [[21, 9.5], [30.5, 9.5], [29.5, 12], [22, 13]]);
-        a.tube("L", [[19, 17], [15, 19.6], [10, 18]], 1.6, 1.1); a.tube("L", [[22, 13], [20, 15.5]], 1.4, 1.2);
-        a.tube("B", [[21, 15], [23.5, 17], [24.5, 16]], 1.1, 0.8);
-        a.ell("B", 13, 17.5, 4.6, 5.2, 0.3); a.tube("B", [[13, 20], [11 + s * 0.5, 24], [13 + s, 27.5]], 2.8, 2);
-        a.poly("B", [[10 + s, 26.5], [17 + s, 26.5], [17 + s, 29], [10 + s, 29]]);
-        a.px("K", 22, 9, 8, 1); a.px("H", 23, 10); a.px("H", 25, 10); a.px("H", 27, 10); a.px("H", 29, 10);
-        a.px("K", 25, 4); a.px("K", 24, 3, 3, 1);
+    trex: { w: 33, h: 30, pal: { B: ["#132f1a", "#1d4a24", "#28662e", "#3c8a3a", "#5eac50"], L: ["#6f9a52", "#94b86e", "#bcd694"], H: ["#d2cbb6", "#f4efe0"], spots: 0.06, spotV: -0.25, seed: 23 },
+      draw: function (a, P) {
+        var b = bobOf(P, 1.1) + (P.mode === "roar" ? 0.5 : 0), br = breathe(P), sw = swayOf(P), roar = P.mode === "roar", jaw = roar ? (P.ph < 0.5 ? 3 : 4) : 0, hy = b + (roar ? -2 : 0) + br * 0.6;
+        var ff = limb(a, "F", 15, 18 + b, 28, 3, 2.4, gait(P, 0.5), 2.6, 1.8, 1.4); foot(a, "F", ff, 2, 3.5);
+        a.tube("B", [[10, 13 + b], [4, 11 + b + sw * 0.4], [0.5, 14 + sw + (roar ? -2 : 0)]], 4.4, 0.8);
+        a.ell("B", 15, 14 + b, 7.8, 5.6 + br, -0.35);
+        a.tube("B", [[19, 11 + b], [22, 7 + hy]], 4.2, 3.8);
+        a.poly("B", [[19, 2 + hy], [27, 1.5 + hy], [30.5, 4 + hy], [31.5, 8.5 + hy], [26, 9.5 + hy], [20, 9.5 + hy]]);
+        a.poly("B", [[21, 9.5 + hy], [30.5, 9.5 + hy + jaw], [29.5, 12 + hy + jaw], [22, 13 + hy]]);
+        if (roar) { a.poly("K", [[22, 10 + hy], [30.5, 9.5 + hy], [30, 9.5 + hy + jaw], [23, 11 + hy]]); for (var i = 23; i <= 29; i += 2) { a.px("H", i, Math.round(10 + hy)); a.px("H", i + 1, Math.round(8.5 + hy + jaw)); } }
+        else { a.px("K", 22, Math.round(9 + hy), 8, 1); a.px("H", 23, Math.round(10 + hy)); a.px("H", 25, Math.round(10 + hy)); a.px("H", 27, Math.round(10 + hy)); a.px("H", 29, Math.round(10 + hy)); }
+        a.tube("L", [[19, 17 + b], [15, 19.6 + b], [10, 18 + b]], 1.6, 1.1); a.tube("L", [[22, 13 + hy], [20, 15.5 + b]], 1.4, 1.2);
+        a.tube("B", [[21, 15 + b], [23.5, 17 + b + (roar ? -1 : 0)], [24.5, 16 + b]], 1.1, 0.8);
+        a.ell("B", 13, 17.5 + b, 4.6, 5.2, 0.3);
+        var fn = limb(a, "B", 13, 20 + b, 28, 3, 2.4, gait(P, 0), 2.8, 2, 1.4); foot(a, "B", fn, 2.5, 4);
+        eye(a, P, 25, 4 + hy); a.px("K", 24, Math.round(3 + hy), 3, 1);
       } },
-    stego: { w: 37, h: 23, pal: { B: ["#111c36", "#1b2c52", "#28416f", "#3c5c93", "#5d80b6"], A: ["#8a2f10", "#c0501f", "#e67a32", "#f7a95e"], L: ["#50627e", "#71849f", "#98abc4"], H: ["#cfc6ae", "#efe8d6"], spots: 0.09, spotV: 0.3, seed: 37 },
-      draw: function (a, f) {
-        var s = f ? 1.3 : -1.3;
+    stego: { w: 37, h: 24, pal: { B: ["#111c36", "#1b2c52", "#28416f", "#3c5c93", "#5d80b6"], A: ["#8a2f10", "#c0501f", "#e67a32", "#f7a95e"], L: ["#50627e", "#71849f", "#98abc4"], H: ["#cfc6ae", "#efe8d6"], spots: 0.09, spotV: 0.3, seed: 37 },
+      draw: function (a, P) {
+        var b = bobOf(P, 0.7), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0;
         for (var i = 0; i < 7; i++) {
-          var px = 9 + i * 3, top = 13 - 6.5 * Math.sqrt(Math.max(0, 1 - Math.pow((px - 18) / 11, 2))), sz = 2 + 3.4 * Math.sin(Math.PI * (i + 0.5) / 7);
+          var px = 9 + i * 3, top = 13 + b - (6.5 + br) * Math.sqrt(Math.max(0, 1 - Math.pow((px - 18) / 11, 2))), sz = 2 + 3.4 * Math.sin(Math.PI * (i + 0.5) / 7);
           a.poly("A", [[px - 2.2, top + 2], [px + (i % 2 ? 0.5 : -0.5), top - sz - 1], [px + 2.2, top + 2]]);
         }
-        a.tube("F", [[23, 15], [23 + s, 22]], 2.2, 1.8); a.tube("F", [[12, 15], [12 - s, 22]], 2.4, 2);
-        a.tube("B", [[8, 12], [3, 13], [0.5, 16]], 3.6, 1);
-        a.tube("H", [[2, 14.5], [0, 10.5]], 0.7, 0.4); a.tube("H", [[4, 13.5], [3, 9.5]], 0.7, 0.4);
-        a.ell("B", 18, 13, 11, 6.5);
-        a.tube("B", [[27, 13], [31, 16]], 3.2, 2.2); a.ell("B", 32.5, 16.5, 3.1, 2.1);
-        a.ell("L", 18, 17.2, 8, 1.8);
-        a.tube("B", [[24, 16], [24 - s, 22]], 2.6, 2.2); a.tube("B", [[12, 16], [12 + s, 22]], 2.8, 2.3);
-        a.px("K", 33, 16);
+        limb(a, "F", 23, 15 + b, 23, 2, 1.6, gait(P, 0.75), 2.2, 1.8, 0.3); limb(a, "F", 12, 15 + b, 23, 2, 1.6, gait(P, 0.5), 2.4, 2, -0.3);
+        a.tube("B", [[8, 12 + b], [3, 13 + b + sw * 0.4], [0.5, 16 + sw * 0.8]], 3.6, 1);
+        a.tube("H", [[2, 14.5 + sw * 0.7], [0, 10.5 + sw * 0.7]], 0.7, 0.4); a.tube("H", [[4, 13.5 + sw * 0.5], [3, 9.5 + sw * 0.5]], 0.7, 0.4);
+        a.ell("B", 18, 13 + b, 11, 6.5 + br);
+        var hx = 32.5 + gz * 0.5, hy = 16.5 + b * 0.5 + gz * 3 + (gz && P.ph >= 0.5 ? 0.6 : 0);
+        a.tube("B", [[27, 13 + b], [hx - 1.5, hy - 0.5]], 3.2, 2.2); a.ell("B", hx, hy, 3.1, 2.1);
+        a.ell("L", 18, 17.2 + b, 8, 1.8);
+        limb(a, "B", 24, 16 + b, 23, 2, 1.6, gait(P, 0.25), 2.6, 2.2, 0.3); limb(a, "B", 12, 16 + b, 23, 2, 1.6, gait(P, 0), 2.8, 2.3, -0.3);
+        eye(a, P, hx + 0.5, hy - 0.5);
       } },
-    trike: { w: 33, h: 21, pal: { B: ["#5a2c12", "#7e3e1a", "#a3582a", "#c77b3b", "#e3a064"], A: ["#6a2a1e", "#9a3f2a", "#c65c3c", "#e88a5c"], L: ["#c9a27a", "#e0bf96", "#f2dcb8"], H: ["#cfc3a4", "#f5eedc"], seed: 41 },
-      draw: function (a, f) {
-        var s = f ? 1.2 : -1.2;
-        a.tube("F", [[21, 13], [21 + s, 20]], 2.4, 2); a.tube("F", [[9, 13], [9 - s, 20]], 2.6, 2.2);
-        a.tube("B", [[5, 10], [0.5, 12.5]], 3.1, 1);
-        a.ell("B", 14, 10.5, 10, 6.2);
-        a.ell("A", 23.5, 8.5, 4, 6.8, 0.25);
-        a.poly("B", [[21, 6], [27, 9], [30.5, 12], [28.5, 15.5], [22, 15.5], [20, 11]]);
-        a.poly("B", [[28, 12], [32, 13.5], [29.5, 15.5]]);
-        a.tube("H", [[24.5, 7.5], [30, 2]], 1.1, 0.4); a.tube("H", [[26.5, 8.5], [31.5, 4.5]], 1, 0.4); a.tube("H", [[28.5, 11], [30.5, 8.5]], 0.9, 0.4);
-        a.ell("L", 14, 14.5, 7, 1.8);
-        a.tube("B", [[20, 14], [20 - s, 20]], 2.8, 2.4); a.tube("B", [[9, 14], [9 + s, 20]], 3, 2.5);
-        a.px("K", 25, 10);
+    trike: { w: 33, h: 22, pal: { B: ["#5a2c12", "#7e3e1a", "#a3582a", "#c77b3b", "#e3a064"], A: ["#6a2a1e", "#9a3f2a", "#c65c3c", "#e88a5c"], L: ["#c9a27a", "#e0bf96", "#f2dcb8"], H: ["#cfc3a4", "#f5eedc"], seed: 41 },
+      draw: function (a, P) {
+        var b = bobOf(P, 0.7), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0, dy = b * 0.5 + gz * 2.5 + (gz && P.ph >= 0.5 ? 0.5 : 0);
+        limb(a, "F", 21, 13 + b, 21, 2, 1.6, gait(P, 0.75), 2.4, 2, 0.3); limb(a, "F", 9, 13 + b, 21, 2, 1.6, gait(P, 0.5), 2.6, 2.2, -0.3);
+        a.tube("B", [[5, 10 + b], [0.5, 12.5 + b + sw * 0.6]], 3.1, 1);
+        a.ell("B", 14, 10.5 + b, 10, 6.2 + br);
+        a.ell("A", 23.5, 8.5 + dy, 4, 6.8, 0.25 + gz * 0.3);
+        a.poly("B", [[21, 6 + dy], [27, 9 + dy], [30.5, 12 + dy], [28.5, 15.5 + dy], [22, 15.5 + dy], [20, 11 + dy]]);
+        a.poly("B", [[28, 12 + dy], [32, 13.5 + dy], [29.5, 15.5 + dy]]);
+        a.tube("H", [[24.5, 7.5 + dy], [30, 2 + dy + gz]], 1.1, 0.4); a.tube("H", [[26.5, 8.5 + dy], [31.5, 4.5 + dy + gz]], 1, 0.4); a.tube("H", [[28.5, 11 + dy], [30.5, 8.5 + dy]], 0.9, 0.4);
+        a.ell("L", 14, 14.5 + b, 7, 1.8);
+        limb(a, "B", 20, 14 + b, 21, 2, 1.6, gait(P, 0.25), 2.8, 2.4, 0.3); limb(a, "B", 9, 14 + b, 21, 2, 1.6, gait(P, 0), 3, 2.5, -0.3);
+        eye(a, P, 25, 10 + dy);
       } },
-    para: { w: 30, h: 26, pal: { B: ["#6a3f18", "#8f5a26", "#b37a36", "#d49a52", "#ecc27e"], A: ["#7a2412", "#a8381a", "#d45a2a", "#f08a4a"], L: ["#d8b88a", "#ecd2a8", "#f8e8cc"], spots: 0.12, spotV: -0.25, seed: 53 },
-      draw: function (a, f) {
-        var s = f ? 1.8 : -1.8;
-        a.tube("F", [[14, 15], [15 - s, 20.5], [14 - s, 24.5]], 2.4, 1.6); a.poly("F", [[11 - s, 24], [17 - s, 24], [17 - s, 26], [11 - s, 26]]);
-        a.tube("B", [[9, 13], [4, 14], [0.5, 17.5]], 3.5, 0.8);
-        a.ell("B", 15, 13.5, 7.5, 5.2, -0.25);
-        a.tube("B", [[19, 11], [22, 6]], 3, 2.4);
-        a.ell("B", 23.5, 5.2, 3.1, 2.2); a.tube("B", [[24, 6], [29, 7.2]], 1.8, 1.3);
-        a.tube("A", [[22, 4], [18, 1.6], [13.5, 1.2]], 1.7, 1.1);
-        a.tube("B", [[19, 14.5], [21, 17.5]], 1, 0.7);
-        a.tube("L", [[19, 16.5], [15, 18.6], [10, 16.5]], 1.5, 1); a.tube("L", [[22, 8], [20, 11]], 1, 1);
-        a.ell("B", 14, 16.5, 3.8, 4.5); a.tube("B", [[14, 19.5], [13 + s, 24.5]], 2.2, 1.6); a.poly("B", [[10 + s, 24], [16 + s, 24], [16 + s, 26], [10 + s, 26]]);
-        a.px("K", 24, 4);
+    para: { w: 30, h: 27, pal: { B: ["#6a3f18", "#8f5a26", "#b37a36", "#d49a52", "#ecc27e"], A: ["#7a2412", "#a8381a", "#d45a2a", "#f08a4a"], L: ["#d8b88a", "#ecd2a8", "#f8e8cc"], spots: 0.12, spotV: -0.25, seed: 53 },
+      draw: function (a, P) {
+        var b = bobOf(P, 1), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0;
+        var ff = limb(a, "F", 14, 15 + b, 25.5, 2.6, 2.2, gait(P, 0.5), 2.4, 1.6, 1); foot(a, "F", ff, 2.5, 3);
+        a.tube("B", [[9, 13 + b], [4, 14 + b + sw * 0.4], [0.5, 17.5 + sw]], 3.5, 0.8);
+        a.ell("B", 15, 13.5 + b, 7.5, 5.2 + br, -0.25 + gz * 0.15);
+        var hx = 23.5 + gz * 2, hy = 5.2 + b * 0.6 + gz * 8 + (gz && P.ph >= 0.5 ? 0.6 : 0) + br * 0.5;
+        a.tube("B", [[19, 11 + b], [hx - 1.5, hy + 1]], 3, 2.4);
+        a.ell("B", hx, hy, 3.1, 2.2); a.tube("B", [[hx + 0.5, hy + 0.8], [hx + 5.5, hy + 2]], 1.8, 1.3);
+        a.tube("A", [[hx - 1.5, hy - 1.2], [hx - 5.5, hy - 3.6 + gz * 1.5], [hx - 10, hy - 4 + gz * 3]], 1.7, 1.1);
+        a.tube("B", [[19, 14.5 + b], [21, 17.5 + b]], 1, 0.7);
+        a.tube("L", [[19, 16.5 + b], [15, 18.6 + b], [10, 16.5 + b]], 1.5, 1); a.tube("L", [[hx - 1.5, hy + 2.8], [20, 11 + b]], 1, 1);
+        a.ell("B", 14, 16.5 + b, 3.8, 4.5);
+        var fn = limb(a, "B", 14, 19.5 + b, 25.5, 2.6, 2.2, gait(P, 0), 2.2, 1.6, 1); foot(a, "B", fn, 2.5, 3);
+        eye(a, P, hx + 0.5, hy - 1.2);
       } },
-    raptor: { w: 25, h: 16, pal: { B: ["#34100c", "#4f1d16", "#6d2c20", "#8e402e", "#ae5c3c"], L: ["#b89468", "#d6b486", "#eed4aa"], H: ["#d0c8b4", "#f0ead8"], spots: 0.16, spotV: -0.25, seed: 67 },
-      draw: function (a, f) {
-        var s = f ? 2.3 : -2.3;
-        a.tube("F", [[11, 8], [12 - s, 11.5], [11 - s, 15]], 1.6, 1); a.px("F", Math.round(9 - s), 15, 4, 1);
-        a.tube("B", [[7, 6.5], [2.5, 5.2], [0.5, 4.5]], 2.3, 0.9);
-        a.ell("B", 11, 7.2, 5, 3, -0.1);
-        a.tube("B", [[14.5, 6], [17.5, 3]], 2, 1.7);
-        a.poly("B", [[16.5, 0.8], [20.5, 1.2], [24, 3], [23, 4.8], [17.5, 5.2]]);
-        a.tube("L", [[15, 9], [11, 10], [7.5, 8.5]], 1.3, 1); a.tube("L", [[16.5, 5.5], [18.5, 4.7]], 0.8, 0.7);
-        a.tube("B", [[14.5, 8.5], [16.5, 10.5]], 0.8, 0.6);
-        a.ell("B", 10.5, 9.4, 2.8, 3); a.tube("B", [[10.5, 11.5], [9.5 + s, 15]], 1.5, 1.1); a.px("B", Math.round(8 + s), 15, 4, 1); a.px("H", Math.round(12 + s), 14);
-        a.px("K", 20, 2);
+    raptor: { w: 25, h: 17, pal: { B: ["#34100c", "#4f1d16", "#6d2c20", "#8e402e", "#ae5c3c"], L: ["#b89468", "#d6b486", "#eed4aa"], H: ["#d0c8b4", "#f0ead8"], spots: 0.16, spotV: -0.25, seed: 67 },
+      draw: function (a, P) {
+        var b = bobOf(P, 1.1), br = breathe(P), sw = swayOf(P) * 1.2, look = P.mode === "idle" ? [0, -0.8, 0, 0.6][Math.round(P.ph * 4) % 4] : 0;
+        var ff = limb(a, "F", 11, 8 + b, 16, 3.4, 2.4, gait(P, 0.5), 1.6, 1, 1.2); a.px("F", Math.round(ff[0] - 2), Math.round(ff[1]), 4, 1);
+        a.tube("B", [[7, 6.5 + b], [2.5, 5.2 + b + sw * 0.3], [0.5, 4.5 + sw * 0.8]], 2.3, 0.9);
+        a.ell("B", 11, 7.2 + b, 5, 3 + br * 0.6, -0.1);
+        var hy = b * 0.7 + look;
+        a.tube("B", [[14.5, 6 + b], [17.5, 3 + hy]], 2, 1.7);
+        a.poly("B", [[16.5, 0.8 + hy], [20.5, 1.2 + hy], [24, 3 + hy], [23, 4.8 + hy], [17.5, 5.2 + hy]]);
+        a.tube("L", [[15, 9 + b], [11, 10 + b], [7.5, 8.5 + b]], 1.3, 1); a.tube("L", [[16.5, 5.5 + hy], [18.5, 4.7 + hy]], 0.8, 0.7);
+        a.tube("B", [[14.5, 8.5 + b], [16.5, 10.5 + b]], 0.8, 0.6);
+        a.ell("B", 10.5, 9.4 + b, 2.8, 3);
+        var fn = limb(a, "B", 10.5, 11.5 + b, 16, 3.4, 2.4, gait(P, 0), 1.5, 1.1, 1.2); a.px("B", Math.round(fn[0] - 2), Math.round(fn[1]), 4, 1); a.px("H", Math.round(fn[0] + 2), Math.round(fn[1] - 1));
+        eye(a, P, 20, 2 + hy);
       } },
-    ankylo: { w: 31, h: 18, pal: { B: ["#211a12", "#34281b", "#4a3a27", "#624e36", "#7d684a"], A: ["#a48a64", "#c8ae84", "#e8d6ae"], L: ["#8a4f1e", "#b0682a", "#d08a44", "#e8a860"], seed: 71 },
-      draw: function (a, f) {
-        var s = f ? 1 : -1;
-        a.tube("F", [[22, 11], [22 + s, 17]], 2.3, 2); a.tube("F", [[9, 11], [9 - s, 17]], 2.4, 2.1);
-        a.tube("B", [[6, 9], [1.5, 8]], 2.3, 1.4); a.ell("A", 2, 7.3, 2.5, 1.9);
-        a.ell("B", 15, 9, 11, 6.2);
-        for (var i = 5; i <= 25; i += 3) a.poly("A", [[i - 1.2, 12.5], [i, 15], [i + 1.2, 12.5]]);
-        for (var yy = 5; yy <= 11; yy += 3) for (var xx = 7 + (yy % 2) * 1.5; xx <= 23; xx += 3.2) if (Math.pow((xx - 15) / 11, 2) + Math.pow((yy - 9) / 6.2, 2) < 0.8) a.px("A", Math.round(xx), yy, 2, 1);
-        a.ell("L", 26.5, 11, 3.3, 2.6); a.poly("L", [[28, 10], [31, 11.5], [28.5, 13]]);
-        a.tube("L", [[21, 13], [21 - s, 17]], 2.6, 2.2); a.tube("L", [[9, 13], [9 + s, 17]], 2.8, 2.3);
-        a.px("K", 27, 10);
+    ankylo: { w: 31, h: 19, pal: { B: ["#211a12", "#34281b", "#4a3a27", "#624e36", "#7d684a"], A: ["#a48a64", "#c8ae84", "#e8d6ae"], L: ["#8a4f1e", "#b0682a", "#d08a44", "#e8a860"], seed: 71 },
+      draw: function (a, P) {
+        var b = bobOf(P, 0.5), br = breathe(P), sw = swayOf(P) * 1.4, gz = P.mode === "graze" ? 1 : 0;
+        limb(a, "F", 22, 11 + b, 18, 1.6, 1.3, gait(P, 0.75), 2.3, 2, 0.2); limb(a, "F", 9, 11 + b, 18, 1.6, 1.3, gait(P, 0.5), 2.4, 2.1, -0.2);
+        a.tube("B", [[6, 9 + b], [1.5, 8 + b + sw * 0.6]], 2.3, 1.4); a.ell("A", 2, 7.3 + b + sw * 0.8, 2.5, 1.9);
+        a.ell("B", 15, 9 + b, 11, 6.2 + br);
+        for (var i = 5; i <= 25; i += 3) a.poly("A", [[i - 1.2, 12.5 + b], [i, 15 + b], [i + 1.2, 12.5 + b]]);
+        for (var yy = 5; yy <= 11; yy += 3) for (var xx = 7 + (yy % 2) * 1.5; xx <= 23; xx += 3.2) if (Math.pow((xx - 15) / 11, 2) + Math.pow((yy - 9) / 6.2, 2) < 0.8) a.px("A", Math.round(xx), Math.round(yy + b), 2, 1);
+        var hy = 11 + b * 0.5 + gz * 2 + (gz && P.ph >= 0.5 ? 0.5 : 0);
+        a.ell("L", 26.5, hy, 3.3, 2.6); a.poly("L", [[28, hy - 1], [31, hy + 0.5], [28.5, hy + 2]]);
+        limb(a, "L", 21, 13 + b, 18, 1.6, 1.3, gait(P, 0.25), 2.6, 2.2, 0.2); limb(a, "L", 9, 13 + b, 18, 1.6, 1.3, gait(P, 0), 2.8, 2.3, -0.2);
+        eye(a, P, 27, hy - 1);
       } },
-    baby: { w: 14, h: 11, pal: { B: ["#2f6b3a", "#3f8a48", "#5aa85a", "#86c878", "#b0e09a"], L: ["#b8dca0", "#d4ecc0", "#ecf8dc"], seed: 83 },
-      draw: function (a, f) {
-        var s = f ? 0.8 : -0.8;
-        a.tube("F", [[8.5, 6], [8.5 + s, 10]], 1.2, 1); a.tube("F", [[4.5, 6], [4.5 - s, 10]], 1.2, 1);
-        a.tube("B", [[3, 5.5], [0.5, 6.5]], 1.6, 0.6);
-        a.ell("B", 6.5, 6, 3.8, 2.7); a.ell("B", 10.3, 3.4, 2.7, 2.3);
-        a.ell("L", 6.5, 7.6, 2.5, 0.9);
-        a.tube("B", [[8, 7.5], [8 - s, 10]], 1.3, 1.1); a.tube("B", [[4.5, 7.5], [4.5 + s, 10]], 1.3, 1.1);
-        a.px("K", 11, 2, 1, 2);
+    baby: { w: 14, h: 12, pal: { B: ["#2f6b3a", "#3f8a48", "#5aa85a", "#86c878", "#b0e09a"], L: ["#b8dca0", "#d4ecc0", "#ecf8dc"], seed: 83 },
+      draw: function (a, P) {
+        var b = bobOf(P, 0.6), br = breathe(P), sw = swayOf(P) * 0.6;
+        limb(a, "F", 8.5, 6 + b, 11, 1, 1, gait(P, 0.75), 1.2, 1); limb(a, "F", 4.5, 6 + b, 11, 1, 1, gait(P, 0.5), 1.2, 1);
+        a.tube("B", [[3, 5.5 + b], [0.5, 6.5 + b + sw]], 1.6, 0.6);
+        a.ell("B", 6.5, 6 + b, 3.8, 2.7 + br * 0.5); a.ell("B", 10.3, 3.4 + b * 0.7 + br * 0.4, 2.7, 2.3);
+        a.ell("L", 6.5, 7.6 + b, 2.5, 0.9);
+        limb(a, "B", 8, 7.5 + b, 11, 1, 1, gait(P, 0.25), 1.3, 1.1); limb(a, "B", 4.5, 7.5 + b, 11, 1, 1, gait(P, 0), 1.3, 1.1);
+        if (P.mode === "blink") a.px("B", 11, Math.round(2 + b * 0.7), 1, 2); else a.px("K", 11, Math.round(2 + b * 0.7), 1, 2);
       } },
-    baby2: { w: 14, h: 11, pal: { B: ["#1f5a5a", "#2c7a74", "#3f9a8e", "#66bcaa", "#96dcc8"], L: ["#b8e0d4", "#d4efe6", "#ecfaf4"], seed: 89 } },
+    baby2: { w: 14, h: 12, pal: { B: ["#1f5a5a", "#2c7a74", "#3f9a8e", "#66bcaa", "#96dcc8"], L: ["#b8e0d4", "#d4efe6", "#ecfaf4"], seed: 89 } },
     ptero: { w: 36, h: 18, pal: { B: ["#3e2410", "#62391c", "#8a5226", "#b0743a", "#d0965a"], L: ["#8a5a32", "#a8784a", "#c69a66", "#e0bc88"], A: ["#7a3018", "#a84a24", "#d06a36"], seed: 97 },
-      draw: function (a, f) {
-        // seen from above, gliding right: both wings spread, the membrane swept back to the hips
-        var span = f ? 5.8 : 8.6, sw = f ? 4.5 : 2;
+      draw: function (a, P) {
+        // seen from above, gliding right: the wings sweep through a four-frame flap
+        var k2 = 0.5 - 0.5 * Math.cos(P.ph * Math.PI * 2), span = 8.6 - 3.2 * k2, sw = 2 + 2.6 * k2;
         a.poly("L", [[21, 8.2], [17 - sw, 9 - span], [12.5 - sw, 9.6 - span], [12, 8.6]]);
         a.poly("L", [[21, 9.8], [17 - sw, 9 + span], [12.5 - sw, 8.4 + span], [12, 9.4]]);
         a.tube("B", [[21, 8.3], [19 - sw, 9 - span * 0.55], [17 - sw, 9 - span]], 1, 0.5);
@@ -974,11 +1053,12 @@
         a.px("K", 25, 8); a.px("K", 25, 10);
       } }
   };
-  ART.baby2.draw = ART.baby.draw; ART.baby2.w = 14; ART.baby2.h = 11;
+  ART.baby2.draw = ART.baby.draw;
+  var FRAMES_OF = { walk: 6, idle: 4, blink: 1, graze: 2, roar: 2, fly: 4 };
   var DART = {};
-  function dinoFrame(kind, f) {
-    var key = kind + f;
-    if (!DART[key]) { var d = ART[kind]; DART[key] = shapeArt(d.w, d.h, d.pal, d.draw, f); }
+  function dinoFrame(kind, mode, i) {
+    var key = kind + mode + i;
+    if (!DART[key]) { var d = ART[kind]; DART[key] = shapeArt(d.w, d.h, d.pal, d.draw, { mode: mode, ph: i / FRAMES_OF[mode] }); }
     return DART[key];
   }
   // draw a canvas with its feet at (x, y); flip mirrors it to face left
@@ -988,15 +1068,15 @@
     ctx.save(); ctx.translate(dx + c.width, dy); ctx.scale(-1, 1); ctx.drawImage(c, 0, 0); ctx.restore();
   }
   var DINOS = {
-    brachio: { art: true, sp: 7, step: 7, say: ["a brachiosaurus. it's eating the top off a palm, very slowly.", "a brachiosaurus. from down here pi can only see its knees."] },
-    trex: { art: true, sp: 13, step: 5, say: ["the t-rex. it stares at pi through the fence and does not blink.", "the t-rex. 10,000 volts between you and it. it's thinking about that."] },
-    stego: { art: true, sp: 8, step: 5, say: "a stegosaurus. those plates are mostly for show." },
-    trike: { art: true, sp: 10, step: 5, say: "a triceratops. it's grazing and would like some personal space." },
-    para: { art: true, sp: 12, step: 5, say: ["a parasaurolophus. it honks through its crest. pi honks back.", "a parasaurolophus. it's keeping an eye on the pond."] },
-    raptor: { art: true, sp: 26, step: 4, say: ["a velociraptor. it is definitely not testing the fences.", "a velociraptor. it clicks at the others. they all look at pi."] },
-    ankylo: { art: true, sp: 6, step: 6, say: "an ankylosaurus. armored, unbothered, and swinging that tail at nothing in particular." },
-    baby: { art: true, sp: 13, step: 3, say: "a baby dino. it squeaks at pi." },
-    baby2: { art: true, sp: 13, step: 3, say: "a baby dino, fresh out of the nest. it follows pi for a step, then forgets." },
+    brachio: { art: true, sp: 7, step: 1.6, graze: true, say: ["a brachiosaurus. it's eating the top off a palm, very slowly.", "a brachiosaurus. from down here pi can only see its knees."] },
+    trex: { art: true, sp: 13, step: 2, say: ["the t-rex. it stares at pi through the fence and does not blink.", "the t-rex. 10,000 volts between you and it. it's thinking about that."] },
+    stego: { art: true, sp: 8, step: 1.4, graze: true, say: "a stegosaurus. those plates are mostly for show." },
+    trike: { art: true, sp: 10, step: 1.4, graze: true, say: "a triceratops. it's grazing and would like some personal space." },
+    para: { art: true, sp: 12, step: 1.7, graze: true, say: ["a parasaurolophus. it honks through its crest. pi honks back.", "a parasaurolophus. it's keeping an eye on the pond."] },
+    raptor: { art: true, sp: 26, step: 2.3, say: ["a velociraptor. it is definitely not testing the fences.", "a velociraptor. it clicks at the others. they all look at pi."] },
+    ankylo: { art: true, sp: 6, step: 1.1, graze: true, say: "an ankylosaurus. armored, unbothered, and swinging that tail at nothing in particular." },
+    baby: { art: true, sp: 13, step: 0.8, say: "a baby dino. it squeaks at pi." },
+    baby2: { art: true, sp: 13, step: 0.8, say: "a baby dino, fresh out of the nest. it follows pi for a step, then forgets." },
     robot: { w: 8, pal: { M: "#b8c2cc", D: "#5c6670", E: "#4DD6E8", O: "#FF5252" }, sp: 12, paths: true,
       a: ["...O....","...M....",".MMMMMM.",".MEMMEM.",".MMMMMM.","..DDDD..",".MMMMMM.","MMMMMMMM",".M.DD.M.",".DD..DD."],
       b: ["...D....","...M....",".MMMMMM.",".MEMMEM.",".MMMMMM.","..DDDD..",".MMMMMM.","MMMMMMMM",".M.DD.M.","DD....DD"],
@@ -1011,7 +1091,7 @@
       say: "one of Ammaar's two himalayan cats. very fluffy, fully unbothered.", sleepSay: "one of Ammaar's two himalayan cats. it's asleep in the sun. pi lets it be." }
   };
   function critter(kind, tx, ty, area) {
-    return { kind: kind, x: tx * T + 8, y: ty * T + 10, area: area, tx: 0, ty: 0, wait: Math.random() * 3, face: Math.random() < 0.5 ? 1 : -1, dist: 0, hop: 0, vy: 0, sleep: 0, roar: 0, cd: 0 };
+    return { kind: kind, x: tx * T + 8, y: ty * T + 10, area: area, tx: 0, ty: 0, wait: Math.random() * 3, face: Math.random() < 0.5 ? 1 : -1, dist: 0, hop: 0, vy: 0, sleep: 0, roar: 0, cd: 0, graze: 0, seed: Math.random() * 10 };
   }
   var HERD = [38, 39, 52, 46], PEN = [49, 18, 56, 24], REXPAD = [16, 32, 24, 39];
   var critters = [
@@ -1042,6 +1122,8 @@
     c.roar = Math.max(0, c.roar - dt); c.cd = Math.max(0, c.cd - dt);
     if (c.sleep > 0) { c.sleep -= dt; return; }
     if (c.roar > 0) return;
+    c.graze = Math.max(0, c.graze - dt);
+    if (!c.tx && d.art && Math.hypot(pi.x - c.x, pi.y - c.y) < 56) c.face = pi.x > c.x ? 1 : -1;     // idle dinos turn to watch pi
     c.wait -= dt;
     if (c.wait <= 0 && !c.tx) {
       for (var tries = 0; tries < 6; tries++) {
@@ -1052,7 +1134,12 @@
     }
     if (c.tx) {
       var dx = c.tx - c.x, dy = c.ty - c.y, dd = Math.hypot(dx, dy);
-      if (dd < 2) { c.tx = 0; c.wait = 1 + Math.random() * 4; if (d.cat && Math.random() < 0.4) c.sleep = 6 + Math.random() * 10; return; }
+      if (dd < 2) {
+        c.tx = 0; c.wait = 1 + Math.random() * 4;
+        if (d.cat && Math.random() < 0.4) c.sleep = 6 + Math.random() * 10;
+        if (d.graze && Math.random() < 0.55) { c.graze = 3 + Math.random() * 5; c.wait = Math.max(c.wait, c.graze); }
+        return;
+      }
       var bx = c.x, by = c.y, step = d.sp * dt;
       move(c, dx / dd * step, dy / dd * step);
       c.dist += step; if (Math.abs(dx) > 1) c.face = dx > 0 ? 1 : -1;
@@ -1062,7 +1149,12 @@
   function drawCritter(c) {
     var d = DINOS[c.kind];
     if (d.art) {
-      var fr = c.tx && !c.roar ? Math.floor(c.dist / d.step) % 2 : 0, art = dinoFrame(c.kind, fr);
+      var mode = "idle", fr = Math.floor(t * 2.5 + c.seed) % 4;
+      if (c.roar > 0 && c.kind === "trex") { mode = "roar"; fr = Math.floor(t * 8) % 2; }
+      else if (c.tx) { mode = "walk"; fr = Math.floor(c.dist / d.step) % 6; }
+      else if (c.graze > 0) { mode = "graze"; fr = Math.floor(t * 3 + c.seed) % 2; }
+      else if (hash(Math.floor(t * 3 + c.seed * 7), 3) < 0.07) { mode = "blink"; fr = 0; }
+      var art = dinoFrame(c.kind, mode, fr);
       shadow(c.x, c.y, Math.max(8, art.width * 0.55));
       drawArt(art, c.x, c.y + c.hop + (c.roar > 0 ? Math.round(Math.sin(t * 40)) : 0), c.face < 0);
       return;
@@ -1102,6 +1194,8 @@
         return;
       }
       b.rest -= dt;
+      // walk right up to them and they scatter
+      if (i === 0 && (pi.vx || pi.vy) && Math.hypot(pi.x - b.x, pi.y - b.gy) < 16) { b.rest = 0; sfx("chirp", b.x, b.y); }
       // the leader picks a new perch; the other follows a moment later
       if (b.rest <= 0 && i === 0) {
         var n = (Math.random() * perches.length) | 0; if (n === b.perch) n = (n + 1) % perches.length;
@@ -1336,7 +1430,6 @@
   }
 
   /* ════════ pterosaurs, the volcano, the fences, the gate ════════ */
-  var VX = VOLC.x * T, VY = VOLC.y * T;
   var pteros = [0, 1, 2].map(function (i) { return { a: i * 2.1, r: 70 + i * 22, sp: 0.35 + i * 0.07, alt: 44 + i * 10, x: 0, y: 0, face: 1 }; });
   var smoke = [], embers = [], smokeT = 0, quake = 0;
   function updateVolcano(dt) {
@@ -1355,18 +1448,68 @@
     quake = Math.max(0, quake - dt * 8);
   }
   var LAVA_T = ["#6a1606", "#b02a0a", "#e85414", "#ff9a30", "#ffe07a"];
-  function drawLava(x0, y0, x1, y1) {
-    for (var ty = Math.max(y0, 8); ty <= Math.min(y1, 14); ty++) for (var tx = Math.max(x0, 29); tx <= Math.min(x1, 37); tx++) {
-      if (map[ty][tx] !== LAVA) continue;
-      for (var j = 0; j < T; j += 2) for (var i = 0; i < T; i += 2) {
-        var px = tx * T + i, py = ty * T + j;
-        if (craterF((px + 1) / T, (py + 1) / T) > 1.02) continue;
-        var v = 0.5 + 0.28 * Math.sin(t * 1.3 + px * 0.21 + Math.sin(py * 0.17 + t * 0.7) * 2) + 0.18 * Math.sin(t * 0.8 - py * 0.3 + px * 0.05);
-        if (hash(((px + t * 6) / 6) | 0, (py / 4) | 0) < 0.12) v -= 0.45;      // cooling crust drifts across
-        ctx.fillStyle = tone(v, LAVA_T, px >> 1, py >> 1); ctx.fillRect(px, py, 2, 2);
-      }
+  /* the volcano, rendered once like an old voxel-space terrain: each column of the sprite is
+     filled front to back, so nearer slopes hide farther ones, and every sample is lit by its
+     slope. the lava lake and the flows down the south face are remembered and animated live */
+  var ROCKV = ["#17120f", "#221a15", "#30251d", "#403127", "#534033", "#6b5443", "#866c57"];
+  var MOSS = ["#1d3a1f", "#27502a", "#356a34", "#4a8a44"];
+  var FLOWS = [[1.25, 58, 2.6], [1.72, 76, 3.2], [2.2, 50, 2.2]];      // [angle, length, width] on the south face
+  var volc = (function () {
+    var R = VOLC.R, Hm = VOLC.H, sq = VOLC.sq, rc = VOLC.rc, floor = RIMH - 11;
+    var depth = Math.ceil(R / sq), w = R * 2 + 4, h = Math.ceil(Hm) + depth * 2 + 8;
+    var ox = VOLC.x - R - 2, oy = VOLC.y - depth - Math.ceil(Hm) - 4;
+    function height(u, v) {
+      var vv = v * sq, d = Math.sqrt(u * u + vv * vv);
+      if (d >= R) return 0;
+      if (d < rc) return Math.max(floor, RIMH - (rc - d) * 1.4);             // the bowl, down to the lava
+      var a = Math.atan2(vv, u), k2 = Math.sin(Math.PI * Math.min(1, (d - rc) / (R - rc)));
+      var gully = (Math.sin(a * 13 + d * 0.06) * 0.6 + Math.sin(a * 5 + 1.3) * 0.4) * 5 * k2;
+      return Math.pow(1 - d / R, 1.25) * Hm + gully + (d < rc + 5 ? (rc + 5 - d) * 0.6 : 0);   // a raised lip round the crater
     }
-    light(VX, VY, 70, "255,110,40", 0.9);
+    var c = document.createElement("canvas"); c.width = w; c.height = h;
+    var g = c.getContext("2d"), ybuf = [], lava = [], flows = [];
+    for (var i = 0; i < w; i++) ybuf.push(h);
+    for (var v = depth; v >= -depth; v -= 0.5) for (var sx = 0; sx < w; sx++) {
+      var u = sx + ox - VOLC.x, vv = v * sq, d = Math.sqrt(u * u + vv * vv);
+      if (d >= R) continue;
+      var H = height(u, v), sy = Math.round(VOLC.y + v - H - oy), gy = Math.round(VOLC.y + v - oy) + 1;
+      if (sy >= ybuf[sx]) continue;
+      var n = Math.max(1, Math.min(ybuf[sx], gy) - sy); ybuf[sx] = sy;
+      if (d < rc && H <= floor + 0.5) { g.fillStyle = "#6a1606"; g.fillRect(sx, sy, 1, n); lava.push([sx, sy, n]); continue; }
+      var a = Math.atan2(vv, u), fl = null;
+      FLOWS.forEach(function (f) { var q = (d - rc) / f[1]; if (!fl && q > -0.1 && q < 1 && Math.abs(a - f[0] + Math.sin(d * 0.08) * 0.05) * d < f[2] * (1 - q * 0.5)) fl = q; });
+      if (fl !== null) { g.fillStyle = "#4a1c0c"; g.fillRect(sx, sy, 1, n); flows.push([sx, sy, n, fl]); continue; }
+      // light from the upper left and a little in front
+      var dHu = height(u + 1, v) - height(u - 1, v), dHv = height(u, v + 0.6) - height(u, v - 0.6);
+      var nx = -dHu / 2, ny = -dHv / 1.2, nz = 1, nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
+      var lit = (nx * -0.62 + ny * 0.3 + nz * 0.72) / nl;
+      var sh = 0.1 + lit * 0.72 + (H / Hm) * 0.12 + ((Math.floor(H / 6) % 3) === 0 ? -0.07 : 0) + (hash(sx, sy) - 0.5) * 0.12;
+      if (d < rc) sh = 0.18 + (H - floor) / 20 * 0.25;                          // the crater's inner wall
+      var col = tone(sh, ROCKV, sx, sy);
+      if (d > R * 0.86 && hash(sx >> 1, sy >> 1) < (d / R - 0.86) * 6) col = tone(sh + 0.1, MOSS, sx, sy);   // jungle creeps up the foot
+      if (d > rc && d < rc + 3) col = tone(sh + 0.25, ROCKV, sx, sy);                                    // a bright lip on the rim
+      g.fillStyle = col; g.fillRect(sx, sy, 1, n);
+    }
+    return { canvas: outline(c, "rgba(12,9,7,.9)"), ox: ox - 1, oy: oy - 1, lava: lava, flows: flows };
+  })();
+  var VX = VOLC.x, VY = VOLC.y - RIMH + 2;
+  function drawVolcano() {
+    var cv0 = volc.canvas, ox = volc.ox + 1, oy = volc.oy + 1;
+    ctx.drawImage(cv0, volc.ox, volc.oy);
+    var i, p, v;
+    for (i = 0; i < volc.lava.length; i++) {                   // the lava lake churns; crust drifts across it
+      p = volc.lava[i];
+      v = 0.55 + 0.28 * Math.sin(t * 1.3 + p[0] * 0.23 + Math.sin(p[1] * 0.3 + t * 0.7) * 2) + 0.16 * Math.sin(t * 0.8 - p[1] * 0.4 + p[0] * 0.05);
+      if (hash(((p[0] + t * 5) / 5) | 0, p[1] >> 1) < 0.14) v -= 0.45;
+      ctx.fillStyle = tone(v, LAVA_T, p[0], p[1]); ctx.fillRect(ox + p[0], oy + p[1], 1, p[2]);
+    }
+    for (i = 0; i < volc.flows.length; i++) {                  // pulses of heat run down each flow and cool toward the foot
+      p = volc.flows[i];
+      v = 0.62 - p[3] * 0.55 + 0.22 * Math.sin(p[3] * 14 - t * 2.4) + (hash(p[0], p[1]) - 0.5) * 0.15;
+      ctx.fillStyle = tone(v, LAVA_T, p[0], p[1]); ctx.fillRect(ox + p[0], oy + p[1], 1, p[2]);
+    }
+    light(VX, VY, 80, "255,110,40", 0.95);
+    light(VX - 10, VY + 40, 50, "255,90,30", 0.45);
   }
   function drawSmoke() {
     smoke.forEach(function (s) {
@@ -1378,11 +1521,11 @@
   function drawPteros() {
     pteros.forEach(function (p, i) {
       ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + p.alt, 9, 3, 0, 0, 6.283); ctx.fill();
-      drawArt(dinoFrame("ptero", Math.floor(t * 3 + i) % 2), p.x, p.y + 9, p.face < 0);
+      drawArt(dinoFrame("ptero", "fly", Math.floor(t * 6 + i) % 4), p.x, p.y + 9, p.face < 0);
     });
     if (ptero.on) {
       ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(ptero.x, ptero.y + 50, 9, 3, 0, 0, 6.283); ctx.fill();
-      drawArt(dinoFrame("ptero", Math.floor(t * 4) % 2), ptero.x, ptero.y + 9, ptero.vx < 0);
+      drawArt(dinoFrame("ptero", "fly", Math.floor(t * 7) % 4), ptero.x, ptero.y + 9, ptero.vx < 0);
     }
   }
   // fence posts every tile, three wires to the next post, a warning sign now and then
@@ -1429,6 +1572,7 @@
   };
   function koiCsv() { return "variety,length\n" + KOI.map(function (v, i) { return v[0] + "," + ["small", "small", "medium", "medium", "large", "large"][koi[i].len - 5]; }).join("\n"); }
   function print(text, cls) {
+    if (cls === "err") sfx("err");
     var p = document.createElement("div"); p.className = "w-term-line" + (cls ? " " + cls : ""); p.textContent = text;
     tOut.appendChild(p); tOut.scrollTop = tOut.scrollHeight;
   }
@@ -1460,7 +1604,7 @@
     help: function () {
       ["commands:", "  help              this list", "  ls [-a]           list files", "  cat <file>        print a file", "  whoami            who's logged in", "  neofetch          island info",
        "  census            who lives here", "  found             landmarks found so far", "  goto <place>      go somewhere (goto with no place lists them)", "  time [hour|reset] the island clock, synced to Ammaar's timezone",
-       "  feed koi          ring the dinner bell at the pond", "  fly | drive       go to the helicopter or the M3", "  history           what you've typed", "  clear             clear the screen", "  exit              log out"].forEach(function (l) { print(l); });
+       "  feed koi          ring the dinner bell at the pond", "  sound [on|off]    music and sound effects", "  fly | drive       go to the helicopter or the M3", "  history           what you've typed", "  clear             clear the screen", "  exit              log out"].forEach(function (l) { print(l); });
     },
     ls: function (args) {
       var dir = args.filter(function (a) { return a[0] !== "-"; })[0];
@@ -1519,6 +1663,11 @@
     date: function () { CMDS.time([]); },
     echo: function (args) { print(args.join(" ")); },
     summon: function () { print("summon what? the orbs don't answer to that. maybe the hidden files know."); },
+    sound: function (args) {
+      if (!SND) { print("sound: not available in this browser"); return; }
+      if ((args[0] === "on") !== SND.on() && (args[0] === "on" || args[0] === "off")) SND.toggle(); else if (!args[0]) SND.toggle();
+      startSound(); print("sound " + (SND.on() ? "on" : "off") + ". (m toggles it too)");
+    },
     fences: function (args) { print(args[0] === "off" ? "fences: permission denied. and also, no." : "fences: all paddocks live. 10,000 V."); }
   };
   function countFound() { return Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length; }
@@ -1526,7 +1675,7 @@
     if (sudoTries >= 0) {                                        // answering the sudo password prompt
       if (line.trim().toLowerCase() === "eclipse") {
         sudoTries = -1; setPrompt();
-        print("access granted.", "ok"); print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
+        print("access granted.", "ok"); sfx("grant"); print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
         setTimeout(function () { closeTerm(); rift = null; startRift(); }, 900);
       } else if (++sudoTries >= 3) { sudoTries = -1; setPrompt(); print("sudo: 3 incorrect password attempts. a raptor has been notified.", "err"); }
       else print("sorry, try again.", "err");
@@ -1544,6 +1693,7 @@
   }
   term.querySelector(".w-term-row").addEventListener("submit", function (e) { e.preventDefault(); var v = tIn.value; tIn.value = ""; run(v); });
   tIn.addEventListener("keydown", function (e) {
+    if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") sfx("key");
     if (e.key === "Escape") { e.preventDefault(); closeTerm(); return; }
     if (sudoTries >= 0) return;
     if (e.key === "ArrowUp" && tHist.length) { e.preventDefault(); tHi = Math.max(0, tHi - 1); tIn.value = tHist[tHi]; }
@@ -1582,22 +1732,23 @@
   function sayLocal(v) {
     if (v.id === "critter") {
       var c = v.ref, d = DINOS[c.kind];
-      if (c.sleep <= 0) { c.hop = 1; c.vy = -2; }
+      if (c.sleep <= 0) { c.hop = 1; c.vy = -2; sfx(c.kind === "para" ? "honkp" : c.kind === "robot" || c.kind === "roomba" ? "blip" : "hop", c.x, c.y); }
       var line = c.name ? (c.sleep > 0 ? c.name + " is asleep in the sun. pi lets " + (c.name === "jasmine" ? "her" : "him") + " be." : c.say)
         : c.sleep > 0 && d.sleepSay ? d.sleepSay : Array.isArray(d.say) ? d.say[(Math.random() * d.say.length) | 0] : d.say;
       say(c.name ? c.name : c.kind === "cat" ? "a himalayan cat" : c.kind === "robot" || c.kind === "roomba" ? "a bot" : "a dinosaur", line, []);
-    } else if (v.id === "bird") say("a cockatiel", "one of Ammaar's two cockatiels. it whistles at pi, then preens.", []);
+    } else if (v.id === "bird") { sfx("whistle", pi.x, pi.y); say("a cockatiel", "one of Ammaar's two cockatiels. it whistles at pi, then preens.", []); }
     else if (v.id === "pond") {
       // pi tosses a handful of pellets on the water nearest him, and the koi come running
       var best = null, bd = 1e9;
       for (var a2 = 0; a2 < 6.283; a2 += 0.1) { var qx = (KP.x + Math.cos(a2) * KP.rx * 0.8) * T, qy = (KP.y + Math.sin(a2) * KP.ry * 0.75) * T, q = Math.hypot(qx - pi.x, qy - pi.y); if (q < bd) { bd = q; best = [qx, qy]; } }
-      feedKoi(best[0], best[1]);
+      feedKoi(best[0], best[1]); sfx("plop", best[0], best[1]); setTimeout(function () { sfx("splash", best[0], best[1]); }, 500);
       say("the koi pond", "Ammaar's koi pond: twenty koi, every one a different variety and size. kohaku, showa, tancho, chagoi, karasu, a big platinum ogon, and the rest. pi tosses in some pellets and they all come running.", []);
     }
     else if (v.id === "nest") say("a nest", "a nest of " + v.ref.eggs + " speckled eggs, still warm. one of them wobbles. pi backs away slowly.", []);
     else if (v.id === "fence") {
       var pd = PADDOCKS.filter(function (q) { return v.fx >= q.x0 && v.fx <= q.x1 && v.fy >= q.y0 && v.fy <= q.y1; })[0];
       say(pd ? pd.name : "a fence", pd && pd.name === "raptor pen" ? "the raptor pen. 10,000 volts. three raptors inside, and all three have stopped to look at pi." : "the t-rex paddock. 10,000 volts. somewhere in there, something very big just stopped moving.", []);
+      sfx("zap", v.fx * T + 8, v.fy * T);
       if (pd && pd.name !== "raptor pen" && trex.cd <= 0) roar();
     }
     else if (v.id === "car") { say("the M3", "Ammaar's BMW M3. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
@@ -1607,6 +1758,7 @@
   function roar() {
     trex.roar = 1.4; trex.cd = 14; trex.tx = 0; trex.face = pi.x > trex.x ? 1 : -1; quake = 4;
     roarTag = { x: trex.x, y: trex.y - ART.trex.h - 4, t: 1.6 };
+    sfx("roar", trex.x, trex.y, { vol: 1.4 });
     if (!birds[0].fly) { var n = (birds[0].perch + 3) % perches.length; fly(birds[0], n, 0); fly(birds[1], n, 0.2); }
   }
   var roarTag = null;
@@ -1680,7 +1832,7 @@
       rift.orbs.forEach(function (o, i) {
         var u = Math.max(0, Math.min(1, (rift.t - i * 0.2) / 0.9)), e = 1 - Math.pow(1 - u, 3);
         var z = 300 + i * 50 + (26 - 300 - i * 50) * e;
-        if (o.z > 40 && z <= 40) { rift.shake = 5; burst(o.x, o.y, o.name, 14, 50); }
+        if (o.z > 40 && z <= 40) { rift.shake = 5; burst(o.x, o.y, o.name, 14, 50); sfx("thud", o.x, o.y); }
         o.z = z;
       });
       if (rift.t > 2.3) { rift.phase = "fight"; rift.t = 0; rift.next = 0.5; }
@@ -1707,10 +1859,10 @@
         d.a.x = d.fx + (d.b.x - d.fx) * k; d.a.y = d.fy + (d.b.y - d.fy) * k;
         if (d.t >= 1) {
           var dx = d.b.x - d.fx, dy = d.b.y - d.fy, len = Math.hypot(dx, dy) || 1;
-          d.b.hp--; d.b.flash = 1; d.a.flash = 0.6; rift.shake = 6;
+          d.b.hp--; d.b.flash = 1; d.a.flash = 0.6; rift.shake = 6; sfx("hit", d.b.x, d.b.y); hitstop = 0.07;
           d.b.vx = dx / len * 140; d.b.vy = dy / len * 90; d.a.vx = -dx / len * 60; d.a.vy = -dy / len * 40;
           burst((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2, d.a.name, 12, 70); burst((d.a.x + d.b.x) / 2, (d.a.y + d.b.y) / 2, d.b.name, 12, 70);
-          if (d.b.hp <= 0) { d.b.alive = false; burst(d.b.x, d.b.y - d.b.z, d.b.name, 70, 110); rift.shake = 10; }
+          if (d.b.hp <= 0) { d.b.alive = false; burst(d.b.x, d.b.y - d.b.z, d.b.name, 70, 110); rift.shake = 10; sfx("burst", d.b.x, d.b.y); hitstop = 0.14; }
           rift.dash = null; rift.next = 0.5 + Math.random() * 0.4;
           if (rift.orbs.filter(function (o) { return o.alive; }).length === 1) { rift.phase = "crowning"; rift.t = 0; }
         }
@@ -1720,7 +1872,7 @@
       w.x += (ARENA.x - w.x) * 0.06; w.y += (ARENA.y - w.y) * 0.06; w.z += (34 - w.z) * 0.06;
       w.scale = 1 + Math.min(1, rift.t / 1.4) * 0.7;
       rift.dim = Math.max(0.2, rift.dim - dt * 0.2);
-      if (rift.t > 0.6 && !rift.ringed) { rift.ringed = true; rift.ring = 1; rift.shake = 7; burst(w.x, w.y - w.z, w.name, 50, 90); }
+      if (rift.t > 0.6 && !rift.ringed) { rift.ringed = true; rift.ring = 1; rift.shake = 7; burst(w.x, w.y - w.z, w.name, 50, 90); sfx("crown"); }
       if (rift.t > 2.2) crown(w.name);
     } else if (rift.phase === "reign") {
       rift.dim = Math.max(0, rift.dim - dt * 0.3);
@@ -1768,27 +1920,41 @@
     if (dx && !solidPx(o.x + dx + (dx > 0 ? hw : -hw), o.y - 2) && !solidPx(o.x + dx + (dx > 0 ? hw : -hw), o.y + 1)) o.x += dx;
     if (dy && !solidPx(o.x - hw, o.y + dy + (dy > 0 ? 1 : -2)) && !solidPx(o.x + hw, o.y + dy + (dy > 0 ? 1 : -2))) o.y += dy;
   }
+  var hitstop = 0;
   function update(dt) {
+    if (hitstop > 0) { hitstop -= dt; return; }             // a beat of freeze on a big hit sells the impact
     updateRift(dt);
     updateLife(dt);
+    updateFootfalls(dt);
+    updateSound(dt);
     if (egg) { egg.t += dt; if (egg.t > 2.2) { egg = null; bubble = { text: "pi:~$ fresh hatch. hi.", t: 3 }; } return; }
-    var sp = (pi.boost > 0 ? 95 : 58) * dt; pi.boost = Math.max(0, pi.boost - dt);
-    var mx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), my = (keys.d ? 1 : 0) - (keys.u ? 1 : 0);
+    var top = (pi.boost > 0 ? 95 : 58) * (keys.run ? 1.6 : 1); pi.boost = Math.max(0, pi.boost - dt);
+    var mx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), my = (keys.d ? 1 : 0) - (keys.u ? 1 : 0), onPath = false;
     if (!dlg.hidden) mx = my = 0;
-    if (riftBusy() || car.driving || aboard() || termOpen) { mx = my = 0; pi.path = null; }
+    if (riftBusy() || car.driving || aboard() || termOpen) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
     if (!mx && !my && pi.path && pi.path.length) {
       var n = pi.path[0], gx = n[0] * T + 8, gy = n[1] * T + 10, ddx = gx - pi.x, ddy = gy - pi.y, dd = Math.hypot(ddx, ddy);
       if (dd < 1.5) { pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
-      else { mx = ddx / dd; my = ddy / dd; }
+      else { mx = ddx / dd; my = ddy / dd; onPath = true; }
     }
-    if (mx || my) {
-      var len = Math.hypot(mx, my); mx /= len; my /= len;
+    // ease into a walk and out of it: quick to start, quicker to stop (tapped paths steer exactly)
+    var len = Math.hypot(mx, my); if (len) { mx /= len; my /= len; }
+    if (onPath) { pi.vx = mx * top; pi.vy = my * top; }
+    else {
+      var acc = (len ? 520 : 760) * dt, tvx = mx * top, tvy = my * top;
+      pi.vx += Math.max(-acc, Math.min(acc, tvx - pi.vx)); pi.vy += Math.max(-acc, Math.min(acc, tvy - pi.vy));
+    }
+    if (Math.abs(pi.vx) < 0.5 && Math.abs(pi.vy) < 0.5 && !len) { pi.vx = pi.vy = 0; }
+    if (pi.vx || pi.vy) {
       var ox = pi.x, oy = pi.y;
-      move(pi, mx * sp, my * sp);
-      pi.dist += Math.hypot(pi.x - ox, pi.y - oy);
-      if (Math.abs(mx) > 0.3) pi.face = mx > 0 ? 1 : -1;
-      pi.dir = my < -0.5 ? "up" : "down";
-      if (pi.path && Math.hypot(pi.x - ox, pi.y - oy) < 0.01) pi.path = null;   // stuck: give up
+      move(pi, pi.vx * dt, pi.vy * dt);
+      var moved = Math.hypot(pi.x - ox, pi.y - oy);
+      if (moved < 0.01 && !len) pi.vx = pi.vy = 0;
+      pi.dist += moved;
+      if (Math.abs(pi.vx) > 6) pi.face = pi.vx > 0 ? 1 : -1;
+      if (len) pi.dir = my < -0.5 ? "up" : "down";
+      if (pi.path && moved < 0.01) pi.path = null;   // stuck: give up
+      footfall(moved);
     }
     // rex wanders the meadow
     rex.wait -= dt;
@@ -1810,12 +1976,72 @@
     if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; }
   }
 
+  /* ════════ footfalls: a sound per step, dust on dry ground, prints in the sand, ferns that rustle ════════ */
+  var dust = [], prints = [], rustling = [];
+  var ferns = {}; props.forEach(function (p) { if (p.kind === "fern" || p.kind === "cycad") ferns[k(p.tx, p.ty)] = p; });
+  function footfall(moved) {
+    pi.stepAcc += moved;
+    var stride = keys.run ? 9 : 7;
+    if (pi.stepAcc < stride) return;
+    pi.stepAcc = 0;
+    var tx = Math.floor(pi.x / T), ty = Math.floor((pi.y - 2) / T), tt = at(tx, ty), side = (pi.dist / stride | 0) % 2 ? 2 : -2;
+    sfx("step", undefined, undefined, { surface: tt === DOCK ? "dock" : tt === GRASS ? "grass" : "gravel", vol: keys.run ? 1.2 : 0.8 });
+    if (tt === PATH || tt === SAND || tt === PAD || keys.run) {
+      for (var i = 0; i < (keys.run ? 3 : 1); i++) dust.push({ x: pi.x + side + (Math.random() - 0.5) * 3, y: pi.y, vx: -pi.vx * 0.08 + (Math.random() - 0.5) * 6, vy: -3 - Math.random() * 4, life: 1, c: tt === GRASS ? "150,190,110" : tt === SAND ? "230,214,170" : "200,170,120" });
+    }
+    if (tt === SAND) { prints.push({ x: Math.round(pi.x + side), y: Math.round(pi.y), life: 1 }); if (prints.length > 60) prints.shift(); }
+    var fp = ferns[k(tx, Math.floor(pi.y / T))];
+    if (fp) { fp.rustle = 1; if (rustling.indexOf(fp) < 0) rustling.push(fp); sfx("rustle", pi.x, pi.y); dust.push({ x: pi.x, y: pi.y - 8, vx: (Math.random() - 0.5) * 16, vy: -8, life: 1.2, c: "70,140,70", leaf: true }); }
+  }
+  function updateFootfalls(dt) {
+    dust.forEach(function (d) { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += (d.leaf ? 14 : 4) * dt; d.life -= dt * (d.leaf ? 0.9 : 2.2); });
+    dust = dust.filter(function (d) { return d.life > 0; });
+    prints.forEach(function (p2) { p2.life -= dt / 9; });
+    prints = prints.filter(function (p2) { return p2.life > 0; });
+    rustling.forEach(function (p2) { p2.rustle = Math.max(0, p2.rustle - dt * 1.6); });
+    rustling = rustling.filter(function (p2) { return p2.rustle > 0; });
+  }
+  function drawPrints() {
+    prints.forEach(function (p2) { ctx.fillStyle = "rgba(150,120,70," + (0.45 * p2.life).toFixed(3) + ")"; ctx.fillRect(p2.x - 1, p2.y - 1, 2, 2); });
+  }
+  function drawDust() {
+    dust.forEach(function (d) { ctx.fillStyle = "rgba(" + d.c + "," + Math.min(1, d.life * (d.leaf ? 1 : 0.6)).toFixed(3) + ")"; ctx.fillRect(Math.round(d.x), Math.round(d.y), d.leaf ? 2 : 1, d.leaf ? 1 : 1); });
+  }
+
+  /* ════════ the minimap: bottom right, click it to fold it away ════════ */
+  var mini = document.createElement("canvas"), MINI = 2, mapOn = true, mapRect = null;
+  mini.width = MW * MINI; mini.height = MH * MINI;
+  (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
+  function drawMinimap() {
+    if (W < 760) { mapRect = null; return; }
+    var sc = 1.5, mw = mini.width * sc, mh = mini.height * sc, x0 = W - mw - 16, y0 = H - mh - 16;
+    mapRect = [x0, y0, mw, mh];
+    ctx.fillStyle = "#0a0a0a"; ctx.fillRect(x0 - 3, y0 - 3, mapOn ? mw + 6 : 58, mapOn ? mh + 6 : 22);
+    ctx.strokeStyle = "rgba(244,244,244,.6)"; ctx.lineWidth = 1; ctx.strokeRect(x0 - 3.5, y0 - 3.5, mapOn ? mw + 7 : 59, mapOn ? mh + 7 : 23);
+    if (!mapOn) { ctx.font = "400 11px 'Cascadia Mono', monospace"; ctx.fillStyle = "#f4f4f4"; ctx.textAlign = "left"; ctx.textBaseline = "middle"; ctx.fillText("map ▴", x0 + 4, y0 + 8); mapRect = [x0 - 3, y0 - 3, 58, 22]; return; }
+    ctx.imageSmoothingEnabled = false;
+    ctx.drawImage(mini, x0, y0, mw, mh);
+    var f = MINI * sc / T;
+    STATIONS.forEach(function (st) {
+      if (!st.found) return;
+      var sx = x0 + (st.x * T + 8) * f, sy = y0 + (st.y * T + 8) * f;
+      ctx.fillStyle = found[st.id] ? "#4DD6E8" : "#0a0a0a"; ctx.fillRect(sx - 2, sy - 2, 5, 5);
+      ctx.strokeStyle = found[st.id] ? "#4DD6E8" : "#f4f4f4"; ctx.strokeRect(sx - 2.5, sy - 2.5, 5, 5);
+    });
+    ctx.fillStyle = "#FFB000"; ctx.fillRect(x0 + heli.x * f - 1.5, y0 + heli.y * f - 1.5, 3, 3);
+    if (Math.floor(t * 3) % 2) { ctx.fillStyle = "#f454a6"; ctx.fillRect(x0 + pi.x * f - 2, y0 + pi.y * f - 2, 4, 4); }
+    ctx.strokeStyle = "rgba(244,244,244,.5)"; var E0 = S * zoom; ctx.strokeRect(x0 + camX * f, y0 + camY * f, W / E0 * f, H / E0 * f);
+  }
+
   /* ════════ render ════════ */
   function render() {
     zoom += (zoomTo - zoom) * 0.08;
     var E = S * zoom, VW = W / E, VH = H / E;
     // the camera follows pi, except while the orbs fight: then it watches the arena
-    var fx = riftBusy() ? ARENA.x : pi.x, fy = riftBusy() ? ARENA.y - 20 : pi.y;
+    // lead the camera a little in the direction of travel so you see where you're going
+    var lvx = car.driving ? Math.sin(car.a) * car.v * 0.5 : aboard() ? heli.vx * 0.5 : pi.vx * 0.5, lvy = car.driving ? -Math.cos(car.a) * car.v * 0.5 : aboard() ? heli.vy * 0.5 : pi.vy * 0.5;
+    look.x += (Math.max(-44, Math.min(44, lvx)) - look.x) * 0.04; look.y += (Math.max(-30, Math.min(30, lvy)) - look.y) * 0.04;
+    var fx = riftBusy() ? ARENA.x : pi.x + look.x, fy = riftBusy() ? ARENA.y - 20 : pi.y + look.y;
     if (camF.x === null) { camF.x = fx; camF.y = fy; }
     camF.x += (fx - camF.x) * 0.06; camF.y += (fy - camF.y) * 0.06;
     var sh = (rift ? rift.shake : 0) + quake;
@@ -1847,7 +2073,7 @@
 
     lights = []; beamAt = null;
     drawKoi();
-    drawLava(x0, y0, x1, y1);
+    drawPrints();
     drawHeliShadow();
 
     // y-sorted scene
@@ -1857,6 +2083,7 @@
     list.push({ y: car.y + 8, f: drawCar });
     if (heli.z < 12) list.push({ y: heli.y + 12, f: drawHeli });
     list.push({ y: GATE.y * T + 14, f: drawGate });
+    list.push({ y: VOLC.y + 24, f: drawVolcano });
     for (var fy = y0; fy <= y1 + 1; fy++) for (var fx = x0 - 1; fx <= x1 + 1; fx++) if (fence[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawFence(a, b); } }); })(fx, fy);
     props.forEach(function (p) {
       if (p.tx < x0 - 2 || p.tx > x1 + 2 || p.ty < y0 - 1 || p.ty > y1 + 4) return;
@@ -1873,6 +2100,7 @@
         if (p.kind !== "rock") shadow(bx, by, { jtree: 30, tree: 18, tree2: 18, tfern: 12, palm: 12, fern: 10, cycad: 10, lamp: 6 }[p.kind] || 12);
         if (p.kind === "rock") { ctx.drawImage(s, bx - 9, by - 11 + Math.round(Math.sin(t + p.tx) * 0.5)); return; }
         var sway = (p.kind === "palm" || p.kind === "tfern") && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
+        if (p.rustle) sway = Math.round(Math.sin(t * 34) * p.rustle * 1.6);
         if (p.flip) { ctx.save(); ctx.translate(bx * 2, 0); ctx.scale(-1, 1); }
         ctx.drawImage(s, bx - s.width / 2 + sway, by - s.height + 2);
         if (p.flip) ctx.restore();
@@ -1888,7 +2116,8 @@
     list.sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (o) { o.f(); });
 
-    // above it all: volcano smoke, the helicopter in flight, pterosaurs, drifting cloud shadows
+    // above it all: dust and leaves, volcano smoke, the helicopter in flight, pterosaurs, drifting cloud shadows
+    drawDust();
     drawSmoke();
     if (heli.z >= 12) drawHeli();
     drawPteros();
@@ -1907,6 +2136,7 @@
       var sx = ((nb.id === "rex" ? rex.x : nb.id === "core" ? ARENA.x : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
       tag(TOUCH ? "tap" : "E", sx, sy, true);
     }
+    drawMinimap();
     if (roarTag) tag("ROAR", (roarTag.x - camX) * E, (roarTag.y - camY) * E, false);
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 16 - (aboard() ? heli.z + 10 : 0) - camY) * E - 6, false);
   }
@@ -2035,18 +2265,21 @@
   }
 
   var lastFocus = null;
+  var entering = false;
   function enter() {
-    if (open) return;
+    if (open || entering) return;
+    entering = true;
     lastFocus = document.activeElement;
     if (window.orbs && window.orbs[0]) window.orbs[0].boost();
+    startSound(); sfx("whoosh");
     warpRun(1, function () {
-      open = true; size();
+      open = true; entering = false; size();
       document.documentElement.classList.add("in-world");
       root.hidden = false; root.classList.add("show");
       var first = false;
       try { first = sessionStorage.getItem("pi-hatched") !== "1"; sessionStorage.setItem("pi-hatched", "1"); } catch (e) {}
       egg = first && !REDUCED ? { t: 0 } : null;
-      pi.x = SPAWN.x; pi.y = SPAWN.y; pi.path = null; keys = {};
+      pi.x = SPAWN.x; pi.y = SPAWN.y; pi.vx = pi.vy = 0; pi.path = null; keys = {};
       zoom = REDUCED ? 1 : 2.6; zoomTo = 1;
       if (!first) bubble = { text: "pi:~$ welcome back.", t: 2.5 };
       camF.x = null;
@@ -2065,6 +2298,7 @@
     closeDialog(); if (termOpen) closeTerm();
     if (car.driving) toggleCar();
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
+    sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
       open = false; cancelAnimationFrame(raf); raf = 0;
       root.classList.remove("show"); root.hidden = true;
@@ -2081,7 +2315,7 @@
   }
 
   orbBtn.addEventListener("click", enter);
+  window.islandEnter = enter;
   root.querySelector(".w-exit").addEventListener("click", function () { exit(); });
   window.addEventListener("resize", function () { if (open) size(); });
-  if (location.hash === "#island") setTimeout(enter, 400);
 })();

@@ -19,7 +19,8 @@ js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
 js/windows.js     working traffic lights: minimize to the dock, maximize, restore
 js/boot.js        vintage BIOS startup screen: first visit per session, and the footer's ↻ reboot
 js/orb.js         the pink dot orb in the neofetch hero (+ a small one at contact)
-js/world.js       pi's island: warp, map, landmarks, dinos, the BMW, the helicopter, the cave terminal, day/night, the orb fight
+js/world.js       pi's island (loaded on demand): warp, map, landmarks, dinos, the BMW, the helicopter, the cave terminal, day/night, the orb fight
+js/audio.js       every sound, synthesized with Web Audio: sfx, ambience loops, a small music sequencer
 js/face.js        hover the headshot and it decodes into terminal ascii
 js/hands.js       the page background: ascii hands that reach as you scroll
 tools/marks.py    ASCII brand toolchain (wordmarks, crescent, favicon)
@@ -40,7 +41,7 @@ pi. Every landmark is a piece of the portfolio: the rack is the homelab, the
 desk is the Claude triage project, the uplink is the Terraform AWS build,
 the watchtower is monitoring, the lighthouse is the security work, the
 tablet is the academic record, the mailbox is contact. The boat sails back.
-It's a jurassic island: a volcano with a live lava crater smoking in the north,
+It's a jurassic island: a volcano (rendered once as a lit heightfield, with a live lava lake and flows) smoking in the north,
 a park gate with torches, a t-rex behind an electric fence, a raptor pen, and
 brachiosaurus, triceratops, stegosaurus, ankylosaurus, parasaurolophus and babies
 (by their nests) roaming the meadows, with pterosaurs circling the volcano. The
@@ -61,7 +62,19 @@ also a terminal left logged in, in a cave in the volcano's cliff (a robot will
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early.
 
-- keyboard: wasd / arrows to walk, e / space / enter to look, esc to leave
+It plays like a small top-down game: pi eases into a walk and out of it, shift runs, the
+camera leads a little in the direction of travel, footsteps kick up dust and leave prints
+in the sand, ferns rustle, birds scatter, dinosaurs turn to watch you, big hits freeze for a
+beat, and a minimap (bottom right on wide screens) marks the landmarks you've found. The
+dinosaurs have six-frame walks (a four-beat gait for the quadrupeds), breathing idles,
+blinks, grazing, and a roar.
+
+Sound is all synthesized in the browser (`js/audio.js`): footsteps that change with the
+ground, surf, insects, the volcano's rumble, the rotor and the M3's engine, the t-rex, the
+orb fight, and a little chiptune score for day, night, and battle. It starts on the click
+into the island, `m` or the ♪ button mutes it, and the choice is remembered.
+
+- keyboard: wasd / arrows to walk, shift to run, e / space / enter to look, m to mute, esc to leave
 - pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look
 - `#island` in the URL opens it directly
 - first visit per session: pi hatches from an egg on the plaza
