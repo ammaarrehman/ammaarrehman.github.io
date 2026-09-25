@@ -41,23 +41,38 @@ pi. Every landmark is a piece of the portfolio: the rack is the homelab, the
 desk is the Claude triage project, the uplink is the Terraform AWS build,
 the watchtower is monitoring, the lighthouse is the security work, the
 tablet is the academic record, the mailbox is contact. The boat sails back.
-It's a jurassic island: a volcano (rendered once as a lit heightfield, with a live lava lake and flows) smoking in the north,
-a park gate with torches, a t-rex behind an electric fence, a raptor pen, and
-brachiosaurus, triceratops, stegosaurus, ankylosaurus, parasaurolophus and babies
-(by their nests) roaming the meadows, with pterosaurs circling the volcano. The
-dinosaurs are drawn from shapes and shaded in code (lit backs, darker bellies,
-dithered spots). Maintenance robots patrol the roads, and Ammaar's two cockatiels,
-his himalayan cats jasmine and prince, and twenty koi (every one a different
-variety and size; press e at the pond to feed them) live there too. The island has
-height: a plateau with cliffs, stairs up to the watchtower, and the volcano's cone.
-His BMW M3 is parked in the garden and a helicopter sits on the helipad: walk up,
-press e, and drive or fly. The island keeps real time in Ellicott City
-(America/New_York), with sunrise and sunset worked out for the date: warm dawns and
-dusks, and at night the lava, torches, lamps, screens and lighthouse light up and
-fireflies come out. `?islandhour=22` previews any hour.
+It's a jurassic island, laid out like a level: a round plaza is the hub, one main road
+loops out to each district on smooth curves (the park gate and the plateau, the jungle and
+the uplink over a river bridge, the paddocks and the lighthouse, the dock), and narrower
+trails lead to the landmarks. A waterfall drops off the plateau into a river that winds to
+the sea. Forests are solid masses with ferns along their edges, meadows stay open with
+tall grass and flowers, boulders gather under the cliffs, and trees and buildings cast
+baked, dithered shadows. The volcano is rendered once as a lit heightfield, with a live
+lava lake and flows.
+
+The dinosaurs (brachiosaurus, t-rex, stegosaurus, triceratops, ankylosaurus,
+parasaurolophus, raptors, babies, and pterosaurs round the volcano) are drawn from shapes and
+shaded in code at 1.4x their authored size: lit backs, countershading, rosettes and stripes,
+eyes with a glint, outlined in a darker shade of their own colour. They have six-frame walks
+(a four-beat gait for the quadrupeds), breathing idles, blinks, grazing and a roar; the
+t-rex stalks you along its fence, raptors dart after each other, herds drift together, big
+feet thud, and every species has its own call. A robot crew runs the place: cargo bots haul
+crates from the dock to the supply depot and the visitor centre, drones fly parcels from the
+depot roof to the landmarks, a welder patches the raptor pen, and a gardener waters the
+ferns. Ammaar's cockatiels, his himalayan cats jasmine and prince, and twenty koi (press e
+at the pond to feed them) live there too. His BMW M3 is parked in the garden and a
+helicopter sits on the helipad: walk up, press e, and drive or fly. The island keeps real
+time in Ellicott City (America/New_York), with sunrise and sunset worked out for the date.
+`?islandhour=22` previews any hour.
 
 Find all eight landmarks and the orbs fall out of the sky and fight for control
-of the site; the winner runs the hero orb for the rest of the session. There's
+of the site; the winner runs the hero orb for the rest of the session. Every clash tears
+reality open from the point of impact and the island underneath is somewhere else: the
+jurassic island, a neon future city (every tree a lit tower, roads of light, flying
+traffic), or chaos (ink on paper, a black nervous system of strands and spheres, flickering
+neural connections, grain everywhere). The orbs pool darkness around themselves and lash
+out with tendrils, the score changes with each reality, and the tear closes when a winner
+is crowned. There's
 also a terminal left logged in, in a cave in the volcano's cliff (a robot will
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early.

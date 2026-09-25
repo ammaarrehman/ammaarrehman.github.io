@@ -96,7 +96,29 @@
     },
     chirp: function (o) { tone("sine", jit(2600), 3400, 0.06, 0.05 * (o.vol || 1), { pan: o.pan }); tone("sine", jit(2900), 3600, 0.05, 0.04 * (o.vol || 1), { pan: o.pan, when: 0.09 }); },
     whistle: function (o) { tone("sine", 1500, 2200, 0.18, 0.06, { pan: o.pan }); tone("sine", 2200, 1750, 0.22, 0.06, { pan: o.pan, when: 0.2 }); },
-    honkp: function (o) { tone("square", 150, 110, 0.09, 0.07 * (o.vol || 1), { pan: o.pan }); },   // a parasaurolophus
+    // the dinosaurs
+    honkp: function (o) { var v = o.vol || 1; tone("triangle", 196, 165, 0.55, 0.14 * v, { pan: o.pan, attack: 0.05 }); tone("sawtooth", 98, 82, 0.55, 0.05 * v, { pan: o.pan, attack: 0.05 }); },   // a parasaurolophus through its crest
+    stomp: function (o) { var v = o.vol || 1; tone("sine", jit(62, 0.15), 28, 0.28, 0.32 * v, { pan: o.pan }); noise(0.16, 0.1 * v, "lowpass", 320, 90, { pan: o.pan }); },
+    hoot: function (o) { var v = o.vol || 1; tone("sine", 110, 92, 0.7, 0.2 * v, { pan: o.pan, attack: 0.12 }); tone("sine", 92, 78, 0.9, 0.18 * v, { pan: o.pan, attack: 0.12, when: 0.6 }); },   // a brachiosaurus, low and slow
+    screech: function (o) { var v = o.vol || 1; tone("sawtooth", jit(1900), 700, 0.32, 0.07 * v, { pan: o.pan }); tone("square", jit(2400), 1300, 0.2, 0.035 * v, { pan: o.pan, when: 0.04 }); for (var i = 0; i < 3; i++) noise(0.02, 0.06 * v, "highpass", 3500, 3500, { pan: o.pan, when: 0.36 + i * 0.07 }); },
+    snort: function (o) { var v = o.vol || 1; noise(0.14, 0.16 * v, "bandpass", 520, 300, { pan: o.pan, q: 2 }); noise(0.12, 0.12 * v, "bandpass", 480, 260, { pan: o.pan, q: 2, when: 0.2 }); },
+    grunt: function (o) { var v = o.vol || 1; tone("sawtooth", jit(88), 70, 0.32, 0.12 * v, { pan: o.pan, attack: 0.03 }); noise(0.2, 0.05 * v, "lowpass", 400, 200, { pan: o.pan }); },
+    squeak: function (o) { tone("sine", jit(1500), 2300, 0.09, 0.07 * (o.vol || 1), { pan: o.pan }); tone("sine", jit(1700), 2500, 0.07, 0.05 * (o.vol || 1), { pan: o.pan, when: 0.12 }); },
+    caw: function (o) { var v = o.vol || 1; tone("sawtooth", jit(1300), 620, 0.35, 0.05 * v, { pan: o.pan }); noise(0.3, 0.04 * v, "bandpass", 1600, 900, { pan: o.pan, q: 3 }); },
+    // the robots
+    servo: function (o) { var v = o.vol || 1; tone("sawtooth", jit(260), 520, 0.14, 0.035 * v, { pan: o.pan }); tone("sawtooth", 520, 300, 0.12, 0.03 * v, { pan: o.pan, when: 0.16 }); },
+    chatter: function (o) { var v = o.vol || 1, n = 3 + ((Math.random() * 4) | 0); for (var i = 0; i < n; i++) tone(Math.random() < 0.5 ? "sine" : "square", jit(900 + Math.random() * 1500, 0.1), jit(900 + Math.random() * 1500, 0.2), 0.06, 0.04 * v, { pan: o.pan, when: i * 0.075 }); },
+    weld: function (o) { var v = o.vol || 1; for (var i = 0; i < 6; i++) noise(0.025, 0.08 * v, "highpass", 4500, 3000, { pan: o.pan, when: i * 0.04 + Math.random() * 0.03 }); tone("square", 60, 60, 0.3, 0.02 * v, { pan: o.pan }); },
+    backup: function (o) { var v = o.vol || 1; for (var i = 0; i < 3; i++) tone("square", 1050, null, 0.12, 0.035 * v, { pan: o.pan, when: i * 0.3 }); },
+    spray: function (o) { noise(0.5, 0.05 * (o.vol || 1), "highpass", 2500, 4000, { pan: o.pan, attack: 0.06 }); },
+    // the orbs and the realities
+    dash: function (o) { noise(0.35, 0.18, "bandpass", 300, 2600, { pan: o.pan, q: 3, attack: 0.25 }); tone("sawtooth", 55, 220, 0.3, 0.06, { pan: o.pan, attack: 0.25 }); },
+    warp: function (o) {
+      // reality tears: a falling sub-bass, a pitch-bent glitch stutter, and a hiss that sweeps down
+      var t0 = now(); tone("sine", 180, 30, 1.1, 0.4); tone("sawtooth", 880, 40, 0.9, 0.08);
+      for (var i = 0; i < 8; i++) tone("square", jit(200 + Math.random() * 2000, 0.3), null, 0.03, 0.05, { when: 0.05 + i * 0.045 });
+      noise(1, 0.2, "bandpass", 6000, 200, { q: 1.5 });
+    },
     splash: function (o) { noise(0.3, 0.12 * (o.vol || 1), "bandpass", 2800, 900, { pan: o.pan, q: 0.7 }); },
     plop: function (o) { tone("sine", jit(620), 180, 0.1, 0.07 * (o.vol || 1), { pan: o.pan }); },
     zap: function (o) { for (var i = 0; i < 4; i++) noise(0.03, 0.12, "highpass", 3000, 5000, { pan: o.pan, when: i * 0.05 * Math.random() + i * 0.03 }); tone("sawtooth", 120, 90, 0.25, 0.05, { pan: o.pan }); },
@@ -142,10 +164,23 @@
       var r2 = src(), rl = ctx.createBiquadFilter();
       r2.playbackRate.value = 0.35; rl.type = "lowpass"; rl.frequency.value = 140; rl.Q.value = 3;
       r2.connect(rl); rl.connect(out);
-    } else if (name === "jungle") {                                      // insects: a thin, pulsing hiss
-      var j = src(), jh = ctx.createBiquadFilter(), jg = ctx.createGain(), jl = ctx.createOscillator(), jlg = ctx.createGain();
-      jh.type = "bandpass"; jh.frequency.value = 5200; jh.Q.value = 6; jl.frequency.value = 7; jlg.gain.value = 0.5; jg.gain.value = 0.5;
-      jl.connect(jlg); jlg.connect(jg.gain); j.connect(jh); jh.connect(jg); jg.connect(out); nodes.push(jl);
+    } else if (name === "falls") {                                       // the waterfall: broad white noise, a little lowpassed
+      var fsrc = src(), fl = ctx.createBiquadFilter(); fl.type = "lowpass"; fl.frequency.value = 2400; fsrc.connect(fl); fl.connect(out);
+    } else if (name === "buzz") {                                        // a drone's four rotors
+      var b1 = ctx.createOscillator(), b2 = ctx.createOscillator(), bf = ctx.createBiquadFilter();
+      b1.type = "sawtooth"; b2.type = "sawtooth"; b1.frequency.value = 185; b2.frequency.value = 192; bf.type = "bandpass"; bf.frequency.value = 900; bf.Q.value = 0.8;
+      b1.connect(bf); b2.connect(bf); bf.connect(out); nodes.push(b1, b2);
+    } else if (name === "aura") {
+      // the orbs' presence: two detuned low saws beating against each other, a choir-ish
+      // formant on top, and a breathy swell, all slowly swelling in and out
+      var a1 = ctx.createOscillator(), a2 = ctx.createOscillator(), a3 = ctx.createOscillator(), al = ctx.createBiquadFilter(), fm = ctx.createBiquadFilter(), sw = ctx.createGain(), lf = ctx.createOscillator(), lg = ctx.createGain(), hs = src(), hf = ctx.createBiquadFilter();
+      a1.type = "sawtooth"; a2.type = "sawtooth"; a3.type = "triangle"; a1.frequency.value = 55; a2.frequency.value = 55.8; a3.frequency.value = 82.4;
+      al.type = "lowpass"; al.frequency.value = 420; fm.type = "bandpass"; fm.frequency.value = 700; fm.Q.value = 6;
+      lf.frequency.value = 0.18; lg.gain.value = 0.35; sw.gain.value = 0.6; lf.connect(lg); lg.connect(sw.gain);
+      hf.type = "bandpass"; hf.frequency.value = 1200; hf.Q.value = 0.7; var hg = ctx.createGain(); hg.gain.value = 0.15;
+      a1.connect(al); a2.connect(al); a3.connect(fm); al.connect(sw); fm.connect(sw); hs.connect(hf); hf.connect(hg); hg.connect(sw); sw.connect(out);
+      nodes.push(a1, a2, a3, lf);
+      ctl.rate = function (r) { al.frequency.setTargetAtTime(300 + r * 1400, now(), 0.3); fm.frequency.setTargetAtTime(500 + r * 900, now(), 0.3); };
     }
     var t0 = now(); nodes.forEach(function (s) { s.start(t0); });
     return {
@@ -167,7 +202,9 @@
   var MOODS = {
     day:    { bpm: 96, lead: "square", bass: "triangle", chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], hat: true, vol: 1 },
     night:  { bpm: 68, lead: "sine", bass: "triangle", chords: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], hat: false, vol: 0.8, echo: true },
-    battle: { bpm: 144, lead: "square", bass: "sawtooth", chords: [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 56, 59]], hat: true, vol: 1.1, drive: true }
+    battle: { bpm: 150, lead: "square", bass: "sawtooth", chords: [[57, 60, 64], [53, 57, 60], [55, 59, 62], [52, 56, 59]], hat: true, vol: 1.2, drive: true, drums: true, pad: true },
+    future: { bpm: 128, lead: "sawtooth", bass: "square", chords: [[50, 53, 57], [46, 50, 53], [48, 52, 55], [45, 49, 52]], hat: true, vol: 1.1, drive: true, drums: true, pad: true, arp: true },
+    chaos:  { bpm: 172, lead: "sawtooth", bass: "sawtooth", chords: [[49, 52, 55], [50, 53, 56], [48, 51, 54], [47, 50, 56]], hat: true, vol: 1.2, drive: true, drums: true, pad: true, glitch: true }
   };
   var mood = null, seq = null, step = 0, nextT = 0, pattern = null, moodGain = null, echo = null;
   function midi(n) { return 440 * Math.pow(2, (n - 69) / 12); }
@@ -194,7 +231,15 @@
       if (i === 0 || (m.drive && i % 2 === 0)) note(m.bass, ch[0] - 12, nextT, eighth * (m.drive ? 1.6 : 3.6), 0.16 * v);
       if (!m.drive && i === 4) note(m.bass, ch[2] - 24, nextT, eighth * 3.2, 0.12 * v);
       var ln = pattern[step % 32];
-      if (ln !== null) note(m.lead, ln, nextT, eighth * (mood === "night" ? 2.6 : 1.2), (mood === "night" ? 0.07 : 0.045) * v);
+      if (m.arp) ln = ch[i % 3] + 12 + (i >= 4 ? 12 : 0);                          // synthwave: straight arpeggios
+      if (ln !== null) note(m.lead, ln + (m.glitch && Math.random() < 0.2 ? (Math.random() < 0.5 ? 1 : -1) : 0), nextT, eighth * (mood === "night" ? 2.6 : m.glitch ? 0.6 : 1.2), (mood === "night" ? 0.07 : 0.04) * v);
+      if (m.drums) {                                                               // kick on the beat, a snare-ish crack on 2 and 4, timpani on the bar
+        if (i % 2 === 0) { var ko = ctx.createOscillator(), kg = ctx.createGain(); ko.frequency.setValueAtTime(140, nextT); ko.frequency.exponentialRampToValueAtTime(40, nextT + 0.12); kg.gain.setValueAtTime(0.3 * v, nextT); kg.gain.exponentialRampToValueAtTime(0.0001, nextT + 0.18); ko.connect(kg); kg.connect(moodGain); ko.start(nextT); ko.stop(nextT + 0.2); }
+        if (i === 2 || i === 6) { var sn = ctx.createBufferSource(), sf = ctx.createBiquadFilter(), sg2 = ctx.createGain(); sn.buffer = noiseBuf; sf.type = "bandpass"; sf.frequency.value = 1800; sg2.gain.setValueAtTime(0.12 * v, nextT); sg2.gain.exponentialRampToValueAtTime(0.0001, nextT + 0.15); sn.connect(sf); sf.connect(sg2); sg2.connect(moodGain); sn.start(nextT, Math.random()); sn.stop(nextT + 0.16); }
+        if (i === 0) note("sine", ch[0] - 24, nextT, eighth * 6, 0.22 * v);
+      }
+      if (m.pad && i === 0) ch.forEach(function (n2) { note("sawtooth", n2, nextT, eighth * 7.5, 0.018 * v); note("sawtooth", n2 + 0.1, nextT, eighth * 7.5, 0.014 * v); });   // a dark choir under it all
+      if (m.glitch && Math.random() < 0.25) { var gb = ctx.createBufferSource(), gg = ctx.createGain(); gb.buffer = noiseBuf; gb.playbackRate.value = 0.2 + Math.random() * 3; gg.gain.setValueAtTime(0.06 * v, nextT); gg.gain.exponentialRampToValueAtTime(0.0001, nextT + eighth); gb.connect(gg); gg.connect(moodGain); gb.start(nextT, Math.random()); gb.stop(nextT + eighth); }
       if (m.hat && i % 2 === 1) { var h = ctx.createBufferSource(), hf = ctx.createBiquadFilter(), hg = ctx.createGain(); h.buffer = noiseBuf; hf.type = "highpass"; hf.frequency.value = 7000; hg.gain.setValueAtTime(0.03 * v, nextT); hg.gain.exponentialRampToValueAtTime(0.0001, nextT + 0.04); h.connect(hf); hf.connect(hg); hg.connect(moodGain); h.start(nextT, Math.random()); h.stop(nextT + 0.05); }
       nextT += eighth; step++;
     }
