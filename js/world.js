@@ -17,34 +17,44 @@
   var TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
 
   /* ════════ map ════════ */
-  var T = 16, MW = 72, MH = 58, CX = 36, CY = 29;
+  var T = 16, MW = 100, MH = 80, CX = 48, CY = 40, DOCKX = 51;
   var DEEP = 0, SHAL = 1, SAND = 2, GRASS = 3, PATH = 4, POND = 5, DOCK = 6, LAVA = 7, PAD = 8, RIVER = 9, BRIDGE = 10;
   function hash(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
-  function rad(a) { return 21.5 + 2.6 * Math.sin(3 * a + 1.1) + 1.8 * Math.sin(5 * a + 2.3) + 1.1 * Math.sin(7 * a + 0.4); }
+  /* the island is built like a level, in three terraces. the highland across the north holds
+     the volcano, the watchtower, the cave and, far to the west, the old shrine. a cliff band
+     drops to the meadows, the big middle terrace: the brachio meadow and the river to the
+     west, the t-rex paddock, the clearing where trails meet, the raptor pen, the koi garden,
+     and the headland with the lighthouse out east. a second cliff band drops to the lowland
+     along the south shore: the harbour village with the dock, the helipad, the herd plain,
+     and the outpost in the southwest. the only ways up or down a cliff are the stairs where a
+     trail climbs it, so the trails are the level's chokepoints. the river rises on the
+     highland, falls off both cliffs and runs out to sea past the outpost. */
+  function coast(x, y) {             // < 1 is land
+    var a = Math.atan2(y - 39, (x - 48) / 1.32), d = Math.hypot((x - 48) / 1.32, y - 39);
+    var v = d / (28 + 2.2 * Math.sin(3 * a + 1.1) + 1.6 * Math.sin(5 * a + 2.3) + 1.0 * Math.sin(7 * a + 0.4) + 0.6 * Math.sin(11 * a + 1.7));
+    v = Math.min(v, Math.hypot((x - 84) / 10, (y - 37) / 5.6));             // the lighthouse headland
+    v = Math.min(v, Math.hypot((x - 21) / 12, (y - 61) / 8.5));             // the southwest lobe
+    return Math.max(v, 1.9 - Math.hypot((x - 52) / 6.4, (y - 69.5) / 5.4));  // the harbour bay
+  }
+  function hiEdge(x) { return 26.5 + 3.2 * Math.sin(x * 0.13 + 0.6) + 1.6 * Math.sin(x * 0.37 + 2.1) - Math.max(0, x - 68) * 0.55 - Math.max(0, 24 - x) * 0.5; }
+  function midEdge(x) { return 55 + 2.6 * Math.sin(x * 0.17 + 1.3) + 1.4 * Math.sin(x * 0.41) - (x - 48) * 0.1; }
+  function tier(x, y) { return y < hiEdge(x) ? 2 : y < midEdge(x) ? 1 : 0; }
   var map = [], x, y;
   for (y = 0; y < MH; y++) {
     map.push([]);
-    for (x = 0; x < MW; x++) {
-      var dx = (x + 0.5 - CX) / 1.25, dy = y + 0.5 - CY, d = Math.sqrt(dx * dx + dy * dy), r = rad(Math.atan2(dy, dx));
-      map[y].push(d > r + 2.8 ? DEEP : d > r ? SHAL : d > r - 2.3 ? SAND : GRASS);
-    }
+    for (x = 0; x < MW; x++) { var cv0 = coast(x + 0.5, y + 0.5); map[y].push(cv0 > 1.12 ? DEEP : cv0 > 1 ? SHAL : cv0 > 0.925 ? SAND : GRASS); }
   }
   function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : map[y][x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
   // the koi pond: a wobbly blob (tile units). < 1 is water
-  var KP = { x: 54.5, y: 35.5, rx: 5.2, ry: 2.3 };
+  var KP = { x: 69, y: 48.5, rx: 5.2, ry: 2.4 };
   function pondF(fx, fy) {
     var dx = (fx - KP.x) / KP.rx, dy = (fy - KP.y) / KP.ry, a = Math.atan2(dy, dx);
     return Math.sqrt(dx * dx + dy * dy) / (1 + 0.13 * Math.sin(3 * a + 0.8) + 0.08 * Math.sin(5 * a + 2.1) + 0.05 * Math.sin(7 * a));
   }
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (map[y][x] === GRASS && pondF(x + 0.5, y + 0.5) < 1) map[y][x] = POND;
-  /* the layout, like a level: a round plaza is the hub; one main road loops out from it to
-     each district (the park gate and the plateau to the north, the jungle and the uplink to
-     the west, the paddocks and the lighthouse to the east, the dock to the south), and
-     narrower trails lead off it to the landmarks. roads and the river are smooth curves,
-     not grid lines. the river falls off the plateau and runs west to the sea; the west road
-     crosses it on a bridge. */
+  // roads and the river are smooth curves (catmull-rom through a few points), not grid lines
   function spline(pts, fn) {
     for (var i = 0; i < pts.length - 1; i++) {
       var p0 = pts[Math.max(0, i - 1)], p1 = pts[i], p2 = pts[i + 1], p3 = pts[Math.min(pts.length - 1, i + 2)];
@@ -66,71 +76,78 @@
       }
     });
   }
-  var RIVER_PTS = [[24.5, 18.2], [23.2, 21], [21, 23.8], [18.6, 26.6], [16.2, 29.3], [13.2, 31.2], [10.5, 32.2]];
-  carve(RIVER_PTS, function (q) { return 1.5 + q * 1.1; }, function (tx, ty) { if (map[ty][tx] === GRASS || map[ty][tx] === SAND) map[ty][tx] = RIVER; });
+  var RIVER_PTS = [[31, 13.5], [30.2, 19], [29.6, 24], [28.4, 29], [25.6, 34], [22, 39], [19.6, 44.5], [18.2, 50], [17, 55], [15.4, 59.5], [12.6, 63.5], [8, 66.4], [3, 67.4]];
+  carve(RIVER_PTS, function (q) { return 1.4 + q * 1.3; }, function (tx, ty) { if (map[ty][tx] === GRASS || map[ty][tx] === SAND) map[ty][tx] = RIVER; });
   function road(pts, width) { carve(pts, width, function (tx, ty) { var m = map[ty][tx]; if (m === GRASS || m === SAND) map[ty][tx] = PATH; else if (m === RIVER) map[ty][tx] = BRIDGE; }); }
-  var PLAZA = { x: 36.5, y: 29.5, r: 2.9 };
+  var PLAZA = { x: 46.5, y: 60.5, r: 2.7 };                           // the village square, by the harbour
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (Math.hypot(x + 0.5 - PLAZA.x, y + 0.5 - PLAZA.y) < PLAZA.r && land(at(x, y))) map[y][x] = PATH;
-  var dockY = CY; while (land(at(CX, dockY + 1))) dockY++;
-  road([[36.5, 28], [36.4, 24], [36.6, 20], [37, 16.5]], 1.9);                                  // north: the gate, the stairs
-  road([[33.6, 29.6], [29.5, 30.6], [25, 29.8], [20.5, 28.4], [16.5, 28.4]], 1.9);             // west: over the bridge to the uplink
-  road([[39.5, 29.5], [44, 28.4], [49, 28.9], [55, 29.6], [61.5, 28.6]], 1.9);                 // east: to the lighthouse
-  road([[36.8, 32], [37.2, 36], [36.4, 40.5], [36.6, dockY + 0.5]], 1.9);                      // south: to the dock
-  road([[36.5, 16.5], [38.5, 16.8]], 1);                                                       // the watchtower
-  road([[31.3, 40.8], [28, 42.6], [25, 44.6], [21, 45.4]], 1);                              // the outpost, past the helipad
-  road([[20, 22.5], [18.4, 19.8], [16.6, 17.4]], 1);                                           // an old trail into the woods
-  road([[48.8, 29.1], [47.6, 32.4], [47.2, 35.8], [48.6, 39.2]], 1);                           // the garden: pond, blanket, the M3
-  road([[36.7, 38.2], [33.5, 39.4], [31.3, 40.8]], 1);                                         // the helipad
-  road([[36.7, 41.4], [39.5, 41.9], [42, 42.2]], 1);                                           // the tablet
-  road([[36, dockY], [33.4, dockY - 0.2]], 1);                                                 // the mailbox
-  for (y = dockY + 1; y <= dockY + 4; y++) { map[y][CX] = DOCK; map[y][CX + 1] = DOCK; }
-  var HELI = { x: 29, y: 42 };                                         // the helipad, 3x3 tiles
+  var dockY = 60; while (land(at(DOCKX, dockY + 1))) dockY++;
+  road([[46.6, 58], [45.6, 55.2], [46.6, 52], [49.4, 49.4], [50.2, 46.6]], 1.9);                              // up the first cliff: the village to the clearing
+  road([[47.6, 40.6], [46.2, 37.6], [47.4, 34.4], [49.2, 31.6], [48.8, 28.6], [47.6, 25.5]], 1.9);           // the gate, then up the second cliff to the highland
+  road([[48, 25.5], [52.5, 23.6], [57, 22.8]], 1.2);                                                          // the watchtower
+  road([[47.6, 25.4], [44, 23.4], [41.4, 21.2]], 1.2);                                                        // the cave
+  road([[46.6, 38.4], [41, 38.8], [35, 40.6], [29.5, 40.4], [24.5, 38.2], [18.5, 36.6]], 1.9);               // west, over the river to the brachio meadow
+  road([[18.5, 36.6], [17.6, 32.4], [18.2, 28.6], [19.6, 25.4], [20.6, 23.2], [21, 22.2]], 1.6);                                  // an old trail up into the woods
+  road([[52.4, 46], [57, 46.6], [62.4, 44.6], [68.6, 44.6], [74.5, 43.4], [80, 40.4], [86.5, 37.6]], 1.9);   // east, past the garden and out along the headland
+  road([[62.4, 44.6], [63, 41], [64.4, 38]], 1);                                                              // the raptor pen
+  road([[45.6, 47], [42.6, 48.6], [40.8, 50.4]], 1);                                                          // the t-rex paddock viewpoint
+  road([[68.6, 44.6], [67.4, 50.4], [66.4, 52]], 1);                                                          // the garden: pond, blanket, the M3
+  road([[44.4, 60.4], [38, 61.6], [31.6, 61.2], [27, 61.4]], 1.3);                                            // the coast road to the outpost
+  road([[49.4, 60.8], [54, 61.8], [58.6, 62.6]], 1.3);                                                        // the helipad and the herd plain
+  road([[48, 62.6], [50.4, 63.4], [DOCKX + 0.5, dockY + 0.5]], 1.3);                                          // the dock
+  road([[47.8, 50.6], [51.6, 51.4]], 1);                                                                      // the stone tablet
+  for (y = dockY + 1; y <= dockY + 4; y++) { map[y][DOCKX] = DOCK; map[y][DOCKX + 1] = DOCK; }
+  var HELI = { x: 61, y: 62 };                                         // the helipad, 3x3 tiles
   for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) map[y][x] = PAD;
-  // buildings: the visitor centre off the plaza, and the supply depot the robots stock from the dock
+  // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost
   var BUILDINGS = [
-    { id: "visitor", x0: 29, y0: 24, w: 4, h: 2, room: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'please do not tap on the glass. the raptors can see you.'" },
-    { id: "bunker", x0: 17, y0: 43, w: 4, h: 2, room: "bunker", name: "the bunker", text: "the outpost bunker." },
-    { id: "depot", x0: 39, y0: 43, w: 3, h: 2, room: "depot", name: "the supply depot", text: "the supply depot. crates come off the boat, the cargo bots haul them in here, and the drones fly them out to wherever something needs fixing." }
+    { id: "visitor", x0: 39, y0: 58, w: 4, h: 2, room: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'please do not tap on the glass. the raptors can see you.'" },
+    { id: "bunker", x0: 19, y0: 58, w: 4, h: 2, room: "bunker", name: "the bunker", text: "the outpost bunker." },
+    { id: "depot", x0: 53, y0: 58, w: 3, h: 2, room: "depot", name: "the supply depot", text: "the supply depot. crates come off the boat, the cargo bots haul them in here, and the drones fly them out to wherever something needs fixing." }
   ];
 
-  // height: a plateau across the north; the volcano stands on top of it
+  // height: which terrace each tile of ground (and water on the ground) sits on
   var ELEV = [];
   for (y = 0; y < MH; y++) {
     ELEV.push([]);
-    for (x = 0; x < MW; x++) {
-      var tl = map[y][x], lv = 0;
-      if (tl === GRASS || tl === PATH) {
-        var hx = (x + 0.5 - 34) / 12.5, hy = (y + 0.5 - 14.2) / 5.6, ha = Math.atan2(hy, hx);
-        var hw = 1 + 0.08 * Math.sin(3 * ha + 0.5) + 0.06 * Math.sin(5 * ha + 2);
-        if (hx * hx + hy * hy < hw * hw) lv = 1;
-      }
-      ELEV[y].push(lv);
-    }
+    for (x = 0; x < MW; x++) { var tl = map[y][x]; ELEV[y].push(tl === GRASS || tl === PATH || tl === RIVER || tl === BRIDGE || tl === POND || tl === PAD ? tier(x + 0.5, y + 0.5) : 0); }
   }
   // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
   // (x, y) is the centre of its footprint; squash flattens the footprint front to back
-  var VOLC = { x: 33 * T + 8, y: 11 * T + 4, R: 118, H: 104, sq: 1.65, rc: 27 };
+  var VOLC = { x: 46 * T + 8, y: 15 * T + 4, R: 118, H: 104, sq: 1.65, rc: 27 };
   function volcD(wx, wy) { var u = wx - VOLC.x, v = (wy - VOLC.y) * VOLC.sq; return Math.sqrt(u * u + v * v); }
   var RIMH = Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H;
   function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : ELEV[y][x]; }
   function rim(x, y) { var l = lvl(x, y); return lvl(x + 1, y) !== l || lvl(x - 1, y) !== l || lvl(x, y + 1) !== l || lvl(x, y - 1) !== l; }
+  // the waterfalls: wherever the river runs off a cliff
+  var FALLS = [];
+  (function () {
+    var seen = {};
+    for (var yy = 1; yy < MH; yy++) for (var xx = 0; xx < MW; xx++) {
+      if (map[yy][xx] !== RIVER || map[yy - 1][xx] !== RIVER || lvl(xx, yy - 1) <= lvl(xx, yy)) continue;
+      var key = lvl(xx, yy - 1) * 100 + lvl(xx, yy);
+      if (!seen[key]) { seen[key] = { n: 0, x: 0, y: 0 }; FALLS.push(seen[key]); }
+      seen[key].n++; seen[key].x += xx; seen[key].y += yy;
+    }
+    FALLS.forEach(function (f) { f.x = (f.x / f.n + 0.5) * T; f.y = (f.y / f.n) * T - 4; });
+  })();
 
   /* ════════ the portfolio, as landmarks ════════ */
   var GH = "https://github.com/ammaarrehman/";
   var STATIONS = [
-    { id: "sign", x: 32, y: 27, name: "signpost", text: "pi's jurassic island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
+    { id: "sign", x: 44, y: 57, name: "signpost", text: "pi's jurassic island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
     { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", found: true, text: "the homelab. two Raspberry Pi 5 nodes run AdGuard Home and Unbound behind a keepalived floating IP. pull the plug on one and DNS keeps answering from the other within seconds. failover tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"]] },
     { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", found: true, wide: true, text: "a Claude intake triage assistant. messy free-text help requests go in; structured records come out with category, urgency, summary, next step, and a human-review flag. a 15-case eval harness took classification accuracy to 100%.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"]] },
-    { id: "uplink", x: 23, y: 46, name: "the uplink", found: true, text: "an AWS static site built end to end with Terraform: S3 hosting, CloudFront delivery, Route 53 DNS, IAM access controls. one command up, one command down. Ammaar is an AWS Certified Cloud Practitioner.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"]] },
-    { id: "tower", x: 38, y: 16, name: "the watchtower", found: true, text: "the monitoring stack. Prometheus and Grafana watch every host and container in the lab through node-exporter and cAdvisor, and Uptime Kuma pings every service. from up here you can see the whole island, and the volcano is still warm.", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"]] },
-    { id: "lighthouse", x: 63, y: 28, name: "the lighthouse", found: true, text: "the security work. Ammaar is a cyber security analyst in Cyber Ready Clinic's internship cohort, supporting nonprofit cyber-readiness assessments with the Discover5 and Ready5 frameworks, with findings aligned to the NIST CSF and CIS Controls. the Ready5 Practitioner badge is in progress, expected Nov 2026.", links: [["experience", "#experience"]] },
-    { id: "macbook", x: 49, y: 38, name: "a macbook on a blanket", found: true, text: "this website. hand-rolled HTML, CSS, JavaScript and a little Python, no frameworks. the orb, the hands, and this island are all drawn in plain canvas. you're standing in it.", links: [["site repo ↗", GH + "ammaarrehman.github.io"]] },
-    { id: "tablet", x: 42, y: 41, name: "a stone tablet", found: true, text: "the record. Howard Community College, A.A. through Dec 2026, 3.65 GPA, Dean's List. starting at UMD's Smith School, B.S. Information Systems, in Jan 2027. AWS Certified Cloud Practitioner, CompTIA Tech+. FBLA State and Regional Champion.", links: [["education", "#education"]] },
-    { id: "mailbox", x: 33, y: dockY - 1, name: "the mailbox", found: true, text: "ammaarrehmanf@gmail.com. email is the fastest way to reach Ammaar.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"]] },
-    { id: "drink", x: 40, y: 31, name: "a drink stand", text: "pi takes a sip. zoom mode for ten seconds." },
-    { id: "shrine", x: 16, y: 16, name: "an old shrine", text: "" },
-    { id: "cave", x: 29, y: 14, name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
-    { id: "boat", x: 38, y: dockY + 3, name: "the boat", text: "the boat back to the mainland. sail back to the site?", links: [["sail back ↩", "#exit"]] }
+    { id: "uplink", x: 25, y: 63, name: "the uplink", found: true, text: "an AWS static site built end to end with Terraform: S3 hosting, CloudFront delivery, Route 53 DNS, IAM access controls. one command up, one command down. Ammaar is an AWS Certified Cloud Practitioner.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"]] },
+    { id: "tower", x: 58, y: 21, name: "the watchtower", found: true, text: "the monitoring stack. Prometheus and Grafana watch every host and container in the lab through node-exporter and cAdvisor, and Uptime Kuma pings every service. from up here you can see the whole island, and the volcano is still warm.", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"]] },
+    { id: "lighthouse", x: 89, y: 37, name: "the lighthouse", found: true, text: "the security work. Ammaar is a cyber security analyst in Cyber Ready Clinic's internship cohort, supporting nonprofit cyber-readiness assessments with the Discover5 and Ready5 frameworks, with findings aligned to the NIST CSF and CIS Controls. the Ready5 Practitioner badge is in progress, expected Nov 2026.", links: [["experience", "#experience"]] },
+    { id: "macbook", x: 66, y: 53, name: "a macbook on a blanket", found: true, text: "this website. hand-rolled HTML, CSS, JavaScript and a little Python, no frameworks. the orb, the hands, and this island are all drawn in plain canvas. you're standing in it.", links: [["site repo ↗", GH + "ammaarrehman.github.io"]] },
+    { id: "tablet", x: 52, y: 50, name: "a stone tablet", found: true, text: "the record. Howard Community College, A.A. through Dec 2026, 3.65 GPA, Dean's List. starting at UMD's Smith School, B.S. Information Systems, in Jan 2027. AWS Certified Cloud Practitioner, CompTIA Tech+. FBLA State and Regional Champion.", links: [["education", "#education"]] },
+    { id: "mailbox", x: 54, y: 63, name: "the mailbox", found: true, text: "ammaarrehmanf@gmail.com. email is the fastest way to reach Ammaar.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"]] },
+    { id: "drink", x: 50, y: 58, name: "a drink stand", text: "pi takes a sip. zoom mode for ten seconds." },
+    { id: "shrine", x: 21, y: 21, name: "an old shrine", text: "" },
+    { id: "cave", x: 41, y: 20, name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
+    { id: "boat", x: DOCKX + 2, y: dockY + 3, name: "the boat", text: "the boat back to the mainland. sail back to the site?", links: [["sail back ↩", "#exit"]] }
   ];
   var TOTAL = STATIONS.filter(function (s) { return s.found; }).length;
   var OUT = STATIONS.filter(function (s) { return !s.room; });        // the landmarks that stand outdoors
@@ -155,11 +172,11 @@
   // nobody climbs the volcano
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (volcD(x * T + 8, y * T + 8) < VOLC.R * 0.93) solid[k(x, y)] = 1;
   // the park gate over the north road, and the electric fences around the paddocks
-  var GATE = { x: 36, y: 23 };
+  var GATE = { x: 48, y: 33 };
   solid[k(GATE.x - 2, GATE.y)] = 1; solid[k(GATE.x + 2, GATE.y)] = 1;
   var PADDOCKS = [
-    { name: "t-rex paddock", x0: 15, y0: 31, x1: 25, y1: 40 },
-    { name: "raptor pen", x0: 48, y0: 17, x1: 57, y1: 25 }
+    { name: "t-rex paddock", x0: 27, y0: 43, x1: 39, y1: 54 },
+    { name: "raptor pen", x0: 60, y0: 30, x1: 70, y1: 38 }
   ];
   PADDOCKS.forEach(function (p) {
     for (y = p.y0; y <= p.y1; y++) for (x = p.x0; x <= p.x1; x++) {
@@ -178,16 +195,16 @@
     for (var o = 0; o < 3; o++) { v += a2 * (Math.sin(x * f + o * 1.7) * Math.cos(y * f * 1.13 + o * 2.3) + Math.sin((x + y) * f * 0.7 + o)); n += a2 * 2; a2 *= 0.5; f *= 2.1; }
     return v / n;
   }
-  var FOREST_BIAS = [[14, 16, 5, 0.35], [58, 32, 3, 0.25], [21, 50, 4, 0.3], [30, 17, 5, 0.3], [44, 17, 4, 0.25], [61, 36, 4, 0.3], [27, 35, 3, 0.2]];
+  var FOREST_BIAS = [[31, 18, 6, 0.35], [62, 19, 5, 0.3], [28, 32, 5, 0.35], [19, 25, 4, 0.35], [74, 29, 4, 0.25], [36, 56, 4, 0.3], [59, 49, 3, 0.25], [81, 48, 4, 0.3], [14, 50, 3, 0.25], [40, 29, 4, 0.25]];
   function forest(x, y) {
     var v = fbm(x, y) + 0.08;
     FOREST_BIAS.forEach(function (fb) { v += fb[3] * Math.max(0, 1 - Math.hypot(x - fb[0], y - fb[1]) / fb[2]); });
     return v;
   }
-  var CLEAR = [[19.5, 22.5, 4], [44, 42, 5.5], [36.5, 29.5, 5], [51, 39, 3.2], [29, 42, 3], [20, 36, 3.5], [44, 34, 2.6], [55, 29, 3], [52, 21, 3]];
-  var COMPOUND = { x0: 14, y0: 42, x1: 26, y1: 48, gate: [44, 45] };
+  var CLEAR = [[46.5, 60, 6], [48.5, 43.5, 6.2], [18, 38, 4], [61, 56, 5.5], [67, 50, 4], [65, 34, 4], [33, 48.5, 4.5], [61, 62, 3], [78, 44, 4], [58, 22, 2.5], [41, 20.5, 2], [48, 33, 2.5], [89, 37, 2.5], [77, 34, 3], [22, 61, 5]];
+  var COMPOUND = { x0: 17, y0: 57, x1: 28, y1: 65, gate: [60, 61, 62] };
   function inCompound(x, y) { return x >= COMPOUND.x0 && x <= COMPOUND.x1 && y >= COMPOUND.y0 - 1 && y <= COMPOUND.y1; }
-  function clearing(x, y) { return inCompound(x, y) || Math.hypot(x - 16, y - 16.5) < 1.7 || CLEAR.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2]; }); }
+  function clearing(x, y) { return inCompound(x, y) || Math.hypot(x - 21, y - 21.5) < 1.7 || CLEAR.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2]; }); }
   var props = [];     // trees, palms, ferns, rocks, nests: static, y-sorted with everything else
   function busy(a, b) { var q = at(a, b); return q === PATH || q === POND || q === PAD || q === DOCK || q === LAVA || q === RIVER || q === BRIDGE || fence[k(a, b)] || nearStation(a, b) || inBuilding(a, b) || Math.abs(a - GATE.x) <= 3 && Math.abs(b - GATE.y) <= 1; }
   function nearWater(a, b, r) { return near(a, b, r, function (i, j) { var q = at(i, j); return q === RIVER || q === POND; }); }
@@ -216,16 +233,16 @@
     } else if (t === SAND && h < 0.11 && !solid[k(x, y)]) {
       if (near(x, y, 1, function (a2, b2) { return busy(a2, b2) || solid[k(a2, b2)]; })) continue;
       props.push({ kind: "palm", tx: x, ty: y, flip: h < 0.055, ox: jit(x, y, 1), oy: 0 }); solid[k(x, y)] = 1;
-    } else if (t === SHAL && h < 0.02 && Math.abs(x - CX) > 3) {
+    } else if (t === SHAL && h < 0.02 && Math.abs(x - DOCKX) > 3) {
       props.push({ kind: "rock", tx: x, ty: y });
     }
   }
   // nests in the meadow, each with a clutch of speckled eggs
-  var nests = [[42, 45], [47, 44], [21, 22], [19, 37]].filter(function (n) { return walkable0(n[0], n[1]); }).map(function (n) {
+  var nests = [[57, 55], [63, 57], [66, 54], [15, 39]].filter(function (n) { return walkable0(n[0], n[1]); }).map(function (n) {
     solid[k(n[0], n[1])] = 1; var p = { kind: "nest", tx: n[0], ty: n[1], eggs: 2 + ((hash(n[0], n[1]) * 3) | 0) }; props.push(p); return p;
   });
   function walkable0(x, y) { return land(at(x, y)) && at(x, y) !== PATH && !solid[k(x, y)]; }
-  [[33, 26], [40, 26], [33, 33], [40, 33], [35, dockY - 1], [38, dockY - 1], [19, 27], [22, 27]].forEach(function (l) {
+  [[43, 59], [50, 60], [43, 62], [50, 63], [46, 33], [51, 33], [53, 62], [26, 40]].forEach(function (l) {
     if (land(at(l[0], l[1])) && at(l[0], l[1]) !== PATH && at(l[0], l[1]) !== BRIDGE && !solid[k(l[0], l[1])]) { props.push({ kind: "lamp", tx: l[0], ty: l[1] }); solid[k(l[0], l[1])] = 1; }
   });
   // the outpost: sandbag walls with a gate facing the helipad, and a yard kitted for living off-grid
@@ -235,11 +252,11 @@
     if (!edge2 || !land(at(x, y)) || at(x, y) === PATH || (x === COMPOUND.x1 && COMPOUND.gate.indexOf(y) >= 0)) continue;
     wall[k(x, y)] = 1; solid[k(x, y)] = 1;
   }
-  [["mast", 15, 43], ["solar", 15, 46], ["solar", 16, 46], ["generator", 22, 43], ["tank", 24, 43], ["tent", 22, 47], ["campfire", 19, 47], ["crates", 25, 47], ["lamp", 25, 43], ["lamp", 15, 47]].forEach(function (q) {
+  [["mast", 18, 61], ["solar", 18, 63], ["solar", 19, 63], ["generator", 24, 58], ["tank", 26, 58], ["tent", 22, 63], ["campfire", 21, 62], ["crates", 27, 64], ["lamp", 27, 58], ["lamp", 18, 59]].forEach(function (q) {
     if (walkable0(q[1], q[2])) { props.push({ kind: q[0], tx: q[1], ty: q[2] }); solid[k(q[1], q[2])] = 1; }
   });
   // crates stacked by the depot and on the dock
-  [[42, 44], [42, 43], [38, 44], [35, dockY]].forEach(function (c2) { if (walkable0(c2[0], c2[1])) { props.push({ kind: "crates", tx: c2[0], ty: c2[1] }); solid[k(c2[0], c2[1])] = 1; } });
+  [[56, 60], [56, 59], [52, 60], [DOCKX - 1, dockY]].forEach(function (c2) { if (walkable0(c2[0], c2[1])) { props.push({ kind: "crates", tx: c2[0], ty: c2[1] }); solid[k(c2[0], c2[1])] = 1; } });
   function walkable(x, y) { var t = at(x, y); return (land(t) || t === DOCK) && !solid[k(x, y)]; }
   function solidPx(px, py) { return !walkable(Math.floor(px / T), Math.floor(py / T)); }
 
@@ -518,6 +535,7 @@
   })();
   var WATER = ["#5cb6dd", "#4aa3d2", "#3b8dc2", "#3179b0", "#28669c", "#215888", "#1f4e79"];
   var GRASS_T = ["#3b7d31", "#448a37", "#4f9a3e", "#5aa846", "#67b651", "#76c25c"];
+  var HIGH_T = ["#58912f", "#679f36", "#78ad3e", "#8aba48", "#9dc656", "#b0d066"];
   var ASH = ["#3a312b", "#4a3f37", "#5b4f45", "#6d6054", "#807264"];
   (function paint() {
     var g = ground.getContext("2d");
@@ -535,7 +553,7 @@
         for (i = 0; i < 2; i++) { hh = hash(tx * 3 + i, ty * 5); r(X + ((hh * 12) | 0), Y + ((hash(ty, tx * 7 + i) * 15) | 0), 3, 1, "rgba(255,255,255,.08)"); }
         if (t === DOCK) {
           for (j = 0; j < 4; j++) r(X, Y + j * 4, T, 3, j % 2 ? COL.dock : "#9a6a3c");
-          r(X, Y, 2, T, COL.dock2); if (tx === CX + 1) r(X + T - 2, Y, 2, T, COL.dock2);
+          r(X, Y, 2, T, COL.dock2); if (tx === DOCKX + 1) r(X + T - 2, Y, 2, T, COL.dock2);
         }
       } else if (t === SAND || t === PATH || t === PAD) {
         r(X, Y, T, T, t === SAND ? COL.sand : COL.path);
@@ -559,13 +577,13 @@
         if (t === SAND && hash(tx, ty * 3) < 0.03) { r(X + 6, Y + 7, 3, 2, "#f6efe0"); r(X + 7, Y + 6, 1, 1, "#e9a3a3"); }   // shell
       } else if (t === GRASS) {
         // grass: soft tonal patches (sampled per pixel pair, so patches cross tile edges), darker
-        // and lusher under the forests, brighter up on the plateau, worn to dirt in the meadows
+        // and lusher under the forests, brighter up on the highland, worn to dirt in the meadows
         var fo = forest(tx, ty);
         for (j = 0; j < T; j += 2) for (i = 0; i < T; i += 2) {
           var wx = tx + i / T, wy = ty + j / T, patch = fbm(wx * 1.6 + 7, wy * 1.6);
-          var gv = 0.55 + patch * 0.45 + (hash(X + i, Y + j) - 0.5) * 0.22 + ELEV[ty][tx] * 0.18 - Math.max(0, Math.min(1, (fo - 0.1) * 4)) * 0.28;
+          var gv = 0.47 + patch * 0.42 + (hash(X + i, Y + j) - 0.5) * 0.22 + ELEV[ty][tx] * 0.2 - Math.max(0, Math.min(1, (fo - 0.1) * 4)) * 0.28;
           var dirt = fo < 0.05 && fbm(wx * 2.8 + 90, wy * 2.8 + 11) > 0.33;
-          g.fillStyle = dirt ? tone(0.5 + (hash(X + i, Y + j) - 0.5) * 0.4, ["#6f5a3a", "#8a7048", "#9c8a56"], X + i, Y + j) : tone(gv, GRASS_T, X + i, Y + j);
+          g.fillStyle = dirt ? tone(0.5 + (hash(X + i, Y + j) - 0.5) * 0.4, ["#6f5a3a", "#8a7048", "#9c8a56"], X + i, Y + j) : tone(gv, ELEV[ty][tx] === 2 ? HIGH_T : GRASS_T, X + i, Y + j);
           g.fillRect(X + i, Y + j, 2, 2);
         }
         for (i = 0; i < 6; i++) {                           // tufts: little V blades, dark with a lit tip
@@ -636,38 +654,44 @@
     }
     r(hx0 - 7, hy0 - 8, 3, 16, "#f4f4f4"); r(hx0 + 4, hy0 - 8, 3, 16, "#f4f4f4"); r(hx0 - 4, hy0 - 1, 8, 3, "#f4f4f4");
 
-    // bones in the t-rex paddock, and three-toed tracks along the north beach
+    // bones in the t-rex paddock, and three-toed tracks along the south beach
     (function bones(bx, by) {
       for (var i = 0; i < 6; i++) { r(bx + i * 3, by, 1, 6, "#d9cfb8"); r(bx + i * 3, by, 1, 1, "#f2ead8"); }
       r(bx - 1, by + 3, 18, 1, "#c8bea8"); r(bx + 17, by + 2, 6, 3, "#e8e0cc"); r(bx + 21, by + 1, 5, 4, "#e8e0cc"); r(bx + 22, by + 2, 1, 1, "#3a3024"); r(bx + 24, by + 4, 2, 1, "#c8bea8");
       r(bx - 10, by + 3, 9, 1, "#c8bea8"); r(bx - 12, by + 4, 3, 1, "#c8bea8");
-    })(20 * T + 2, 36 * T + 4);
+    })(31 * T + 2, 50 * T + 4);
     for (var ft = 0; ft < 11; ft++) {
-      var fx0 = (27 + ft * 1.3) * T + (ft % 2) * 6, fy0 = (5.5 + Math.sin(ft * 0.6) * 0.5) * T;
+      var fx0 = (30 + ft * 1.3) * T + (ft % 2) * 6, fy0 = (65.4 + Math.sin(ft * 0.6) * 0.5) * T;
       if (at(Math.floor(fx0 / T), Math.floor(fy0 / T)) !== SAND) continue;
       g.fillStyle = "#c2a86e"; g.fillRect(fx0, fy0, 2, 2); g.fillRect(fx0 + 2, fy0 - 2, 1, 2); g.fillRect(fx0 + 2, fy0 + 2, 1, 2); g.fillRect(fx0 + 3, fy0, 2, 1);
     }
 
     // cliffs: a rock face under every drop in level, walls down the sides, stairs where a path climbs
-    var ROCK = ["#5c4632", "#7a5f45", "#957658", "#b3936f"];
+    var ROCK = ["#5d574c", "#7c7567", "#9d9584", "#bdb5a2", "#d6cfbc"];
     for (var cy2 = 1; cy2 < MH; cy2++) for (var cx2 = 0; cx2 < MW; cx2++) {
       var X2 = cx2 * T, Y2 = cy2 * T, L0 = lvl(cx2, cy2), Lup = lvl(cx2, cy2 - 1);
-      var isPath = map[cy2][cx2] === PATH, upPath = map[cy2 - 1][cx2] === PATH, RK = ROCK;
+      var isPath = map[cy2][cx2] === PATH, upPath = map[cy2 - 1][cx2] === PATH, RK = ROCK, tt2 = map[cy2][cx2];
+      if (tt2 === RIVER || tt2 === BRIDGE || map[cy2 - 1][cx2] === RIVER) { if (Lup > L0) r(X2, Y2 + 12, T, 3, "rgba(0,0,0,.18)"); continue; }
       if (Lup > L0) {
-        if (isPath || upPath) {                              // stairs
-          for (var st = 0; st < T; st += 3) { r(X2 + 2, Y2 + st, T - 4, 2, "#b99c68"); r(X2 + 2, Y2 + st + 2, T - 4, 1, "#8a6f45"); }
-          r(X2, Y2, 2, T, "#6f573f"); r(X2 + T - 2, Y2, 2, T, "#6f573f");
+        if (isPath || upPath) {                              // stairs cut into the rock
+          for (var st = 0; st < T; st += 3) { r(X2 + 2, Y2 + st, T - 4, 2, "#c8b48a"); r(X2 + 2, Y2 + st + 2, T - 4, 1, "#8a7552"); }
+          r(X2, Y2, 2, T, RK[1]); r(X2 + T - 2, Y2, 2, T, RK[1]); r(X2, Y2, 1, T, RK[0]); r(X2 + T - 1, Y2, 1, T, RK[0]);
         } else {
-          var fh = 11;
+          // a tall rock face: pale at the top where the light catches it, darker toward the foot,
+          // split by vertical cracks, with a ledge of strata partway down and grass hanging over the lip
+          var fh = 16 + 5 * (Lup - L0), below = map[cy2 + 1] ? map[cy2 + 1][cx2] : DEEP;
+          if (below === PATH || below === RIVER) fh = 14;
+          var ledge = 6 + ((hash(cx2 >> 1, cy2) * 4) | 0);
           for (var fy2 = 0; fy2 < fh; fy2++) for (var fx2 = 0; fx2 < T; fx2++) {
-            var strata = ((fy2 + (hash(cx2, 3) * 3 | 0)) % 4 === 0) ? -0.25 : 0;
-            g.fillStyle = tone(0.75 - fy2 / fh * 0.6 + strata + (hash(X2 + fx2, Y2 + fy2) - 0.5) * 0.2, RK, X2 + fx2, Y2 + fy2);
-            g.fillRect(X2 + fx2, Y2 + fy2, 1, 1);
+            var gx2 = X2 + fx2, crack = hash(gx2 >> 2, cy2 * 7) < 0.3 && (gx2 & 3) === 0, wob = Math.sin(gx2 * 0.7 + cy2) * 1.2;
+            var v2 = 0.92 - fy2 / fh * 0.62 + (hash(gx2 >> 1, (Y2 + fy2) >> 2) - 0.5) * 0.18 - (crack ? 0.35 : 0) - (Math.abs(fy2 - ledge - wob) < 0.8 ? 0.3 : 0) + (Math.abs(fy2 - ledge - wob - 1) < 0.8 ? 0.12 : 0);
+            g.fillStyle = tone(v2, RK, gx2, Y2 + fy2); g.fillRect(gx2, Y2 + fy2, 1, 1);
           }
-          r(X2, Y2, T, 1, "#76c25c");  // the lip hangs over the edge
-          for (var lp = 0; lp < T; lp += 2) if (hash(cx2 * 16 + lp, cy2) < 0.5) r(X2 + lp, Y2 + 1, 2, 1, "#5aa846");
-          if (hash(cx2, cy2 * 3) < 0.5) for (var vn = 0; vn < 6 + hash(cy2, cx2) * 4; vn++) r(X2 + 3 + ((hash(cx2, 9) * 9) | 0), Y2 + 1 + vn, 1, 1, vn % 2 ? "#2f6f2c" : "#4f9a3e");   // a hanging vine
-          r(X2, Y2 + fh, T, 3, "rgba(0,0,0,.22)");            // cast shadow at the foot
+          var LIP = L0 < Lup ? (Lup === 2 ? "#86c860" : "#6cb452") : "#6cb452";
+          for (var lp = 0; lp < T; lp++) { var hang = 1 + ((hash(cx2 * 16 + lp, cy2) * 3) | 0); r(X2 + lp, Y2, 1, hang, lp % 3 ? LIP : "#4f9a3e"); }
+          if (hash(cx2, cy2 * 3) < 0.4) for (var vn = 0; vn < 5 + hash(cy2, cx2) * 8; vn++) r(X2 + 3 + ((hash(cx2, 9) * 9) | 0) + (vn % 3 === 2 ? 1 : 0), Y2 + 2 + vn, 1, 1, vn % 2 ? "#2f6f2c" : "#4f9a3e");   // a hanging vine
+          for (var sh2 = 0; sh2 < 4; sh2++) r(X2, Y2 + fh + sh2, T, 1, "rgba(0,0,0," + (0.26 - sh2 * 0.06).toFixed(2) + ")");   // cast shadow at the foot
+          if (hash(cx2 * 5, cy2) < 0.35) { var bxr = X2 + ((hash(cx2, cy2) * 10) | 0); r(bxr, Y2 + fh - 3, 4, 3, RK[2]); r(bxr, Y2 + fh - 3, 4, 1, RK[3]); r(bxr, Y2 + fh, 4, 1, "rgba(0,0,0,.3)"); }   // fallen rock
         }
       }
       if (lvl(cx2 - 1, cy2) > L0 && !isPath) { r(X2, Y2, 3, T, RK[1]); r(X2, Y2, 1, T, RK[0]); r(X2 + 3, Y2, 2, T, "rgba(0,0,0,.15)"); }
@@ -711,11 +735,26 @@
     b: ["......WWWWW","......WKWWW","......WWWWW","......WWW..","......WWWW.","W....WWWW..","W...WWWWWW.","WW.WWWWWW..","WWWWWWWW...",".WWWWWWW...","..WWWWW....","...WW.W....","....W..W..."]
   };
 
+  // pi: the little white one, as it was
+  var FRAMES = {
+    idle:  ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWKWWKWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","..WW..WW..","..GG..GG.."],
+    blink: ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWGWWGWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","..WW..WW..","..GG..GG.."],
+    walk1: ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWKWWKWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..",".WW....WW.",".GG....GG."],
+    walk2: ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWKWWKWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","...WWWW...","...GGGG..."],
+    back:  ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWWWWWWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","..WW..WW..","..GG..GG.."]
+  };
+  var PIPAL = { W: "#f4f4f4", G: "#a9a9a9", K: "#141414" };
+  // pi's frame for a mode ("idle", "walk", "blink"), or middle path's once pi has evolved
+  function piArt(mode, i, up) {
+    if (pi.kaiju) return dinoFrame("kaiju", mode, i);
+    var f = up ? (mode === "walk" && i % 2 ? FRAMES.walk1 : FRAMES.back) : mode === "walk" ? (i % 2 ? FRAMES.walk1 : FRAMES.walk2) : mode === "blink" ? FRAMES.blink : FRAMES.idle;
+    return frameCanvas(f, PIPAL, 10);
+  }
   function shadow(x, y, w) { ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(x - w / 2 + 1, y - 1, w - 2, 1); ctx.fillRect(x - w / 2, y, w, 2); ctx.fillRect(x - w / 2 + 1, y + 2, w - 2, 1); }
 
-  var SPAWN = { x: 36 * T + 8, y: 29 * T + 12 };
+  var SPAWN = { x: 46 * T + 8, y: 60 * T + 12 };
   var pi = { kaiju: (function () { try { return sessionStorage.getItem("pi-kaiju") === "1"; } catch (e) { return false; } })(), x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
-  var rex = { x: 31 * T + 8, y: 33 * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
+  var rex = { x: 44 * T + 8, y: 62 * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
   var ptero = { on: false, x: 0, y: 0, vx: 0, next: 4 };
   var clouds = [0, 1, 2].map(function (i) { return { x: hash(i, 9) * MW * T, y: hash(9, i) * MH * T, w: 90 + i * 30, v: 5 + i * 2 }; });
   var egg = null;          // { t } while pi is hatching
@@ -769,6 +808,7 @@
     }
     var vd = Math.hypot(pi.x - VX, pi.y - (VOLC.y - 20));
     amb.waves.set({ vol: 0.05 + shore * 0.5 });
+    var WF = FALLS.reduce(function (m, f) { return !m || Math.hypot(pi.x - f.x, pi.y - f.y) < Math.hypot(pi.x - m.x, pi.y - m.y) ? f : m; }, null) || { x: -9999, y: -9999 };
     amb.falls.set({ vol: Math.max(0, 1 - Math.hypot(pi.x - WF.x, pi.y - WF.y) / 260) * 0.35, pan: Math.max(-1, Math.min(1, (WF.x - pi.x) / 200)) });
     var dn = drones.reduce(function (m, d) { return Math.min(m, Math.hypot(pi.x - d.x, pi.y - d.y)); }, 1e9);
     amb.buzz.set({ vol: Math.max(0, 1 - dn / 200) * 0.05 });
@@ -1050,381 +1090,28 @@
   }
 
   /* ════════ the locals: dinos, robots, cats, cockatiels, koi ════════
-     the dinosaurs are built from shapes (ellipses, tapered tubes, polygons), snapped to
-     whole pixels, then shaded by hand-rolled rules: lit along the back, darker toward
-     the belly, a rim of light on top, spots dithered in, far legs pushed into shadow. */
-  function bez(p, u) { var q = p.map(function (a) { return a.slice(); }); for (var n = q.length - 1; n > 0; n--) for (var i = 0; i < n; i++) { q[i][0] += (q[i + 1][0] - q[i][0]) * u; q[i][1] += (q[i + 1][1] - q[i][1]) * u; } return q[0]; }
-  /* ════════ creature rendering ════════
-     every creature is authored as shapes on a small grid, rasterized larger (DS), then lit.
-     parts: each shape is its own part unless it names a group, so a leg reads as a leg and
-     the body, neck, head and tail (one group) read as one smooth form. each part gets a
-     rounded height from its distance to its own edge, a normal from that, and a light from
-     the top left: surfaces facing the light are bright, surfaces turned away are dark (not
-     pillow shading: the light has a direction). where a nearer part overlaps a farther one,
-     the farther one is shadowed along the seam. outlines are "sel-out": lit edges get a
-     warm dark of the creature's own colour, shadowed edges a deeper one. */
-  var DS = 1.6, BODY = 1, LX = -0.55, LY = -0.62, LZ = 0.56;
-  function selout(hex, k) { var n = parseInt(hex.slice(1), 16); return "rgb(" + [(n >> 16) & 255, (n >> 8) & 255, n & 255].map(function (c) { return Math.round(c * (k || 0.45)); }).join(",") + ")"; }
-  function shapeArt(w0, h0, pal, draw, P, ds) {
-    ds = ds || DS;
-    var w = Math.ceil(w0 * ds), h = Math.ceil(h0 * ds), N = w * h, kind = [], grp = [], order = {}, eyes = [], i, nextG = 100, stamps = 0;
-    for (i = 0; i < N; i++) { kind.push(null); grp.push(-1); }
-    var sc = document.createElement("canvas"); sc.width = w; sc.height = h; var sg = sc.getContext("2d");
-    function stamp(key, fn, g) {
-      sg.setTransform(1, 0, 0, 1, 0, 0); sg.clearRect(0, 0, w, h); sg.setTransform(ds, 0, 0, ds, 0, 0);
-      sg.fillStyle = "#fff"; sg.beginPath(); fn(sg); sg.fill();
-      var gid = g !== undefined ? g : nextG++;
-      if (order[gid] === undefined) order[gid] = stamps++;
-      var d = sg.getImageData(0, 0, w, h).data;
-      for (var i2 = 0; i2 < N; i2++) if (d[i2 * 4 + 3] > 118) { kind[i2] = key; grp[i2] = gid; }
-    }
-    var a = {
-      ell: function (key, x, y, rx, ry, rot, g) { stamp(key, function (c) { c.ellipse(x, y, rx, ry, rot || 0, 0, 6.283); }, g); },
-      poly: function (key, pts, g) { stamp(key, function (c) { pts.forEach(function (p, j) { if (j) c.lineTo(p[0], p[1]); else c.moveTo(p[0], p[1]); }); c.closePath(); }, g); },
-      tube: function (key, pts, r0, r1, g) { stamp(key, function (c) { for (var j = 0; j <= 36; j++) { var u = j / 36, p = bez(pts, u), rr = Math.max(0.5, r0 + (r1 - r0) * u); c.moveTo(p[0] + rr, p[1]); c.arc(p[0], p[1], rr, 0, 6.283); } }, g); },
-      px: function (key, x, y, pw, ph) {
-        var x0 = Math.round(x * ds), y0 = Math.round(y * ds), x1 = Math.max(x0 + 1, Math.round((x + (pw || 1)) * ds)), y1 = Math.max(y0 + 1, Math.round((y + (ph || 1)) * ds));
-        for (var yy = y0; yy < y1; yy++) for (var xx = x0; xx < x1; xx++) if (xx >= 0 && yy >= 0 && xx < w && yy < h) { kind[yy * w + xx] = key; if (grp[yy * w + xx] < 0) grp[yy * w + xx] = 99; }
-      },
-      eye: function (x, y) { eyes.push([Math.round(x * ds), Math.round(y * ds)]); }
-    };
-    draw(a, P);
-    eyes.forEach(function (e) { [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(function (o) { var ex = e[0] + o[0], ey = e[1] + o[1]; if (ex < w && ey < h) { kind[ey * w + ex] = "K"; grp[ey * w + ex] = 98; } }); if (e[0] + 1 < w) kind[e[1] * w + e[0] + 1] = "W"; });
-    function G(x, y) { return x < 0 || y < 0 || x >= w || y >= h ? -1 : kind[y * w + x] ? grp[y * w + x] : -1; }
-    // distance from each pixel to the edge of its own part (chamfer, two passes)
-    var dist = new Float32Array(N), BIG = 1e6;
-    for (var y = 0; y < h; y++) for (var x = 0; x < w; x++) {
-      var g0 = G(x, y); if (g0 < 0) { dist[y * w + x] = 0; continue; }
-      dist[y * w + x] = G(x - 1, y) !== g0 || G(x + 1, y) !== g0 || G(x, y - 1) !== g0 || G(x, y + 1) !== g0 ? 0.6 : BIG;
-    }
-    function relax(x, y, dx, dy, c) { var nx = x + dx, ny = y + dy; if (G(nx, ny) === G(x, y)) { var v = dist[ny * w + nx] + c; if (v < dist[y * w + x]) dist[y * w + x] = v; } }
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) if (G(x, y) >= 0) { relax(x, y, -1, 0, 1); relax(x, y, 0, -1, 1); relax(x, y, -1, -1, 1.4); relax(x, y, 1, -1, 1.4); }
-    for (y = h - 1; y >= 0; y--) for (x = w - 1; x >= 0; x--) if (G(x, y) >= 0) { relax(x, y, 1, 0, 1); relax(x, y, 0, 1, 1); relax(x, y, 1, 1, 1.4); relax(x, y, -1, 1, 1.4); }
-    var R = (pal.round || 4.5) * ds / 1.6;
-    function H(x, y, g0) { if (G(x, y) !== g0) return 0; var d = Math.min(dist[y * w + x], R) / R; return R * (1 - (1 - d) * (1 - d)); }
-    var out = document.createElement("canvas"); out.width = w + 2; out.height = h + 2; var og = out.getContext("2d");
-    for (y = 0; y < h; y++) for (x = 0; x < w; x++) {
-      var q = kind[y * w + x]; if (!q) continue;
-      var gg = grp[y * w + x], col;
-      if (q === "K") col = "#0b0908";
-      else if (q === "W") col = "#f7f3ea";
-      else {
-        var ramp = q === "L" ? pal.L : q === "A" ? pal.A : q === "H" ? pal.H : pal.B;
-        var nx = H(x - 1, y, gg) - H(x + 1, y, gg), ny = H(x, y - 1, gg) - H(x, y + 1, gg), nz = 1.6, nl = Math.sqrt(nx * nx + ny * ny + nz * nz);
-        var lam = (nx * -LX + ny * -LY + nz * LZ) / nl;                      // facing the light (top left, a little in front)
-        var v = 0.16 + 0.78 * Math.max(0, lam);
-        if (lam > 0.9) v += 0.1;                                             // a hot spot where it faces the light square on
-        if (q === "F") v -= 0.3;
-        // the farther part is shadowed where a nearer one overlaps it
-        for (var oy = -2; oy <= 2; oy++) for (var ox = -2; ox <= 2; ox++) { var gn = G(x + ox, y + oy); if (gn >= 0 && gn !== gg && order[gn] > order[gg] && gn < 98) { v -= 0.18; oy = ox = 3; } }
-        var up = ny > 0.15;                                                  // facing upward: the creature's back
-        if (q === "B" && pal.spots && hash(((x + (pal.seed || 0)) >> 1) * 3, (y >> 1) * 5 + (pal.seed || 0)) < pal.spots) v += pal.spotV || -0.25;
-        if (q === "B" && pal.pattern === "stripes" && up && ((x + y * 0.45 + (pal.seed || 0)) % 7) < 1.7) v -= 0.28;
-        if (q === "B" && pal.pattern === "rosettes" && up) {
-          var cx0 = Math.floor(x / 7), cy0 = Math.floor(y / 6), rd = Math.hypot(x + 0.5 - (cx0 * 7 + 3.5), (y + 0.5 - (cy0 * 6 + 3)) * 1.2);
-          if (hash(cx0, cy0 + 50) < 0.6 && rd > 1.2 && rd < 2.4) { og.fillStyle = tone(0.35 + 0.55 * Math.max(0, lam), pal.A, x, y); og.fillRect(x + 1, y + 1, 1, 1); continue; }
-        }
-        if (q === "B" && pal.scales && ((x + (y >> 1)) % 3 === 0) && (y % 2 === 0)) v -= 0.07;   // a hint of scale texture
-        v += (hash(x * 7 + (pal.seed || 0), y * 3) - 0.5) * 0.08;
-        col = tone(v, ramp, x, y);
-      }
-      og.fillStyle = col; og.fillRect(x + 1, y + 1, 1, 1);
-    }
-    // sel-out: the outline on the lit side is a warm dark, on the shadow side a deep one
-    var lit = selout(pal.B[1], 0.55), dark = selout(pal.B[0], 0.4);
-    for (y = -1; y <= h; y++) for (x = -1; x <= w; x++) {
-      if (G(x, y) >= 0) continue;
-      var r2 = G(x + 1, y) >= 0, d2 = G(x, y + 1) >= 0, l2 = G(x - 1, y) >= 0, u2 = G(x, y - 1) >= 0;
-      if (!(r2 || d2 || l2 || u2)) continue;
-      og.fillStyle = (r2 || d2) && !(l2 || u2) ? lit : dark; og.fillRect(x + 1, y + 1, 1, 1);
-    }
-    return out;
-  }
-  /* poses. every creature is drawn from a pose P = { mode, ph }: mode is walk, idle, blink,
-     graze, roar or fly, and ph runs 0..1 through the cycle. walks are six frames. four-legged
-     animals step in a four-beat walk (near hind, near fore, far hind, far fore, a quarter
-     apart); two-legged ones alternate. each foot slides back along the ground for half its
-     cycle and lifts and swings forward for the other half; the body bobs twice per cycle and
-     the head and tail follow a beat behind. idles breathe and blink. */
-  function gait(P, off) {
-    if (P.mode !== "walk") return { dx: 0, lift: 0 };
-    var p = (P.ph + off) % 1;
-    return p < 0.5 ? { dx: 1 - p * 4, lift: 0 } : { dx: -1 + (p - 0.5) * 4, lift: Math.sin((p - 0.5) * 2 * Math.PI) };
-  }
-  function limb(a, key, hx, hy, fy, stride, liftH, g, r0, r1, bend) {
-    var fx = hx + g.dx * stride, ly = fy - g.lift * liftH, kx = (hx + fx) / 2 + (bend || 0) * (1 + g.lift * 1.5);
-    a.tube(key, [[hx, hy], [kx, (hy + ly) / 2], [fx, ly]], r0, r1);
-    a.ell(key, fx + 0.6, ly - 0.2, r1 * 1.25, 0.9);                        // a flat foot
-    return [fx, ly];
-  }
-  // a theropod leg: heavy thigh, shin angled forward to the knee, a long metatarsus back to the ankle, three toes
-  function tleg(a, key, hx, hy, fy, stride, liftH, g, th, sickle) {
-    var fx = hx + g.dx * stride, ly = fy - g.lift * liftH;
-    a.ell(key, hx - 0.4, hy + th * 0.6, th * 1.25, th * 1.7, 0.3);
-    var kx = hx + th * 0.7 + g.lift * 1.4, ky = hy + th * 2, ax = fx - th * 0.5 - g.lift * 0.8, ay = ly - th * 1.3;
-    a.tube(key, [[hx, hy + th], [kx, ky], [ax, ay]], th * 0.85, th * 0.5);
-    a.tube(key, [[ax, ay], [fx, ly - 0.4]], th * 0.45, th * 0.38);
-    a.poly(key, [[fx - th * 0.6, ly - 0.9], [fx + th * 1.1, ly - 0.7], [fx + th * 1.3, ly + 0.9], [fx - th * 0.6, ly + 0.9]]);
-    a.px("H", fx + th * 1.2, ly - 0.2, 0.8, 0.8);
-    if (sickle) a.px("H", fx + 0.2, ly - 1.4, 0.8, 1);
-    return [fx, ly];
-  }
-  function bobOf(P, amp) { return P.mode === "walk" ? -Math.abs(Math.sin(P.ph * Math.PI * 2)) * amp : 0; }
-  function breathe(P) { return P.mode === "idle" || P.mode === "blink" ? Math.sin(P.ph * Math.PI * 2) * 0.35 : 0; }
-  function swayOf(P) { return Math.sin(P.ph * Math.PI * 2 + 1) * (P.mode === "walk" ? 1.3 : 0.9); }
-  function eye(a, P, x, y) { if (P.mode !== "blink") a.eye(x, y); }
-  function chew(P) { return P.mode === "graze" && P.ph >= 0.5 ? 0.6 : 0; }
-  /* the species. proportions follow current reconstructions: tyrannosaurs and other theropods
-     carry the spine near horizontal with the tail held straight out as a counterweight;
-     stegosaurus has short forelimbs and a high-arched back; brachiosaurus is the reverse, with
-     long forelimbs and a steeply rising trunk; raptors are feathered; spinosaurus has a tall
-     sail and a crocodile-like snout for fishing along the river. */
-  var ART = {
-    trex: { w: 46, h: 28, pal: { B: ["#132f1a", "#1d4a24", "#28662e", "#3c8a3a", "#5eac50", "#86c870"], L: ["#6f9a52", "#94b86e", "#bcd694"], H: ["#bfb8a2", "#f4efe0"], A: ["#7a3a10", "#b8581c", "#e8883a"], pattern: "rosettes", scales: 1, seed: 23, round: 5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 1), br = breathe(P), sw = swayOf(P), roar = P.mode === "roar", jaw = roar ? (P.ph < 0.5 ? 3.5 : 4.5) : 0, hy = b + (roar ? -2.5 : 0) + br * 0.5;
-        tleg(a, "F", 19, 14 + b, 27, 3.2, 2.6, gait(P, 0.5), 3.2);
-        a.tube("B", [[16, 11.5 + b], [8, 10 + b + sw * 0.3], [0.6, 9.5 + sw]], 5.2, 0.8, BODY);
-        a.ell("B", 21.5, 12.5 + b, 9.5, 6.2 + br, -0.06, BODY);
-        a.tube("B", [[27.5, 10.5 + b], [30.5, 8.5 + b], [32, 7 + hy]], 4.8, 4.4, BODY);
-        a.poly("B", [[29, 3.5 + hy], [38, 3 + hy], [43.5, 5.5 + hy], [44.8, 9 + hy], [39, 10 + hy], [31, 10.8 + hy]], BODY);
-        a.poly("B", [[31, 10 + hy], [43.8, 9.5 + hy + jaw], [42.8, 12 + hy + jaw], [33, 13.2 + hy]], BODY);
-        a.tube("L", [[26.5, 15.5 + b], [21, 18.4 + b], [14, 16.5 + b]], 1.8, 1.2, BODY); a.tube("L", [[33, 12.8 + hy], [29, 14 + b]], 1.4, 1.4, BODY);
-        if (roar) { a.poly("K", [[32, 10.5 + hy], [43.5, 10 + hy], [43, 10 + hy + jaw], [33, 12 + hy]]); for (var i = 33; i <= 42; i += 2) { a.px("H", i, 10.4 + hy, 0.8, 1); a.px("H", i + 1, 9.2 + hy + jaw, 0.8, 1); } }
-        else { a.px("K", 32, 10 + hy, 12, 0.7); for (i = 34; i <= 42; i += 2) a.px("H", i, 10.6 + hy, 0.7, 0.8); }
-        a.tube("B", [[29, 14 + b], [31.5, 16.8 + b], [33, 16 + b]], 1.2, 0.8);
-        tleg(a, "B", 19, 14 + b, 27, 3.2, 2.6, gait(P, 0), 3.4);
-        a.px("K", 36.2, 4.4 + hy, 3, 0.6); eye(a, P, 37, 5.4 + hy); a.px("K", 43.4, 6.2 + hy, 0.8, 0.8);
-      } },
-    raptor: { w: 31, h: 18, pal: { B: ["#34100c", "#4f1d16", "#6d2c20", "#8e402e", "#ae5c3c", "#c8784e"], L: ["#b89468", "#d6b486", "#eed4aa"], A: ["#0c2226", "#163a3e", "#245a5e", "#3a8288"], H: ["#bdb4a0", "#f0ead8"], pattern: "stripes", seed: 67, round: 3.5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 1.1), br = breathe(P), sw = swayOf(P) * 1.1, look = P.mode === "idle" ? [0, -0.8, 0, 0.6][Math.round(P.ph * 4) % 4] : 0, hy = b * 0.7 + look;
-        tleg(a, "F", 12, 8.5 + b, 17, 3.6, 2.4, gait(P, 0.5), 1.8, true);
-        a.poly("A", [[3, 5 + b + sw * 0.4], [-0.5, 3.4 + sw * 0.7], [-0.5, 8.2 + sw * 0.7], [3, 7.4 + b + sw * 0.4]]);   // the tail fan
-        a.tube("B", [[9, 7.2 + b], [4, 6.2 + b + sw * 0.3], [0.5, 5.8 + sw * 0.7]], 2.4, 0.9, BODY);
-        a.ell("B", 13, 8.2 + b, 5.6, 3.3 + br * 0.5, -0.05, BODY);
-        a.tube("B", [[17.5, 7 + b], [20, 5 + hy], [21.5, 3.4 + hy]], 2.2, 1.8, BODY);
-        a.poly("B", [[20, 1.4 + hy], [25.5, 1.8 + hy], [30, 3.6 + hy], [29, 5.2 + hy], [22, 5.6 + hy]], BODY);
-        a.tube("L", [[17, 10 + b], [13, 11 + b], [9, 9.5 + b]], 1.3, 1, BODY); a.tube("L", [[21.5, 5.4 + hy], [24, 5 + hy]], 0.8, 0.7, BODY);
-        a.poly("A", [[20.5, 1.6 + hy], [18.6, 0.2 + hy], [21.5, 1 + hy]]);                                                     // crest feathers
-        a.tube("B", [[17, 9 + b], [19, 11 + b], [20.5, 11.2 + b]], 0.9, 0.6);
-        a.poly("A", [[16.5, 9.4 + b], [20.6, 11.4 + b], [17.4, 13 + b]]);                                                      // arm feathers
-        tleg(a, "B", 12, 9 + b, 17, 3.6, 2.4, gait(P, 0), 1.9, true);
-        eye(a, P, 24.6, 2.4 + hy); a.px("K", 25.5, 4.7 + hy, 4, 0.5);
-      } },
-    brachio: { w: 46, h: 50, pal: { B: ["#3f4a14", "#58661c", "#768a26", "#96aa36", "#b8c858", "#d2dc84"], L: ["#8a9058", "#a9ae76", "#cacd98"], spots: 0.14, spotV: -0.25, seed: 11, round: 6 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.8), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0;
-        limb(a, "F", 30, 32 + b, 49, 2.4, 2, gait(P, 0.75), 2.8, 2.3, 0.6);
-        limb(a, "F", 13, 35 + b, 49, 2.4, 2, gait(P, 0.5), 3, 2.4, -0.6);
-        a.tube("B", [[10, 34 + b], [3, 37 + b + sw * 0.4], [1 + sw * 0.3, 44 + sw]], 4.4, 0.8, BODY);
-        a.ell("B", 20, 32 + b, 13, 7.8 + br, -0.28, BODY);
-        var hx = 35.5 + gz * 1.5 + (P.mode === "walk" ? Math.sin(P.ph * Math.PI * 4) * 0.5 : 0), hy = 7 + b * 0.6 - gz * 1.5 + br;
-        a.tube("B", [[29, 26 + b], [35, 18 + b], [hx, hy]], 5, 2.6, BODY);
-        a.ell("B", hx + 2, hy - 1.6, 4.2, 2.8, 0.1, BODY); a.ell("B", hx + 1.6, hy - 3.4, 2.2, 1.6, 0, BODY);   // the arched nasal crest
-        a.tube("B", [[hx + 3.5, hy - 1], [hx + 7.8, hy + 0.4 + chew(P)]], 2.1, 1.4, BODY);
-        a.tube("L", [[32, 28 + b], [37.4, 18.5 + b], [hx + 2.5, hy + 2]], 1.3, 0.9, BODY);
-        a.ell("L", 20, 37.5 + b, 9, 2.2, -0.2, BODY);
-        limb(a, "B", 28, 33 + b, 49, 2.4, 2, gait(P, 0.25), 3.2, 2.6, 0.6);
-        limb(a, "B", 12, 36 + b, 49, 2.4, 2, gait(P, 0), 3.4, 2.7, -0.6);
-        eye(a, P, hx + 2.8, hy - 2.6); a.px("K", hx + 6.8, hy - 0.2, 0.8, 0.8);
-      } },
-    stego: { w: 40, h: 27, pal: { B: ["#111c36", "#1b2c52", "#28416f", "#3c5c93", "#5d80b6", "#86a4d0"], A: ["#7a2410", "#b04418", "#e06a2a", "#f7a95e"], L: ["#50627e", "#71849f", "#98abc4"], H: ["#bdb49c", "#efe8d6"], spots: 0.08, spotV: 0.25, seed: 37, round: 5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.7), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0, i;
-        function back(px) { return 14 + b - (7.2 + br) * Math.sqrt(Math.max(0, 1 - Math.pow((px - 18) / 12, 2))) + (px - 18) * 0.12; }
-        for (i = 0; i < 7; i++) { var px = 9.5 + i * 3.2, top = back(px), sz = 2.2 + 3.4 * Math.sin(Math.PI * (i + 0.3) / 7.5); a.poly("A", [[px - 2, top + 2], [px + 0.8, top - sz - 1.2], [px + 2.2, top + 2]]); }   // far row
-        limb(a, "F", 25, 18 + b, 26, 2, 1.6, gait(P, 0.75), 2.2, 1.8, 0.3); limb(a, "F", 12, 16 + b, 26, 2.2, 1.8, gait(P, 0.5), 2.6, 2.1, -0.3);
-        a.tube("B", [[8, 13 + b], [3, 11 + b + sw * 0.4], [0.5, 12 + sw * 0.8]], 3.8, 1.1, BODY);
-        a.tube("H", [[2.2, 11 + sw * 0.7], [0.6, 6.5 + sw * 0.7]], 0.75, 0.35); a.tube("H", [[3.4, 10.8 + sw * 0.6], [3, 6 + sw * 0.6]], 0.75, 0.35);
-        a.tube("H", [[2, 12.6 + sw * 0.7], [-0.4, 15 + sw * 0.7]], 0.7, 0.35); a.tube("H", [[3.4, 12.6 + sw * 0.6], [2.2, 15.6 + sw * 0.6]], 0.7, 0.35);
-        a.ell("B", 18, 14.5 + b, 12, 7.2 + br, 0.14, BODY);
-        var hx = 35.5 + gz * 0.5, hy = 20.5 + b * 0.5 + gz * 2.5 + chew(P);
-        a.tube("B", [[28, 17 + b], [hx - 1.5, hy - 0.5]], 3.4, 2.2, BODY); a.ell("B", hx, hy, 3, 2, 0.2, BODY);
-        a.ell("L", 18, 19.4 + b, 8.5, 2, 0.14, BODY);
-        for (i = 0; i < 7; i++) { px = 8 + i * 3.2; top = back(px); sz = 2 + 3.6 * Math.sin(Math.PI * (i + 0.5) / 7.5); a.poly("A", [[px - 2.2, top + 2.6], [px - 0.2, top - sz - 0.4], [px + 2.2, top + 2.6]]); }   // near row
-        limb(a, "B", 26, 19 + b, 26, 2, 1.6, gait(P, 0.25), 2.6, 2.2, 0.3); limb(a, "B", 12, 17 + b, 26, 2.2, 1.8, gait(P, 0), 3, 2.4, -0.3);
-        eye(a, P, hx + 0.5, hy - 0.8);
-      } },
-    trike: { w: 40, h: 25, pal: { B: ["#5a2c12", "#7e3e1a", "#a3582a", "#c77b3b", "#e3a064", "#f2c28a"], A: ["#6a2a1e", "#9a3f2a", "#c65c3c", "#e88a5c"], L: ["#c9a27a", "#e0bf96", "#f2dcb8"], H: ["#bdb094", "#f5eedc"], seed: 41, round: 5.5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.7), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0, dy = b * 0.5 + gz * 2.6 + chew(P);
-        limb(a, "F", 25, 15 + b, 24, 2, 1.6, gait(P, 0.75), 2.6, 2.2, 0.6); limb(a, "F", 10, 15 + b, 24, 2, 1.6, gait(P, 0.5), 2.8, 2.3, -0.3);
-        a.tube("B", [[6, 12 + b], [0.6, 14 + b + sw * 0.6]], 3.4, 1, BODY);
-        a.ell("B", 16, 12.5 + b, 11.5, 7 + br, 0, BODY);
-        a.ell("A", 29, 9.5 + dy, 4.6, 7.8, 0.3 + gz * 0.3);                                         // the frill
-        for (var i = 0; i < 5; i++) a.px("H", 29 + Math.cos(-1.9 + i * 0.5) * 4.6, 9.5 + dy + Math.sin(-1.9 + i * 0.5) * 7.4, 0.8, 0.8);   // bony knobs on its rim
-        a.poly("B", [[27, 7 + dy], [33, 10 + dy], [37, 13.5 + dy], [35, 17.5 + dy], [28, 17.5 + dy], [25.5, 12.5 + dy]]);
-        a.poly("H", [[35, 14 + dy], [39.5, 15.2 + dy], [36.5, 17.5 + dy]]);                             // beak
-        a.tube("H", [[30.5, 8.5 + dy], [37.5, 2 + dy + gz]], 1.2, 0.4); a.tube("H", [[32.4, 9.6 + dy], [39, 4.5 + dy + gz]], 1.1, 0.4); a.tube("H", [[35.2, 12.4 + dy], [37.4, 9.5 + dy]], 0.9, 0.4);
-        a.ell("L", 16, 17 + b, 8, 2);
-        limb(a, "B", 25, 16 + b, 24, 2, 1.6, gait(P, 0.25), 3.1, 2.6, 0.6); limb(a, "B", 10, 16 + b, 24, 2, 1.6, gait(P, 0), 3.3, 2.7, -0.3);
-        eye(a, P, 31.2, 11.2 + dy);
-      } },
-    para: { w: 36, h: 30, pal: { B: ["#6a3f18", "#8f5a26", "#b37a36", "#d49a52", "#ecc27e", "#f6dca6"], A: ["#7a2412", "#a8381a", "#d45a2a", "#f08a4a"], L: ["#d8b88a", "#ecd2a8", "#f8e8cc"], H: ["#bdb094", "#f5eedc"], pattern: "stripes", seed: 53, round: 4.5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 1), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0;
-        tleg(a, "F", 16, 15.5 + b, 29, 2.8, 2.2, gait(P, 0.5), 2.3);
-        a.tube("B", [[10, 14 + b], [4, 14 + b + sw * 0.4], [0.5, 16.5 + sw]], 3.8, 0.8, BODY);
-        a.ell("B", 17, 14 + b, 8.5, 5.6 + br, -0.12 + gz * 0.15, BODY);
-        var hx = 27 + gz * 2, hy = 5.5 + b * 0.6 + gz * 8 + chew(P) + br * 0.5;
-        a.tube("B", [[22, 11.5 + b], [hx - 1.5, hy + 1]], 3.2, 2.5, BODY);
-        a.ell("B", hx, hy, 3.3, 2.4, 0, BODY); a.tube("B", [[hx + 0.5, hy + 0.8], [hx + 6, hy + 2.2]], 1.9, 1.3, BODY);
-        a.tube("A", [[hx - 1.5, hy - 1.4], [hx - 6, hy - 4 + gz * 1.5], [hx - 11, hy - 4.2 + gz * 3]], 1.8, 1.2);
-        a.tube("B", [[22, 15 + b], [24.5, 19 + b]], 1.1, 0.8);
-        a.tube("L", [[22, 17 + b], [17, 19.4 + b], [11, 17 + b]], 1.6, 1, BODY); a.tube("L", [[hx - 1.5, hy + 3], [23, 11.5 + b]], 1.1, 1, BODY);
-        tleg(a, "B", 16, 16 + b, 29, 2.8, 2.2, gait(P, 0), 2.5);
-        eye(a, P, hx + 0.6, hy - 1.3);
-      } },
-    ankylo: { w: 40, h: 21, pal: { B: ["#211a12", "#34281b", "#4a3a27", "#624e36", "#7d684a", "#9c8666"], A: ["#8a7250", "#b89c74", "#e0cca4", "#f4e6c4"], L: ["#8a4f1e", "#b0682a", "#d08a44", "#e8a860"], seed: 71, round: 5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.5), br = breathe(P), sw = swayOf(P) * 1.5, gz = P.mode === "graze" ? 1 : 0, i;
-        limb(a, "F", 27, 12 + b, 20, 1.6, 1.3, gait(P, 0.75), 2.4, 2.1, 0.2); limb(a, "F", 11, 12 + b, 20, 1.6, 1.3, gait(P, 0.5), 2.6, 2.2, -0.2);
-        a.tube("B", [[7, 10 + b], [1.8, 8.5 + b + sw * 0.6]], 2.6, 1.5, BODY); a.ell("A", 2.2, 7.8 + b + sw * 0.8, 2.8, 2.2);   // the club
-        a.ell("B", 19, 10 + b, 13, 6.8 + br, 0, BODY);
-        for (i = 6; i <= 32; i += 3.2) a.poly("A", [[i - 1.3, 13.4 + b], [i, 16.2 + b], [i + 1.3, 13.4 + b]]);             // side spikes
-        for (var yy = 5; yy <= 12; yy += 3) for (var xx = 8 + (yy % 2) * 1.6; xx <= 30; xx += 3.4) if (Math.pow((xx - 19) / 13, 2) + Math.pow((yy - 10) / 6.8, 2) < 0.78) a.ell("A", xx, yy + b, 1.2, 0.9);   // osteoderms
-        var hy = 12 + b * 0.5 + gz * 2 + chew(P);
-        a.ell("L", 33.5, hy, 3.6, 2.8, 0, BODY); a.poly("L", [[35, hy - 1], [38.6, hy + 0.6], [35.5, hy + 2.2]], BODY); a.px("A", 31.5, hy - 2.6, 1.4, 1); a.px("A", 34, hy - 2.8, 1.2, 1);
-        limb(a, "L", 26, 14 + b, 20, 1.6, 1.3, gait(P, 0.25), 2.7, 2.3, 0.2); limb(a, "L", 11, 14 + b, 20, 1.6, 1.3, gait(P, 0), 2.9, 2.4, -0.2);
-        eye(a, P, 34.2, hy - 1.2);
-      } },
-    spino: { w: 54, h: 32, pal: { B: ["#2a1c14", "#402a1c", "#5a3c26", "#785236", "#9a6c48", "#bc8e66"], A: ["#6a1414", "#9a2418", "#c83c22", "#e8703a", "#f4a060"], L: ["#a88c6a", "#c8ae88", "#e4d0aa"], H: ["#bdb094", "#f5eedc"], pattern: "stripes", seed: 29, round: 5 },
-      draw: function (a, P) {
-        // a sail of long spines, a crocodile snout for fish, short hind legs, a deep paddle of a tail
-        var b = bobOf(P, 0.9), br = breathe(P), sw = swayOf(P), gz = P.mode === "graze" ? 1 : 0, hy = b * 0.6 + gz * 5 + chew(P);
-        tleg(a, "F", 22, 17 + b, 31, 2.8, 2.2, gait(P, 0.5), 2.8);
-        a.poly("A", [[14, 12 + b], [16, 2 + b], [20, -0.5 + b], [25, 0.2 + b], [29, 3 + b], [31, 11 + b]]);
-        for (var i = 15.5; i <= 30; i += 2.2) a.px("H", i, 2 + b + Math.abs(i - 22) * 0.35, 0.5, 9 - Math.abs(i - 22) * 0.5);
-        a.poly("B", [[16, 13 + b], [8, 12.5 + b + sw * 0.3], [0.5, 10 + sw], [1, 16 + sw], [8, 17 + b + sw * 0.3], [16, 18.5 + b]], BODY);   // paddle tail
-        a.ell("B", 23, 14.5 + b, 9.5, 5.6 + br, -0.05, BODY);
-        a.tube("B", [[30, 12.5 + b], [34, 11 + b + gz * 2], [37, 11 + hy]], 3.6, 3, BODY);
-        a.poly("B", [[36, 8.8 + hy], [44, 9.6 + hy], [53.5, 11.6 + hy], [53, 13.4 + hy], [44, 13.6 + hy], [36, 14.2 + hy]], BODY);
-        a.px("K", 40, 12.4 + hy, 13, 0.5); for (i = 42; i <= 52; i += 2) a.px("H", i, 12.9 + hy, 0.6, 0.7);
-        a.tube("L", [[30, 17.5 + b], [24, 20 + b], [16, 18 + b]], 1.7, 1.1, BODY);
-        a.tube("B", [[31, 16 + b], [33.5, 19.5 + b], [35.5, 20 + b]], 1.3, 0.9);
-        tleg(a, "B", 22, 17.5 + b, 31, 2.8, 2.2, gait(P, 0), 3);
-        eye(a, P, 40.5, 9.8 + hy);
-      } },
-    dilo: { w: 32, h: 22, pal: { B: ["#1e2a14", "#2c3e1c", "#3e5626", "#567434", "#74944a", "#9ab86a"], A: ["#8a1a14", "#c02a1a", "#e8502a", "#f8c040"], L: ["#b8b48a", "#d4d0a4", "#ecead0"], H: ["#bdb094", "#f5eedc"], pattern: "stripes", seed: 81, round: 3.5 },
-      draw: function (a, P) {
-        // twin crests, and a frill that fans out when it calls
-        var b = bobOf(P, 1), br = breathe(P), sw = swayOf(P) * 1.1, call = P.mode === "roar", hy = b * 0.7 + (call ? -1 : 0);
-        tleg(a, "F", 12, 10 + b, 21, 3, 2.2, gait(P, 0.5), 2);
-        a.tube("B", [[9, 9 + b], [4, 8 + b + sw * 0.3], [0.5, 7.5 + sw * 0.8]], 2.6, 0.8, BODY);
-        a.ell("B", 13.5, 10 + b, 6, 3.8 + br * 0.5, -0.1, BODY);
-        a.tube("B", [[18.5, 8.5 + b], [21, 5.5 + hy], [22.5, 4.2 + hy]], 2.4, 2, BODY);
-        if (call) a.ell("A", 22, 5.5 + hy, 3.8, 5.4, 0);
-        a.poly("B", [[21, 2.4 + hy], [27, 2.8 + hy], [31, 4.6 + hy], [30, 6.4 + hy], [23, 6.8 + hy]], BODY);
-        a.ell("A", 24.5, 1.8 + hy, 3.2, 1.3, -0.2); a.ell("A", 25.5, 1.2 + hy, 2.4, 1, -0.2);
-        a.tube("L", [[18, 12 + b], [14, 13 + b], [9.5, 11.5 + b]], 1.3, 1, BODY);
-        a.tube("B", [[18, 11 + b], [20, 13.5 + b]], 0.9, 0.6);
-        tleg(a, "B", 12, 10.5 + b, 21, 3, 2.2, gait(P, 0), 2.1);
-        eye(a, P, 26, 3.4 + hy); if (call) a.poly("K", [[27, 5.4 + hy], [31, 5 + hy], [30.4, 6.8 + hy]]);
-      } },
-    pachy: { w: 30, h: 24, pal: { B: ["#3a2a3a", "#523a52", "#6c4e6a", "#8a6886", "#a888a2", "#c8aac0"], A: ["#8a7a60", "#b8a47e", "#e0d0a8", "#f6ecd0"], L: ["#c8b4b8", "#e0ccd0", "#f2e4e6"], H: ["#bdb094", "#f5eedc"], seed: 61, round: 4 },
-      draw: function (a, P) {
-        // a thick bony dome ringed with knobs; the head drops low to butt
-        var b = bobOf(P, 1), br = breathe(P), sw = swayOf(P), butt = P.mode === "roar" ? 1 : 0, hy = b * 0.6 + butt * 3;
-        tleg(a, "F", 12, 12 + b, 23, 2.6, 2, gait(P, 0.5), 2.2);
-        a.tube("B", [[9, 11 + b], [4, 10.5 + b + sw * 0.4], [0.5, 11.5 + sw]], 3, 0.8, BODY);
-        a.ell("B", 14, 11.5 + b, 7, 5 + br, -0.08 - butt * 0.2, BODY);
-        a.tube("B", [[19, 9.5 + b], [21.5, 7.5 + hy]], 2.8, 2.6, BODY);
-        a.ell("B", 23.5, 7.5 + hy, 3.8, 3, 0.1, BODY); a.poly("B", [[25, 8 + hy], [29.5, 9.4 + hy], [26, 10.6 + hy]], BODY);
-        a.ell("A", 23, 5 + hy, 3.8, 2.8, 0.1);
-        for (var i = 0; i < 5; i++) a.px("A", 20.4 + i * 1.3, 7.2 + hy + Math.abs(i - 2) * 0.3, 0.8, 0.8);
-        a.tube("L", [[19, 13.5 + b], [14, 15 + b], [10, 13.5 + b]], 1.4, 1, BODY);
-        a.tube("B", [[19, 12.5 + b], [21, 15 + b]], 0.9, 0.6);
-        tleg(a, "B", 12, 12.5 + b, 23, 2.6, 2, gait(P, 0), 2.4);
-        eye(a, P, 25.5, 7 + hy);
-      } },
-    galli: { w: 30, h: 32, pal: { B: ["#4a3a26", "#6a5236", "#8a6c48", "#aa8a5e", "#c8a878", "#e2c69a"], L: ["#d8cbb0", "#ece0c8", "#faf2e2"], H: ["#bdb094", "#f5eedc"], seed: 47, round: 3.5 },
-      draw: function (a, P) {
-        // an ostrich of a dinosaur: small head, long neck, very long legs
-        var b = bobOf(P, 1.4), br = breathe(P), sw = swayOf(P);
-        tleg(a, "F", 12, 14 + b, 31, 4.2, 3.2, gait(P, 0.5), 1.6);
-        a.tube("B", [[8, 12 + b], [3, 11.5 + b + sw * 0.4], [0.5, 12.5 + sw]], 2.8, 0.8, BODY);
-        a.ell("B", 12.5, 13 + b, 6, 4 + br * 0.5, -0.1, BODY);
-        a.tube("B", [[17, 11 + b], [21, 7 + b], [22, 2.6 + b * 0.6]], 1.9, 1.4, BODY);
-        a.ell("B", 23.5, 2.2 + b * 0.6, 2.3, 1.7, 0, BODY); a.poly("H", [[25, 1.6 + b * 0.6], [29.5, 2.8 + b * 0.6], [25.2, 3.6 + b * 0.6]]);
-        a.tube("L", [[17, 14 + b], [12.5, 16 + b], [8.5, 14.5 + b]], 1.4, 1, BODY); a.tube("L", [[20, 9 + b], [22.4, 4 + b]], 0.8, 0.6, BODY);
-        tleg(a, "B", 12, 14.5 + b, 31, 4.2, 3.2, gait(P, 0), 1.7);
-        eye(a, P, 23.6, 1.4 + b * 0.6);
-      } },
-    compy: { w: 16, h: 10, ds: 1.3, pal: { B: ["#1e3a1a", "#2c5424", "#3e7430", "#58963e", "#7ab65a", "#a2d484"], L: ["#c8d8a0", "#dce8b8", "#eef6d6"], H: ["#bdb094", "#f5eedc"], pattern: "stripes", seed: 5, round: 2.5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.7), sw = swayOf(P);
-        tleg(a, "F", 7, 5 + b, 9.5, 1.8, 1.4, gait(P, 0.5), 1);
-        a.tube("B", [[5, 4.5 + b], [2, 4 + b + sw * 0.3], [0.5, 4 + sw * 0.6]], 1.4, 0.5, BODY);
-        a.ell("B", 7.5, 5 + b, 3, 2, -0.1, BODY);
-        a.tube("B", [[10, 4 + b], [11.5, 2.4 + b]], 1.1, 0.9, BODY);
-        a.poly("B", [[11, 1.2 + b], [15.5, 2 + b], [12, 3.4 + b]], BODY);
-        tleg(a, "B", 7, 5.2 + b, 9.5, 1.8, 1.4, gait(P, 0), 1.05);
-        eye(a, P, 12.4, 1.6 + b);
-      } },
-    baby: { w: 15, h: 12, pal: { B: ["#2f6b3a", "#3f8a48", "#5aa85a", "#86c878", "#b0e09a", "#d0f0bc"], L: ["#b8dca0", "#d4ecc0", "#ecf8dc"], seed: 83, round: 3 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.6), br = breathe(P), sw = swayOf(P) * 0.6;
-        limb(a, "F", 9, 6.5 + b, 11, 1, 1, gait(P, 0.75), 1.2, 1); limb(a, "F", 5, 6.5 + b, 11, 1, 1, gait(P, 0.5), 1.2, 1);
-        a.tube("B", [[3.5, 6 + b], [0.6, 7 + b + sw]], 1.6, 0.6, BODY);
-        a.ell("B", 7, 6.5 + b, 4, 2.8 + br * 0.5, 0, BODY); a.ell("B", 11, 3.8 + b * 0.7 + br * 0.4, 3, 2.6, 0, BODY);
-        a.ell("L", 7, 8.2 + b, 2.6, 0.9);
-        limb(a, "B", 8.5, 8 + b, 11, 1, 1, gait(P, 0.25), 1.3, 1.1); limb(a, "B", 5, 8 + b, 11, 1, 1, gait(P, 0), 1.3, 1.1);
-        eye(a, P, 11.6, 2.8 + b * 0.7);
-      } },
-    baby2: { w: 15, h: 12, pal: { B: ["#1f5a5a", "#2c7a74", "#3f9a8e", "#66bcaa", "#96dcc8", "#c0eee0"], L: ["#b8e0d4", "#d4efe6", "#ecfaf4"], seed: 89, round: 3 } },
-    ptero: { w: 38, h: 18, pal: { B: ["#3e2410", "#62391c", "#8a5226", "#b0743a", "#d0965a", "#e8b882"], L: ["#8a5a32", "#a8784a", "#c69a66", "#e0bc88"], A: ["#7a3018", "#a84a24", "#d06a36", "#f08a50"], seed: 97, round: 3 },
-      draw: function (a, P) {
-        // seen from above, gliding right: membrane wings stretched from the long fourth finger, a Pteranodon crest
-        var k2 = 0.5 - 0.5 * Math.cos(P.ph * Math.PI * 2), span = 8.6 - 3.2 * k2, sw = 2 + 2.6 * k2;
-        a.poly("L", [[22, 8.2], [17 - sw, 9 - span], [12.5 - sw, 9.6 - span], [12, 8.6]]);
-        a.poly("L", [[22, 9.8], [17 - sw, 9 + span], [12.5 - sw, 8.4 + span], [12, 9.4]]);
-        a.tube("B", [[22, 8.3], [19 - sw, 9 - span * 0.55], [17 - sw, 9 - span]], 1, 0.5);
-        a.tube("B", [[22, 9.7], [19 - sw, 9 + span * 0.55], [17 - sw, 9 + span]], 1, 0.5);
-        a.ell("B", 18.5, 9, 5.2, 1.9, 0, BODY);
-        a.tube("B", [[23, 9], [27, 9]], 1.7, 1.3, BODY); a.tube("B", [[27, 9], [36, 9]], 1, 0.35, BODY);
-        a.poly("A", [[26.5, 7.9], [19.5, 7], [21, 8.6]]);
-        a.px("K", 26, 8, 0.8, 0.8); a.px("K", 26, 10, 0.8, 0.8);
-      } },
-    // pi: a baby kaiju, white and round, pink spikes down its back. it will be Middle Path one day
-    pi: { w: 16, h: 14, ds: 1.2, pal: { B: ["#8e8a86", "#b4b0ac", "#d2d0cc", "#e8e7e3", "#f6f5f2", "#ffffff"], A: ["#8a1e4e", "#c02f72", "#f454a6", "#ff9ecb"], L: ["#e0d8cc", "#ece6dc", "#f8f4ec"], H: ["#bdb094", "#f5eedc"], seed: 3, round: 3 },
-      draw: function (a, P) {
-        var b = bobOf(P, 0.8), br = breathe(P), sw = swayOf(P) * 0.6;
-        limb(a, "F", 9, 9 + b, 13, 1.4, 1.4, gait(P, 0.5), 1.5, 1.3);
-        a.tube("B", [[4, 9.5 + b], [1.4, 10.4 + b + sw * 0.4], [0.5, 12 + sw * 0.5]], 2, 0.8, BODY);
-        a.ell("B", 7.5, 9 + b, 4.4, 3.4 + br * 0.4, 0, BODY);
-        a.ell("B", 10.5, 5 + b * 0.8 + br * 0.3, 4.2, 3.8, 0, BODY);
-        a.ell("L", 8.5, 10 + b, 2.4, 1.8, 0, BODY);
-        [[5.2, 5.6], [7, 3.4], [9, 1.4]].forEach(function (s2, i) { a.poly("A", [[s2[0] - 1.1, s2[1] + 1.4 + b * 0.8], [s2[0] - 0.6 - i * 0.1, s2[1] - 1 + b * 0.8], [s2[0] + 1, s2[1] + 1 + b * 0.8]]); });
-        a.tube("B", [[11, 8.5 + b], [12.6, 9.6 + b]], 0.7, 0.6);
-        limb(a, "B", 7, 10 + b, 13, 1.4, 1.4, gait(P, 0), 1.6, 1.4);
-        eye(a, P, 12, 4.2 + b * 0.8); a.px("A", 13.4, 5.8 + b * 0.8, 0.8, 0.5);
-      } },
-    // Middle Path, the kaiju pi grows up to be: upright, spiked, a thick tail on the ground, head up
-    kaiju: { w: 30, h: 30, ds: 1.3, pal: { B: ["#8e8a86", "#b4b0ac", "#d2d0cc", "#e8e7e3", "#f6f5f2", "#ffffff"], A: ["#8a1e4e", "#c02f72", "#f454a6", "#ff9ecb"], L: ["#e0d8cc", "#ece6dc", "#f8f4ec"], H: ["#bdb094", "#f5eedc"], seed: 7, round: 4.5 },
-      draw: function (a, P) {
-        var b = bobOf(P, 1), br = breathe(P), sw = swayOf(P) * 0.8, roar = P.mode === "roar";
-        tleg(a, "F", 15, 17 + b, 29, 2.4, 2, gait(P, 0.5), 2.6);
-        a.tube("B", [[12, 20 + b], [5, 25 + b + sw * 0.3], [0.8, 27.5 + sw * 0.4], [5, 29]], 3.6, 1.2, BODY);
-        a.ell("B", 15, 16 + b, 6.4, 8 + br * 0.5, -0.35, BODY);
-        a.ell("B", 20.5, 6 + b * 0.6 + (roar ? -1 : 0), 5, 4.4, -0.2, BODY);
-        a.poly("B", [[22, 7 + b * 0.6], [28.5, 7.4 + b * 0.6 + (roar ? 1.5 : 0)], [27, 10 + b * 0.6 + (roar ? 2.5 : 0)], [21, 10.4 + b * 0.6]], BODY);
-        a.ell("L", 17.5, 18 + b, 3.6, 5.6, -0.35, BODY);
-        [[9.5, 20.5, 2], [9.8, 15.5, 2.8], [11.4, 11, 3.2], [14.4, 7, 3], [17.2, 3.4, 2.4], [4.8, 24.8, 1.6]].forEach(function (s2) { a.poly("A", [[s2[0] + 1.6, s2[1] + 1.4], [s2[0] - s2[2] * 0.9, s2[1] - s2[2] * 0.5], [s2[0] + 0.4, s2[1] - s2[2] * 0.8], [s2[0] + 2.2, s2[1] - 0.2]]); });
-        a.tube("B", [[19, 14 + b], [22, 16.5 + b], [23.4, 15.2 + b]], 1.2, 0.8);
-        tleg(a, "B", 15, 17.5 + b, 29, 2.4, 2, gait(P, 0), 2.8);
-        eye(a, P, 22.8, 4.6 + b * 0.6); if (roar) a.poly("K", [[23, 9.8 + b * 0.6], [28, 8.4 + b * 0.6], [27, 11.4 + b * 0.6]]);
-      } }
-  };
-  ART.baby2.draw = ART.baby.draw;
-  var FRAMES_OF = { walk: 6, idle: 4, blink: 1, graze: 2, roar: 2, fly: 4 };
-  var DART = {};
+     the dinosaurs are hand-built pixel sprites in one sheet (assets/island/dinos.png), drawn in
+     the style of the pterosaur: flat tone bands, dark along the back and light on the belly, a
+     dark outline that goes near black underneath, a few speckles. the pterosaur is the original
+     sprite, pixel for pixel. middle path is traced from Ammaar's drawing. every sprite faces
+     right with its feet on the bottom row; SHEET says where each frame of each mode sits. */
+  var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":47,"h":26,"f":[[0,46],[48,46],[96,46],[144,46],[192,46],[240,46],[288,46],[336,46],[384,46],[432,46],[480,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":68,"h":67,"f":[[0,73],[69,73],[138,73],[207,73],[276,73],[345,73],[414,73],[483,73],[552,73],[621,73],[690,73],[759,73],[828,73]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,141],[60,141],[120,141],[180,141],[240,141],[300,141],[360,141],[420,141],[480,141],[540,141],[600,141],[660,141],[720,141]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,182],[59,182],[118,182],[177,182],[236,182],[295,182],[354,182],[413,182],[472,182],[531,182],[590,182],[649,182],[708,182]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,219],[55,219],[110,219],[165,219],[220,219],[275,219],[330,219],[385,219],[440,219],[495,219],[550,219],[605,219],[660,219]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":56,"h":25,"f":[[0,262],[57,262],[114,262],[171,262],[228,262],[285,262],[342,262],[399,262],[456,262],[513,262],[570,262],[627,262],[684,262]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,288],[91,288],[182,288],[273,288],[364,288],[455,288],[546,288],[637,288],[728,288],[819,288],[910,288]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":46,"h":35,"f":[[0,340],[47,340],[94,340],[141,340],[188,340],[235,340],[282,340],[329,340],[376,340],[423,340],[470,340],[517,340],[564,340]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":41,"h":28,"f":[[0,376],[42,376],[84,376],[126,376],[168,376],[210,376],[252,376],[294,376],[336,376],[378,376],[420,376],[462,376],[504,376]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,405],[39,405],[78,405],[117,405],[156,405],[195,405],[234,405],[273,405],[312,405],[351,405],[390,405]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":22,"h":12,"f":[[0,446],[23,446],[46,446],[69,446],[92,446],[115,446],[138,446],[161,446],[184,446],[207,446],[230,446]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,459],[22,459],[44,459],[66,459],[88,459],[110,459],[132,459],[154,459],[176,459],[198,459],[220,459]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,478],[22,478],[44,478],[66,478],[88,478],[110,478],[132,478],[154,478],[176,478],[198,478],[220,478]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"kaiju":{"w":39,"h":48,"f":[[0,497],[40,497],[80,497],[120,497],[160,497],[200,497],[240,497],[280,497],[320,497],[360,497]],"m":{"idle":[0,1,2,3],"walk":[4,5,6,7,8,9],"blink":[0]}},"ptero":{"w":63,"h":78,"f":[[0,546]],"m":{"fly":[0,0,0,0]}}};
+  var SHEET_IMG = new Image(), sheetReady = false;
+  SHEET_IMG.onload = function () { sheetReady = true; };
+  SHEET_IMG.src = "assets/island/dinos.png";
+  var DART = {}, BLANK = document.createElement("canvas"); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
-    var key = kind + mode + i;
-    if (!DART[key]) { var d = ART[kind]; DART[key] = shapeArt(d.w, d.h, d.pal, d.draw, { mode: mode, ph: i / FRAMES_OF[mode] }, d.ds); }
+    var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
+    var list = d.m[mode] || d.m.idle || d.m.fly, n = list[((i | 0) % list.length + list.length) % list.length], key = kind + ":" + n;
+    if (!DART[key]) {
+      var c = document.createElement("canvas"); c.width = d.w; c.height = d.h;
+      c.getContext("2d").drawImage(SHEET_IMG, d.f[n][0], d.f[n][1], d.w, d.h, 0, 0, d.w, d.h);
+      DART[key] = c;
+    }
     return DART[key];
   }
-  function artScale(kind) { return ART[kind].ds || DS; }
+  function artW(kind) { return SHEET[kind] ? SHEET[kind].w : 16; }
+  function artH(kind) { return SHEET[kind] ? SHEET[kind].h : 16; }
   // draw a canvas with its feet at (x, y); flip mirrors it to face left
   function drawArt(c, x, y, flip) {
     c = skin(c);
@@ -1465,21 +1152,27 @@
   }
   var ROARS = { trex: 1, dilo: 1, pachy: 1 };
   var CALLS = { spino: "grunt", dilo: "screech", pachy: "snort", galli: "squeak", compy: "chirp", brachio: "hoot", trex: "grunt", raptor: "screech", trike: "snort", ankylo: "snort", stego: "grunt", para: "honkp", baby: "squeak", baby2: "squeak", robot: "chatter", roomba: "chatter" };
-  var HERD = [38, 39, 52, 46], PEN = [49, 18, 56, 24], REXPAD = [16, 32, 24, 39];
+  var HERD = [55, 52, 68, 60], PEN = [61, 31, 69, 37], REXPAD = [28, 44, 38, 53];
   var critters = [
-    critter("brachio", 18, 23, [15, 19, 24, 26]), critter("brachio", 21, 21, [15, 19, 24, 26]),
-    critter("trex", 20, 35, REXPAD),
-    critter("raptor", 50, 20, PEN), critter("raptor", 53, 22, PEN), critter("raptor", 55, 19, PEN),
-    critter("stego", 43, 43, HERD), critter("trike", 46, 40, HERD), critter("trike", 40, 45, HERD), critter("ankylo", 49, 44, HERD),
-    critter("para", 54, 27, [47, 26, 62, 32]), critter("para", 58, 31, [47, 26, 62, 32]),
-    critter("spino", 16, 24, [14, 22, 20, 27]), critter("dilo", 30, 36, [26, 33, 34, 39]),
-    critter("pachy", 50, 27, [48, 26, 58, 32]), critter("pachy", 55, 31, [48, 26, 58, 32]),
-    critter("galli", 58, 27, [50, 27, 62, 33]), critter("galli", 60, 30, [50, 27, 62, 33]), critter("galli", 56, 32, [50, 27, 62, 33]), critter("galli", 61, 28, [50, 27, 62, 33]),
-    critter("compy", 33, 44, [30, 43, 44, 47]), critter("compy", 34, 45, [30, 43, 44, 47]), critter("compy", 32, 46, [30, 43, 44, 47]), critter("compy", 35, 44, [30, 43, 44, 47]), critter("compy", 31, 45, [30, 43, 44, 47]),
-    critter("baby", 43, 45, [39, 42, 47, 46]), critter("baby2", 46, 44, [39, 42, 47, 46]), critter("baby", 20, 24, [15, 20, 23, 26]),
-    critter("robot", 40, 29, [26, 26, 46, 30]), critter("robot", 28, 29, [16, 28, 34, 30]), critter("roomba", 35, 29, [33, 28, 39, 30]),
-    critter("cat", 47, 37, [44, 35, 52, 41]), critter("cat", 50, 40, [44, 35, 52, 41])
+    critter("brachio", 16, 36, [13, 32, 25, 44]), critter("brachio", 21, 42, [13, 32, 25, 44]),
+    critter("trex", 33, 48, REXPAD),
+    critter("raptor", 63, 33, PEN), critter("raptor", 66, 35, PEN), critter("raptor", 67, 32, PEN),
+    critter("stego", 58, 55, HERD), critter("trike", 62, 54, HERD), critter("trike", 65, 58, HERD), critter("ankylo", 57, 58, HERD),
+    critter("para", 76, 44, [72, 41, 84, 48]), critter("para", 80, 46, [72, 41, 84, 48]),
+    critter("spino", 20, 48, [17, 44, 26, 53]), critter("dilo", 30, 33, [26, 29, 36, 36]),
+    critter("pachy", 75, 34, [72, 31, 82, 38]), critter("pachy", 79, 35, [72, 31, 82, 38]),
+    critter("galli", 74, 46, [70, 42, 85, 49]), critter("galli", 78, 42, [70, 42, 85, 49]), critter("galli", 82, 44, [70, 42, 85, 49]), critter("galli", 73, 43, [70, 42, 85, 49]),
+    critter("compy", 33, 60, [29, 58, 38, 64]), critter("compy", 34, 61, [29, 58, 38, 64]), critter("compy", 32, 62, [29, 58, 38, 64]), critter("compy", 35, 60, [29, 58, 38, 64]), critter("compy", 31, 61, [29, 58, 38, 64]),
+    critter("baby", 60, 57, [56, 54, 66, 59]), critter("baby2", 63, 56, [56, 54, 66, 59]), critter("baby", 17, 40, [14, 36, 22, 43]),
+    critter("robot", 45, 61, [40, 59, 52, 63]), critter("robot", 30, 61, [27, 60, 40, 63]), critter("roomba", 47, 60, [44, 59, 49, 62]),
+    critter("cat", 65, 51, [62, 49, 72, 54]), critter("cat", 70, 52, [62, 49, 72, 54])
   ];
+  // anything that spawned inside a tree or a wall steps out to the nearest open ground
+  critters.forEach(function (c) {
+    var tx = Math.floor(c.x / T), ty = Math.floor(c.y / T);
+    for (var r0 = 0; r0 < 6 && !walkable(tx, ty); r0++) for (var j = -r0; j <= r0; j++) for (var i = -r0; i <= r0; i++) if (walkable(tx + i, ty + j) && !walkable(tx, ty)) { tx += i; ty += j; }
+    c.x = tx * T + 8; c.y = ty * T + 10;
+  });
   // Ammaar's cats: jasmine (pink collar) and prince (blue collar)
   var cats = critters.filter(function (c) { return c.kind === "cat"; });
   cats[0].name = "jasmine"; cats[0].pal = { Q: "#ff7eb6" }; cats[0].say = "jasmine, one of Ammaar's two himalayan cats. she's very fluffy and fully unbothered.";
@@ -1596,15 +1289,15 @@
       a: ["...DDD....", "..MMMMM...", ".MEMMMEM..", ".MMMMMMM..", "..DDDDD...", "CCMMMMM...", "Cc.D.D....", "...D.D...."],
       b: ["...DDD....", "..MMMMM...", ".MEMMMEM..", ".MMMMMMM..", "..DDDDD...", "CCMMMMM...", "Cc..D.D...", "...D...D.."] }
   };
-  var DOCKPT = [36, dockY - 1], DEPOTPT = [40, 45], VISITPT = [30, 26];
+  var DOCKPT = [DOCKX, dockY], DEPOTPT = [54, 60], VISITPT = [41, 60];
   function tileOf(o) { return [Math.floor(o.x / T), Math.floor(o.y / T)]; }
   var bots = [
     { kind: "cargo", x: DOCKPT[0] * T + 8, y: DOCKPT[1] * T + 10, legs: [DEPOTPT, VISITPT, DEPOTPT, DOCKPT], leg: 0, path: null, carry: true, wait: 1, face: 1, dist: 0 },
     { kind: "cargo", x: DEPOTPT[0] * T + 8, y: DEPOTPT[1] * T + 10, legs: [DOCKPT, DEPOTPT], leg: 0, path: null, carry: false, wait: 4, face: -1, dist: 0 },
-    { kind: "welder", x: 50 * T + 8, y: 26 * T + 10, spots: [[50, 26], [53, 26], [58, 22], [47, 21]], spot: 0, path: null, wait: 6, face: -1, dist: 0, work: 0 },
-    { kind: "gardener", x: 34 * T + 8, y: 26 * T + 10, path: null, wait: 2, face: 1, dist: 0, work: 0 }
+    { kind: "welder", x: 59 * T + 8, y: 39 * T + 10, spots: [[59, 34], [62, 39], [67, 39], [71, 34]], spot: 0, path: null, wait: 6, face: -1, dist: 0, work: 0 },
+    { kind: "gardener", x: 45 * T + 8, y: 62 * T + 10, path: null, wait: 2, face: 1, dist: 0, work: 0 }
   ];
-  var pad = { x: 40.5 * T, y: 44 * T + 6, roof: 30 };
+  var pad = { x: 54.5 * T, y: 58 * T + 6, roof: 30 };
   var drones = [0, 1].map(function (i) { return { x: pad.x + i * 6, y: pad.y, z: pad.roof, state: "rest", wait: 2 + i * 5, tx: 0, ty: 0, carry: true, spin: 0 }; });
   var sparks = [];
   function botGo(b, goal) { b.path = bfs(tileOf(b), goal, true); if (b.path) sfx("servo", b.x, b.y); }
@@ -1632,7 +1325,7 @@
         if (stepBot(b, dt, 14)) { b.wait = 8 + Math.random() * 6; b.work = b.wait; b.face = 1; }
       } else if (b.kind === "gardener") {
         if (!b.path) {
-          var near2 = props.filter(function (p2) { return (p2.kind === "fern" || p2.kind === "cycad" || p2.kind === "tallgrass") && Math.abs(p2.tx - 33) < 9 && Math.abs(p2.ty - 28) < 8; });
+          var near2 = props.filter(function (p2) { return (p2.kind === "fern" || p2.kind === "cycad" || p2.kind === "tallgrass") && Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8; });
           var pick = near2[(Math.random() * near2.length) | 0];
           if (pick) botGo(b, [pick.tx, pick.ty + 1]);
           if (!b.path) { b.wait = 2; return; }
@@ -1681,7 +1374,7 @@
   var BOTSAY = {
     cargo: ["a cargo bot, hauling crates between the dock and the depot. it beeps at pi to move.", "a cargo bot. the crate says FRAGILE: EGGS. it drives very carefully."],
     welder: ["a welder bot, patching the raptor pen. the raptors watch it work. it works faster.", "a welder bot. sparks everywhere. it gives pi a thumbs up with the torch hand, which is alarming."],
-    gardener: ["a gardener bot. it won't water anything past the old shrine in the northwest woods. it says the stone there hums.", "a gardener bot, watering the ferns. it waters pi a little, by accident, then apologizes.", "a gardener bot. it hums while it works: 'dns healthy, ferns hydrated.'"]
+    gardener: ["a gardener bot. it won't water anything past the old shrine, up the trail from the brachio meadow. it says the stone there hums.", "a gardener bot, watering the ferns. it waters pi a little, by accident, then apologizes.", "a gardener bot. it hums while it works: 'dns healthy, ferns hydrated.'"]
   };
 
   // cockatiels: they perch on landmarks and trees near the plaza, and fly between them in a pair
@@ -1809,7 +1502,7 @@
     pal: { B: "#8b9096", N: "#a9aeb3", C: "#161616", c: "#2a2a2a", G: "#34465a", K: "#0b0b0b", E: "#cfd6dc", H: "#fff4c2", R: "#e0231f",
            U: "#1c69d4", W: "#f4f4f4", T: "#0e0e0e", X: "#8b9096", M: "#3fa9f5", m: "#1f3f9e" }
   };
-  var car = { x: 44 * T + 8, y: 34 * T + 8, a: Math.PI / 2, v: 0, driving: false, target: null };
+  var car = { x: 36 * T + 8, y: 62 * T + 8, a: Math.PI / 2, v: 0, driving: false, target: null };
   function carClear(x, y, a) {
     var fx = Math.sin(a), fy = -Math.cos(a), rx = Math.cos(a), ry = Math.sin(a);
     return [[9, 4.5], [9, -4.5], [-9, 4.5], [-9, -4.5]].every(function (p) {
@@ -2037,12 +1730,12 @@
   }
   function drawPteros() {
     pteros.forEach(function (p, i) {
-      ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + p.alt, 9, 3, 0, 0, 6.283); ctx.fill();
-      drawArt(dinoFrame("ptero", "fly", Math.floor(t * 6 + i) % 4), p.x, p.y + 9, p.face < 0);
+      ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(p.x, p.y + p.alt, 20, 5, 0, 0, 6.283); ctx.fill();
+      drawArt(dinoFrame("ptero", "fly", 0), p.x, Math.round(p.y + 30 + Math.sin(t * 1.6 + i * 2) * 2.5), p.face < 0);       // gliding: it rides the thermals off the volcano
     });
     if (ptero.on) {
-      ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(ptero.x, ptero.y + 50, 9, 3, 0, 0, 6.283); ctx.fill();
-      drawArt(dinoFrame("ptero", "fly", Math.floor(t * 7) % 4), ptero.x, ptero.y + 9, ptero.vx < 0);
+      ctx.fillStyle = "rgba(0,0,0,.14)"; ctx.beginPath(); ctx.ellipse(ptero.x, ptero.y + 60, 20, 5, 0, 0, 6.283); ctx.fill();
+      drawArt(dinoFrame("ptero", "fly", 0), ptero.x, Math.round(ptero.y + 30 + Math.sin(t * 2) * 2.5), ptero.vx < 0);
     }
   }
   // fence posts every tile, three wires to the next post, a warning sign now and then
@@ -2115,7 +1808,7 @@
   }
   function closeTerm() { termOpen = false; term.hidden = true; tIn.type = "text"; cv.focus({ preventScroll: true }); }
   function setPrompt() { tPs.textContent = sudoTries >= 0 ? "[sudo] password for pi:" : "pi@island:~$"; tIn.type = sudoTries >= 0 ? "password" : "text"; }
-  var PLACES = { rack: 1, desk: 1, uplink: 1, tower: 1, lighthouse: 1, macbook: 1, tablet: 1, mailbox: 1, sign: 1, boat: 1, dock: "boat", pond: [53, 38], helipad: [31, 42], heli: [31, 42], gate: [36, 24], plaza: [36, 29], car: [45, 35], paddock: [26, 36], raptors: [47, 21], volcano: [30, 15] };
+  var PLACES = { rack: 1, desk: 1, uplink: 1, tower: 1, lighthouse: 1, macbook: 1, tablet: 1, mailbox: 1, sign: 1, boat: 1, dock: "boat", pond: [69, 45], helipad: [59, 62], heli: [59, 62], gate: [48, 35], plaza: [46, 60], car: [37, 61], paddock: [41, 51], raptors: [64, 40], volcano: [48, 25], outpost: [26, 61], shrine: [21, 23], clearing: [48, 43] };
   function goto(name) {
     var p = PLACES[name], tx, ty;
     if (!p) return false;
@@ -2167,8 +1860,8 @@
     },
     census: function () {
       var c = {}; critters.forEach(function (q) { c[q.kind] = (c[q.kind] || 0) + 1; });
-      ["  2  brachiosaurus ...... the northwest meadow", "  1  t-rex .............. the paddock (fenced, 10,000 V)", "  3  velociraptors ...... the pen (fenced, and they know it)",
-       "  1  stegosaurus, 2 triceratops, 1 ankylosaurus ... the south meadow", "  2  parasaurolophus .... east, by the lighthouse road", "  3  babies ............. near the nests", "  3  pterosaurs ......... circling the volcano",
+      ["  2  brachiosaurus ...... the west meadow, by the river", "  1  t-rex .............. the paddock (fenced, 10,000 V)", "  3  velociraptors ...... the pen (fenced, and they know it)",
+       "  1  stegosaurus, 2 triceratops, 1 ankylosaurus ... the herd plain, down by the harbour", "  2  parasaurolophus .... east, by the lighthouse road", "  3  babies ............. near the nests", "  3  pterosaurs ......... circling the volcano",
        "  1  rex ................ chrome edition, wanders wherever", "  2  himalayan cats ..... jasmine and prince, the garden", "  2  cockatiels ......... usually on the signpost", " 20  koi ................ the pond (see koi.csv)", "  3  bots ............... on the roads"].forEach(function (l) { print(l); });
     },
     found: function () { STATIONS.filter(function (s) { return s.found; }).forEach(function (s) { print((found[s.id] ? "  [x] " : "  [ ] ") + s.name); }); print(countFound() + "/" + TOTAL + " found", "dim"); },
@@ -2269,7 +1962,7 @@
     OUT.forEach(function (s) { out.push({ d: Math.hypot(pi.x - (s.x * T + 8), pi.y - (s.y * T + 12)), max: 26, v: s }); });
     out.push({ d: Math.hypot(pi.x - rex.x, pi.y - rex.y), max: 20, v: { id: "rex", name: "rex" } });
     critters.forEach(function (c) {
-      var d = DINOS[c.kind], ht = d.art ? ART[c.kind].h * artScale(c.kind) : d.a.length, reach = d.art ? Math.max(18, ART[c.kind].w * artScale(c.kind) * 0.5) : 18;
+      var d = DINOS[c.kind], ht = d.art ? artH(c.kind) : d.a.length, reach = d.art ? Math.max(18, artW(c.kind) * 0.5) : 18;
       out.push({ d: Math.hypot(pi.x - c.x, pi.y - c.y), max: reach, v: { id: "critter", ref: c, ax: c.x, ay: c.y - ht - 2 } });
     });
     bots.forEach(function (b) { out.push({ d: Math.hypot(pi.x - b.x, pi.y - b.y), max: 18, v: { id: "bot", ref: b, ax: b.x, ay: b.y - 16 } }); });
@@ -2312,7 +2005,7 @@
   // the t-rex roars when pi comes close to its fence: the screen shakes, the birds scatter
   function roar() {
     trex.roar = 1.4; trex.cd = 14; trex.tx = 0; trex.face = pi.x > trex.x ? 1 : -1; quake = 4;
-    roarTag = { x: trex.x, y: trex.y - ART.trex.h * DS - 4, t: 1.6 };
+    roarTag = { x: trex.x, y: trex.y - artH("trex") - 4, t: 1.6 };
     sfx("roar", trex.x, trex.y, { vol: 1.4 });
     if (!birds[0].fly) { var n = (birds[0].perch + 3) % perches.length; fly(birds[0], n, 0); fly(birds[1], n, 0.2); }
   }
@@ -2321,7 +2014,7 @@
     skyT -= dt; if (skyT <= 0) { readSky(); skyT = 30; }
     critters.forEach(function (c) { updateCritter(c, dt); });
     updateBirds(dt); updateKoi(dt); updateCar(dt); updateHeli(dt); updateVolcano(dt); updateBots(dt);
-    if (trex.cd <= 0 && !aboard() && !room && pi.x < 27 * T && pi.x > 13 * T && pi.y > 29.5 * T && pi.y < 42 * T && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
+    if (trex.cd <= 0 && !aboard() && !room && pi.x < 42 * T && pi.x > 25 * T && pi.y > 41.5 * T && pi.y < 56 * T && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
     if (roarTag) { roarTag.t -= dt; if (roarTag.t <= 0) roarTag = null; }
   }
 
@@ -2329,7 +2022,7 @@
      the island darkens, five orbs fall out of the sky, and they fight for
      control of the site. the last one standing takes the core, and runs the
      orbs on the page for the rest of the session. walk up to it for a rematch. */
-  var ARENA = { x: 36 * T + 8, y: 25 * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
+  var ARENA = { x: 48 * T + 8, y: 43 * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
   var RIVALS = ["eclipse", "bone", "halo", "fog", "void"];
   var POWER = { eclipse: 1.7, bone: 1.2, halo: 1.1, fog: 0.9, void: 1.0 };
   var rift = null, pendingRift = false, orbCache = {};
@@ -2802,7 +2495,7 @@
   }
 
   /* ════════ the other side ════════
-     the old shrine in the northwest woods is a door. step through and the world turns on its
+     the old shrine up on the highland is a door. step through and the world turns on its
      side: a painted sky, drifting islands, a weeping willow over a hill of standing stones,
      like an old side-scrolling adventure. walk right (jump with space or up) and at the top
      of the steps the first orb is waiting. it speaks, reality tears itself apart, and you
@@ -2944,7 +2637,7 @@
     var open2 = side.phase === "walk" ? Math.max(0, (side.x - 1100) / 230) : 1;       // an eye opens as you come close
     if (open2 > 0) { ctx.fillStyle = "#050505"; ctx.beginPath(); ctx.ellipse(ax, ay, 16, 7 * Math.min(1, open2), 0, 0, 6.283); ctx.fill(); ctx.fillStyle = "#d0142c"; ctx.beginPath(); ctx.ellipse(ax + Math.max(-6, Math.min(6, (side.x - 1500 + cam - cam) / 60)), ay, 3.5 * open2, 5 * Math.min(1, open2), 0, 0, 6.283); ctx.fill(); }
     // pi (or what pi became), in profile
-    var who = pi.kaiju ? "kaiju" : "pi", art = dinoFrame(who, side.ground && (keys.l || keys.r || side.tap) && side.phase === "walk" ? "walk" : "idle", side.ground && (keys.l || keys.r || side.tap) ? Math.floor(side.dist / 3) % 6 : Math.floor(t * 2.5) % 4);
+    var art = piArt(side.ground && (keys.l || keys.r || side.tap) && side.phase === "walk" ? "walk" : "idle", side.ground && (keys.l || keys.r || side.tap) ? Math.floor(side.dist / (pi.kaiju ? 3 : 4)) % 6 : Math.floor(t * 1.6) % 4, false);
     var px = side.x - cam; ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(Math.round(px - 6), Math.round(groundY(side.x)), 12, 2);
     if (side.face < 0) { ctx.save(); ctx.translate(Math.round(px + art.width / 2), 0); ctx.scale(-1, 1); ctx.drawImage(art, 0, Math.round(side.y - art.height + 2)); ctx.restore(); } else ctx.drawImage(art, Math.round(px - art.width / 2), Math.round(side.y - art.height + 2));
     // dark leaves hanging into the frame
@@ -3064,8 +2757,7 @@
       light(bx + 26, by + 36, 30, "255,240,200", 0.6);
     }
   }
-  var WF = { x: 24.5 * T, y: 16.6 * T };
-  function drawWaterfall() {
+  function drawWaterfall(WF) {
     // a white ribbon off the plateau edge with streaks falling through it, and spray at the foot
     var x0 = Math.round(WF.x - 9), y0 = Math.round(WF.y), hgt = 22;
     for (var i = 0; i < 18; i++) for (var j = 0; j < hgt; j += 2) {
@@ -3222,7 +2914,7 @@
     });
     OUT.forEach(function (s) { list.push({ y: s.y * T + 15, f: function () { drawStation(s); } }); });
     BUILDINGS.forEach(function (bd) { list.push({ y: (bd.y0 + bd.h) * T - 2, f: function () { drawBuilding(bd); } }); });
-    list.push({ y: WF.y + 30, f: drawWaterfall });
+    FALLS.forEach(function (f) { list.push({ y: f.y + 30, f: function () { drawWaterfall(f); } }); });
     list.push({ y: rex.y, f: function () {
       shadow(rex.x, rex.y, 10);
       drawFrame(DINO[Math.floor(rex.dist / 5) % 2 ? "b" : "a"], { W: "#ececec", K: "#141414" }, 11, rex.x, rex.y - 1 + rex.hop, rex.face < 0);
@@ -3317,17 +3009,17 @@
         var u = Math.min(1, (e - 1.6) / 0.5);
         ctx.fillStyle = "#f4f4f4"; ctx.fillRect(cx - 9, cy - 3, 5, 3); ctx.fillRect(cx + 5, cy - 2, 4, 2);          // shell halves
         for (var p = 0; p < 6; p++) { ctx.fillStyle = ["#FFB000", "#E879F9", "#4DD6E8"][p % 3]; ctx.fillRect(Math.round(cx + Math.cos(p) * u * 14), Math.round(cy - 8 + Math.sin(p * 2) * u * 10), 1, 1); }
-        drawArt(dinoFrame("pi", "idle", 0), cx, Math.round(cy - Math.sin(u * 3.14) * 6), false);
+        drawArt(frameCanvas(FRAMES.idle, PIPAL, 10), cx, Math.round(cy - Math.sin(u * 3.14) * 6), false);
       }
       return;
     }
     if (car.driving || aboard()) return;
-    var who = pi.kaiju ? "kaiju" : "pi";
-    shadow(pi.x, pi.y, pi.kaiju ? 18 : 12);
+    shadow(pi.x, pi.y, pi.kaiju ? 24 : 10);
     var moving = (Math.abs(pi.vx) + Math.abs(pi.vy) > 4) && dlg.hidden;
-    var fr = moving ? Math.floor(pi.dist / (pi.kaiju ? 3.2 : 2.2)) % 6 : Math.floor(t * 2.5) % 4;
-    var art = dinoFrame(who, moving ? "walk" : hash(Math.floor(t * 3), 9) < 0.06 ? "blink" : "idle", moving ? fr : hash(Math.floor(t * 3), 9) < 0.06 ? 0 : fr);
-    drawArt(art, pi.x, pi.y + 1, pi.face < 0);
+    var blink = hash(Math.floor(t * 3), 9) < 0.06;
+    var fr = moving ? Math.floor(pi.dist / (pi.kaiju ? 3.2 : 4)) % 6 : pi.kaiju ? Math.floor(t * 1.6) % 4 : 0;
+    var bob = moving || pi.kaiju ? 0 : Math.round(Math.sin(t * 3) * 0.5);
+    drawArt(piArt(moving ? "walk" : blink && !pi.kaiju ? "blink" : "idle", fr, pi.dir === "up"), pi.x, pi.y + (pi.kaiju ? 1 : 0) + bob, pi.face < 0);
     if (pi.boost > 0) { ctx.fillStyle = "#E879F9"; ctx.fillRect(Math.round(pi.x - 7 - pi.face * 3), Math.round(pi.y - 4), 2, 1); ctx.fillRect(Math.round(pi.x - 8 - pi.face * 5), Math.round(pi.y - 6), 2, 1); }
   }
 

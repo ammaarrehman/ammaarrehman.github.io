@@ -41,28 +41,31 @@ pi. Every landmark is a piece of the portfolio: the rack is the homelab, the
 desk is the Claude triage project, the uplink is the Terraform AWS build,
 the watchtower is monitoring, the lighthouse is the security work, the
 tablet is the academic record, the mailbox is contact. The boat sails back.
-It's a jurassic island, laid out like a level: a round plaza is the hub, one main road
-loops out to each district on smooth curves (the park gate and the plateau, the jungle and
-the uplink over a river bridge, the paddocks and the lighthouse, the dock), and narrower
-trails lead to the landmarks. A waterfall drops off the plateau into a river that winds to
-the sea. Forests are solid masses with ferns along their edges, meadows stay open with
-tall grass and flowers, boulders gather under the cliffs, and trees and buildings cast
-baked, dithered shadows. The volcano is rendered once as a lit heightfield, with a live
-lava lake and flows.
+It's a jurassic island, built like a level in three terraces. The highland across the
+north holds the volcano, the watchtower, the cave and an old shrine. A cliff band drops to
+the meadows: the brachio meadow and the river in the west, the t-rex paddock, the clearing
+where the trails meet, the raptor pen, the koi garden, and a headland with the lighthouse.
+A second cliff band drops to the lowland on the south shore: the harbour village with the
+dock, the helipad, the herd plain, and the outpost. The only ways up or down a cliff are
+the stairs where a trail climbs it, so the trails are the chokepoints. The river rises on
+the highland, falls off both cliffs and runs out to sea. The cliffs are tall rock faces with
+cracks, ledges and hanging vines; forests are solid masses with ferns along their edges,
+meadows stay open with tall grass and flowers, and trees and buildings cast baked, dithered
+shadows. The volcano is rendered once as a lit heightfield, with a live lava lake and flows.
 
-The creatures are drawn from shapes and lit in code. Each shape is its own part (a leg
-reads as a leg; body, neck, head and tail blend into one form), every part gets a rounded
-height and a normal, and a single light from the top left does the shading; where a nearer
-part overlaps a farther one, the farther one is shadowed along the seam, and the outline is
-sel-out (a warm dark on lit edges, a deep one in shadow). Proportions follow current
-reconstructions: a horizontal t-rex, a high-hipped stegosaurus, a brachiosaurus rising
-from long forelimbs, feathered raptors, a sail-backed spinosaurus fishing the river. The
-cast: t-rex, raptors, brachiosaurus, stegosaurus, triceratops, ankylosaurus,
-parasaurolophus, spinosaurus, dilophosaurus (it fans its frill when it calls), a pair of
-head-butting pachycephalosaurs, a skittish gallimimus herd, a flock of compys, babies by the
-nests, and pterosaurs round the volcano. They walk with six-frame gaits, breathe, blink,
-graze and call, big feet thud, and pi is a baby kaiju now, the kind that grows up to be
-Middle Path.
+The creatures are pixel sprites in one sheet (`assets/island/dinos.png`), drawn in the
+style of the pterosaur Ammaar supplied (that one is used pixel for pixel): flat tone bands,
+dark along the back and light on the belly, a dark outline that goes near black underneath,
+a few speckles. Each species is built from hand-placed silhouette curves and posed per
+frame, with proportions from current reconstructions: a horizontal t-rex, a high-hipped
+stegosaurus with two rows of plates, a brachiosaurus rising from long forelimbs, feathered
+raptors, a sail-backed spinosaurus fishing the river. The cast: t-rex, raptors,
+brachiosaurus, stegosaurus, triceratops, ankylosaurus, parasaurolophus, spinosaurus,
+dilophosaurus (it fans its frill when it calls), a pair of head-butting pachycephalosaurs, a
+skittish gallimimus herd, a flock of compys, babies by the nests, and pterosaurs gliding
+round the volcano. They walk with six-frame gaits, breathe, blink, graze and call, and big
+feet thud. pi is the little white one it always was; evolved, pi becomes Middle Path, traced
+from Ammaar's drawing: sitting, head tipped up, spikes down its back, blowing a bubble.
 
 A robot crew runs the place: cargo bots haul crates from the dock to the supply depot and
 the visitor centre, drones fly parcels out to the landmarks, a welder patches the raptor
@@ -72,7 +75,7 @@ Some buildings open up: walk to the door and press e to go inside the bunker (th
 rack and the triage desk are in there), the visitor centre, or the depot. Trees and
 buildings turn see-through when pi walks behind them.
 
-His BMW M3 is parked in the garden and a
+His BMW M3 is parked on the coast road and a
 helicopter sits on the helipad: walk up, press e, and drive or fly. The island keeps real
 time in Ellicott City (America/New_York), with sunrise and sunset worked out for the date.
 `?islandhour=22` previews any hour.
@@ -82,8 +85,7 @@ of the site; the winner runs the hero orb for the rest of the session. Every cla
 reality open from the point of impact and the island underneath is somewhere else: the
 jurassic island, a neon future city (every tree a lit tower, roads of light, flying
 traffic), or chaos (ink on paper, a black nervous system of strands and spheres, flickering
-neural connections, grain everywhere). The orbs pool darkness around themselves and lash
-out with tendrils, the score changes with each reality, and the tear closes when a winner
+neural connections, grain everywhere). The score changes with each reality, and the tear closes when a winner
 is crowned. Each clash hits like colliding stars: a white-hot core, shockwaves in both
 orbs' colours, spikes of light, debris spiralling out, and the frame bulging around the
 impact like gravitational lensing, while reality tears open as a jagged star. The orbs pool
@@ -91,8 +93,8 @@ darkness and draw motes into themselves; their presence is a beating sub drone, 
 ring-modulated alien tone, a wail that slides between wrong notes, and whispering formants,
 and every clash sounds like the world's audio collapsing into a long dark reverb.
 
-Somewhere in the northwest woods there's an old shrine. (The gardener bot won't go near it.) There's
-also a terminal left logged in, in a cave in the volcano's cliff (a robot will
+Up on the highland, at the end of a trail from the brachio meadow, there's an old shrine. (The gardener bot won't go near it.) There's
+also a terminal left logged in, in a cave at the foot of the volcano (a robot will
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early.
 
@@ -111,7 +113,7 @@ into the island, `m` or the ♪ button mutes it, and the choice is remembered.
 - keyboard: wasd / arrows to walk, shift to run, e / space / enter to look, m to mute, esc to leave
 - pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look
 - `#island` in the URL opens it directly
-- first visit per session: pi hatches from an egg on the plaza
+- first visit per session: pi hatches from an egg in the village square
 
 The background (`js/hands.js`) is two ASCII hands after the Sistine ceiling,
 rendered from `assets/hands.json`. They reach toward each other as you
