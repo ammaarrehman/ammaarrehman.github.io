@@ -951,6 +951,10 @@
     return c === "ArrowUp" || c === "KeyW" ? "u" : c === "ArrowDown" || c === "KeyS" ? "d" : c === "ArrowLeft" || c === "KeyA" ? "l" : c === "ArrowRight" || c === "KeyD" ? "r" : null;
   }
   function onKeyDown(e) {
+    if (open && paused) {
+      if (e.key === "Escape" || e.key === "p" || e.key === "P") { e.preventDefault(); setPaused(false); }
+      return;
+    }
     if (!open || termOpen || setOpen()) return;
     var tg = e.target && e.target.tagName;
     if (tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT") return;          // typing somewhere: leave the keys alone
@@ -963,6 +967,7 @@
     if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); return; }
     if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { side = null; fade = 1; } else if (!side) exit(); return; }
     if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
+    if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
     if (e.key === "Shift") { keys.run = 1; return; }
     if (side && e.key === " " && dlg.hidden) { e.preventDefault(); keys.jump = 1; return; }
     if ((e.key === "m" || e.key === "M") && SND) { SND.toggle(); return; }
@@ -983,7 +988,7 @@
   function onKeyUp(e) { var d = dirKey(e); if (d) keys[d] = 0; if (e.key === "Shift") keys.run = 0; }
   // a key let go while the window was away never sends its keyup: forget everything held
   function clearKeys() { keys = {}; if (side) side.tap = 0; }
-  function onVis() { if (document.hidden) clearKeys(); }
+  function onVis() { if (document.hidden) { clearKeys(); if (open && !paused) setPaused(true); } }
   function onResize() { if (open) size(); }
   /* the window listeners exist only while the island is open: one AbortController per visit,
      aborted on the way out, so leaving and coming back can never stack them up */
@@ -1081,7 +1086,7 @@
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") pi.boost = 10;
     if (s.found && !found[s.id]) {
-      found[s.id] = 1; paintFound(); setTimeout(function () { sfx("found"); }, 120);
+      found[s.id] = 1; paintFound(); later(0.12, function () { sfx("found"); });
       try { sessionStorage.setItem("pi-found", JSON.stringify(Object.keys(found))); } catch (e) {}
     }
     var all = Object.keys(found).length === TOTAL && s.found, extra = "";
@@ -1362,7 +1367,7 @@
       var rival2 = critters.filter(function (o) { return o.kind === "pachy" && o !== c && !o.tx; })[0];
       if (rival2 && Math.hypot(rival2.x - c.x, rival2.y - c.y) < 44 && Math.random() < dt * 0.4) {
         c.face = rival2.x > c.x ? 1 : -1; rival2.face = -c.face; c.roar = rival2.roar = 1; c.cd = rival2.cd = 6;
-        setTimeout(function () { sfx("hit", c.x, c.y, { vol: 0.7 }); c.hop = rival2.hop = 1; c.vy = rival2.vy = -1.4; }, 450);
+        later(0.45, function () { sfx("hit", c.x, c.y, { vol: 0.7 }); c.hop = rival2.hop = 1; c.vy = rival2.vy = -1.4; });
       }
     }
     // the t-rex stalks pi along the inside of its fence
@@ -1566,10 +1571,10 @@
   }
   function fly(b, n, delay) {
     var p = perches[n], off = b.i ? 4 : 0;
-    setTimeout(function () {
+    later(delay, function () {
       b.perch = n;
       b.fly = { t: 0, dur: 1.4 + Math.hypot(p.x - b.x, p.y - b.y) / 160, x0: b.x, y0: b.y, g0: b.gy, x1: p.x + off, y1: p.y, g1: p.gy, arc: 18 + Math.random() * 16 };
-    }, delay * 1000);
+    });
   }
   function drawBird(b) {
     if (b.fly) {
@@ -2194,7 +2199,7 @@
       // pi tosses a handful of pellets on the water nearest him, and the koi come running
       var best = null, bd = 1e9;
       for (var a2 = 0; a2 < 6.283; a2 += 0.1) { var qx = (KP.x + Math.cos(a2) * KP.rx * 0.8) * T, qy = (KP.y + Math.sin(a2) * KP.ry * 0.75) * T, q = Math.hypot(qx - pi.x, qy - pi.y); if (q < bd) { bd = q; best = [qx, qy]; } }
-      feedKoi(best[0], best[1]); sfx("plop", best[0], best[1]); setTimeout(function () { sfx("splash", best[0], best[1]); }, 500);
+      feedKoi(best[0], best[1]); sfx("plop", best[0], best[1]); later(0.5, function () { sfx("splash", best[0], best[1]); });
       say("the koi pond", "Ammaar's koi pond: twenty koi, every one a different variety and size. kohaku, showa, tancho, chagoi, karasu, a big platinum ogon, and the rest. pi tosses in some pellets and they all come running.", []);
     }
     else if (v.id === "nest") say("a nest", "a nest of " + v.ref.eggs + " speckled eggs, still warm. one of them wobbles. pi backs away slowly.", []);
@@ -2332,7 +2337,7 @@
     var others = ["dino", "future", "chaos"].filter(function (r2) { return r2 !== reality.cur; });
     shiftReality(others[(frand() * others.length) | 0], x, y);
     sfx("nova", x, y, { vol: kill ? 1.25 : 1 });
-    if (kill) { b.alive = false; setTimeout(function () { sfx("nova", x, y, { vol: 0.7 }); }, 700); }
+    if (kill) { b.alive = false; later(0.7, function () { sfx("nova", x, y, { vol: 0.7 }); }); }
   }
   function begin(att, tgt) {
     rift.act = { a: att, b: tgt, kind: att.style, t: 0, fx: att.x, fy: att.y, ang: Math.atan2(att.y - tgt.y, att.x - tgt.x), done: false };
@@ -3064,7 +3069,18 @@
     if (dy && !solidPx(o.x - hw, o.y + dy + (dy > 0 ? 1 : -2)) && !solidPx(o.x + hw, o.y + dy + (dy > 0 ? 1 : -2))) o.y += dy;
   }
   var hitstop = 0;
+  /* game-time timers: background tabs throttle setTimeout, and a paused game shouldn't keep
+     firing things, so anything in play waits on the game's own clock instead */
+  var timers = [];
+  function later(sec, fn) { timers.push({ t: sec, fn: fn }); }
+  function tickTimers(dt) {
+    if (!timers.length) return;
+    var due = [];
+    timers = timers.filter(function (tm) { tm.t -= dt; if (tm.t <= 0) { due.push(tm.fn); return false; } return true; });
+    due.forEach(function (fn) { fn(); });
+  }
   function update(dt) {
+    tickTimers(dt);
     if (hitstop > 0) { hitstop -= dt; return; }
     if (side) { updateSide(dt); updateReality(dt); quake = Math.max(0, quake - dt * 8); if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; } return; }             // a beat of freeze on a big hit sells the impact
     updateRift(dt);
@@ -3511,16 +3527,39 @@
       + "save " + saveDump();
   }
 
-  function startLoop() { if (raf) cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(loop); }
+  /* the simulation runs on a fixed 60 Hz step with an accumulator: a frame's time is clamped
+     to 100 ms and at most five steps run per frame, so a long hitch (or a tab coming back from
+     the background) can't make the car tunnel through a wall or a fight skip ahead */
+  var STEP = 1 / 60, acc = 0, paused = false;
+  function startLoop() { if (raf) cancelAnimationFrame(raf); last = performance.now(); acc = 0; raf = requestAnimationFrame(loop); }
   function stopLoop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   function loop(now) {
     raf = 0;
     if (!open) return;
-    var ms = now - last, dt = Math.min(0.05, ms / 1000 || 0.016); last = now; t += dt;
-    update(dt); render();
+    var ms = now - last; last = now;
+    if (!paused) {
+      acc += Math.min(0.1, Math.max(0, ms / 1000));
+      for (var n = 0; acc >= STEP && n < 5; n++) { t += STEP; update(STEP); acc -= STEP; }
+      if (acc >= STEP) acc = 0;
+    }
+    render();
     if (DEBUG) drawDebug(ms);
     raf = requestAnimationFrame(loop);
   }
+  /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
+     carries on by itself */
+  var pauseEl = root.querySelector(".w-pause");
+  function setPaused(on) {
+    if (!open) return;
+    paused = on; clearKeys();
+    if (pauseEl) pauseEl.hidden = !on;
+    if (on) { var b0 = pauseEl && pauseEl.querySelector("button"); if (b0) b0.focus({ preventScroll: true }); }
+    else { last = performance.now(); acc = 0; cv.focus({ preventScroll: true }); }
+  }
+  if (pauseEl) pauseEl.addEventListener("click", function (e) {
+    var a2 = e.target.closest && e.target.closest("[data-a]"); if (!a2) return;
+    if (a2.getAttribute("data-a") === "resume") setPaused(false); else { setPaused(false); exit(); }
+  });
 
   /* ════════ the warp: orb → island and back ════════ */
   var streaks = [];
@@ -3588,7 +3627,7 @@
       camF.x = null;
       var ruler = null; try { ruler = sessionStorage.getItem("rift-done"); } catch (e) {}
       if (ruler && !rift && window.Orb) { rift = { phase: "reign", winner: ruler, t: 0, orbs: [rival(ruler, 0)], parts: [], shake: 0, dim: 0, ring: 0 }; var w0 = rift.orbs[0]; w0.x = ARENA.x; w0.y = ARENA.y; w0.z = 34; w0.scale = 1.7; paintFound(); }
-      else if (!ruler && !rift && Object.keys(found).length === TOTAL) setTimeout(function () { if (open && !rift && dlg.hidden) askRift(); }, first ? 3000 : 1200);
+      else if (!ruler && !rift && Object.keys(found).length === TOTAL) later(first ? 3 : 1.2, function () { if (!rift && dlg.hidden) askRift(); });
       startLoop();
       cv.focus({ preventScroll: true });
       showCard();
@@ -3606,6 +3645,7 @@
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
+      paused = false; if (pauseEl) pauseEl.hidden = true;
       open = false; exiting = false; stopLoop(); unbindSession();
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");
