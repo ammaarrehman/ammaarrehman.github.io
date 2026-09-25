@@ -946,13 +946,17 @@
   /* ════════ input ════════ */
   var keys = {}, open = false, last = 0, raf = 0, t = 0;
   function dirKey(e) {
-    var c = e.key.toLowerCase();
-    return c === "arrowup" || c === "w" ? "u" : c === "arrowdown" || c === "s" ? "d" : c === "arrowleft" || c === "a" ? "l" : c === "arrowright" || c === "d" ? "r" : null;
+    var c = e.code || "";
+    if (!c) { var k0 = (e.key || "").toLowerCase(); c = k0 === "w" ? "KeyW" : k0 === "a" ? "KeyA" : k0 === "s" ? "KeyS" : k0 === "d" ? "KeyD" : e.key; }
+    return c === "ArrowUp" || c === "KeyW" ? "u" : c === "ArrowDown" || c === "KeyS" ? "d" : c === "ArrowLeft" || c === "KeyA" ? "l" : c === "ArrowRight" || c === "KeyD" ? "r" : null;
   }
-  window.addEventListener("keydown", function (e) {
+  function onKeyDown(e) {
     if (!open || termOpen || setOpen()) return;
+    var tg = e.target && e.target.tagName;
+    if (tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT") return;          // typing somewhere: leave the keys alone
     var d = dirKey(e);
     if (d) { keys[d] = 1; pi.path = null; pi.want = null; car.target = null; heli.target = null; e.preventDefault(); if (egg) egg.t = 99; return; }
+    if (e.repeat) { if (e.key === " " || e.key === "Enter") e.preventDefault(); return; }
     if (aboard() && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleHeli(); return; }
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
@@ -971,14 +975,38 @@
       if (!dlg.hidden) { typing ? finishTyping() : closeDialog(); return; }
       var s = nearby(); if (s) interact(s);
     }
-  });
+  }
+
   cv.addEventListener("pointerup", function () { if (side) side.tap = 0; });
   cv.addEventListener("pointercancel", function () { if (side) side.tap = 0; });
-  window.addEventListener("keyup", function (e) { var d = dirKey(e); if (d) keys[d] = 0; if (e.key === "Shift") keys.run = 0; });
-  window.addEventListener("blur", function () { keys = {}; });
+  cv.addEventListener("lostpointercapture", function () { if (side) side.tap = 0; });
+  function onKeyUp(e) { var d = dirKey(e); if (d) keys[d] = 0; if (e.key === "Shift") keys.run = 0; }
+  // a key let go while the window was away never sends its keyup: forget everything held
+  function clearKeys() { keys = {}; if (side) side.tap = 0; }
+  function onVis() { if (document.hidden) clearKeys(); }
+  function onResize() { if (open) size(); }
+  /* the window listeners exist only while the island is open: one AbortController per visit,
+     aborted on the way out, so leaving and coming back can never stack them up */
+  var session = null;
+  function bindSession() {
+    unbindSession();
+    session = typeof AbortController !== "undefined" ? new AbortController() : null;
+    var o = session ? { signal: session.signal } : false;
+    window.addEventListener("keydown", onKeyDown, o);
+    window.addEventListener("keyup", onKeyUp, o);
+    window.addEventListener("blur", clearKeys, o);
+    window.addEventListener("resize", onResize, o);
+    document.addEventListener("visibilitychange", onVis, o);
+  }
+  function unbindSession() {
+    if (session) session.abort();
+    else { window.removeEventListener("keydown", onKeyDown); window.removeEventListener("keyup", onKeyUp); window.removeEventListener("blur", clearKeys); window.removeEventListener("resize", onResize); document.removeEventListener("visibilitychange", onVis); }
+    session = null; clearKeys();
+  }
 
   cv.addEventListener("pointerdown", function (e) {
     if (!open || termOpen) return;
+    try { cv.setPointerCapture(e.pointerId); } catch (x) {}
     if (mapRect && e.clientX >= mapRect[0] && e.clientX <= mapRect[0] + mapRect[2] && e.clientY >= mapRect[1] && e.clientY <= mapRect[1] + mapRect[3]) { mapOn = !mapOn; sfx("blip"); return; }
     if (egg) { egg.t = 99; return; }
     if (riftBusy()) return;
@@ -3020,7 +3048,7 @@
     side = null; closeDialog();
     try { sessionStorage.setItem("deity-met", "1"); } catch (e) {}
     stopSound();
-    open = false; cancelAnimationFrame(raf); raf = 0;
+    open = false; stopLoop(); unbindSession();
     root.classList.remove("show"); root.hidden = true;
     document.documentElement.classList.remove("in-world");
     if (window.orbs) window.orbs.forEach(function (o) { o.pause(false); o.calm(); });
@@ -3475,7 +3503,7 @@
     var live = CANVASES.filter(function (c) { return c.width * c.height > 0; }), mb = live.reduce(function (a, c) { return a + c.width * c.height * 4; }, cv.width * cv.height * 4) / 1048576;
     var au = SND && SND.stats ? SND.stats() : null;
     dbg.textContent = "fps " + (1000 / avg).toFixed(0) + "   frame avg " + avg.toFixed(1) + " ms   p95 " + sorted[Math.floor(sorted.length * 0.95)].toFixed(1) + " ms\n"
-      + "state " + gameState() + (SEED ? "   seed " + SEED : "") + "\n"
+      + "state " + gameState() + "   pi " + Math.round(pi.x / T) + "," + Math.round(pi.y / T) + (SEED ? "   seed " + SEED : "") + "\n"
       + "particles " + particleCount() + "   novas " + (rift && rift.novas ? rift.novas.length : 0) + "\n"
       + "audio " + (au ? au.state + "   sources " + au.sources + "   voices " + au.voices + "   loops " + au.loops + "   mood " + (au.mood || "-") : "none") + "\n"
       + "dpr " + dpr + "   css " + W + "x" + H + "   backing " + cv.width + "x" + cv.height + "   scale " + S + "\n"
@@ -3483,6 +3511,8 @@
       + "save " + saveDump();
   }
 
+  function startLoop() { if (raf) cancelAnimationFrame(raf); last = performance.now(); raf = requestAnimationFrame(loop); }
+  function stopLoop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   function loop(now) {
     raf = 0;
     if (!open) return;
@@ -3544,7 +3574,9 @@
     if (window.orbs && window.orbs[0]) window.orbs[0].boost();
     startSound(); sfx("whoosh");
     warpRun(1, function () {
-      open = true; entering = false; size();
+      entering = false;
+      if (open) return;
+      open = true; size(); bindSession();
       document.documentElement.classList.add("in-world");
       root.hidden = false; root.classList.add("show");
       var first = false;
@@ -3557,7 +3589,7 @@
       var ruler = null; try { ruler = sessionStorage.getItem("rift-done"); } catch (e) {}
       if (ruler && !rift && window.Orb) { rift = { phase: "reign", winner: ruler, t: 0, orbs: [rival(ruler, 0)], parts: [], shake: 0, dim: 0, ring: 0 }; var w0 = rift.orbs[0]; w0.x = ARENA.x; w0.y = ARENA.y; w0.z = 34; w0.scale = 1.7; paintFound(); }
       else if (!ruler && !rift && Object.keys(found).length === TOTAL) setTimeout(function () { if (open && !rift && dlg.hidden) askRift(); }, first ? 3000 : 1200);
-      last = performance.now(); raf = requestAnimationFrame(loop);
+      startLoop();
       cv.focus({ preventScroll: true });
       showCard();
       hideWarp();
@@ -3565,14 +3597,16 @@
       if (history.replaceState) history.replaceState(null, "", "#island");
     });
   }
+  var exiting = false;
   function exit(then) {
-    if (!open) return;
+    if (!open || exiting) return;
+    exiting = true;
     closeDialog(); if (termOpen) closeTerm();
     if (car.driving) toggleCar();
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
-      open = false; cancelAnimationFrame(raf); raf = 0;
+      open = false; exiting = false; stopLoop(); unbindSession();
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");
       if (window.orbs) window.orbs.forEach(function (o) { o.pause(false); o.calm(); });
@@ -3589,5 +3623,4 @@
   orbBtn.addEventListener("click", enter);
   window.islandEnter = enter;
   root.querySelector(".w-exit").addEventListener("click", function () { exit(); });
-  window.addEventListener("resize", function () { if (open) size(); });
 })();
