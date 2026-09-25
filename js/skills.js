@@ -4,7 +4,7 @@
   if (!root) return;
   var groups = {
     cloud_infra: ["::certified", "AWS Cloud Practitioner (CLF-C02)", "::services", "S3", "CloudFront", "Route 53", "IAM", "EC2", "::as code", "Terraform", "Docker", "Infrastructure as code"],
-    security_grc: ["::frameworks", "NIST Cybersecurity Framework", "CIS Controls (CIS 18)", "Ready5 / Discover5", "::practice", "Cyber readiness assessment", "Risk assessment", "GRC", "Executive findings reports", "::controls", "EDR / MDR", "MFA & Conditional Access", "SPF / DKIM / DMARC", "DNS filtering", "Immutable backup"],
+    security_grc: ["::frameworks", "NIST Cybersecurity Framework", "CIS Controls (CIS 18)", "Ready5 / Discover5", "::practice", "Cyber readiness assessment support", "Capability gap analysis", "Findings documentation", "::controls", "EDR / MDR", "MFA & Conditional Access", "SPF / DKIM / DMARC", "DNS filtering", "Backup & restore testing"],
     systems_networking: ["::certified", "CompTIA Tech+", "::stack", "Linux", "DNS / DNSSEC", "Unbound", "AdGuard Home", "keepalived / VRRP", "Tailscale", "Networking fundamentals"],
     monitoring: ["Prometheus", "Grafana", "Uptime Kuma", "node-exporter", "cAdvisor"],
     programming: ["Python — evals, tooling", "JavaScript — this site", "HTML / CSS — in production", "Java — basics", "Git / GitHub", "VS Code"],
