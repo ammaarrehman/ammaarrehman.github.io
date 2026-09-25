@@ -10,7 +10,7 @@
    Sound.toggle() / .on()    mute switch (persists in localStorage) */
 (function () {
   var AC = window.AudioContext || window.webkitAudioContext;
-  var ctx = null, master, sfxBus, musicBus, noiseBuf, enabled = true, listeners = [];
+  var ctx = null, master, sfxBus, musicBus, noiseBuf, verb, verbIn, enabled = true, listeners = [];
   try { enabled = localStorage.getItem("sound") !== "off"; } catch (e) {}
 
   function init() {
@@ -22,6 +22,10 @@
     sfxBus = ctx.createGain(); sfxBus.gain.value = 0.9;
     musicBus = ctx.createGain(); musicBus.gain.value = 0.32;
     sfxBus.connect(master); musicBus.connect(master); master.connect(comp); comp.connect(ctx.destination);
+    // a long, dark reverb for the orbs: an impulse of decaying stereo noise
+    verb = ctx.createConvolver(); var ir = ctx.createBuffer(2, ctx.sampleRate * 3.2, ctx.sampleRate);
+    for (var ch = 0; ch < 2; ch++) { var dd = ir.getChannelData(ch); for (var j = 0; j < dd.length; j++) dd[j] = (Math.random() * 2 - 1) * Math.pow(1 - j / dd.length, 2.6); }
+    verb.buffer = ir; verbIn = ctx.createGain(); verbIn.gain.value = 0.7; verbIn.connect(verb); verb.connect(master);
     noiseBuf = ctx.createBuffer(1, ctx.sampleRate * 1.5, ctx.sampleRate);
     var d = noiseBuf.getChannelData(0);
     for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
@@ -51,7 +55,7 @@
     osc.type = type; osc.frequency.setValueAtTime(f0, t0);
     if (f1 && f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
     env(g, t0, o.attack || 0.005, dur, vol);
-    osc.connect(g); pan(g, o.pan).connect(o.bus || sfxBus);
+    osc.connect(g); var pg = pan(g, o.pan); pg.connect(o.bus || sfxBus); if (o.verb) pg.connect(verbIn);
     osc.start(t0); osc.stop(t0 + dur + 0.05);
     return osc;
   }
@@ -62,7 +66,7 @@
     flt.type = type; flt.Q.value = o.q || 1; flt.frequency.setValueAtTime(f0, t0);
     if (f1 && f1 !== f0) flt.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
     env(g, t0, o.attack || 0.003, dur, vol);
-    src.connect(flt); flt.connect(g); pan(g, o.pan).connect(o.bus || sfxBus);
+    src.connect(flt); flt.connect(g); var pn = pan(g, o.pan); pn.connect(o.bus || sfxBus); if (o.verb) pn.connect(verbIn);
     src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + 0.05);
   }
   function jit(f, amt) { return f * (1 + (Math.random() - 0.5) * (amt || 0.08)); }
@@ -112,13 +116,33 @@
     backup: function (o) { var v = o.vol || 1; for (var i = 0; i < 3; i++) tone("square", 1050, null, 0.12, 0.035 * v, { pan: o.pan, when: i * 0.3 }); },
     spray: function (o) { noise(0.5, 0.05 * (o.vol || 1), "highpass", 2500, 4000, { pan: o.pan, attack: 0.06 }); },
     // the orbs and the realities
-    dash: function (o) { noise(0.35, 0.18, "bandpass", 300, 2600, { pan: o.pan, q: 3, attack: 0.25 }); tone("sawtooth", 55, 220, 0.3, 0.06, { pan: o.pan, attack: 0.25 }); },
-    warp: function (o) {
-      // reality tears: a falling sub-bass, a pitch-bent glitch stutter, and a hiss that sweeps down
-      var t0 = now(); tone("sine", 180, 30, 1.1, 0.4); tone("sawtooth", 880, 40, 0.9, 0.08);
-      for (var i = 0; i < 8; i++) tone("square", jit(200 + Math.random() * 2000, 0.3), null, 0.03, 0.05, { when: 0.05 + i * 0.045 });
-      noise(1, 0.2, "bandpass", 6000, 200, { q: 1.5 });
+    warp: function () {
+      // reality warping: the world's sound collapses like a tape stopping (a chord dragged down to
+      // nothing), a ring-modulated shriek tears across it, grains of it stutter and scatter across
+      // the stereo field, and a sub-bass boom rolls away into a long dark reverb
+      var t0 = now(), i;
+      [110, 138.6, 164.8, 220].forEach(function (f) {
+        var o1 = ctx.createOscillator(), lp = ctx.createBiquadFilter(), g = ctx.createGain();
+        o1.type = "sawtooth"; o1.frequency.setValueAtTime(f * 2, t0); o1.frequency.exponentialRampToValueAtTime(f / 16, t0 + 1.1);
+        lp.type = "lowpass"; lp.frequency.setValueAtTime(3000, t0); lp.frequency.exponentialRampToValueAtTime(90, t0 + 1.1);
+        g.gain.setValueAtTime(0.06, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.2);
+        o1.connect(lp); lp.connect(g); g.connect(sfxBus); g.connect(verbIn); o1.start(t0); o1.stop(t0 + 1.25);
+      });
+      var car = ctx.createOscillator(), mod = ctx.createOscillator(), rm = ctx.createGain(), rg = ctx.createGain();
+      car.type = "sawtooth"; car.frequency.setValueAtTime(1800, t0); car.frequency.exponentialRampToValueAtTime(140, t0 + 0.9);
+      mod.frequency.setValueAtTime(1370, t0); mod.frequency.exponentialRampToValueAtTime(61, t0 + 0.9);
+      rm.gain.value = 0; mod.connect(rm.gain); car.connect(rm);
+      rg.gain.setValueAtTime(0.09, t0); rg.gain.exponentialRampToValueAtTime(0.0001, t0 + 0.95);
+      rm.connect(rg); rg.connect(sfxBus); rg.connect(verbIn); car.start(t0); mod.start(t0); car.stop(t0 + 1); mod.stop(t0 + 1);
+      for (i = 0; i < 14; i++) {
+        if (Math.random() < 0.5) tone("square", jit(100 + Math.random() * 3000, 0.3), jit(60 + Math.random() * 900, 0.3), 0.04, 0.05, { when: 0.03 + i * 0.04 + Math.random() * 0.02, pan: Math.random() * 2 - 1, verb: true });
+        else noise(0.04, 0.09, "bandpass", 300 + Math.random() * 6000, null, { when: 0.03 + i * 0.045, pan: Math.random() * 2 - 1, q: 4, verb: true });
+      }
+      tone("sine", 70, 18, 1.6, 0.55, { verb: true }); noise(1.4, 0.2, "lowpass", 1400, 60, { verb: true });
+      noise(0.9, 0.14, "bandpass", 8000, 150, { q: 1.2, attack: 0.05, verb: true });
     },
+    // the moment before a clash: reversed air rushing in
+    dash: function (o) { noise(0.38, 0.22, "bandpass", 200, 3200, { pan: o.pan, q: 2.5, attack: 0.34, verb: true }); tone("sawtooth", 40, 160, 0.36, 0.07, { pan: o.pan, attack: 0.3 }); },
     splash: function (o) { noise(0.3, 0.12 * (o.vol || 1), "bandpass", 2800, 900, { pan: o.pan, q: 0.7 }); },
     plop: function (o) { tone("sine", jit(620), 180, 0.1, 0.07 * (o.vol || 1), { pan: o.pan }); },
     zap: function (o) { for (var i = 0; i < 4; i++) noise(0.03, 0.12, "highpass", 3000, 5000, { pan: o.pan, when: i * 0.05 * Math.random() + i * 0.03 }); tone("sawtooth", 120, 90, 0.25, 0.05, { pan: o.pan }); },
@@ -171,16 +195,28 @@
       b1.type = "sawtooth"; b2.type = "sawtooth"; b1.frequency.value = 185; b2.frequency.value = 192; bf.type = "bandpass"; bf.frequency.value = 900; bf.Q.value = 0.8;
       b1.connect(bf); b2.connect(bf); bf.connect(out); nodes.push(b1, b2);
     } else if (name === "aura") {
-      // the orbs' presence: two detuned low saws beating against each other, a choir-ish
-      // formant on top, and a breathy swell, all slowly swelling in and out
-      var a1 = ctx.createOscillator(), a2 = ctx.createOscillator(), a3 = ctx.createOscillator(), al = ctx.createBiquadFilter(), fm = ctx.createBiquadFilter(), sw = ctx.createGain(), lf = ctx.createOscillator(), lg = ctx.createGain(), hs = src(), hf = ctx.createBiquadFilter();
-      a1.type = "sawtooth"; a2.type = "sawtooth"; a3.type = "triangle"; a1.frequency.value = 55; a2.frequency.value = 55.8; a3.frequency.value = 82.4;
-      al.type = "lowpass"; al.frequency.value = 420; fm.type = "bandpass"; fm.frequency.value = 700; fm.Q.value = 6;
-      lf.frequency.value = 0.18; lg.gain.value = 0.35; sw.gain.value = 0.6; lf.connect(lg); lg.connect(sw.gain);
-      hf.type = "bandpass"; hf.frequency.value = 1200; hf.Q.value = 0.7; var hg = ctx.createGain(); hg.gain.value = 0.15;
-      a1.connect(al); a2.connect(al); a3.connect(fm); al.connect(sw); fm.connect(sw); hs.connect(hf); hf.connect(hg); hg.connect(sw); sw.connect(out);
-      nodes.push(a1, a2, a3, lf);
-      ctl.rate = function (r) { al.frequency.setTargetAtTime(300 + r * 1400, now(), 0.3); fm.frequency.setTargetAtTime(500 + r * 900, now(), 0.3); };
+      // the orbs' presence, meant to feel wrong: a beating sub drone felt more than heard; a
+      // ring-modulated metallic tone with no musical pitch; a theremin-like wail that slides
+      // between notes that don't belong together; and whispering formants in the noise
+      var s1 = ctx.createOscillator(), s2 = ctx.createOscillator(), sub = ctx.createGain();
+      s1.frequency.value = 36; s2.frequency.value = 36.6; sub.gain.value = 0.5; s1.connect(sub); s2.connect(sub); sub.connect(out);
+      var c1 = ctx.createOscillator(), m1 = ctx.createOscillator(), ring = ctx.createGain(), rbp = ctx.createBiquadFilter(), rgain = ctx.createGain();
+      c1.type = "sawtooth"; c1.frequency.value = 233; m1.frequency.value = 157.3; ring.gain.value = 0; m1.connect(ring.gain); c1.connect(ring);
+      rbp.type = "bandpass"; rbp.frequency.value = 900; rbp.Q.value = 3; rgain.gain.value = 0.22; ring.connect(rbp); rbp.connect(rgain); rgain.connect(out);
+      var sweep = ctx.createOscillator(), sweepG = ctx.createGain(); sweep.frequency.value = 0.07; sweepG.gain.value = 600; sweep.connect(sweepG); sweepG.connect(rbp.frequency);
+      var wail = ctx.createOscillator(), vib = ctx.createOscillator(), vibG = ctx.createGain(), wailG = ctx.createGain(), wlp = ctx.createBiquadFilter();
+      wail.type = "sine"; wail.frequency.value = 420; vib.frequency.value = 5.3; vibG.gain.value = 9; vib.connect(vibG); vibG.connect(wail.frequency);
+      wlp.type = "lowpass"; wlp.frequency.value = 1400; wailG.gain.value = 0.09; wail.connect(wlp); wlp.connect(wailG); wailG.connect(out);
+      var wsrc = src(), f1 = ctx.createBiquadFilter(), f2 = ctx.createBiquadFilter(), wg = ctx.createGain(), wl = ctx.createOscillator(), wlg = ctx.createGain();
+      f1.type = "bandpass"; f1.frequency.value = 700; f1.Q.value = 14; f2.type = "bandpass"; f2.frequency.value = 2300; f2.Q.value = 16;
+      wl.frequency.value = 0.31; wlg.gain.value = 0.12; wg.gain.value = 0.14; wl.connect(wlg); wlg.connect(wg.gain);
+      wsrc.connect(f1); wsrc.connect(f2); f1.connect(wg); f2.connect(wg); wg.connect(out);
+      nodes.push(s1, s2, c1, m1, sweep, wail, vib, wl);
+      if (verbIn) out.connect(verbIn);
+      var notes = [420, 397, 561, 333, 471, 298], wn = 0;
+      var slide = setInterval(function () { if (!ctx) return; wn = (wn + 1 + ((Math.random() * 3) | 0)) % notes.length; wail.frequency.setTargetAtTime(notes[wn] * (0.9 + Math.random() * 0.2), now(), 0.6); f1.frequency.setTargetAtTime(400 + Math.random() * 900, now(), 0.4); f2.frequency.setTargetAtTime(1600 + Math.random() * 1800, now(), 0.4); }, 1400);
+      ctl.cleanup = function () { clearInterval(slide); };
+      ctl.rate = function (r) { rgain.gain.setTargetAtTime(0.12 + r * 0.25, now(), 0.2); c1.frequency.setTargetAtTime(233 + r * 140, now(), 0.3); wailG.gain.setTargetAtTime(0.05 + r * 0.1, now(), 0.3); };
     }
     var t0 = now(); nodes.forEach(function (s) { s.start(t0); });
     return {
@@ -190,6 +226,7 @@
         if (p.pan !== undefined && sp) sp.pan.setTargetAtTime(Math.max(-1, Math.min(1, p.pan)), now(), 0.1);
       },
       stop: function () {
+        if (ctl.cleanup) ctl.cleanup();
         out.gain.setTargetAtTime(0, now(), 0.15);
         var tEnd = now() + 0.6; nodes.forEach(function (s) { try { s.stop(tEnd); } catch (e) {} });
       }

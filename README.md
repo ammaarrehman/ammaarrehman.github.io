@@ -50,17 +50,29 @@ tall grass and flowers, boulders gather under the cliffs, and trees and building
 baked, dithered shadows. The volcano is rendered once as a lit heightfield, with a live
 lava lake and flows.
 
-The dinosaurs (brachiosaurus, t-rex, stegosaurus, triceratops, ankylosaurus,
-parasaurolophus, raptors, babies, and pterosaurs round the volcano) are drawn from shapes and
-shaded in code at 1.4x their authored size: lit backs, countershading, rosettes and stripes,
-eyes with a glint, outlined in a darker shade of their own colour. They have six-frame walks
-(a four-beat gait for the quadrupeds), breathing idles, blinks, grazing and a roar; the
-t-rex stalks you along its fence, raptors dart after each other, herds drift together, big
-feet thud, and every species has its own call. A robot crew runs the place: cargo bots haul
-crates from the dock to the supply depot and the visitor centre, drones fly parcels from the
-depot roof to the landmarks, a welder patches the raptor pen, and a gardener waters the
-ferns. Ammaar's cockatiels, his himalayan cats jasmine and prince, and twenty koi (press e
-at the pond to feed them) live there too. His BMW M3 is parked in the garden and a
+The creatures are drawn from shapes and lit in code. Each shape is its own part (a leg
+reads as a leg; body, neck, head and tail blend into one form), every part gets a rounded
+height and a normal, and a single light from the top left does the shading; where a nearer
+part overlaps a farther one, the farther one is shadowed along the seam, and the outline is
+sel-out (a warm dark on lit edges, a deep one in shadow). Proportions follow current
+reconstructions: a horizontal t-rex, a high-hipped stegosaurus, a brachiosaurus rising
+from long forelimbs, feathered raptors, a sail-backed spinosaurus fishing the river. The
+cast: t-rex, raptors, brachiosaurus, stegosaurus, triceratops, ankylosaurus,
+parasaurolophus, spinosaurus, dilophosaurus (it fans its frill when it calls), a pair of
+head-butting pachycephalosaurs, a skittish gallimimus herd, a flock of compys, babies by the
+nests, and pterosaurs round the volcano. They walk with six-frame gaits, breathe, blink,
+graze and call, big feet thud, and pi is a baby kaiju now, the kind that grows up to be
+Middle Path.
+
+A robot crew runs the place: cargo bots haul crates from the dock to the supply depot and
+the visitor centre, drones fly parcels out to the landmarks, a welder patches the raptor
+pen, and a gardener waters the ferns. The tech lives at an off-grid outpost in the
+southwest: sandbag walls, a radio mast, solar panels, a generator, a campfire, and a bunker.
+Some buildings open up: walk to the door and press e to go inside the bunker (the homelab
+rack and the triage desk are in there), the visitor centre, or the depot. Trees and
+buildings turn see-through when pi walks behind them.
+
+His BMW M3 is parked in the garden and a
 helicopter sits on the helipad: walk up, press e, and drive or fly. The island keeps real
 time in Ellicott City (America/New_York), with sunrise and sunset worked out for the date.
 `?islandhour=22` previews any hour.
@@ -72,7 +84,14 @@ jurassic island, a neon future city (every tree a lit tower, roads of light, fly
 traffic), or chaos (ink on paper, a black nervous system of strands and spheres, flickering
 neural connections, grain everywhere). The orbs pool darkness around themselves and lash
 out with tendrils, the score changes with each reality, and the tear closes when a winner
-is crowned. There's
+is crowned. Each clash hits like colliding stars: a white-hot core, shockwaves in both
+orbs' colours, spikes of light, debris spiralling out, and the frame bulging around the
+impact like gravitational lensing, while reality tears open as a jagged star. The orbs pool
+darkness and draw motes into themselves; their presence is a beating sub drone, a
+ring-modulated alien tone, a wail that slides between wrong notes, and whispering formants,
+and every clash sounds like the world's audio collapsing into a long dark reverb.
+
+Somewhere in the northwest woods there's an old shrine. (The gardener bot won't go near it.) There's
 also a terminal left logged in, in a cave in the volcano's cliff (a robot will
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early.
