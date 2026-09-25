@@ -418,6 +418,8 @@ html.in-world, html.in-world body { overflow:hidden; }
   background:rgba(4,6,12,.62); color:#efefef; font-family:var(--mono); font-size:13px;
 }
 .w-pause[hidden] { display:none; }
+.w-snd-chip { position:absolute; left:50%; top:62px; translate:-50% 0; z-index:4; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:#0a0a0a; border:1px solid #f454a6; padding:7px 12px; }
+.w-snd-chip[hidden] { display:none; }
 .w-pause b { font-size:18px; letter-spacing:3px; text-transform:uppercase; }
 .w-pause .w-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
 .w-pause button { font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:#0a0a0a; border:1px solid #f4f4f4; padding:8px 14px; }

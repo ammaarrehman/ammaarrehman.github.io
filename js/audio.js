@@ -15,15 +15,17 @@
    Sound.toggle() / .on()    mute switch (persists in localStorage) */
 (function () {
   var AC = window.AudioContext || window.webkitAudioContext;
-  var ctx = null, live = 0, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
+  var ctx = null, live = 0, restarting = false, stateListeners = [], voices = [], curBus = null, curEnd = 0, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
   var BASE = { master: 0.85, music: 0.42, sfx: 0.9, amb: 0.9 };
   var MIX = { master: 1, music: 0.8, sfx: 1, amb: 0.8 };
   try { enabled = localStorage.getItem("sound") !== "off"; } catch (e) {}
   try { var saved = JSON.parse(localStorage.getItem("sound-mix") || "{}"); Object.keys(MIX).forEach(function (k) { if (typeof saved[k] === "number") MIX[k] = Math.max(0, Math.min(1, saved[k])); }); } catch (e) {}
 
   function init() {
-    if (ctx || !AC) return ctx;
+    if (ctx || !AC || restarting) return ctx;
     ctx = new AC();
+    // safari can interrupt the context (a call, siri, the lock screen); tell whoever's listening
+    ctx.addEventListener("statechange", function () { var st = ctx ? ctx.state : "closed"; stateListeners.forEach(function (f) { f(st); }); });
     // count every source from start to end (the debug overlay shows it), and unhook each one
     // from the graph the moment it finishes so nothing lingers
     ["createOscillator", "createBufferSource"].forEach(function (m) {
@@ -52,7 +54,17 @@
     set(master, enabled ? BASE.master * MIX.master : 0);
     set(musicBus, BASE.music * MIX.music); set(sfxBus, BASE.sfx * MIX.sfx); set(ambBus, BASE.amb * MIX.amb);
   }
-  function unlock() { init(); if (ctx && ctx.state !== "running" && enabled) ctx.resume(); }
+  /* unlock from inside a click, tap or key handler: resume the context and play one silent
+     sample in the same handler (what iOS wants before it lets anything through). where the
+     browser has an audio session, ask for "playback" so the ringer switch doesn't mute it */
+  function unlock() {
+    init(); if (!ctx) return;
+    try { if (navigator.audioSession) navigator.audioSession.type = "playback"; } catch (e) {}
+    if (ctx.state !== "running" && enabled) {
+      try { var b = ctx.createBuffer(1, 1, 22050), s0 = ctx.createBufferSource(); s0.buffer = b; s0.connect(ctx.destination); s0.start(0); } catch (e) {}
+      var r = ctx.resume(); if (r && r.catch) r.catch(function () {});
+    }
+  }
   document.addEventListener("visibilitychange", function () {
     if (!ctx) return;
     if (document.hidden) ctx.suspend(); else if (enabled) ctx.resume();
@@ -76,8 +88,8 @@
     osc.type = type; osc.frequency.setValueAtTime(f0, t0);
     if (f1 && f1 !== f0) osc.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
     env(g, t0, o.attack || 0.005, dur, vol);
-    osc.connect(g); var pg = pan(g, o.pan); pg.connect(o.bus || sfxBus); if (o.verb) pg.connect(verbIn);
-    osc.start(t0); osc.stop(t0 + dur + (o.attack || 0) + 0.05);
+    osc.connect(g); var pg = pan(g, o.pan); pg.connect(o.bus || curBus || sfxBus); if (o.verb) pg.connect(verbIn);
+    osc.start(t0); osc.stop(t0 + dur + (o.attack || 0) + 0.05); curEnd = Math.max(curEnd, t0 + dur + (o.attack || 0) + 0.05);
     return osc;
   }
   function noise(dur, vol, type, f0, f1, o) {
@@ -87,8 +99,8 @@
     flt.type = type; flt.Q.value = o.q || 1; flt.frequency.setValueAtTime(f0, t0);
     if (f1 && f1 !== f0) flt.frequency.exponentialRampToValueAtTime(f1, t0 + dur);
     env(g, t0, o.attack || 0.003, dur, vol);
-    src.connect(flt); flt.connect(g); var pn = pan(g, o.pan); pn.connect(o.bus || sfxBus); if (o.verb) pn.connect(verbIn);
-    src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + (o.attack || 0) + 0.05);
+    src.connect(flt); flt.connect(g); var pn = pan(g, o.pan); pn.connect(o.bus || curBus || sfxBus); if (o.verb) pn.connect(verbIn);
+    src.start(t0, Math.random() * 0.5); src.stop(t0 + dur + (o.attack || 0) + 0.05); curEnd = Math.max(curEnd, t0 + dur + (o.attack || 0) + 0.05);
   }
   function jit(f, amt) { return f * (1 + (Math.random() - 0.5) * (amt || 0.08)); }
   // a struck bell: inharmonic partials that ring out into the reverb. dark, not sweet
@@ -122,8 +134,8 @@
       osc2.frequency.setValueAtTime(97, t0); osc2.frequency.exponentialRampToValueAtTime(38, t0 + 1.5);
       lfo.frequency.value = 23; lg.gain.value = 0.4; lfo.connect(lg); lg.connect(g.gain);          // a rattle in the throat
       flt.type = "lowpass"; flt.frequency.setValueAtTime(900, t0); flt.frequency.exponentialRampToValueAtTime(260, t0 + 1.5);
-      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(0.3 * v, t0 + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
-      osc.connect(flt); osc2.connect(flt); flt.connect(g); pan(g, o.pan).connect(sfxBus);
+      g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, 0.3 * v), t0 + 0.12); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.6);
+      osc.connect(flt); osc2.connect(flt); flt.connect(g); pan(g, o.pan).connect(curBus || sfxBus); curEnd = Math.max(curEnd, t0 + 1.7);
       [osc, osc2, lfo].forEach(function (n) { n.start(t0); n.stop(t0 + 1.7); });
       noise(1.3, 0.1 * v, "lowpass", 700, 200, { pan: o.pan, attack: 0.1 });
     },
@@ -159,7 +171,7 @@
         o1.type = "sawtooth"; o1.frequency.setValueAtTime(f * 2, t0); o1.frequency.exponentialRampToValueAtTime(f / 16, t0 + 1.4);
         lp.type = "lowpass"; lp.frequency.setValueAtTime(2200, t0); lp.frequency.exponentialRampToValueAtTime(70, t0 + 1.4);
         g.gain.setValueAtTime(0.05, t0); g.gain.exponentialRampToValueAtTime(0.0001, t0 + 1.5);
-        o1.connect(lp); lp.connect(g); g.connect(sfxBus); g.connect(verbIn); o1.start(t0); o1.stop(t0 + 1.55);
+        o1.connect(lp); lp.connect(g); g.connect(curBus || sfxBus); g.connect(verbIn); o1.start(t0); o1.stop(t0 + 1.55); curEnd = Math.max(curEnd, t0 + 1.55);
       });
       noise(1.1, 0.12, "bandpass", 5000, 120, { q: 1.4, attack: 0.04, verb: true });
       for (i = 0; i < 12; i++) noise(0.05, 0.05, "bandpass", 200 + Math.random() * 3000, null, { when: 0.05 + i * 0.06 + Math.random() * 0.03, pan: Math.random() * 2 - 1, q: 5, verb: true });
@@ -196,9 +208,17 @@
     grant: function () { [440, 415, 311].forEach(function (f, i) { tone("square", f, null, 0.1, 0.04, { when: i * 0.08 }); }); },
     toll: function (o) { bell((o && o.f) || 73.4, (o && o.vol) || 0.2, 6, { pan: o && o.pan }); }
   };
+  /* each one-shot is a voice: its own gain on the effects bus. at most 24 play at once; past
+     that the oldest is faded out in 15 ms and let go. finished voices are unhooked */
+  var VOICES = 24;
   function sfx(name, o) {
     if (!enabled || !ctx || ctx.state !== "running" || !SFX[name]) return;
+    var t0 = now();
+    voices = voices.filter(function (v) { if (v.end < t0) { try { v.g.disconnect(); } catch (e) {} return false; } return true; });
+    if (voices.length >= VOICES) { var old = voices.shift(); old.g.gain.setTargetAtTime(0, t0, 0.015); setTimeout(function () { try { old.g.disconnect(); } catch (e) {} }, 200); }
+    var vg = ctx.createGain(); vg.connect(sfxBus); curBus = vg; curEnd = t0;
     try { SFX[name](o || {}); } catch (e) {}
+    curBus = null; voices.push({ g: vg, end: curEnd + 0.1 });
   }
 
   // held sounds: the helicopter rotor, the M3's engine, the surf, the volcano's rumble, the
@@ -305,7 +325,7 @@
   function note(type, n, t0, dur, vol) {
     var o = ctx.createOscillator(), g = ctx.createGain();
     o.type = type; o.frequency.value = midi(n);
-    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(vol, t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+    g.gain.setValueAtTime(0.0001, t0); g.gain.exponentialRampToValueAtTime(Math.max(0.0002, vol), t0 + 0.01); g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
     o.connect(g); g.connect(moodGain); if (echo) g.connect(echo);
     o.start(t0); o.stop(t0 + dur + 0.05);
   }
@@ -400,16 +420,20 @@
     if (ctx) { applyMix(); if (on) ctx.resume(); }
     listeners.forEach(function (f) { f(on); });
   }
+  /* restart waits for the old context to close before building a new one: browsers cap how
+     many can exist, and one that isn't closed keeps running */
   function restart() {
-    var m = mood;
-    if (ctx) {
-      clearInterval(seq); seq = null; mood = null; moodGain = null; held = []; loops = [];
-      try { ctx.close(); } catch (e) {}
-      ctx = null; live = 0;
-    }
-    init(); unlock();
-    restartListeners.forEach(function (f) { f(); });
-    if (m) music(m);
+    if (restarting) return;
+    var m = mood, old = ctx;
+    clearInterval(seq); seq = null; mood = null; moodGain = null; held = []; loops = []; voices = []; darkF = null;
+    ctx = null; live = 0; restarting = true;
+    var done = function () {
+      restarting = false; init(); unlock();
+      restartListeners.forEach(function (f) { f(); });
+      if (m) music(m);
+    };
+    var p = null; try { p = old && old.close ? old.close() : null; } catch (e) {}
+    if (p && p.then) p.then(done, done); else done();
   }
   window.Sound = {
     unlock: unlock,
@@ -421,7 +445,9 @@
     setMix: function (k, v) { if (!(k in MIX)) return; MIX[k] = Math.max(0, Math.min(1, v)); try { localStorage.setItem("sound-mix", JSON.stringify(MIX)); } catch (e) {} applyMix(); },
     restart: restart,
     onRestart: function (f) { restartListeners.push(f); },
-    stats: function () { return { state: ctx ? ctx.state : "none", sources: live, voices: 0, loops: loops.length, mood: mood }; },
+    stats: function () { return { state: ctx ? ctx.state : restarting ? "restarting" : "none", sources: live, voices: voices.length, loops: loops.length, mood: mood }; },
+    state: function () { return ctx ? ctx.state : "none"; },
+    onState: function (f) { stateListeners.push(f); },
     ready: function () { return !!ctx && ctx.state === "running"; },
     on: function () { return enabled; },
     toggle: function () { unlock(); setEnabled(!enabled); return enabled; },

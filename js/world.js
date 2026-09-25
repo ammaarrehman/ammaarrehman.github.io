@@ -848,7 +848,15 @@
     amb.engine.set({ vol: car.driving ? 0.08 + Math.min(1, Math.abs(car.v) / 120) * 0.12 : 0, rate: Math.min(1, Math.abs(car.v) / 120) });
   }
   if (SND && SND.onRestart) SND.onRestart(function () { amb = null; if (open) startSound(); });
-  if (SND) SND.onChange(function (on) { paintSound(on); });
+  if (SND) SND.onChange(function (on) { paintSound(on); paintChip(); });
+  /* if the browser holds the sound back (no tap yet, or safari interrupted it for a call or
+     the lock screen), a chip offers to bring it back, and any key or tap on the island does too */
+  var sndChip = root.querySelector(".w-snd-chip");
+  function soundStuck() { if (!SND || !SND.on() || !SND.state) return false; var st = SND.state(); return st === "suspended" || st === "interrupted"; }
+  function paintChip() { if (sndChip) { var on = open && soundStuck() && !document.hidden; if (sndChip.hidden === on) sndChip.hidden = !on; } }
+  function nudgeSound() { if (soundStuck()) { SND.unlock(); startSound(); } }
+  if (SND && SND.onState) SND.onState(paintChip);
+  if (sndChip) sndChip.addEventListener("click", function () { nudgeSound(); cv.focus({ preventScroll: true }); });
   var soundBtn = root.querySelector(".w-sound");
   function paintSound(on) { if (soundBtn) { soundBtn.innerHTML = "♪<span class=\"w-sound-l\"> sound " + (on ? "on" : "off") + "</span>"; soundBtn.setAttribute("aria-pressed", on ? "true" : "false"); soundBtn.setAttribute("aria-label", "Sound " + (on ? "on" : "off")); } }
   if (soundBtn) {
@@ -951,6 +959,7 @@
     return c === "ArrowUp" || c === "KeyW" ? "u" : c === "ArrowDown" || c === "KeyS" ? "d" : c === "ArrowLeft" || c === "KeyA" ? "l" : c === "ArrowRight" || c === "KeyD" ? "r" : null;
   }
   function onKeyDown(e) {
+    if (open) nudgeSound();
     if (open && paused) {
       if (e.key === "Escape" || e.key === "p" || e.key === "P") { e.preventDefault(); setPaused(false); }
       return;
@@ -1011,6 +1020,7 @@
 
   cv.addEventListener("pointerdown", function (e) {
     if (!open || termOpen) return;
+    nudgeSound();
     try { cv.setPointerCapture(e.pointerId); } catch (x) {}
     if (mapRect && e.clientX >= mapRect[0] && e.clientX <= mapRect[0] + mapRect[2] && e.clientY >= mapRect[1] && e.clientY <= mapRect[1] + mapRect[3]) { mapOn = !mapOn; sfx("blip"); return; }
     if (egg) { egg.t = 99; return; }
@@ -3345,6 +3355,7 @@
     realityGrade(REAL);
   }
   function render() {
+    paintChip();
     if (side) { renderSide(); drawFade(); return; }
     if (room) { renderRoom(); drawFade(); return; }
     zoom += (zoomTo - zoom) * 0.08;
