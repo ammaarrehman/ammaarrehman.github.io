@@ -54,9 +54,8 @@
       GAMMA = PAL.g || 1; RIMK = PAL.rim || 1; LITK = PAL.lit || 1; GS = PAL.gs || 1;
       if (!off) canvas.style.setProperty("--orb-glow", "rgba(" + GLOW + ",.3)");
     }
-    // whoever won the fight on pi's island runs the site's orbs for the session
-    var won = null; try { won = sessionStorage.getItem("orb-palette"); } catch (e) {}
-    palette(opts.palette || (!off && won) || canvas.getAttribute("data-palette") || "eclipse");
+    // whoever wins the fight on pi's island recolours the orbs live, until the page reloads
+    palette(opts.palette || canvas.getAttribute("data-palette") || "eclipse");
     // layers: [rows, cols (point count = rows × cols), radius, brightness]
     var LAYERS = opts.layers || (mini ? [[40, 80, 1, 1], [22, 44, 0.78, 0.45]] : [[64, 128, 1, 1], [36, 72, 0.8, 0.42]]);
     // points on each layer follow a Fibonacci sphere: evenly spaced, no pinched poles

@@ -2257,7 +2257,7 @@
   }
   function crown(name) {
     if (reality.cur !== "dino") shiftReality("dino", ARENA.x, ARENA.y - 34);
-    try { sessionStorage.setItem("orb-palette", name); sessionStorage.setItem("rift-done", name); } catch (e) {}
+    try { sessionStorage.setItem("rift-done", name); } catch (e) {}
     if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette(name); });
     if (!rift) rift = { orbs: [], parts: [], shake: 0, dim: 0, ring: 0, novas: [], scorch: [], flash: 0 };
     rift.phase = "reign"; rift.winner = name; rift.t = 0; rift.act = null;
@@ -2266,12 +2266,26 @@
     paintFound();
     coreSay(true);
   }
+  var restoreBtn = root.querySelector(".w-restore");
+  function restoreSite() {
+    if (!rift) return;
+    closeDialog();
+    rift = null; reality.cur = "dino"; reality.wipe = null; reality.glitch = 0; lens = null;
+    try { sessionStorage.removeItem("rift-done"); } catch (e) {}
+    if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette("eclipse"); });
+    if (SND) SND.intensity(0);
+    paintFound(); paintRestore();
+    bubble = { text: "pi:~$ site restored. the orbs are asleep.", t: 3 };
+    cv.focus({ preventScroll: true });
+  }
+  function paintRestore() { if (restoreBtn && restoreBtn.hidden !== !rift) restoreBtn.hidden = !rift; }
+  if (restoreBtn) restoreBtn.addEventListener("click", restoreSite);
   function coreSay(fresh) {
     var w = rift.winner, links = [["rematch ↻", "#rematch"]];
     if (w !== "eclipse") links.push(["give eclipse control back", "#eclipse"]);
     say("the core", fresh
-      ? "the orbs fought for control of the site. " + w + " won" + (w === "eclipse" ? ", as it usually does" : ", an upset") + ". it runs the orbs on the page for the rest of your visit. walk back up to it any time for a rematch."
-      : w + " holds the core. it runs the orbs on the page until you close the tab.", links);
+      ? "the orbs fought for control of the site. " + w + " won" + (w === "eclipse" ? ", as it usually does" : ", an upset") + ". it runs the orbs on the page until the page reloads. walk back up to it any time for a rematch, or press restore site to put everything back."
+      : w + " holds the core. it runs the orbs on the page until the page reloads.", links);
   }
   // two stars meet at (x, y): b takes the hit
   function nova(a, b, x, y) {
@@ -2333,6 +2347,7 @@
     }
   }
   function updateRift(dt) {
+    paintRestore();
     if (!rift) return;
     rift.t += dt; rift.shake = Math.max(0, rift.shake - dt * 14); rift.ring = Math.max(0, rift.ring - dt * 0.8); rift.flash = Math.max(0, (rift.flash || 0) - dt * 2.6);
     var alive = rift.orbs.filter(function (o) { return o.alive; });
@@ -3514,6 +3529,12 @@
     setTimeout(function () { warp.hidden = true; warp.style.opacity = ""; warp.style.transition = ""; }, 520);
   }
 
+  var cardEl = root.querySelector(".w-card"), cardT = 0;
+  function showCard() {
+    if (!cardEl) return;
+    cardEl.hidden = true; void cardEl.offsetWidth; cardEl.hidden = false;       // restart the fade
+    clearTimeout(cardT); cardT = setTimeout(function () { cardEl.hidden = true; }, REDUCED ? 1600 : 2200);
+  }
   var lastFocus = null;
   var entering = false;
   function enter() {
@@ -3538,6 +3559,7 @@
       else if (!ruler && !rift && Object.keys(found).length === TOTAL) setTimeout(function () { if (open && !rift && dlg.hidden) askRift(); }, first ? 3000 : 1200);
       last = performance.now(); raf = requestAnimationFrame(loop);
       cv.focus({ preventScroll: true });
+      showCard();
       hideWarp();
       if (window.orbs) window.orbs.forEach(function (o) { o.pause(true); });
       if (history.replaceState) history.replaceState(null, "", "#island");
@@ -3557,7 +3579,7 @@
       if (history.replaceState) history.replaceState(null, "", location.pathname + location.search);
       hideWarp();
       if (then) { var el = document.querySelector(then); if (el) el.scrollIntoView({ behavior: REDUCED ? "auto" : "smooth" }); }
-      else if (lastFocus && lastFocus.focus) lastFocus.focus({ preventScroll: true });
+      else (lastFocus && lastFocus.focus && lastFocus !== document.body ? lastFocus : orbBtn).focus({ preventScroll: true });
     };
     if (REDUCED) { finish(); return; }
     root.classList.remove("show");

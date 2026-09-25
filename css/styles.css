@@ -400,7 +400,22 @@ html.in-world, html.in-world body { overflow:hidden; }
   pointer-events:auto; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer;
   background:rgba(10,10,10,.75); border:1px solid rgba(244,244,244,.5); padding:7px 14px;
 }
-.w-exit:hover, .w-sound:hover, .w-gear:hover { border-color:#f4f4f4; }
+.w-exit:hover, .w-sound:hover, .w-gear:hover, .w-restore:hover { border-color:#f4f4f4; }
+.w-exit, .w-restore { white-space:nowrap; }
+.w-restore { pointer-events:auto; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:rgba(10,10,10,.75); border:1px solid #f454a6; padding:7px 12px; }
+.w-restore[hidden] { display:none; }
+.w-hud button:focus-visible { outline:2px solid #f454a6; outline-offset:2px; }
+/* the title card, for a moment, as you land */
+.w-card {
+  position:absolute; left:50%; top:42%; translate:-50% -50%; z-index:5; display:flex; flex-direction:column; align-items:center; gap:6px; width:max-content; max-width:calc(100vw - 32px);
+  padding:18px 26px; background:rgba(8,8,10,.82); border:2px solid #f4f4f4; box-shadow:4px 4px 0 rgba(0,0,0,.5);
+  color:#efefef; font-family:var(--mono); font-size:13px; text-align:center; pointer-events:none;
+  animation:w-card 2.2s ease forwards;
+}
+.w-card[hidden] { display:none; }
+.w-card b { font-size:18px; letter-spacing:2px; }
+.w-card .w-card-k { color:#9a9a9a; font-size:11px; margin-top:4px; }
+@keyframes w-card { 0% { opacity:0; } 12% { opacity:1; } 72% { opacity:1; } 100% { opacity:0; } }
 .w-gear[aria-expanded="true"] { border-color:#f4f4f4; background:#1a1a1a; }
 .w-sound, .w-gear {
   pointer-events:auto; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; white-space:nowrap;

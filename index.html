@@ -71,15 +71,17 @@
 
   <!-- ── pi's island: a walkable top-down world, reached through the orb ── -->
   <div id="world" class="world" hidden role="dialog" aria-modal="true" aria-label="pi's island: a small walkable map of Ammaar's work">
-    <canvas class="w-cv" tabindex="-1" aria-hidden="true"></canvas>
-    <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
     <div class="w-hud">
+      <button class="w-exit" type="button" aria-label="Back to portfolio">← back<span class="w-sound-l"> to portfolio</span></button>
       <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found">found 0/8</span></div>
       <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc to leave</div>
+      <button class="w-restore" type="button" aria-label="Restore site" hidden>restore<span class="w-sound-l"> site</span></button>
       <button class="w-gear" type="button" aria-expanded="false" aria-controls="w-set" aria-label="Settings">⚙<span class="w-sound-l"> settings</span></button>
       <button class="w-sound" type="button" aria-pressed="true" aria-label="Sound on">♪<span class="w-sound-l"> sound on</span></button>
-      <button class="w-exit" type="button">leave ↩</button>
     </div>
+    <canvas class="w-cv" tabindex="-1" aria-hidden="true"></canvas>
+    <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
+    <div class="w-card" hidden aria-hidden="true"><b>pi's island</b><span>a playable version of this portfolio.</span><span class="w-card-k">esc to leave</span></div>
     <div class="w-dialog" hidden aria-live="polite">
       <div class="w-name"></div>
       <p class="w-text"></p>
