@@ -64,25 +64,27 @@
     <div class="w-hud">
       <button class="w-exit" type="button" aria-label="Back to portfolio">← back<span class="w-sound-l"> to portfolio</span></button>
       <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found">found 0/8</span></div>
-      <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc to leave</div>
+      <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc for menu</div>
       <button class="w-restore" type="button" aria-label="Restore site" hidden>restore<span class="w-sound-l"> site</span></button>
       <button class="w-gear" type="button" aria-expanded="false" aria-controls="w-set" aria-label="Settings">⚙<span class="w-sound-l"> settings</span></button>
       <button class="w-sound" type="button" aria-pressed="true" aria-label="Sound on">♪<span class="w-sound-l"> sound on</span></button>
     </div>
-    <canvas class="w-cv" tabindex="-1" aria-hidden="true"></canvas>
+    <canvas class="w-cv" tabindex="0" role="application" aria-label="pi's island, a playable version of this portfolio. W A S D or the arrow keys walk, shift runs, E reads whatever is nearby, M mutes, Escape opens a menu listing all eight sections."></canvas>
+    <div class="sr-only" id="w-live" aria-live="polite"></div>
     <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
     <button class="w-snd-chip" type="button" hidden>♪ tap to resume sound</button>
-    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="leave">back to portfolio</button></div></div>
-    <div class="w-card" hidden aria-hidden="true"><b>pi's island</b><span>a playable version of this portfolio.</span><span class="w-card-k">esc to leave</span></div>
-    <div class="w-dialog" hidden aria-live="polite">
-      <div class="w-name"></div>
-      <p class="w-text"></p>
+    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Island landmarks"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="settings">settings</button><button type="button" data-a="leave">back to portfolio</button></div></div>
+    <div class="w-card" hidden aria-hidden="true"><b>pi's island</b><span>a playable version of this portfolio.</span><span class="w-card-k">esc for menu</span></div>
+    <dialog class="w-dialog" hidden aria-labelledby="w-name" aria-describedby="w-sr">
+      <h2 class="w-name" id="w-name"></h2>
+      <p class="w-text" aria-hidden="true"></p>
+      <p class="sr-only" id="w-sr"></p>
       <div class="w-links"></div>
       <span class="w-more" aria-hidden="true">e ▾</span>
-    </div>
+    </dialog>
     <div class="w-term" hidden role="dialog" aria-label="the cave terminal">
       <div class="w-term-bar"><span>pi@island: tty1</span><button class="w-term-x" type="button" aria-label="Close the terminal">×</button></div>
-      <div class="w-term-out" aria-live="polite"></div>
+      <div class="w-term-out" role="log" aria-live="polite"></div>
       <form class="w-term-row"><label class="w-term-ps" for="w-term-in">pi@island:~$</label><input id="w-term-in" class="w-term-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send"></form>
     </div>
   </div>

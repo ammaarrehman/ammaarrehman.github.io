@@ -11,7 +11,10 @@
   if (!root || !orbBtn) return;
   var cv = root.querySelector(".w-cv"), ctx = cv.getContext("2d");
   var warp = document.querySelector("canvas.warp"), wctx = warp.getContext("2d");
-  var dlg = root.querySelector(".w-dialog"), dName = dlg.querySelector(".w-name"), dText = dlg.querySelector(".w-text"), dLinks = dlg.querySelector(".w-links");
+  var dlg = root.querySelector(".w-dialog"), dName = dlg.querySelector(".w-name"), dText = dlg.querySelector(".w-text"), dLinks = dlg.querySelector(".w-links"), dSr = dlg.querySelector("#w-sr");
+  var liveEl = document.getElementById("w-live");
+  // polite announcements for screen readers: landmarks nearby, logs found. never movement
+  function announce(msg) { if (!liveEl) return; liveEl.textContent = ""; setTimeout(function () { liveEl.textContent = msg; }, 30); }
   var foundEl = root.querySelector(".w-found");
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
@@ -992,14 +995,14 @@
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
     if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); return; }
-    if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { side = null; fade = 1; } else if (!side) exit(); return; }
+    if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { side = null; fade = 1; } else if (!side) setPaused(true); return; }
     if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
     if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
     if (e.key === "Shift") { keys.run = 1; return; }
     if (side && e.key === " " && dlg.hidden) { e.preventDefault(); keys.jump = 1; return; }
     if ((e.key === "m" || e.key === "M") && SND) { SND.toggle(); return; }
     if (e.key === "e" || e.key === "E" || e.key === " " || e.key === "Enter") {
-      if (document.activeElement && document.activeElement.tagName === "A") return;   // let links work
+      if (document.activeElement && document.activeElement.tagName === "A" && e.key !== "e" && e.key !== "E") return;   // let links work
       e.preventDefault();
       if (egg) { egg.t = 99; return; }
       if (side) { if (!dlg.hidden) { typing ? finishTyping() : closeDialog(); } return; }
@@ -1116,6 +1119,7 @@
     if (s.id === "drink") pi.boost = 10;
     if (s.found && !found[s.id]) {
       found[s.id] = 1; paintFound(); later(0.12, function () { sfx("found"); });
+      announce("found " + countFound() + " of " + TOTAL + ": " + s.name + ", " + s.sec + ".");
       try { sessionStorage.setItem("pi-found", JSON.stringify(Object.keys(found))); } catch (e) {}
     }
     var all = Object.keys(found).length === TOTAL && s.found, extra = "";
@@ -1123,7 +1127,9 @@
     say(s.sec ? s.name + " · " + s.sec : s.name, s.text + extra, s.links || []);
   }
   function say(name, text, links) {
-    dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false;
+    dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false; dSr.textContent = text;
+    // a real modal dialog: it holds focus, escape closes it, and a screen reader reads it whole
+    if (dlg.showModal && !dlg.open) { try { dlg.showModal(); } catch (e) {} }
     links.forEach(function (l) {
       var a = document.createElement("a"); a.textContent = l[0]; a.href = l[1] === "#exit" ? "#" : l[1];
       if (/^https?:|^mailto:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
@@ -1144,9 +1150,16 @@
     sfx("open");
     typing = setInterval(function () { i += 2; dText.textContent = full.slice(0, i); if (i % 8 === 0) sfx("type"); if (i >= full.length) finishTyping(); }, 16);
   }
+  dlg.addEventListener("cancel", function (e) { e.preventDefault(); if (typing) finishTyping(); else closeDialog(); });
+  dlg.addEventListener("click", function (e) {
+    if (e.target !== dlg) return;
+    var r = dlg.getBoundingClientRect();
+    if (e.clientX < r.left || e.clientX > r.right || e.clientY < r.top || e.clientY > r.bottom) closeDialog();
+    else if (typing) finishTyping();
+  });
   function finishTyping() { clearInterval(typing); typing = null; dText.textContent = full; }
   function closeDialog() {
-    finishTyping(); dlg.hidden = true; cv.focus({ preventScroll: true });
+    finishTyping(); if (dlg.open && dlg.close) dlg.close(); dlg.hidden = true; cv.focus({ preventScroll: true });
     asking = false;
     if (pendingRift && open) { pendingRift = false; askRift(); }
   }
@@ -2870,6 +2883,7 @@
     ctx.restore();
     ctx.globalCompositeOperation = "source-over";
     var nb = dlg.hidden ? nearby() : null;
+    nearNote(nb);
     if (nb && nb.ax !== undefined) tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     tag(R.name, W / 2, oy * E - 14, false);
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 22 - camY) * E, false);
@@ -3411,6 +3425,7 @@
     drawRift(E);
     if (reality.glitch > 0 && !REDUCED) glitchSlices();
     var nb = !egg && dlg.hidden ? nearby() : null;
+    nearNote(nb);
     if (nb && nb.ax !== undefined) tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     else if (nb) {
       // float the prompt just above the landmark's own sprite
@@ -3424,6 +3439,12 @@
     drawFade();
   }
   function drawFade() { if (fade > 0) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "rgba(0,0,0," + fade.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); fade = Math.max(0, fade - 0.06); } }
+  var nearId = null, nearT = 0;
+  function nearNote(nb) {
+    var id = nb && nb.sec ? nb.id : null;
+    if (id === nearId || (id && performance.now() - nearT < 2000)) return;       // at most one every 2 s
+    nearId = id; if (id) { nearT = performance.now(); announce(nb.name + ", " + nb.sec + ". Press E to read."); }
+  }
   function tag(text, sx, sy, key) {
     ctx.font = (key ? "700 12px " : "400 12px ") + "'Cascadia Mono', monospace";
     var w = ctx.measureText(text).width + (key ? 12 : 16), h = key ? 20 : 24;
@@ -3579,16 +3600,38 @@
   /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
      carries on by itself */
   var pauseEl = root.querySelector(".w-pause");
+  var lmEl = pauseEl && pauseEl.querySelector(".w-lm");
+  function paintLandmarks() {
+    if (!lmEl) return;
+    lmEl.innerHTML = "";
+    STATIONS.filter(function (q) { return q.found; }).forEach(function (q) {
+      var b = document.createElement("button"); b.type = "button"; b.setAttribute("data-lm", q.id); if (found[q.id]) b.setAttribute("data-found", "1");
+      b.textContent = q.name + " · " + q.sec; b.setAttribute("aria-label", q.name + ", " + q.sec + (found[q.id] ? ", found" : ""));
+      lmEl.appendChild(b);
+    });
+  }
+  // from the menu: take pi to a landmark and open its card
+  function visitLandmark(id) {
+    var q = STATIONS.filter(function (x) { return x.id === id; })[0]; if (!q) return;
+    if (side) return;
+    if (!riftBusy()) { if (termOpen) closeTerm(); if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; } goto(id); }
+    interact(q);
+  }
   function setPaused(on) {
     if (!open) return;
     paused = on; clearKeys();
+    if (on) paintLandmarks();
     if (pauseEl) pauseEl.hidden = !on;
     if (on) { var b0 = pauseEl && pauseEl.querySelector("button"); if (b0) b0.focus({ preventScroll: true }); }
     else { last = performance.now(); acc = 0; cv.focus({ preventScroll: true }); }
   }
   if (pauseEl) pauseEl.addEventListener("click", function (e) {
+    var lm = e.target.closest && e.target.closest("[data-lm]");
+    if (lm) { setPaused(false); visitLandmark(lm.getAttribute("data-lm")); return; }
     var a2 = e.target.closest && e.target.closest("[data-a]"); if (!a2) return;
-    if (a2.getAttribute("data-a") === "resume") setPaused(false); else { setPaused(false); exit(); }
+    var act = a2.getAttribute("data-a");
+    setPaused(false);
+    if (act === "settings") toggleSettings(true); else if (act === "leave") exit();
   });
 
   /* ════════ the warp: orb → island and back ════════ */
@@ -3661,6 +3704,7 @@
       startLoop();
       cv.focus({ preventScroll: true });
       showCard();
+      announce("pi's island, a playable version of this portfolio. Press Escape for a menu listing all eight sections.");
       hideWarp();
       if (window.orbs) window.orbs.forEach(function (o) { o.pause(true); });
       if (history.replaceState) history.replaceState(null, "", "#island");
