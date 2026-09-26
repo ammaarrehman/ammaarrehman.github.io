@@ -72,9 +72,9 @@
     <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
     <div class="w-toast" role="status" hidden></div>
     <button class="w-snd-chip" type="button" hidden>♪ tap to resume sound</button>
-    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Island landmarks"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="map">map (m)</button><button type="button" data-a="tour">tour</button><button type="button" data-a="settings">settings</button><button type="button" data-a="controls">controls</button><button type="button" data-a="leave">back to portfolio</button></div>
+    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Visit a landmark"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="map">map (m)</button><button type="button" data-a="tour">tour</button><button type="button" data-a="settings">settings</button><button type="button" data-a="controls">controls</button><button type="button" data-a="leave">back to portfolio</button></div>
       <dl class="w-ctl" hidden><dt>walk</dt><dd>wasd or the arrow keys (tap a spot, or drag on touch)</dd><dt>run</dt><dd>shift</dd><dt>use</dt><dd>e, space or enter</dd><dt>map</dt><dd>m</dd><dt>menu</dt><dd>esc or p</dd><dt>drive</dt><dd>w/s, a/d; s from a stop is reverse; shift drifts; space honks</dd><dt>sound</dt><dd>the ♪ button, or settings</dd></dl></div>
-    <div class="w-map" role="dialog" aria-label="Island map" tabindex="-1" hidden><div class="w-map-top"><b>the island</b><button type="button" data-a="close">close (m)</button></div><canvas aria-hidden="true"></canvas><nav class="w-lm" aria-label="Island landmarks"></nav></div>
+    <div class="w-map" role="dialog" aria-label="Island map" tabindex="-1" hidden><div class="w-map-top"><b>the island</b><button type="button" data-a="close">close (m)</button></div><canvas aria-hidden="true"></canvas><nav class="w-lm" aria-label="Travel to a landmark"></nav></div>
     <div class="w-credits" role="dialog" aria-label="Credits" tabindex="-1" hidden>
       <div class="w-roll"></div>
       <div class="w-contact">
@@ -86,7 +86,7 @@
     </div>
     <div class="w-card" hidden><b>pi's island</b><span>a playable version of this portfolio.</span><span class="w-card-k">esc for menu</span><div class="w-card-go" hidden><button type="button" data-a="tour">take the tour</button><button type="button" data-a="play">play</button></div></div>
     <dialog class="w-dialog" hidden tabindex="-1" aria-labelledby="w-name" aria-describedby="w-sr">
-      <h2 class="w-name" id="w-name"></h2>
+      <h2 class="w-name" id="w-name">pi's island</h2>
       <p class="w-text" aria-hidden="true"></p>
       <p class="sr-only" id="w-sr"></p>
       <div class="w-links"></div>
@@ -95,7 +95,7 @@
     <div class="w-term" hidden role="dialog" aria-label="the cave terminal">
       <div class="w-term-bar"><span>pi@island: tty1</span><button class="w-term-x" type="button" aria-label="Close the terminal">×</button></div>
       <div class="w-term-out" role="log" aria-live="polite"></div>
-      <form class="w-term-row"><label class="w-term-ps" for="w-term-in">pi@island:~$</label><input id="w-term-in" class="w-term-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send"></form>
+      <form class="w-term-row"><label class="w-term-ps" for="w-term-in">pi@island:~$</label><input id="w-term-in" class="w-term-in" type="text" autocomplete="off" autocapitalize="off" autocorrect="off" spellcheck="false" enterkeyhint="send" /><button class="w-term-go" type="submit" aria-label="Run the command">↵</button></form>
     </div>
   </div>
   <canvas class="warp" hidden aria-hidden="true"></canvas>
@@ -157,7 +157,7 @@
                 </dl>
               </section>
 
-              <section class="t-box t-in" data-d="1.32s" aria-label="certifications">
+              <section class="t-box t-in" data-d="1.32s" aria-label="certifications summary">
                 <h2 class="t-box-title">Certs</h2>
                 <dl>
                   <div><dt>AWS</dt><dd>Cloud Practitioner <span class="t-bar full" aria-hidden="true"></span> <span class="t-ok">certified</span></dd></div>
@@ -484,7 +484,7 @@
         <dl class="tree contact-rows">
           <div><dt>linkedin</dt><dd><a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener noreferrer">linkedin.com/in/ammaarrehman</a></dd></div>
           <div data-gh="hide"><dt>github</dt><dd><a href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer">github.com/ammaarrehman</a></dd></div>
-          <div><dt>phone</dt><dd><a href="tel:3017685445">(301) 768-5445</a></dd></div>
+          <div><dt>phone</dt><dd><a href="tel:3017685445">(301)&nbsp;768&#8209;5445</a></dd></div>
           <div><dt>resume</dt><dd><a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener noreferrer">Ammaar_Rehman_Resume.pdf ↗</a></dd></div>
         </dl>
       </div>
