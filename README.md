@@ -14,7 +14,7 @@ Paper light mode follows the OS, with a ◐ toggle in the nav.
 ```
 index.html        single page
 css/styles.css    the design system
-js/head.js        runs before first paint: js on, saved theme, whether the boot screen plays
+js/head.js        runs before first paint: the site switches, js on, saved theme, whether the boot screen plays
 js/theme.js       the 404 page's saved theme
 js/skills.js      skills tabs (vanilla, no framework)
 js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
@@ -183,6 +183,20 @@ border, a command line shows what "printed" it (`cat about.md`,
 throughout; pink is reserved for the orb and for things that are live or in
 progress. Project cards are small windows whose screenshots stay grayscale
 until hovered.
+
+## Running, switches and deploying
+
+- Run locally: `python3 -m http.server 8000` in the repo, then open http://localhost:8000.
+- `js/head.js` holds the site switches. `GITHUB_LINKS_ENABLED` is false while the GitHub account
+  is flagged (repo buttons hide, other github links read as plain text); set it to true to bring
+  them back.
+- Scripts and the stylesheet carry `?v=YYYYMMDD` in `index.html` (and the island's own paths in
+  `js/site.js` and `js/world.js`). Bump it everywhere together whenever a script or the CSS
+  changes, so returning visitors get the new files.
+- Deploying to ammaarrehman.com: `node tools/deploy.mjs` (or `--dry-run` to only build and
+  check). Everything about hosting, including the one-time Cloudflare and GoDaddy steps and how
+  to undo them, is in `docs/hosting.md`. `wrangler.jsonc` and `_headers` are the Cloudflare
+  config. `AUDIT.md` tracks the site audit.
 
 ## Regenerating the marks
 
