@@ -1025,7 +1025,7 @@
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
     if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); return; }
-    if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { side = null; fade = 1; } else if (!side) setPaused(true); return; }
+    if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { irisTo(function () { side = null; if (SND) SND.music(null); }); } else if (!side) setPaused(true); return; }
     if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
     if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
     if (e.key === "Shift") { keys.run = 1; return; }
@@ -1183,7 +1183,7 @@
     if (s.id === "heli") { toggleHeli(); return; }
     if (s.id === "car") { toggleCar(); bubble = { text: "pi:~$ vroom. arrows drive, space honks, e parks", t: 3.5 }; return; }
     if (s.id === "critter" || s.id === "bird" || s.id === "pond" || s.id === "nest" || s.id === "fence") { sayLocal(s); return; }
-    if (s.id === "building") { if (s.ref.room) enterRoom(s.ref.room); else say(s.ref.name, s.ref.text, []); return; }
+    if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; irisTo(function () { enterRoom(rm); }); } else say(s.ref.name, s.ref.text, []); return; }
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") pi.boost = 10;
@@ -1221,7 +1221,7 @@
       else if (l[1] === "#later") a.addEventListener("click", function (e) { e.preventDefault(); wakeOrbs(false); });
       else if (l[1] === "#flash") a.addEventListener("click", function (e) { e.preventDefault(); OPT.flash = !OPT.flash; saveOpt(); a.textContent = flashNote(OPT.flash); });
       else if (l[1] === "#eclipse") a.addEventListener("click", function (e) { e.preventDefault(); crown("eclipse"); });
-      else if (l[1] === "#descend") a.addEventListener("click", function (e) { e.preventDefault(); enterSide(); });
+      else if (l[1] === "#descend") a.addEventListener("click", function (e) { e.preventDefault(); closeDialog(); irisTo(enterSide); });
       else if (l[1] === "#drive") a.addEventListener("click", function (e) { e.preventDefault(); closeDialog(); if (!car.driving) toggleCar(); });
       else a.addEventListener("click", function (e) { e.preventDefault(); exit(l[1] === "#exit" ? null : l[1]); });
       dLinks.appendChild(a);
@@ -2943,13 +2943,34 @@
     var R = ROOMS[name]; if (!R) return;
     if (car.driving) toggleCar();
     roomFrom = { x: pi.x, y: pi.y, name: name };
-    room = R; room.id = name;
+    room = R; room.id = name; fade = 0;
     pi.x = (spot ? spot[0] : R.door) * T + 8; pi.y = (spot ? spot[1] : R.h - 2) * T + 10; pi.vx = pi.vy = 0; pi.path = null; keys = {};
-    fade = 1; sfx("open");
+    sfx("open");
+  }
+  /* the iris: a circle closing on pi (300 ms), the cut, then opening again (300 ms), with the
+     music swept down to a muffle and back. doors, fast travel, the shrine and landing all use it */
+  var iris = null, IRIS = 0.3;
+  function irisTo(fn) {
+    if (REDUCED || !open) { if (fn) fn(); return; }
+    if (iris) { if (iris.fn) { var f0 = iris.fn; iris.fn = null; f0(); } iris.t0 = performance.now() - IRIS * 1000; if (fn) fn(); return; }
+    iris = { t0: performance.now(), fn: fn || null }; keys = {};
+    if (SND && SND.muffle) SND.muffle(1, IRIS);
+  }
+  function irisOpen() { if (REDUCED) return; iris = { t0: performance.now() - IRIS * 1000, fn: null }; if (SND && SND.muffle) { SND.muffle(1, 0.01); SND.muffle(0, IRIS * 1.3); } }
+  function irisBusy() { return !!iris && performance.now() - iris.t0 < IRIS * 1000; }         // closing: hold the controls
+  function drawIris(cx, cy) {
+    if (!iris) return;
+    var u = (performance.now() - iris.t0) / 1000;
+    if (u >= IRIS && iris.fn) { var f = iris.fn; iris.fn = null; f(); if (SND && SND.muffle) SND.muffle(0, IRIS * 1.3); }
+    if (u >= IRIS * 2) { iris = null; return; }
+    var k0 = u < IRIS ? 1 - u / IRIS : (u - IRIS) / IRIS, e = k0 * k0 * (3 - 2 * k0), R = Math.hypot(W, H) * e;
+    ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, Math.max(0, R), 0, 6.283, true); ctx.fill("evenodd");
+    ctx.restore();
   }
   function exitRoom() {
     var bd = BUILDINGS.filter(function (q) { return q.room === room.id; })[0];
-    room = null; fade = 1; sfx("open");
+    room = null; sfx("open");
     pi.x = (bd.x0 + bd.w / 2) * T; pi.y = (bd.y0 + bd.h) * T + 10; pi.vx = pi.vy = 0; camF.x = null;
   }
   var fade = 0;
@@ -2958,7 +2979,7 @@
     function hit(px, py) { return roomSolid(room, Math.floor(px / T), Math.floor(py / T)); }
     if (dx && !hit(o.x + dx + (dx > 0 ? hw : -hw), o.y - 2) && !hit(o.x + dx + (dx > 0 ? hw : -hw), o.y + 1)) o.x += dx;
     if (dy && !hit(o.x - hw, o.y + dy + (dy > 0 ? 1 : -2)) && !hit(o.x + hw, o.y + dy + (dy > 0 ? 1 : -2))) o.y += dy;
-    if (Math.floor(o.y / T) >= room.h - 1 && dy > 0) exitRoom();      // out through the door
+    if (Math.floor(o.y / T) >= room.h - 1 && dy > 0 && !iris) irisTo(function () { if (room) exitRoom(); });      // out through the door
   }
   function roomCandidates() {
     var out = [];
@@ -3278,7 +3299,7 @@
     sinceLog += dt;
     if (!save.hints.move && Math.hypot(pi.x - hintFrom.x, pi.y - hintFrom.y) > 3 * T) { save.hints.move = true; writeSave(); }
     if (!dlg.hidden) mx = my = 0;
-    if (riftBusy() || car.driving || aboard() || termOpen) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
+    if (riftBusy() || car.driving || aboard() || termOpen || irisBusy()) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
     if (!mx && !my && pi.path && pi.path.length) {
       var n = pi.path[0], gx = n[0] * T + 8, gy = n[1] * T + 10, ddx = gx - pi.x, ddy = gy - pi.y, dd = Math.hypot(ddx, ddy);
       if (dd < 1.5) { pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
@@ -3449,7 +3470,7 @@
     var q = STATIONS.filter(function (x) { return x.id === id; })[0]; if (!q || !found[id]) return;
     toggleMap(false);
     if (termOpen) closeTerm(); if (aboard()) landNow();
-    fade = 1; goto(id); sfx("whoosh");
+    irisTo(function () { goto(id); }); sfx("whoosh");
     announce("travelled to " + q.name + ".");
   }
   if (mapEl) {
@@ -3602,8 +3623,8 @@
   }
   function render() {
     paintChip(); promptRect = null;
-    if (side) { renderSide(); drawFade(); return; }
-    if (room) { renderRoom(); drawFade(); return; }
+    if (side) { renderSide(); drawFade(); drawIris(W / 2, H / 2); return; }
+    if (room) { renderRoom(); drawFade(); drawIris(W / 2, H / 2); return; }
     zoom += (zoomTo - zoom) * 0.08;
     var E = S * zoom, VW = W / E, VH = H / E;
     // the camera follows pi, except while the orbs fight: then it watches the arena
@@ -3656,6 +3677,7 @@
     if (roarTag) tag("ROAR", (roarTag.x - camX) * E, (roarTag.y - camY) * E, false);
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 16 - (aboard() ? heli.z + 10 : 0) - camY) * E - 6, false);
     drawFade();
+    drawIris((pi.x - camX) * E, (pi.y - 8 - (aboard() ? heli.z : 0) - camY) * E);
   }
   function drawFade() { if (fade > 0) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "rgba(0,0,0," + fade.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); fade = Math.max(0, fade - 0.06); } }
   /* first steps: a hint beside pi until it has walked three tiles, the same for the first
@@ -4037,7 +4059,7 @@
       startLoop();
       cv.focus({ preventScroll: true });
       var deep = (location.hash.match(/^#island\/([a-z-]+)/) || [])[1], lmk = deep && DEEP[deep];
-      showCard(!deep && TOUCH);
+      showCard(!deep && TOUCH); irisOpen();
       if (deep === "tour") later(0.2, startTour);
       else if (lmk) { egg = null; later(0.2, function () { visitLandmark(lmk); }); }
       announce("pi's island, a playable version of this portfolio. Press Escape for a menu listing all eight sections.");

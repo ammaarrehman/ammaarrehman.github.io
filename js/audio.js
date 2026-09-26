@@ -15,7 +15,7 @@
    Sound.toggle() / .on()    mute switch (persists in localStorage) */
 (function () {
   var AC = window.AudioContext || window.webkitAudioContext;
-  var ctx = null, live = 0, restarting = false, stateListeners = [], voices = [], curBus = null, curEnd = 0, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
+  var ctx = null, musicLP = null, musicDuck = null, live = 0, restarting = false, stateListeners = [], voices = [], curBus = null, curEnd = 0, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
   var BASE = { master: 0.85, music: 0.42, sfx: 0.9, amb: 0.9 };
   var MIX = { master: 0.7, music: 0.8, sfx: 1, amb: 0.8 };             // a moderate start; the visitor's own levels are remembered
   try { enabled = localStorage.getItem("sound") !== "off"; } catch (e) {}
@@ -38,7 +38,10 @@
     lim.threshold.value = -3; lim.ratio.value = 20; lim.attack.value = 0.001; lim.release.value = 0.1;
     master = ctx.createGain(); sfxBus = ctx.createGain(); musicBus = ctx.createGain(); ambBus = ctx.createGain();
     applyMix(true);
-    sfxBus.connect(master); musicBus.connect(master); ambBus.connect(master); master.connect(comp); comp.connect(lim); lim.connect(ctx.destination);
+    // the music runs through a lowpass (muffled through a transition) and a duck (a card is open)
+    musicLP = ctx.createBiquadFilter(); musicLP.type = "lowpass"; musicLP.frequency.value = 20000; musicLP.Q.value = 0.5;
+    musicDuck = ctx.createGain(); musicDuck.gain.value = 1;
+    sfxBus.connect(master); musicBus.connect(musicLP); musicLP.connect(musicDuck); musicDuck.connect(master); ambBus.connect(master); master.connect(comp); comp.connect(lim); lim.connect(ctx.destination);
     // a long, dark reverb: an impulse of decaying stereo noise, darker as it tails off
     verb = ctx.createConvolver(); var ir = ctx.createBuffer(2, ctx.sampleRate * 4, ctx.sampleRate);
     for (var ch = 0; ch < 2; ch++) { var dd = ir.getChannelData(ch), lp = 0; for (var j = 0; j < dd.length; j++) { var k2 = 0.25 + 0.7 * (j / dd.length); lp += ((Math.random() * 2 - 1) - lp) * (1 - k2); dd[j] = lp * Math.pow(1 - j / dd.length, 2.2) * 1.6; } }
@@ -441,6 +444,10 @@
     loop: loop,
     music: music,
     intensity: function (x) { intens = Math.max(0, Math.min(1, x)); },
+    // 0 is open, 1 is muffled to 800 Hz; the sweep takes about the length of a transition
+    muffle: function (x, sec) { if (!musicLP) return; x = Math.max(0, Math.min(1, x)); musicLP.frequency.cancelScheduledValues(now()); musicLP.frequency.setValueAtTime(musicLP.frequency.value, now()); musicLP.frequency.exponentialRampToValueAtTime(20000 * Math.pow(800 / 20000, x), now() + (sec || 0.3)); },
+    // the music drops 6 dB while a card is open
+    duck: function (on) { if (musicDuck) musicDuck.gain.setTargetAtTime(on ? 0.5 : 1, now(), 0.12); },
     mix: function () { return { master: MIX.master, music: MIX.music, sfx: MIX.sfx, amb: MIX.amb }; },
     setMix: function (k, v) { if (!(k in MIX)) return; MIX[k] = Math.max(0, Math.min(1, v)); try { localStorage.setItem("sound-mix", JSON.stringify(MIX)); } catch (e) {} applyMix(); },
     restart: restart,
