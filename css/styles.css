@@ -450,6 +450,20 @@ html.in-world, html.in-world body { overflow:hidden; }
 .w-pause .w-lm button { text-align:left; border-color:#5e5e5e; }
 .w-pause .w-lm button[data-found="1"]::after { content:" ✓"; color:#4DD6E8; }
 @media (max-width:520px) { .w-pause .w-lm { grid-template-columns:1fr; } }
+.w-pause .w-ctl { display:grid; grid-template-columns:auto 1fr; gap:4px 14px; margin:0; max-width:min(520px, calc(100% - 32px)); font-size:12px; }
+.w-pause .w-ctl[hidden] { display:none; }
+.w-pause .w-ctl dt { color:#9a9a9a; } .w-pause .w-ctl dd { margin:0; }
+.w-map { position:absolute; inset:0; z-index:7; display:flex; flex-direction:column; align-items:center; justify-content:center; gap:10px; padding:16px; background:rgba(4,6,12,.86); color:#efefef; font-family:var(--mono); font-size:12px; outline:none; overflow:auto; }
+.w-map[hidden] { display:none; }
+.w-map-top { display:flex; align-items:center; justify-content:space-between; gap:12px; width:min(900px, 100%); }
+.w-map-top b { letter-spacing:2px; text-transform:uppercase; font-size:13px; }
+.w-map canvas { image-rendering:pixelated; border:2px solid #f4f4f4; box-shadow:4px 4px 0 rgba(0,0,0,.5); cursor:pointer; max-width:100%; }
+.w-map .w-lm { display:grid; grid-template-columns:repeat(4, minmax(0, 1fr)); gap:6px; width:min(900px, 100%); }
+@media (max-width:760px) { .w-map .w-lm { grid-template-columns:repeat(2, minmax(0, 1fr)); } }
+.w-map button { font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:#0a0a0a; border:1px solid #5e5e5e; padding:7px 10px; text-align:left; }
+.w-map button[disabled] { color:#6a6a6a; cursor:default; }
+.w-map button[data-found="1"]::after { content:" ✓"; color:#4DD6E8; }
+.w-map button:focus-visible { outline:2px solid #f454a6; outline-offset:2px; }
 .w-pause .w-row { display:flex; gap:10px; flex-wrap:wrap; justify-content:center; }
 .w-pause button { font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:#0a0a0a; border:1px solid #f4f4f4; padding:8px 14px; }
 .w-pause button:focus-visible { outline:2px solid #f454a6; outline-offset:2px; }

@@ -955,7 +955,7 @@
     var mix = SND ? SND.mix() : null;
     function slider(key, label, val) { return '<label>' + label + '<input type="range" min="0" max="100" step="1" value="' + Math.round(val * 100) + '" data-k="' + key + '"><output>' + Math.round(val * 100) + '</output></label>'; }
     setEl.innerHTML = '<h3>settings</h3>'
-      + (SND ? '<h4>sound</h4><label class="w-chk"><input type="checkbox" data-k="on"' + (SND.on() ? " checked" : "") + '>sound on (m)</label>'
+      + (SND ? '<h4>sound</h4><label class="w-chk"><input type="checkbox" data-k="on"' + (SND.on() ? " checked" : "") + '>sound on (or the ♪ button)</label>'
         + slider("master", "master", mix.master) + slider("music", "music", mix.music) + slider("sfx", "effects", mix.sfx) + slider("amb", "ambience", mix.amb)
         + '<div class="w-row"><button type="button" data-a="restart">restart sound engine</button></div><div class="w-note">if the sound cuts out or stutters, this rebuilds it from scratch.</div>' : "")
       + '<h4>comfort</h4>' + slider("shake", "shake", OPT.shake)
@@ -1013,7 +1013,7 @@
       if (e.key === "Escape" || e.key === "p" || e.key === "P") { e.preventDefault(); setPaused(false); }
       return;
     }
-    if (!open || termOpen || setOpen()) return;
+    if (!open || termOpen || setOpen() || mapOpen()) return;
     var tg = e.target && e.target.tagName;
     if (tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT") return;          // typing somewhere: leave the keys alone
     if (tour && !e.repeat && (e.key === " " || e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === "ArrowRight")) { e.preventDefault(); if (tour.i >= TOUR.length - 1) { endTour(false); closeDialog(); } else tourStep(); return; }
@@ -1030,7 +1030,7 @@
     if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
     if (e.key === "Shift") { keys.run = 1; return; }
     if (side && e.key === " " && dlg.hidden) { e.preventDefault(); keys.jump = 1; return; }
-    if ((e.key === "m" || e.key === "M") && SND) { SND.toggle(); return; }
+    if ((e.key === "m" || e.key === "M") && !side && !e.repeat) { e.preventDefault(); toggleMap(true); return; }
     if (e.key === "e" || e.key === "E" || e.key === " " || e.key === "Enter") {
       if (document.activeElement && document.activeElement.tagName === "A" && e.key !== "e" && e.key !== "E") return;   // let links work
       e.preventDefault();
@@ -3395,6 +3395,76 @@
   var mini = mkCanvas(), MINI = 2, mapOn = OPT.map, mapRect = null;
   mini.width = MW * MINI; mini.height = MH * MINI;
   (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
+  /* the full map: m, or from the menu. the island pre-rendered once at 3 px a tile, drawn at a
+     whole-number scale; found landmarks are named, the rest are "?". pick a found one (click it,
+     or from the list) and pi travels there */
+  var bigMap = null, mapEl = root.querySelector(".w-map"), mapCv = mapEl && mapEl.querySelector("canvas"), mapK = 1, mapPts = [];
+  function mapOpen() { return mapEl && !mapEl.hidden; }
+  function buildBigMap() {
+    bigMap = mkCanvas(); bigMap.width = MW * 3; bigMap.height = MH * 3;
+    var g = bigMap.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
+    g.drawImage(ground, 0, 0, bigMap.width, bigMap.height);
+    g.drawImage(volc.canvas, volc.ox / T * 3, volc.oy / T * 3, volc.canvas.width / T * 3, volc.canvas.height / T * 3);
+  }
+  function mapSpot(q) {
+    if (q.room) { var b = BUILDINGS.filter(function (b0) { return b0.room === q.room; })[0], i = STATIONS.filter(function (x) { return x.room === q.room; }).indexOf(q); return { x: b.x0 + b.w / 2 + (i ? 1.4 : -1.4), y: b.y0 + b.h / 2, below: i % 2 }; }
+    return { x: q.x + 0.5, y: q.y + 0.5 };
+  }
+  function paintMap() {
+    if (!bigMap) buildBigMap();
+    var aw = Math.max(300, Math.min(W - 40, 1200)), ah = Math.max(240, H - 230);
+    mapK = Math.max(1, Math.floor(Math.min(aw / 300, ah / 240)));
+    var cw = 300 * mapK, ch = 240 * mapK;
+    mapCv.style.width = cw + "px"; mapCv.style.height = ch + "px"; mapCv.width = Math.floor(cw * dpr); mapCv.height = Math.floor(ch * dpr);
+    var g = mapCv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = false;
+    g.drawImage(bigMap, 0, 0, cw, ch);
+    g.font = "700 11px 'Cascadia Mono', monospace"; g.textAlign = "center"; g.textBaseline = "bottom";
+    mapPts = [];
+    STATIONS.filter(function (q) { return q.found; }).forEach(function (q) {
+      var sp = mapSpot(q), x = sp.x * 3 * mapK, y = sp.y * 3 * mapK, f = !!found[q.id];
+      g.fillStyle = f ? "#4DD6E8" : "#0a0a0a"; g.fillRect(x - 4, y - 4, 8, 8); g.strokeStyle = f ? "#0a0a0a" : "#f4f4f4"; g.lineWidth = 1.5; g.strokeRect(x - 4, y - 4, 8, 8);
+      var lbl = f ? q.name.replace(/^(the|a|an) /, "") : "?", w0 = g.measureText(lbl).width + 8;
+      var ly = sp.below ? y + 22 : y - 8;
+      g.fillStyle = "rgba(10,10,10,.85)"; g.fillRect(x - w0 / 2, ly - 14, w0, 15); g.fillStyle = f ? "#f4f4f4" : "#9a9a9a"; g.fillText(lbl, x, ly);
+      mapPts.push({ id: q.id, x: x, y: y, f: f });
+    });
+    var px = pi.x / T * 3 * mapK, py = pi.y / T * 3 * mapK;                       // pi
+    g.fillStyle = "#f454a6"; g.beginPath(); g.arc(px, py, 4, 0, 6.283); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
+    var nav = mapEl.querySelector(".w-lm"); nav.innerHTML = "";
+    STATIONS.filter(function (q) { return q.found; }).forEach(function (q) {
+      var b = document.createElement("button"); b.type = "button"; b.setAttribute("data-lm", q.id);
+      if (found[q.id]) { b.setAttribute("data-found", "1"); b.textContent = q.name + " · " + q.sec; b.setAttribute("aria-label", "travel to " + q.name + ", " + q.sec); }
+      else { b.disabled = true; b.textContent = "? · " + q.sec; b.setAttribute("aria-label", q.sec + ", not found yet"); }
+      nav.appendChild(b);
+    });
+  }
+  function toggleMap(on) {
+    if (!mapEl) return;
+    if (on && (side || riftBusy() || cut || creditsOpen())) return;
+    if (on) { if (paused) setPaused(false); if (!dlg.hidden) closeDialog(); paintMap(); }
+    mapEl.hidden = !on; keys = {};
+    if (on) { var b0 = mapEl.querySelector(".w-lm button:not([disabled])"); (b0 || mapEl).focus({ preventScroll: true }); } else cv.focus({ preventScroll: true });
+  }
+  function travel(id) {
+    var q = STATIONS.filter(function (x) { return x.id === id; })[0]; if (!q || !found[id]) return;
+    toggleMap(false);
+    if (termOpen) closeTerm(); if (aboard()) landNow();
+    fade = 1; goto(id); sfx("whoosh");
+    announce("travelled to " + q.name + ".");
+  }
+  if (mapEl) {
+    mapEl.addEventListener("click", function (e) {
+      var b = e.target.closest && e.target.closest("button"); if (!b) return;
+      if (b.getAttribute("data-a") === "close") { toggleMap(false); return; }
+      if (b.getAttribute("data-lm")) travel(b.getAttribute("data-lm"));
+    });
+    mapCv.addEventListener("click", function (e) {
+      var r = mapCv.getBoundingClientRect(), x = e.clientX - r.left, y = e.clientY - r.top, best = null, bd = 18;
+      mapPts.forEach(function (m) { var d = Math.hypot(m.x - x, m.y - y); if (m.f && d < bd) { bd = d; best = m; } });
+      if (best) travel(best.id);
+    });
+    mapEl.addEventListener("keydown", function (e) { if (e.key === "Escape" || e.key === "m" || e.key === "M") { e.preventDefault(); e.stopPropagation(); toggleMap(false); } });
+  }
   function drawMinimap() {
     if (W < 760 || riftBusy() || !OPT.map) { mapRect = null; return; }
     var sc = 1.5, mw = mini.width * sc, mh = mini.height * sc, x0 = W - mw - 16, y0 = H - mh - 16;
@@ -3805,7 +3875,7 @@
     raf = 0;
     if (!open) return;
     var ms = now - last; last = now;
-    if (!paused && !setOpen() && !creditsOpen()) {
+    if (!paused && !setOpen() && !creditsOpen() && !mapOpen()) {
       acc += Math.min(0.1, Math.max(0, ms / 1000));
       for (var n = 0; acc >= STEP && n < 5; n++) { t += STEP; update(STEP); acc -= STEP; }
       if (acc >= STEP) acc = 0;
@@ -3876,7 +3946,8 @@
     var a2 = e.target.closest && e.target.closest("[data-a]"); if (!a2) return;
     var act = a2.getAttribute("data-a");
     setPaused(false);
-    if (act === "settings") toggleSettings(true); else if (act === "tour") startTour(); else if (act === "leave") exit();
+    if (act === "controls") { setPaused(true); var cl = pauseEl.querySelector(".w-ctl"); cl.hidden = !cl.hidden; return; }
+    if (act === "settings") toggleSettings(true); else if (act === "tour") startTour(); else if (act === "map") toggleMap(true); else if (act === "leave") exit();
   });
 
   /* ════════ the warp: orb → island and back ════════ */
@@ -3985,7 +4056,7 @@
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
-      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour(); if (credEl) credEl.hidden = true;
+      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour(); if (credEl) credEl.hidden = true; if (mapEl) mapEl.hidden = true;
       open = false; exiting = false; stopLoop(); unbindSession();
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");

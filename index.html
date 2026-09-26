@@ -65,16 +65,18 @@
       <button class="w-exit" type="button" aria-label="Back to portfolio">← back<span class="w-sound-l"> to portfolio</span></button>
       <button class="w-tour" type="button" aria-label="Take the tour: every section in about a minute">▶ tour</button>
       <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found"></span></div>
-      <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc for menu</div>
+      <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to use · m map · esc menu</div>
       <button class="w-restore" type="button" aria-label="Restore site" hidden>restore<span class="w-sound-l"> site</span></button>
       <button class="w-gear" type="button" aria-expanded="false" aria-controls="w-set" aria-label="Settings">⚙<span class="w-sound-l"> settings</span></button>
       <button class="w-sound" type="button" aria-pressed="true" aria-label="Sound on">♪<span class="w-sound-l"> sound on</span></button>
     </div>
-    <canvas class="w-cv" tabindex="0" role="application" aria-label="pi's island, a playable version of this portfolio. W A S D or the arrow keys walk, shift runs, E reads whatever is nearby, M mutes, Escape opens a menu listing all eight sections."></canvas>
+    <canvas class="w-cv" tabindex="0" role="application" aria-label="pi's island, a playable version of this portfolio. W A S D or the arrow keys walk, shift runs, E uses whatever is nearby, M opens the map, Escape opens a menu listing all eight sections."></canvas>
     <div class="sr-only" id="w-live" aria-live="polite"></div>
     <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
     <button class="w-snd-chip" type="button" hidden>♪ tap to resume sound</button>
-    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Island landmarks"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="tour">tour</button><button type="button" data-a="settings">settings</button><button type="button" data-a="leave">back to portfolio</button></div></div>
+    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Island landmarks"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="map">map (m)</button><button type="button" data-a="tour">tour</button><button type="button" data-a="settings">settings</button><button type="button" data-a="controls">controls</button><button type="button" data-a="leave">back to portfolio</button></div>
+      <dl class="w-ctl" hidden><dt>walk</dt><dd>wasd or the arrow keys (tap a spot, or drag on touch)</dd><dt>run</dt><dd>shift</dd><dt>use</dt><dd>e, space or enter</dd><dt>map</dt><dd>m</dd><dt>menu</dt><dd>esc or p</dd><dt>drive</dt><dd>w/s, a/d; s from a stop is reverse; shift drifts; space honks</dd><dt>sound</dt><dd>the ♪ button, or settings</dd></dl></div>
+    <div class="w-map" role="dialog" aria-label="Island map" tabindex="-1" hidden><div class="w-map-top"><b>the island</b><button type="button" data-a="close">close (m)</button></div><canvas aria-hidden="true"></canvas><nav class="w-lm" aria-label="Island landmarks"></nav></div>
     <div class="w-credits" role="dialog" aria-label="Credits" tabindex="-1" hidden>
       <div class="w-roll"></div>
       <div class="w-contact">
