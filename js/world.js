@@ -26,6 +26,26 @@
   // every offscreen canvas is made here, so they can be counted (and their memory estimated)
   var CANVASES = [];
   function mkCanvas() { var c = document.createElement("canvas"); CANVASES.push(c); return c; }
+  // letting a canvas go: size it to nothing first, or safari keeps holding its memory
+  function freeCanvas(c) { if (c) { c.width = 0; c.height = 0; } }
+  /* glow sprites. building a radial gradient every frame is slow (slowest in safari), so each
+     glow is drawn once into a small canvas, keyed by its colour stops, then stretched to size
+     with drawImage, its strength riding on globalAlpha. the least recently used are let go */
+  var GLOWS = typeof Map !== "undefined" ? new Map() : null, GLOW_MAX = 64;
+  function glowSprite(key, stops, inner) {
+    var c = GLOWS && GLOWS.get(key);
+    if (c) { GLOWS.delete(key); GLOWS.set(key, c); return c; }
+    c = mkCanvas(); c.width = c.height = 128;
+    var g = c.getContext("2d"), gr = g.createRadialGradient(64, 64, (inner || 0) * 64, 64, 64, 64);
+    stops.forEach(function (st) { gr.addColorStop(st[0], "rgba(" + st[1] + "," + st[2] + ")"); });
+    g.fillStyle = gr; g.fillRect(0, 0, 128, 128);
+    if (GLOWS) { GLOWS.set(key, c); if (GLOWS.size > GLOW_MAX) { var k0 = GLOWS.keys().next().value; freeCanvas(GLOWS.get(k0)); GLOWS.delete(k0); } }
+    return c;
+  }
+  function drawGlow(c, x, y, rx, ry, a) {
+    if (a <= 0.003 || rx <= 0) return;
+    var ga = ctx.globalAlpha; ctx.globalAlpha = ga * Math.min(1, a); ctx.drawImage(c, x - rx, y - ry, rx * 2, ry * 2); ctx.globalAlpha = ga;
+  }
 
   /* ════════ map ════════ */
   var T = 16, MW = 100, MH = 80, CX = 48, CY = 40, DOCKX = 51;
@@ -1397,9 +1417,7 @@
     if (night > 0.05) {
       lights.forEach(function (l) {
         var sx = (l[0] - camX) * E, sy = (l[1] - camY) * E, rr = l[2] * E;
-        var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr);
-        g.addColorStop(0, "rgba(" + l[3] + "," + (l[4] * night).toFixed(3) + ")"); g.addColorStop(1, "rgba(" + l[3] + ",0)");
-        ctx.fillStyle = g; ctx.fillRect(sx - rr, sy - rr, rr * 2, rr * 2);
+        drawGlow(glowSprite("L" + l[3], [[0, l[3], 1], [1, l[3], 0]]), sx, sy, rr, rr, l[4] * night);
       });
       // the lighthouse sweeps the water after dark
       if (beamAt) {
@@ -2484,11 +2502,13 @@
   }
   function riftBusy() { return rift && rift.phase !== "reign"; }
   function dust(name) { var p = window.OrbPalettes && window.OrbPalettes[name]; return p ? p.dust : [230, 230, 230]; }
+  var PCAP = TOUCH ? 120 : 300;
+  function addPart(p) { var cap = qTier ? PCAP >> 1 : PCAP; if (rift.parts.length >= cap) rift.parts.shift(); rift.parts.push(p); }
   function burst(x, y, name, n, speed) {
     var c = dust(name);
     for (var i = 0; i < n; i++) {
       var a = frand() * 6.283, v = speed * (0.3 + frand());
-      rift.parts.push({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 10, life: 1, c: c });
+      addPart({ x: x, y: y, vx: Math.cos(a) * v, vy: Math.sin(a) * v * 0.6 - 10, life: 1, c: c });
     }
   }
   /* the fight. the orbs don't circle a spot and take turns: they range over the whole
@@ -2597,7 +2617,7 @@
     lens = { x: x, y: y, t: 0 };
     for (var i = 0; i < (kill ? 160 : 80); i++) {
       var sa = frand() * 6.283, sv = (40 + frand() * 200) * (kill ? 1.4 : 1);
-      rift.parts.push({ x: x, y: y + 26, vx: Math.cos(sa) * sv, vy: Math.sin(sa) * sv * 0.6, life: 1 + frand() * 1.2, c: i % 3 ? dust(i % 2 ? a.name : b.name) : [255, 244, 220], drag: 0.94, size: frand() < 0.2 ? 3 : 2 });
+      addPart({ x: x, y: y + 26, vx: Math.cos(sa) * sv, vy: Math.sin(sa) * sv * 0.6, life: 1 + frand() * 1.2, c: i % 3 ? dust(i % 2 ? a.name : b.name) : [255, 244, 220], drag: 0.94, size: frand() < 0.2 ? 3 : 2 });
     }
     var dx = b.x - a.x, dy = b.y - a.y, len = Math.hypot(dx, dy) || 1;
     b.vx += dx / len * 220; b.vy += dy / len * 130; a.vx -= dx / len * 90; a.vy -= dy / len * 60;
@@ -2635,21 +2655,21 @@
       a.x += (mx + Math.cos(d.ang) * rr - a.x) * 0.3; a.y += (my + Math.sin(d.ang) * rr * 0.55 - a.y) * 0.3;
       b.x += (mx - Math.cos(d.ang) * rr - b.x) * 0.3; b.y += (my - Math.sin(d.ang) * rr * 0.55 - b.y) * 0.3;
       a.z += (34 - a.z) * 0.1; b.z += (34 - b.z) * 0.1; a.vx = a.vy = b.vx = b.vy = 0;
-      if (frand() < dt * 30) rift.parts.push({ x: mx + (frand() - 0.5) * rr * 2, y: my + 26 + (frand() - 0.5) * rr, vx: 0, vy: 0, life: 0.8, c: dust(frand() < 0.5 ? a.name : b.name), swirl: 5, size: 2 });
+      if (frand() < dt * 30) addPart({ x: mx + (frand() - 0.5) * rr * 2, y: my + 26 + (frand() - 0.5) * rr, vx: 0, vy: 0, life: 0.8, c: dust(frand() < 0.5 ? a.name : b.name), swirl: 5, size: 2 });
       if (u >= 1) { nova(a, b, mx, my - 34); rift.act = null; }
     } else if (d.kind === "beam") {
       a.vx *= 0.85; a.vy *= 0.85; a.rage = Math.min(1, d.t / 0.8);
       if (d.t > 0.8 && !d.done) { d.done = true; d.beam = { t: 0 }; nova(a, b, b.x, b.y - b.z); }
       if (d.beam) { d.beam.t += dt; if (d.beam.t > 0.4) rift.act = null; }
     } else if (d.kind === "blink") {
-      if (d.t < 0.35) { a.alpha = 1 - d.t / 0.35; if (frand() < dt * 60) rift.parts.push({ x: a.x + (frand() - 0.5) * 30, y: a.y + 26 + (frand() - 0.5) * 20, vx: 0, vy: 0, life: 0.5, c: dust(a.name), pull: a, size: 2 }); }
+      if (d.t < 0.35) { a.alpha = 1 - d.t / 0.35; if (frand() < dt * 60) addPart({ x: a.x + (frand() - 0.5) * 30, y: a.y + 26 + (frand() - 0.5) * 20, vx: 0, vy: 0, life: 0.5, c: dust(a.name), pull: a, size: 2 }); }
       else if (!d.moved) { d.moved = true; var ang = frand() * 6.283; a.x = b.x + Math.cos(ang) * 30; a.y = b.y + Math.sin(ang) * 16; a.vx = a.vy = 0; }
       else { a.alpha = Math.min(1, (d.t - 0.35) / 0.15); if (d.t > 0.55) { nova(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2 - 30); a.alpha = 1; rift.act = null; } }
     } else if (d.kind === "well") {
       var ddx = a.x - b.x, ddy = a.y - b.y, dist = Math.hypot(ddx, ddy) || 1;
       a.vx *= 0.8; a.vy *= 0.8; a.rage = 1;
       b.vx += ddx / dist * dt * (260 + d.t * 400); b.vy += ddy / dist * dt * (160 + d.t * 260);
-      if (frand() < dt * 40) { var pa = frand() * 6.283, pr = 40 + frand() * 50; rift.parts.push({ x: a.x + Math.cos(pa) * pr, y: a.y + 26 + Math.sin(pa) * pr * 0.55, vx: 0, vy: 0, life: 1, c: [20, 8, 30], pull: a, swirl: 4, size: 2 }); }
+      if (frand() < dt * 40) { var pa = frand() * 6.283, pr = 40 + frand() * 50; addPart({ x: a.x + Math.cos(pa) * pr, y: a.y + 26 + Math.sin(pa) * pr * 0.55, vx: 0, vy: 0, life: 1, c: [20, 8, 30], pull: a, swirl: 4, size: 2 }); }
       if (dist < 20 || d.t > 2.2) { nova(a, b, (a.x + b.x) / 2, (a.y + b.y) / 2 - 30); rift.act = null; }
     }
   }
@@ -2714,7 +2734,8 @@
     });
     rift.novas = (rift.novas || []).filter(function (n) { n.t += dt; return n.t < n.dur; });
     rift.scorch = (rift.scorch || []).filter(function (s) { s.life -= dt / 9; return s.life > 0; });
-    rift.parts = rift.parts.filter(function (p) { return p.life > 0; });
+    for (var pi0 = 0, pj = 0; pi0 < rift.parts.length; pi0++) if (rift.parts[pi0].life > 0) rift.parts[pj++] = rift.parts[pi0];
+    rift.parts.length = pj;
   }
   function orbFocus() {
     // the camera watches the fight, not one spot: the middle of the living orbs, pulled toward the arena
@@ -2736,9 +2757,8 @@
     if (rift.dim > 0) { ctx.fillStyle = "rgba(3,4,10," + rift.dim.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); }
     // scorched ground where the stars met
     (rift.scorch || []).forEach(function (s) {
-      var gx = (s.x - camX) * E, gy = (s.y - camY) * E, g0 = ctx.createRadialGradient(gx, gy, 0, gx, gy, s.r * E);
-      g0.addColorStop(0, "rgba(8,2,2," + (0.7 * s.life).toFixed(3) + ")"); g0.addColorStop(0.6, "rgba(40,8,4," + (0.35 * s.life).toFixed(3) + ")"); g0.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = g0; ctx.beginPath(); ctx.ellipse(gx, gy, s.r * E, s.r * E * 0.55, 0, 0, 6.283); ctx.fill();
+      var gx = (s.x - camX) * E, gy = (s.y - camY) * E;
+      drawGlow(glowSprite("scorch", [[0, "8,2,2", 0.7], [0.6, "40,8,4", 0.35], [1, "0,0,0", 0]]), gx, gy, s.r * E, s.r * E * 0.55, s.life);
     });
     var list = rift.orbs.filter(function (o) { return o.alive; }).slice().sort(function (a, b) { return a.y - b.y; });
     list.forEach(function (o) {
@@ -2749,16 +2769,13 @@
     // the gravity well: a field of darkness around void while it feeds
     if (act && act.kind === "well") {
       var wx = (act.a.x - camX) * E, wy = (act.a.y - act.a.z - camY) * E, wr = (70 + act.t * 20) * E / 3 * 3;
-      var wg = ctx.createRadialGradient(wx, wy, 0, wx, wy, wr);
-      wg.addColorStop(0, "rgba(0,0,0,.95)"); wg.addColorStop(0.4, "rgba(10,0,16,.6)"); wg.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = wg; ctx.beginPath(); ctx.arc(wx, wy, wr, 0, 6.283); ctx.fill();
+      drawGlow(glowSprite("well", [[0, "0,0,0", 0.95], [0.4, "10,0,16", 0.6], [1, "0,0,0", 0]]), wx, wy, wr, wr, 1);
     }
     // each orb pools darkness around itself; motes fall into it; now and then a pair of red eyes
     list.forEach(function (o, oi) {
       var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale, rage = o.rage || 0.3;
-      var ag = ctx.createRadialGradient(sx, sy, rr * 0.4, sx, sy, rr * (2.6 + rage));
-      ag.addColorStop(0, "rgba(0,0,0," + (0.8 * o.alpha).toFixed(2) + ")"); ag.addColorStop(0.55, "rgba(" + (o.name === "void" || o.name === "eclipse" ? "40,0,20" : "10,6,20") + "," + (0.4 * o.alpha).toFixed(2) + ")"); ag.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = ag; ctx.fillRect(sx - rr * 4, sy - rr * 4, rr * 8, rr * 8);
+      var pc = o.name === "void" || o.name === "eclipse" ? "40,0,20" : "10,6,20", ar = rr * (2.6 + rage);
+      drawGlow(glowSprite("pool" + pc, [[0, "0,0,0", 0.8], [0.55, pc, 0.4], [1, "0,0,0", 0]], 0.13), sx, sy, ar, ar, o.alpha);
       for (var m = 0; m < 14; m++) {
         var ph = (t * (0.35 + (m % 5) * 0.06) + m * 0.137 + oi * 0.3) % 1, ang = m * 2.4 + t * (0.8 + rage) + ph * 3, dd2 = rr * (2.8 - ph * 1.9);
         ctx.fillStyle = "rgba(6,4,12," + (0.9 * Math.sin(ph * Math.PI) * o.alpha).toFixed(2) + ")";
@@ -2773,9 +2790,8 @@
       drawOrb(o, E, o.alpha);
       var sx = (o.x - camX) * E, sy = (o.y - o.z - camY) * E, rr = OR * E * o.scale;
       if (o.flash > 0 || o.rage > 0.2) {
-        var g = ctx.createRadialGradient(sx, sy, 0, sx, sy, rr * (1.6 + o.rage));
-        g.addColorStop(0, "rgba(255,255,255," + (0.6 * Math.max(o.flash, o.rage * 0.4)).toFixed(3) + ")"); g.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = g; ctx.fillRect(sx - rr * 3, sy - rr * 3, rr * 6, rr * 6);
+        var fr2 = rr * (1.6 + o.rage);
+        drawGlow(glowSprite("flare", [[0, "255,255,255", 1], [1, "255,255,255", 0]]), sx, sy, fr2, fr2, 0.6 * Math.max(o.flash, o.rage * 0.4));
       }
     });
     // the binary: a bridge of light between the two as they spiral in
@@ -2798,19 +2814,14 @@
     (rift.novas || []).forEach(function (n) {
       var ix = (n.x - camX) * E, iy = (n.y - camY) * E, u = n.t / n.dur, e = 1 - Math.pow(1 - Math.min(1, u * 1.6), 3), fade = 1 - u;
       var Rf = (14 + e * 95) * n.R * E / 3 * 1.8;
-      var fb = ctx.createRadialGradient(ix, iy, 0, ix, iy, Rf);
-      fb.addColorStop(0, "rgba(" + (OPT.flash ? "255,255,255" : n.c1.join(",")) + "," + (Math.max(0, 1 - u * 1.6) * (OPT.flash ? 1 : 0.6)).toFixed(3) + ")");
-      fb.addColorStop(0.22, "rgba(" + n.c1.join(",") + "," + (0.85 * fade).toFixed(3) + ")");
-      fb.addColorStop(0.5, "rgba(" + n.c2.join(",") + "," + (0.55 * fade).toFixed(3) + ")");
-      fb.addColorStop(0.78, "rgba(120,20,16," + (0.35 * fade).toFixed(3) + ")");
-      fb.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = fb; ctx.beginPath(); ctx.arc(ix, iy, Rf, 0, 6.283); ctx.fill();
-      for (var k3 = 0; k3 < 2; k3++) {                                          // the pressure fronts
+      var c1 = n.c1.join(","), c2 = n.c2.join(",");
+      drawGlow(glowSprite("fb" + c1 + "/" + c2, [[0, c1, 0.85], [0.22, c1, 0.85], [0.5, c2, 0.55], [0.78, "120,20,16", 0.35], [1, "0,0,0", 0]]), ix, iy, Rf, Rf, fade);
+      var core = OPT.flash ? "255,255,255" : c1;                                  // the white heart (coloured with flashes off)
+      drawGlow(glowSprite("core" + core, [[0, core, 1], [0.22, core, 0.6], [0.45, core, 0]]), ix, iy, Rf, Rf, Math.max(0, 1 - u * 1.6) * (OPT.flash ? 1 : 0.6));
+      for (var k3 = 0; k3 < 2 && qTier === 0; k3++) {                           // the pressure fronts
         var su = Math.max(0, u - k3 * 0.12); if (su <= 0) continue;
-        var Rs = (20 + (1 - Math.pow(1 - su, 2.2)) * 300 * n.R) * E / 3 * 1.6, band = Math.max(8, Rs * 0.28);
-        var sg = ctx.createRadialGradient(ix, iy, Math.max(0, Rs - band), ix, iy, Rs + band * 0.3);
-        sg.addColorStop(0, "rgba(0,0,0,0)"); sg.addColorStop(0.75, "rgba(" + (k3 ? n.c2 : [255, 236, 214]).join(",") + "," + (0.32 * (1 - su)).toFixed(3) + ")"); sg.addColorStop(1, "rgba(0,0,0,0)");
-        ctx.fillStyle = sg; ctx.beginPath(); ctx.ellipse(ix, iy, Rs + band * 0.3, (Rs + band * 0.3) * 0.62, 0, 0, 6.283); ctx.fill();
+        var Rs = (20 + (1 - Math.pow(1 - su, 2.2)) * 300 * n.R) * E / 3 * 1.6, band = Math.max(8, Rs * 0.28), Ro = Rs + band * 0.3, pcol = (k3 ? n.c2 : [255, 236, 214]).join(",");
+        drawGlow(glowSprite("front" + pcol, [[0, pcol, 0], [0.75, pcol, 1], [1, pcol, 0]], 0.66), ix, iy, Ro, Ro * 0.62, 0.32 * (1 - su));
       }
     });
     rift.parts.forEach(function (p) {
@@ -2818,17 +2829,15 @@
       ctx.fillRect((p.x - camX) * E, (p.y - camY) * E, p.size || 2, p.size || 2);
     });
     if (rift.ring > 0) {
-      var cx0 = (ARENA.x - camX) * E, cy0 = (ARENA.y - 34 - camY) * E, rad = (1 - rift.ring) * 320 + 20, rgd = ctx.createRadialGradient(cx0, cy0, Math.max(0, rad - 40), cx0, cy0, rad + 8);
-      rgd.addColorStop(0, "rgba(0,0,0,0)"); rgd.addColorStop(0.8, "rgba(200,190,210," + (0.3 * rift.ring).toFixed(3) + ")"); rgd.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = rgd; ctx.beginPath(); ctx.ellipse(cx0, cy0, rad + 8, (rad + 8) * 0.6, 0, 0, 6.283); ctx.fill();
+      var cx0 = (ARENA.x - camX) * E, cy0 = (ARENA.y - 34 - camY) * E, rad = (1 - rift.ring) * 320 + 20;
+      drawGlow(glowSprite("ring", [[0, "200,190,210", 0], [0.8, "200,190,210", 1], [1, "200,190,210", 0]], 0.8), cx0, cy0, rad + 8, (rad + 8) * 0.6, 0.3 * rift.ring);
     }
     ctx.restore();
     // black holes at the hearts of the fresh collisions, and the white-out
     (rift.novas || []).forEach(function (n) {
-      var u = n.t / n.dur; if (u < 0.25 || u > 0.7) return;
+      var u = n.t / n.dur; if (u < 0.25 || u > 0.7 || qTier > 0) return;
       var ix = (n.x - camX) * E, iy = (n.y - camY) * E, br = Math.sin((u - 0.25) / 0.45 * Math.PI) * 10 * n.R * E / 3 * 1.8;
-      var bh = ctx.createRadialGradient(ix, iy, 0, ix, iy, br * 2); bh.addColorStop(0, "rgba(0,0,0,.95)"); bh.addColorStop(0.5, "rgba(0,0,0,.7)"); bh.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.fillStyle = bh; ctx.beginPath(); ctx.arc(ix, iy, br * 2, 0, 6.283); ctx.fill();
+      drawGlow(glowSprite("hole", [[0, "0,0,0", 0.95], [0.5, "0,0,0", 0.7], [1, "0,0,0", 0]]), ix, iy, br * 2, br * 2, 1);
     });
     whiteout(Math.min(1, rift.flash || 0));
   }
@@ -2919,15 +2928,23 @@
     });
     return TOWERS;
   }
-  var cars = [];
+  var cars = [], TRAILS = {};
+  function trailSprite(col) {
+    if (TRAILS[col]) return TRAILS[col];
+    var c = mkCanvas(); c.width = 26; c.height = 1; var g = c.getContext("2d"), gr = g.createLinearGradient(26, 0, 0, 0);
+    gr.addColorStop(0, col); gr.addColorStop(1, "rgba(0,0,0,0)"); g.fillStyle = gr; g.fillRect(0, 0, 26, 1);
+    return (TRAILS[col] = c);
+  }
   function drawFuture(E, VW, VH) {
     // flying traffic in lanes across the view
     if (!cars.length) for (var i = 0; i < 16; i++) cars.push({ lane: i % 8, off: Math.random() * 400, v: (i % 2 ? 1 : -1) * (60 + Math.random() * 60), c: ["#29d8ff", "#ff4fa0", "#ffe07a"][i % 3] });
     cars.forEach(function (cr) {
       var span = VW + 80, x = camX - 40 + ((((cr.off + t * cr.v) % span) + span) % span), y = camY + 20 + cr.lane * (VH - 40) / 8;
       ctx.fillStyle = cr.c; ctx.fillRect(Math.round(x), Math.round(y), 5, 2);
-      var tr = ctx.createLinearGradient(x, 0, x - Math.sign(cr.v) * 26, 0); tr.addColorStop(0, cr.c); tr.addColorStop(1, "rgba(0,0,0,0)");
-      ctx.globalAlpha = 0.6; ctx.fillStyle = tr; ctx.fillRect(Math.min(x, x - Math.sign(cr.v) * 26), Math.round(y), 26, 1); ctx.globalAlpha = 1;
+      var trs = trailSprite(cr.c);
+      ctx.globalAlpha = 0.6;
+      if (cr.v > 0) ctx.drawImage(trs, Math.round(x - 26), Math.round(y), 26, 1); else { ctx.save(); ctx.translate(Math.round(x + 26), Math.round(y)); ctx.scale(-1, 1); ctx.drawImage(trs, 0, 0, 26, 1); ctx.restore(); }
+      ctx.globalAlpha = 1;
       light(x, y, 10, cr.c === "#29d8ff" ? "41,216,255" : cr.c === "#ff4fa0" ? "255,79,160" : "255,224,122", 0.6);
     });
   }
@@ -4004,7 +4021,7 @@
     var au = SND && SND.stats ? SND.stats() : null;
     dbg.textContent = "fps " + (1000 / avg).toFixed(0) + "   frame avg " + avg.toFixed(1) + " ms   p95 " + sorted[Math.floor(sorted.length * 0.95)].toFixed(1) + " ms\n"
       + "state " + gameState() + "   pi " + Math.round(pi.x / T) + "," + Math.round(pi.y / T) + (SEED ? "   seed " + SEED : "") + "\n"
-      + "particles " + particleCount() + "   novas " + (rift && rift.novas ? rift.novas.length : 0) + "\n"
+      + "particles " + particleCount() + "   novas " + (rift && rift.novas ? rift.novas.length : 0) + "   quality " + (qTier ? "reduced" : "full") + "   glows " + (GLOWS ? GLOWS.size : 0) + "\n"
       + "audio " + (au ? au.state + "   sources " + au.sources + "   voices " + au.voices + "   loops " + au.loops + "   mood " + (au.mood || "-") : "none") + "\n"
       + "dpr " + dpr + "   css " + W + "x" + H + "   backing " + cv.width + "x" + cv.height + "   scale " + S + "\n"
       + "canvases " + live.length + " live / " + CANVASES.length + " made   ~" + mb.toFixed(1) + " MB\n"
@@ -4015,6 +4032,14 @@
      to 100 ms and at most five steps run per frame, so a long hitch (or a tab coming back from
      the background) can't make the car tunnel through a wall or a fight skip ahead */
   var STEP = 1 / 60, acc = 0, paused = false;
+  var qTier = 0, fAvg = 16, qSlow = 0, qFast = 0;
+  function qualityWatch(ms) {
+    if (paused || document.hidden || ms > 250) return;                        // a hidden or stalled tab says nothing about speed
+    fAvg += (ms - fAvg) * 0.05;
+    if (fAvg > 20) { qSlow += ms / 1000; qFast = 0; if (qSlow > 2 && qTier === 0) { qTier = 1; qSlow = 0; } }
+    else if (fAvg < 12) { qFast += ms / 1000; qSlow = 0; if (qFast > 5 && qTier === 1) { qTier = 0; qFast = 0; } }
+    else { qSlow = 0; qFast = 0; }
+  }
   function startLoop() { if (raf) cancelAnimationFrame(raf); last = performance.now(); acc = 0; raf = requestAnimationFrame(loop); }
   function stopLoop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   function loop(now) {
@@ -4027,6 +4052,7 @@
       if (acc >= STEP) acc = 0;
     }
     render();
+    qualityWatch(ms);
     if (DEBUG) drawDebug(ms);
     raf = requestAnimationFrame(loop);
   }
