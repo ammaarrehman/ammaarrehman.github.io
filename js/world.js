@@ -1046,6 +1046,10 @@
     if (!open || termOpen) return;
     nudgeSound();
     try { cv.setPointerCapture(e.pointerId); } catch (x) {}
+    if (promptRect && dlg.hidden && !riftBusy() && e.clientX >= promptRect[0] && e.clientX <= promptRect[0] + promptRect[2] && e.clientY >= promptRect[1] && e.clientY <= promptRect[1] + promptRect[3]) {
+      if (car.driving) toggleCar(); else if (heli.state === "flying") toggleHeli(); else { var pn = nearby(); if (pn) interact(pn); }
+      return;
+    }
     if (mapRect && e.clientX >= mapRect[0] && e.clientX <= mapRect[0] + mapRect[2] && e.clientY >= mapRect[1] && e.clientY <= mapRect[1] + mapRect[3]) { mapOn = !mapOn; sfx("blip"); return; }
     if (egg) { egg.t = 99; return; }
     if (riftBusy()) return;
@@ -1092,15 +1096,38 @@
     return p;
   }
 
-  function nearby() {
-    if (room) { var bb = null, bdd = 1e9; roomCandidates().forEach(function (c) { if (c.d < c.max && c.d < bdd) { bdd = c.d; bb = c.v; } }); return bb; }
-    if (car.driving || aboard()) return null;
-    var best = null, bd = 1e9;
-    nearCandidates().forEach(function (c) { if (c.d < c.max && c.d < bd) { bd = c.d; best = c.v; } });
-    if (rift && rift.phase === "reign" && Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) < 30) best = { id: "core", name: "the core" };
-    if (!rift && !best && countFound() === TOTAL && Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) < 34) best = { id: "wake", name: "the clearing", ax: ARENA.x, ay: ARENA.y - 8 };
+  /* one verb for everything: each thing pi can use says what using it does and how much it
+     matters. the thing in reach with the highest priority wins (nearest breaks a tie), and one
+     prompt shows it: [E] read · experience. getting out of a vehicle beats a door, a door beats
+     a landmark, a landmark beats an animal or a bot */
+  function verbOf(v) {
+    var id = v.id;
+    if (id === "exitcar") return ["park", 4]; if (id === "exitheli") return ["land", 4];
+    if (id === "building") return v.ref.room ? ["enter", 3] : ["look", 1];
+    if (id === "car") return ["drive", 3]; if (id === "heli") return ["fly", 3];
+    if (id === "cave") return ["use the terminal", 2]; if (id === "boat") return ["sail back", 2];
+    if (id === "drink") return ["drink", 2]; if (id === "wake") return ["wake the orbs", 2];
+    if (id === "core" || id === "shrine") return ["look", 2];
+    if (v.sec || id === "sign") return ["read", 2];
+    if (id === "pond") return ["feed the koi", 1]; if (id === "bot") return ["talk", 1];
+    return ["look", 1];
+  }
+  function pick(cands) {
+    var best = null, bp = -1, bd = 1e9;
+    cands.forEach(function (c) { if (c.d >= c.max) return; var pr = verbOf(c.v)[1]; if (pr > bp || (pr === bp && c.d < bd)) { bp = pr; bd = c.d; best = c.v; } });
     return best;
   }
+  function nearby() {
+    if (room) return pick(roomCandidates());
+    if (car.driving || aboard()) return null;
+    var cands = nearCandidates(), da = Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y);
+    if (rift && rift.phase === "reign") cands.push({ d: da, max: 30, v: { id: "core", name: "the core" } });
+    if (!rift && countFound() === TOTAL) cands.push({ d: da, max: 34, v: { id: "wake", name: "the clearing", ax: ARENA.x, ay: ARENA.y - 8 } });
+    return pick(cands);
+  }
+  // the prompt's words, and where it was last drawn (on touch the prompt is the button)
+  var promptRect = null;
+  function promptText(nb) { return (TOUCH ? "" : "[E] ") + verbOf(nb)[0] + (nb.sec ? " · " + nb.sec : ""); }
 
   /* ════════ dialog ════════ */
   var typing = null, full = "";
@@ -2893,7 +2920,7 @@
     ctx.globalCompositeOperation = "source-over";
     var nb = dlg.hidden ? nearby() : null;
     nearNote(nb);
-    if (nb && nb.ax !== undefined) tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
+    if (nb && nb.ax !== undefined) tag(promptText(nb), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     tag(R.name, W / 2, oy * E - 14, false);
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 22 - camY) * E, false);
   }
@@ -3398,7 +3425,7 @@
     realityGrade(REAL);
   }
   function render() {
-    paintChip();
+    paintChip(); promptRect = null;
     if (side) { renderSide(); drawFade(); return; }
     if (room) { renderRoom(); drawFade(); return; }
     zoom += (zoomTo - zoom) * 0.08;
@@ -3436,12 +3463,17 @@
     if (reality.glitch > 0 && !REDUCED) glitchSlices();
     var nb = !egg && dlg.hidden ? nearby() : null;
     nearNote(nb);
-    if (nb && nb.ax !== undefined) tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
+    if (nb && nb.ax !== undefined) tag(promptText(nb), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     else if (nb) {
       // float the prompt just above the landmark's own sprite
       var topY = nb.id === "rex" ? rex.y - 15 : nb.id === "core" ? ARENA.y - 34 - OR * 1.9 : nb.id === "boat" ? nb.y * T : nb.y * T + 16 - SPR[nb.id].height;
       var sx = ((nb.id === "rex" ? rex.x : nb.id === "core" ? ARENA.x : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
-      tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), sx, sy, true);
+      tag(promptText(nb), sx, sy, true);
+    }
+    // in a vehicle, the way out is the prompt
+    else if (!egg && dlg.hidden && !riftBusy() && (car.driving || heli.state === "flying")) {
+      var vx0 = car.driving ? car.x : heli.x, vy0 = car.driving ? car.y - 14 : heli.y - heli.z - 22;
+      tag(promptText({ id: car.driving ? "exitcar" : "exitheli" }), (vx0 - camX) * E, (vy0 - camY) * E, true);
     }
     drawMinimap();
     if (roarTag) tag("ROAR", (roarTag.x - camX) * E, (roarTag.y - camY) * E, false);
@@ -3458,6 +3490,7 @@
   function tag(text, sx, sy, key) {
     ctx.font = (key ? "700 12px " : "400 12px ") + "'Cascadia Mono', monospace";
     var w = ctx.measureText(text).width + (key ? 12 : 16), h = key ? 20 : 24;
+    if (key) promptRect = [sx - w / 2 - 6, sy - h - 6, w + 12, h + 12];
     ctx.fillStyle = "#0a0a0a"; ctx.fillRect(sx - w / 2, sy - h, w, h);
     ctx.strokeStyle = "#f4f4f4"; ctx.lineWidth = 2; ctx.strokeRect(sx - w / 2, sy - h, w, h);
     ctx.fillStyle = "#f4f4f4"; ctx.textAlign = "center"; ctx.textBaseline = "middle"; ctx.fillText(text, sx, sy - h / 2 + 1);
