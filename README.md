@@ -197,6 +197,10 @@ until hovered.
   `--check` only runs the live checks). Everything about hosting, including the one-time Cloudflare and GoDaddy steps and how
   to undo them, is in `docs/hosting.md`. `wrangler.jsonc` and `_headers` are the Cloudflare
   config. `AUDIT.md` tracks the site audit.
+- Hosting split: the main site is on Cloudflare, not the Pi, so a home outage only takes down
+  `lab.ammaarrehman.com`. Moving the whole site onto the Pi later would take two changes: point
+  the tunnel's public hostname for the apex at the Pi, and remove the Worker's custom domain.
+  Not planned.
 
 ## Regenerating the marks
 
