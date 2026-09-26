@@ -1,0 +1,9 @@
+# secrets and deploy output: never committed
+.dev.vars
+*.env
+.wrangler/
+.deploy/
+# dev-only tooling
+tools/node_modules/
+tools/out/
+.DS_Store

@@ -1,0 +1,16 @@
+// Cloudflare Workers static assets: the site at ammaarrehman.com. There is no Worker script;
+// Cloudflare serves the files in .deploy/ (built by tools/deploy.mjs from an allowlist).
+// Deploy with: node tools/deploy.mjs   (see docs/hosting.md)
+{
+  "name": "ammaarrehman-site",
+  "compatibility_date": "2026-09-26",
+  "workers_dev": false,
+  "assets": {
+    "directory": "./.deploy",
+    "not_found_handling": "404-page",
+    "html_handling": "auto-trailing-slash"
+  },
+  "routes": [
+    { "pattern": "ammaarrehman.com", "custom_domain": true }
+  ]
+}
