@@ -155,7 +155,11 @@
     orbBtn.addEventListener("focus", loadIsland);
     orbBtn.addEventListener("touchstart", loadIsland, { passive: true });
     orbBtn.addEventListener("click", function () { if (island !== 2) { go = true; loadIsland(); } });
-    if (location.hash === "#island") { go = true; loadIsland(); }
+    // an #island link: wait for the rest of the page's scripts (the sound engine, the orbs) first
+    if (location.hash.indexOf("#island") === 0) {
+      go = true;
+      if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", loadIsland); else loadIsland();
+    }
   }
 
 })();
