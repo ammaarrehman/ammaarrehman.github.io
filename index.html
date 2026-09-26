@@ -2,6 +2,7 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self'; style-src 'self' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: blob:; media-src 'self' blob:; connect-src 'self'; object-src 'none'; base-uri 'self'; form-action 'self'; manifest-src 'self'" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Ammaar Rehman · Cyber Security, Cloud &amp; Homelab</title>
   <meta name="description" content="Ammaar Rehman, Ellicott City, MD. Cyber security analyst in Cyber Ready Clinic's internship cohort and Cloud &amp; AI Operations Intern at NextGen Consulting. AWS Certified Cloud Practitioner, CompTIA Tech+. Incoming Information Systems student at UMD Smith." />
@@ -30,18 +31,7 @@
     "sameAs": ["https://github.com/ammaarrehman", "https://www.linkedin.com/in/ammaarrehman/"]
   }
   </script>
-  <script>
-  /* before first paint: mark js on, apply a saved theme */
-  (function () {
-    var d = document.documentElement; d.classList.add("js");
-    // first visit this session: play the vintage boot screen (never for reduced motion or #island links)
-    try {
-      if (sessionStorage.getItem("booted") !== "1" && location.hash !== "#island" &&
-          !(window.matchMedia && matchMedia("(prefers-reduced-motion: reduce)").matches)) d.classList.add("booting");
-    } catch (e) {}
-    try { var t = localStorage.getItem("theme"); if (t === "light" || t === "dark") d.setAttribute("data-theme", t); } catch (e) {}
-  })();
-  </script>
+  <script src="js/head.js?v=20260926"></script>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
@@ -109,7 +99,7 @@
         <a href="#projects">projects</a>
         <a href="#education">education</a>
         <a href="#contact">contact</a>
-        <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">resume ↗</a>
+        <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener noreferrer">resume ↗</a>
       </div>
       <button class="theme-btn" type="button" aria-label="toggle light and dark theme" title="toggle theme">◐</button>
     </div>
@@ -119,18 +109,18 @@
   <header class="hero">
     <div class="container">
       <!-- the hero is a terminal: a neofetch readout with the orb as its ascii art -->
-      <div class="term rv" style="--d:.1s" data-win="zsh — neofetch">
+      <div class="term rv" data-d=".1s" data-win="zsh — neofetch">
         <div class="term-bar">
           <span class="term-dots" aria-hidden="true"><i></i><i></i><i></i></span>
           <span class="term-tab">zsh — ammaar@portfolio</span>
           <span class="term-size" aria-hidden="true">~/ePortfolio</span>
         </div>
         <div class="term-body">
-          <p class="t-line t-dim t-in" style="--d:.2s">Last login: <span class="t-now">today</span> on ttys001</p>
-          <p class="t-line t-in" style="--d:.3s"><span class="t-prompt">ammaar@portfolio ~ %</span> <span class="t-type" data-text="neofetch">neofetch</span></p>
+          <p class="t-line t-dim t-in" data-d=".2s">Last login: <span class="t-now">today</span> on ttys001</p>
+          <p class="t-line t-in" data-d=".3s"><span class="t-prompt">ammaar@portfolio ~ %</span> <span class="t-type" data-text="neofetch">neofetch</span></p>
 
           <div class="fetch">
-            <div class="fetch-art t-in" style="--d:.9s">
+            <div class="fetch-art t-in" data-d=".9s">
               <button class="orb-btn" type="button" aria-label="Enter pi's island, a walkable map of Ammaar's projects">
                 <canvas class="orb" aria-hidden="true"></canvas>
               </button>
@@ -138,11 +128,11 @@
             </div>
 
             <div class="fetch-info">
-              <p class="t-hey t-in" style="--d:1.0s">Hey, <span class="t-acc">visitor</span></p>
-              <h1 class="t-name t-in" style="--d:1.08s"><span class="sr-only">Ammaar Rehman</span><span aria-hidden="true">ammaar<span class="t-at">@</span>rehman</span></h1>
-              <p class="t-rule t-in" style="--d:1.12s" aria-hidden="true">-------------</p>
+              <p class="t-hey t-in" data-d="1.0s">Hey, <span class="t-acc">visitor</span></p>
+              <h1 class="t-name t-in" data-d="1.08s"><span class="sr-only">Ammaar Rehman</span><span aria-hidden="true">ammaar<span class="t-at">@</span>rehman</span></h1>
+              <p class="t-rule t-in" data-d="1.12s" aria-hidden="true">-------------</p>
 
-              <section class="t-box t-in" style="--d:1.2s" aria-label="profile">
+              <section class="t-box t-in" data-d="1.2s" aria-label="profile">
                 <h2 class="t-box-title">Profile</h2>
                 <dl>
                   <div><dt>ROLE</dt><dd>Cyber Security Analyst <span class="t-dim">// Cyber Ready Clinic (intern cohort)</span></dd></div>
@@ -152,7 +142,7 @@
                 </dl>
               </section>
 
-              <section class="t-box t-in" style="--d:1.32s" aria-label="certifications">
+              <section class="t-box t-in" data-d="1.32s" aria-label="certifications">
                 <h2 class="t-box-title">Certs</h2>
                 <dl>
                   <div><dt>AWS</dt><dd>Cloud Practitioner <span class="t-bar full" aria-hidden="true"></span> <span class="t-ok">certified</span></dd></div>
@@ -161,24 +151,24 @@
                 </dl>
               </section>
 
-              <section class="t-box t-in" style="--d:1.44s" aria-label="homelab">
+              <section class="t-box t-in" data-d="1.44s" aria-label="homelab">
                 <h2 class="t-box-title">Homelab</h2>
                 <dl>
-                  <div><dt>DNS</dt><dd><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener">HA pair, keepalived VIP ↗</a> <span class="t-ok">live</span></dd></div>
+                  <div><dt>DNS</dt><dd><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener noreferrer">HA pair, keepalived VIP ↗</a> <span class="t-ok">live</span></dd></div>
                   <div><dt>OBS</dt><dd>Prometheus · Grafana · Uptime Kuma</dd></div>
                 </dl>
               </section>
 
-              <p class="t-greet t-in" style="--d:1.56s"><span class="t-greeting">Good evening</span>, thanks for stopping by.</p>
-              <p class="t-swatch t-in" style="--d:1.62s" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></p>
+              <p class="t-greet t-in" data-d="1.56s"><span class="t-greeting">Good evening</span>, thanks for stopping by.</p>
+              <p class="t-swatch t-in" data-d="1.62s" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></p>
             </div>
           </div>
 
-          <p class="t-line t-cmds t-in" style="--d:1.75s">
+          <p class="t-line t-cmds t-in" data-d="1.75s">
             <span class="t-prompt">ammaar@portfolio ~ %</span>
-            <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">open resume.pdf</a>
-            <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github</a>
-            <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin</a>
+            <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener noreferrer">open resume.pdf</a>
+            <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer">github</a>
+            <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener noreferrer">linkedin</a>
             <a href="mailto:ammaarrehmanf@gmail.com">mail</a>
             <span class="cursor" aria-hidden="true"></span>
           </p>
@@ -229,7 +219,7 @@
               with failover tested in both directions. In <b>trading-lab</b> I wrote
               the pass/fail rules for seven trading strategies before touching any
               data, and rejected every one before a dollar moved. It's all on
-              <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener"><b>GitHub</b></a>, this site included.
+              <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer"><b>GitHub</b></a>, this site included.
             </p>
             <dl class="tree">
               <div><dt>certs</dt><dd>AWS Cloud Practitioner (CLF-C02) · CompTIA Tech+</dd></div>
@@ -331,7 +321,7 @@
               <h3 class="work-title">High-availability DNS</h3>
               <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced every 10 minutes.</p>
               <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
-              <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener">repo ↗</a></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
             </div>
           </article>
 
@@ -343,7 +333,7 @@
               <h3 class="work-title">trading-lab</h3>
               <p class="work-desc">Do popular trading strategies actually have an edge? Seven experiments: stock mean reversion, a crypto trend filter, Kalshi 15-minute markets, dual momentum, copying Congress, a holiday effect, and a Kalshi model search. Pass/fail rules committed to git before any data, backtests built to catch their own bugs, each run once. All seven rejected, $0 lost.</p>
               <div class="work-stack"><span>Python</span><span>pre-registration</span><span>backtesting</span><span>CI self-tests</span></div>
-              <div class="work-links"><a href="https://github.com/ammaarrehman/trading-lab" target="_blank" rel="noopener">repo ↗</a></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/trading-lab" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
             </div>
           </article>
 
@@ -355,7 +345,7 @@
               <h3 class="work-title">Claude intake triage assistant</h3>
               <p class="work-desc">Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took primary accuracy from 93% to 100% and multi-need coverage from 0% to 90%. Staff review every row.</p>
               <div class="work-stack"><span>Claude API</span><span>Apps Script</span><span>Google Sheets</span><span>Python evals</span></div>
-              <div class="work-links"><a href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener">repo ↗</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener">demo ↗</a></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener noreferrer">repo ↗</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener noreferrer">demo ↗</a></div>
             </div>
           </article>
 
@@ -367,7 +357,7 @@
               <h3 class="work-title">AWS static site with Terraform</h3>
               <p class="work-desc">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployed and destroyed with one command, inside the AWS free tier, with a budget alarm.</p>
               <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>OAC</span><span>AWS Budgets</span></div>
-              <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener">repo ↗</a></div>
+              <div class="work-links"><a href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
             </div>
           </article>
 
@@ -375,37 +365,37 @@
 
         <p class="stack-cmd rack-head" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls -la ~/projects/more</p>
         <div class="rack">
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener">
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">dns-filtering/</span>
             <span class="rack-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener">
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">monitoring-stack/</span>
             <span class="rack-desc">Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener">
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">uptime-monitoring/</span>
             <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for every homelab service.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener">
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">homepage/</span>
             <span class="rack-desc">A config-driven dashboard for the whole lab, running full-screen on the rack's touchscreen in kiosk mode.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener">
+          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">remote-access/</span>
             <span class="rack-desc">Tailscale mesh VPN (WireGuard underneath) for SSH and admin access from anywhere, with no router ports opened.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">
+          <a class="rack-row" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">ammaarrehman.github.io/</span>
             <span class="rack-desc">This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas.</span>
@@ -480,10 +470,10 @@
           <span class="t-prompt">ammaar@portfolio ~ %</span> mail <a href="mailto:ammaarrehmanf@gmail.com">ammaarrehmanf@gmail.com</a><button class="copy-btn" type="button" data-copy="ammaarrehmanf@gmail.com" hidden>copy</button> <span class="cursor" aria-hidden="true"></span>
         </p>
         <dl class="tree contact-rows">
-          <div><dt>linkedin</dt><dd><a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener">linkedin.com/in/ammaarrehman</a></dd></div>
-          <div><dt>github</dt><dd><a href="https://github.com/ammaarrehman" target="_blank" rel="noopener">github.com/ammaarrehman</a></dd></div>
+          <div><dt>linkedin</dt><dd><a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener noreferrer">linkedin.com/in/ammaarrehman</a></dd></div>
+          <div><dt>github</dt><dd><a href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer">github.com/ammaarrehman</a></dd></div>
           <div><dt>phone</dt><dd><a href="tel:3017685445">(301) 768-5445</a></dd></div>
-          <div><dt>resume</dt><dd><a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener">Ammaar_Rehman_Resume.pdf ↗</a></dd></div>
+          <div><dt>resume</dt><dd><a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener noreferrer">Ammaar_Rehman_Resume.pdf ↗</a></dd></div>
         </dl>
       </div>
     </div>
@@ -496,7 +486,7 @@
     <div class="container footer-inner">
       <span><b>AMMAAR REHMAN</b> © 2026 · Ellicott City, MD · updated Sep 2026</span>
       <button class="reboot-btn" type="button">↻ reboot</button>
-      <span>HTML / CSS / JS / Python · <a href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener">source on GitHub</a> · pi lives on the island</span>
+      <span>HTML / CSS / JS / Python · <a href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener noreferrer">source on GitHub</a> · pi lives on the island</span>
     </div>
   </footer>
 

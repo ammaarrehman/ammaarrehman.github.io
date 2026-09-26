@@ -693,3 +693,13 @@ dl.tree dt::before { color:var(--accent); opacity:.7; }
   ::view-transition-new(root) { animation:none; }
   *, *::before, *::after { transition-duration:.01ms !important; }
 }
+
+/* ── the 404 page ── */
+.lost { min-height:100vh; display:grid; place-items:center; padding:40px 0; }
+.lost pre { font-size:clamp(7px, 2.4vw, 13px); line-height:1.15; color:var(--t1); font-weight:700; }
+.lost pre i { color:var(--glyph-dim); font-style:normal; }
+.lost .section-heading { margin-top:28px; }
+.lost p { font-family:var(--sans); font-size:15px; color:var(--t2); max-width:460px; }
+.lost .hero-links { margin-top:24px; }
+.lost .lost-red { color:var(--red); }
+.lost .lost-hot { color:#E879F9; }

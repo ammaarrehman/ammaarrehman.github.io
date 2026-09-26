@@ -4,6 +4,8 @@
    everything here is progressive: with js off the page renders as-is. */
 (function () {
   var root = document.documentElement;
+  // staggered entrances: the delay rides in data-d and becomes --d here
+  Array.prototype.forEach.call(document.querySelectorAll("[data-d]"), function (el) { el.style.setProperty("--d", el.getAttribute("data-d")); });
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var FINE = window.matchMedia && window.matchMedia("(pointer: fine)").matches;
   var IO = "IntersectionObserver" in window;

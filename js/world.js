@@ -1126,7 +1126,7 @@
     dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false;
     links.forEach(function (l) {
       var a = document.createElement("a"); a.textContent = l[0]; a.href = l[1] === "#exit" ? "#" : l[1];
-      if (/^https?:|^mailto:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener"; }
+      if (/^https?:|^mailto:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
       else if (l[1] === "#rematch") a.addEventListener("click", function (e) { e.preventDefault(); askRift(); });
       else if (l[1] === "#wake") a.addEventListener("click", function (e) { e.preventDefault(); wakeOrbs(true); });
       else if (l[1] === "#later") a.addEventListener("click", function (e) { e.preventDefault(); wakeOrbs(false); });
