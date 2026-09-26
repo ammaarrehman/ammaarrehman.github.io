@@ -1,4 +1,4 @@
 User-agent: *
 Allow: /
 
-Sitemap: https://ammaarrehman.github.io/sitemap.xml
+Sitemap: https://ammaarrehman.com/sitemap.xml
