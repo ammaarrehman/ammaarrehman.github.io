@@ -3293,7 +3293,7 @@
     updateFootfalls(dt);
     updateSound(dt);
     if (egg) { egg.t += dt; if (egg.t > 2.2) { egg = null; bubble = { text: "pi:~$ fresh hatch. hi.", t: 3 }; } return; }
-    var top = (pi.boost > 0 ? 95 : 58) * (keys.run ? 1.6 : 1); pi.boost = Math.max(0, pi.boost - dt);
+    var top = (pi.boost > 0 ? 95 : 58) * (keys.run ? 1.6 : 1) * (pi.kaiju ? 0.88 : 1); pi.boost = Math.max(0, pi.boost - dt);
     var mx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), my = (keys.d ? 1 : 0) - (keys.u ? 1 : 0), onPath = false;
     if (joy && joy.on) { mx = joy.dx; my = joy.dy; pi.path = null; }
     sinceLog += dt;
@@ -3313,10 +3313,13 @@
     var len = Math.hypot(mx, my); if (len) { mx /= len; my /= len; }
     if (onPath) { pi.vx = mx * top; pi.vy = my * top; }
     else {
-      var acc = (len ? 520 : 760) * dt, tvx = mx * top, tvy = my * top;
+      var acc = (len ? 520 : pi.kaiju ? 560 : 760) * dt, tvx = mx * top, tvy = my * top;
       pi.vx += Math.max(-acc, Math.min(acc, tvx - pi.vx)); pi.vy += Math.max(-acc, Math.min(acc, tvy - pi.vy));
     }
     if (Math.abs(pi.vx) < 0.5 && Math.abs(pi.vy) < 0.5 && !len) { pi.vx = pi.vy = 0; }
+    var goingNow = !!len || onPath;
+    if (goingNow !== !!pi.going) { pi.going = goingNow; pi.sq = 0.08; pi.sqStart = goingNow; }         // squash and stretch
+    pi.sq = Math.max(0, (pi.sq || 0) - dt); if (pi.hop) pi.hop = Math.max(0, pi.hop - dt * 2.8);
     if (pi.vx || pi.vy) {
       var ox = pi.x, oy = pi.y;
       if (room) roomMove(pi, pi.vx * dt, pi.vy * dt); else move(pi, pi.vx * dt, pi.vy * dt);
@@ -3381,14 +3384,16 @@
     light(WF.x, y0 + hgt, 20, "200,240,255", 0.35);
   }
   function footfall(moved) {
-    pi.stepAcc += moved;
-    var stride = keys.run ? 9 : 7;
-    if (pi.stepAcc < stride) return;
-    pi.stepAcc = 0;
-    var tx = Math.floor(pi.x / T), ty = Math.floor((pi.y - 2) / T), tt = at(tx, ty), side = (pi.dist / stride | 0) % 2 ? 2 : -2;
+    var fr0 = Math.floor(pi.dist / 4);
+    if (fr0 === pi.lastFr) return;
+    pi.lastFr = fr0;
+    if (fr0 % 3) return;                                              // a foot comes down on frames 0 and 3
+    var stride = 12, nstep = fr0 / 3;
+    var tx = Math.floor(pi.x / T), ty = Math.floor((pi.y - 2) / T), tt = at(tx, ty), side = nstep % 2 ? 2 : -2;
     if (room) { sfx("step", undefined, undefined, { surface: room.id === "visitor" ? "dock" : "gravel", vol: 0.7 }); return; }
     sfx("step", undefined, undefined, { surface: tt === DOCK ? "dock" : tt === GRASS ? "grass" : "gravel", vol: keys.run ? 1.2 : 0.8 });
-    if (pi.kaiju) sfx("stomp", undefined, undefined, { vol: 0.18 });     // middle path is a little heavier than pi
+    if (pi.kaiju) { sfx("stomp", undefined, undefined, { vol: 0.18 }); nudge = 1; }     // middle path is a little heavier than pi: the screen feels it
+    if (tt === GRASS && nstep % 3 === 0 && !keys.run) puffs.push({ x: pi.x + side, y: pi.y, vx: (Math.random() - 0.5) * 5, vy: -2 - Math.random() * 2, life: 0.7, c: "150,130,90" });   // a little dust off the grass
     if (tt === PATH || tt === SAND || tt === PAD || keys.run) {
       for (var i = 0; i < (keys.run ? 3 : 1); i++) puffs.push({ x: pi.x + side + (Math.random() - 0.5) * 3, y: pi.y, vx: -pi.vx * 0.08 + (Math.random() - 0.5) * 6, vy: -3 - Math.random() * 4, life: 1, c: tt === GRASS ? "150,190,110" : tt === SAND ? "230,214,170" : "200,170,120" });
     }
@@ -3621,23 +3626,28 @@
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     realityGrade(REAL);
   }
+  var rdt = 1 / 60, nudge = 0;
   function render() {
     paintChip(); promptRect = null;
     if (side) { renderSide(); drawFade(); drawIris(W / 2, H / 2); return; }
     if (room) { renderRoom(); drawFade(); drawIris(W / 2, H / 2); return; }
-    zoom += (zoomTo - zoom) * 0.08;
+    zoom += (zoomTo - zoom) * (1 - Math.pow(0.0066, rdt));
     var E = S * zoom, VW = W / E, VH = H / E;
     // the camera follows pi, except while the orbs fight: then it watches the arena
     // lead the camera a little in the direction of travel so you see where you're going
-    var lvx = car.driving ? Math.sin(car.a) * car.v * 0.3 : aboard() ? heli.vx * 0.3 : pi.vx * 0.22, lvy = car.driving ? -Math.cos(car.a) * car.v * 0.3 : aboard() ? heli.vy * 0.3 : pi.vy * 0.22;
-    var lk = car.driving || aboard() ? 30 : 14;
-    look.x += (Math.max(-lk, Math.min(lk, lvx)) - look.x) * 0.03; look.y += (Math.max(-lk * 0.6, Math.min(lk * 0.6, lvy)) - look.y) * 0.03;
+    // about a tile and a half ahead on foot, further the faster a vehicle goes
+    var cvx = car.driving ? car.vx : aboard() ? heli.vx : pi.vx, cvy = car.driving ? car.vy : aboard() ? heli.vy : pi.vy;
+    var veh = car.driving || aboard(), lvx = cvx * (veh ? 0.3 : 0.41), lvy = cvy * (veh ? 0.3 : 0.41);
+    var lk = veh ? Math.min(64, 30 + Math.hypot(cvx, cvy) * 0.2) : 24, kl = 1 - Math.pow(0.03, rdt);
+    if (cvx === undefined || cvy === undefined || isNaN(lvx)) { lvx = 0; lvy = 0; }
+    look.x += (Math.max(-lk, Math.min(lk, lvx)) - look.x) * kl; look.y += (Math.max(-lk * 0.6, Math.min(lk * 0.6, lvy)) - look.y) * kl;
     var foc = cut ? cut : riftBusy() ? orbFocus() : null, fx = foc ? foc.x : pi.x + look.x, fy = foc ? foc.y : pi.y + look.y;
     if (camF.x === null) { camF.x = fx; camF.y = fy; }
-    camF.x += (fx - camF.x) * 0.06; camF.y += (fy - camF.y) * 0.06;
+    var kf = 1 - Math.pow(0.001, rdt);                                  // the same follow at any frame rate
+    camF.x += (fx - camF.x) * kf; camF.y += (fy - camF.y) * kf;
     var sh = shakeBy((rift ? rift.shake : 0) + quake);
     camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (Math.random() - 0.5) * sh;
-    camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh;
+    camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh + shakeBy(nudge) / E; nudge = 0;
     camX = Math.round(camX * E * dpr) / (E * dpr); camY = Math.round(camY * E * dpr) / (E * dpr);        // whole device pixels: no shimmer
     if (reality.wipe) {
       REAL = reality.wipe.from; drawWorld(E, VW, VH);
@@ -3750,7 +3760,13 @@
     var blink = hash(Math.floor(t * 3), 9) < 0.06;
     var fr = moving ? Math.floor(pi.dist / 4) % 6 : 0;
     var bob = moving ? 0 : Math.round(Math.sin(t * 3) * 0.5);
-    drawArt(piArt(moving ? "walk" : blink ? "blink" : "idle", fr, pi.dir === "up" && pi.view !== "side"), pi.x, pi.y + bob, pi.face < 0);
+    var hopY = pi.hop ? -Math.round(Math.sin((1 - pi.hop) * Math.PI) * 6) : 0;
+    if (pi.sq > 0 && !REDUCED) {
+      var sxq = pi.sqStart ? 1.15 : 0.87, syq = pi.sqStart ? 0.87 : 1.15;
+      ctx.save(); ctx.translate(pi.x, pi.y); ctx.scale(sxq, syq); ctx.translate(-pi.x, -pi.y);
+      drawArt(piArt(moving ? "walk" : "idle", fr, pi.dir === "up" && pi.view !== "side"), pi.x, pi.y + bob + hopY, pi.face < 0);
+      ctx.restore();
+    } else drawArt(piArt(moving ? "walk" : blink ? "blink" : "idle", fr, pi.dir === "up" && pi.view !== "side"), pi.x, pi.y + bob + hopY, pi.face < 0);
     if (pi.boost > 0) { ctx.fillStyle = "#E879F9"; ctx.fillRect(Math.round(pi.x - 7 - pi.face * 3), Math.round(pi.y - 4), 2, 1); ctx.fillRect(Math.round(pi.x - 8 - pi.face * 5), Math.round(pi.y - 6), 2, 1); }
   }
 
@@ -3896,7 +3912,7 @@
   function loop(now) {
     raf = 0;
     if (!open) return;
-    var ms = now - last; last = now;
+    var ms = now - last; last = now; rdt = Math.min(0.1, Math.max(0.001, ms / 1000));
     if (!paused && !setOpen() && !creditsOpen() && !mapOpen()) {
       acc += Math.min(0.1, Math.max(0, ms / 1000));
       for (var n = 0; acc >= STEP && n < 5; n++) { t += STEP; update(STEP); acc -= STEP; }
