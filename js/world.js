@@ -1521,7 +1521,11 @@
     var d = DINOS[c.kind];
     if (c.hop) { c.vy += 9 * dt; c.hop += c.vy; if (c.hop >= 0) { c.hop = 0; c.vy = 0; } }
     c.roar = Math.max(0, c.roar - dt); c.cd = Math.max(0, c.cd - dt);
-    if (c.sleep > 0) { c.sleep -= dt; return; }
+    if (c.sleep > 0) {
+      c.sleep -= dt;
+      if (d.art && !room && Math.hypot(pi.x - c.x, pi.y - c.y) < 26) { c.sleep = 0; c.hop = c.hop || 1; c.vy = -1.4; c.wait = 3; }   // woken up
+      return;
+    }
     if (c.roar > 0) return;
     c.graze = Math.max(0, c.graze - dt);
     if (!c.tx && d.art && !room && Math.hypot(pi.x - c.x, pi.y - c.y) < 56) c.face = pi.x > c.x ? 1 : -1;     // idle dinos turn to watch pi
@@ -1534,7 +1538,9 @@
     }
     var pd0 = room ? 1e9 : Math.hypot(pi.x - c.x, pi.y - c.y);
     // the small and the skittish bolt when pi gets close
-    if ((c.kind === "compy" && pd0 < 40) || (c.kind === "galli" && pd0 < 64)) {
+    // at night the dinosaurs doze where they stand (the raptors don't)
+    if (d.art && sky.dark > 0.7 && !c.tx && c.kind !== "raptor" && pd0 > 70 && c.wait > 0 && Math.random() < dt * 0.3) { c.sleep = 8 + Math.random() * 14; return; }
+    if ((c.kind === "compy" && pd0 < 48) || (c.kind === "galli" && pd0 < 64)) {
       if (!c.flee || !c.tx) { var fa = Math.atan2(c.y - pi.y, c.x - pi.x) + (Math.random() - 0.5) * 0.8; c.tx = c.x + Math.cos(fa) * 60; c.ty = c.y + Math.sin(fa) * 40; c.fast = 1.6; c.flee = 1; if (Math.random() < 0.3) sfx(CALLS[c.kind], c.x, c.y); }
     } else c.flee = 0;
     // the dilophosaurus fans its frill and calls; two pachycephalosaurs butt heads
@@ -1545,6 +1551,17 @@
         c.face = rival2.x > c.x ? 1 : -1; rival2.face = -c.face; c.roar = rival2.roar = 1; c.cd = rival2.cd = 6;
         later(0.45, function () { sfx("hit", c.x, c.y, { vol: 0.7 }); c.hop = rival2.hop = 1; c.vy = rival2.vy = -1.4; });
       }
+    }
+    // the raptors pace their fence to keep level with pi
+    if (c.kind === "raptor" && pd0 < 170 && !aboard() && (!c.tx || Math.random() < dt * 1.2)) {
+      var ro = (critters.indexOf(c) % 3 - 1) * 14;
+      c.tx = Math.max((c.area[0] + 0.5) * T, Math.min((c.area[2] + 0.5) * T, pi.x + ro)); c.ty = Math.max((c.area[1] + 0.5) * T, Math.min((c.area[3] + 0.5) * T, pi.y + ro * 0.5)); c.fast = 1.5;
+      if (!okFor(c, Math.floor(c.tx / T), Math.floor(c.ty / T))) c.tx = 0;
+    }
+    // stand still beside the brachiosaurus for a couple of seconds and it lowers its head to look
+    if (c.kind === "brachio") {
+      if (pd0 < 52 && !pi.vx && !pi.vy && !c.tx) { c.near = (c.near || 0) + dt; if (c.near > 2 && c.graze <= 0) { c.graze = 3.5; c.face = pi.x > c.x ? 1 : -1; c.wait = Math.max(c.wait, 3.5); sfx("hoot", c.x, c.y, { vol: 0.5 }); c.near = -4; } }
+      else c.near = (c.near || 0) < 0 ? c.near + dt : 0;
     }
     // the t-rex stalks pi along the inside of its fence
     if (c.kind === "trex" && pd0 < 190 && !aboard() && (!c.tx || Math.random() < dt * 1.5)) {
@@ -1584,17 +1601,27 @@
       if (Math.hypot(c.x - bx, c.y - by) < 0.01) { c.tx = 0; c.wait = 0.5; }
     }
   }
+  // a sleeper's z's: small, drifting up and fading, one after another
+  function sleepZ(x, y, seed) {
+    for (var i = 0; i < 2; i++) {
+      var ph = (t * 0.5 + i * 0.5 + seed) % 1, zx = Math.round(x + ph * 5 + i * 2), zy = Math.round(y - 2 - ph * 9);
+      ctx.fillStyle = "rgba(232,238,252," + (Math.sin(ph * Math.PI) * 0.9).toFixed(2) + ")";
+      ctx.fillRect(zx, zy, 3, 1); ctx.fillRect(zx + 1, zy + 1, 1, 1); ctx.fillRect(zx, zy + 2, 3, 1);
+    }
+  }
   function drawCritter(c) {
     var d = DINOS[c.kind];
     if (d.art) {
       var mode = "idle", fr = Math.floor(t * 2.5 + c.seed) % 4;
       if (c.roar > 0 && ROARS[c.kind]) { mode = "roar"; fr = Math.floor(t * 8) % 2; }
+      else if (c.sleep > 0) { mode = "blink"; fr = 0; }
       else if (c.tx) { mode = "walk"; fr = Math.floor(c.dist / d.step) % 6; }
       else if (c.graze > 0) { mode = "graze"; fr = Math.floor(t * 3 + c.seed) % 2; }
       else if (hash(Math.floor(t * 3 + c.seed * 7), 3) < 0.07) { mode = "blink"; fr = 0; }
       var art = dinoFrame(c.kind, mode, fr);
       shadow(c.x, c.y, Math.max(8, art.width * 0.55));
       drawArt(art, c.x, c.y + c.hop + (c.roar > 0 ? Math.round(Math.sin(t * 40)) : 0), c.face < 0);
+      if (c.sleep > 0) sleepZ(c.x + c.face * art.width * 0.25, c.y - art.height, c.seed);
       return;
     }
     var rows = c.sleep > 0 && d.z ? d.z : (Math.floor(c.dist / 4) % 2 ? d.b : d.a);
@@ -1640,8 +1667,25 @@
     b.x += dx / dd * sp * dt; b.y += dy / dd * sp * dt; b.dist += sp * dt; if (Math.abs(dx) > 0.5) b.face = dx > 0 ? 1 : -1;
     return false;
   }
+  var BARKS = { cargo: ["fragile: eggs. i drive slow.", "beep. please step off the loading lane."], welder: ["the raptors watch me work. i work faster.", "safety first. then sparks."], gardener: ["i don't water past the shrine. it hums.", "ferns first, then you, by accident."] };
+  function compass(dx, dy) { var a = Math.atan2(-dy, dx) * 180 / Math.PI, d8 = ["east", "northeast", "north", "northwest", "west", "southwest", "south", "southeast"]; return d8[((Math.round(a / 45) % 8) + 8) % 8]; }
+  function botBark(b) {
+    b.barkN = ((b.barkN || 0) + 1) % 3;
+    if (b.barkN === 1) {
+      var g = nearestUnfound(b.x, b.y);
+      if (g) return g.q.name + ": " + compass(g.x - b.x, g.y - b.y) + " of here.";
+      return "all eight logs. the orbs are restless.";
+    }
+    if (b.barkN === 2) {
+      var left = SECRETS.filter(function (x) { return save.secrets.indexOf(x.id) < 0; });
+      if (left.length) return "rumour: " + left[(Math.random() * left.length) | 0].hint;
+    }
+    var j = BARKS[b.kind]; return j[(Math.random() * j.length) | 0];
+  }
   function updateBots(dt) {
     bots.forEach(function (b) {
+      b.barkCd = Math.max(0, (b.barkCd || 0) - dt); if (b.bark && (b.bark.t -= dt) <= 0) b.bark = null;
+      if (!room && !riftBusy() && b.barkCd <= 0 && Math.hypot(pi.x - b.x, pi.y - b.y) < 34) { b.bark = { text: botBark(b), t: 3.6 }; b.barkCd = 12; b.face = pi.x > b.x ? 1 : -1; sfx("chatter", b.x, b.y, { vol: 0.6 }); }
       if (b.wait > 0) { b.wait -= dt; if (b.kind === "welder" && b.work > 0) { b.work -= dt; weldSparks(b, dt); } if (b.kind === "gardener" && b.work > 0) { b.work -= dt; spraying(b); } return; }
       if (b.kind === "cargo") {
         if (!b.path) { var goal = b.legs[b.leg]; botGo(b, goal); if (!b.path) { b.wait = 2; b.leg = (b.leg + 1) % b.legs.length; } return; }
@@ -3451,6 +3495,19 @@
     prints.forEach(function (p2) { ctx.fillStyle = "rgba(150,120,70," + (0.45 * p2.life).toFixed(3) + ")"; ctx.fillRect(p2.x - 1, p2.y - 1, 2, 2); });
     drawSkids();
   }
+  /* fireflies over the brachio meadow at night */
+  var FLIES = [];
+  for (var fi = 0; fi < 38; fi++) { var fx0 = 11 + hash(fi, 71) * 18, fy0 = 30 + hash(71, fi) * 20; if (land(at(Math.floor(fx0), Math.floor(fy0)))) FLIES.push({ x: fx0 * T, y: fy0 * T, ph: hash(fi, 5) * 6.283, r: 6 + hash(fi, 9) * 10 }); }
+  function drawFlies() {
+    if (sky.dark < 0.5 || REAL !== "dino") return;
+    var a0 = Math.min(1, (sky.dark - 0.5) * 3);
+    FLIES.forEach(function (f) {
+      var x = f.x + Math.sin(t * 0.4 + f.ph) * f.r, y = f.y + Math.cos(t * 0.33 + f.ph * 1.3) * f.r * 0.6 - 6, on = Math.max(0, Math.sin(t * 1.7 + f.ph * 3));
+      if (on < 0.15) return;
+      ctx.fillStyle = "rgba(220,255,140," + (on * a0).toFixed(2) + ")"; ctx.fillRect(Math.round(x), Math.round(y), 1, 1);
+      light(x, y, 7, "200,255,120", on * a0 * 0.5);
+    });
+  }
   function drawDust() {
     puffs.forEach(function (d) { ctx.fillStyle = "rgba(" + d.c + "," + Math.min(1, d.life * (d.leaf ? 1 : 0.6)).toFixed(3) + ")"; ctx.fillRect(Math.round(d.x), Math.round(d.y), d.leaf ? 2 : 1, d.leaf ? 1 : 1); });
   }
@@ -3650,7 +3707,7 @@
     list.forEach(function (o) { o.f(); });
 
     // above it all: dust and leaves, volcano smoke, the helicopter in flight, pterosaurs, drifting cloud shadows
-    drawDust();
+    drawDust(); drawFlies();
     drawSparks();
     drones.forEach(drawDrone);
     drawSmoke();
@@ -3720,6 +3777,7 @@
       var vx0 = car.driving ? car.x : heli.x, vy0 = car.driving ? car.y - 14 : heli.y - heli.z - 22;
       tag(promptText({ id: car.driving ? "exitcar" : "exitheli" }), (vx0 - camX) * E, (vy0 - camY) * E, true);
     }
+    bots.forEach(function (b) { if (b.bark) tag(b.bark.text, (b.x - camX) * E, (b.y - 20 - camY) * E, false); });
     drawGuide(E);
     drawMinimap();
     if (roarTag) tag("ROAR", (roarTag.x - camX) * E, (roarTag.y - camY) * E, false);
@@ -3732,15 +3790,13 @@
      prompt, and if a while goes by with no new log, a chevron at the edge of the screen points
      at the nearest one still to find (it goes once that landmark is on screen) */
   var sinceLog = 0, hintFrom = { x: 0, y: 0 };
-  function guideTarget() {
+  function stationPos(q) { return q.room ? BUILDINGS.filter(function (b) { return b.room === q.room; }).map(function (b) { return { x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T }; })[0] : { x: q.x * T + 8, y: q.y * T + 8 }; }
+  function nearestUnfound(x, y) {
     var best = null, bd = 1e9;
-    STATIONS.forEach(function (q) {
-      if (!q.found || found[q.id]) return;
-      var p = q.room ? BUILDINGS.filter(function (b) { return b.room === q.room; }).map(function (b) { return { x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T }; })[0] : { x: q.x * T + 8, y: q.y * T + 8 };
-      var d = Math.hypot(p.x - pi.x, p.y - pi.y); if (d < bd) { bd = d; best = p; }
-    });
+    STATIONS.forEach(function (q) { if (!q.found || found[q.id]) return; var p = stationPos(q), d = Math.hypot(p.x - x, p.y - y); if (d < bd) { bd = d; best = { q: q, x: p.x, y: p.y }; } });
     return best;
   }
+  function guideTarget() { return nearestUnfound(pi.x, pi.y); }
   function drawGuide(E) {
     if (egg || riftBusy() || cut || tour) return;
     if (!save.hints.move && dlg.hidden) tag(TOUCH ? "drag to move, or tap a spot" : "wasd / arrow keys to walk", (pi.x - camX) * E, (pi.y + 26 - camY) * E, false);
