@@ -1,4 +1,4 @@
-/* hands — the page background. two ascii hands (after the Sistine ceiling)
+/* hands: the page background. two ascii hands (after the Sistine ceiling)
    start at the edges and reach toward each other as you scroll; by the end
    of the page the fingertips spark. characters glint in pink, violet, cyan and bone,
    and a soft lamp follows the pointer. still frame for reduced motion. */

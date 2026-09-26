@@ -1,4 +1,4 @@
-/* boot — a vintage startup screen. plays on the first visit of a session and
+/* boot: a vintage startup screen. plays on the first visit of a session and
    again from the "↻ reboot" button in the footer. a BIOS-style POST types
    itself out (memory test counting up, drives being detected), then the screen
    switches off like an old CRT and the site is underneath. any key, click or

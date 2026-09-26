@@ -1,4 +1,4 @@
-/* orb — a fluid AI orb made of dots, the neofetch art in the hero.
+/* orb: a fluid AI orb made of dots, the neofetch art in the hero.
    two layers of points (an outer skin and a dimmer inner shell) sit on a
    surface pushed by slow, smooth waves; the pattern flows over the surface
    while the whole thing breathes and drifts. lit by the surface normal, in

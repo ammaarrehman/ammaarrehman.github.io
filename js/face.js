@@ -1,4 +1,4 @@
-/* face — hover the headshot and it turns into terminal ascii. the photo is
+/* face: hover the headshot and it turns into terminal ascii. the photo is
    sampled once into a character grid (brighter pixels get denser glyphs);
    on hover each cell decodes from noise into its glyph in a random order,
    and a scan line rolls down it. tap toggles it on touch screens. */

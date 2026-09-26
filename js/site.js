@@ -1,4 +1,4 @@
-/* site — theme toggle, copy email, scroll reveal, heading word-rise, nav scrollspy,
+/* site: theme toggle, copy email, scroll reveal, heading word-rise, nav scrollspy,
    and the card spotlight. the orb is js/orb.js, the island js/world.js,
    the background js/hands.js.
    everything here is progressive: with js off the page renders as-is. */
@@ -154,8 +154,8 @@
       if (island) return;
       island = 1;
       var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
-      script("js/audio.js?v=20261004", function () {
-        script("js/world.js?v=20261004", function () {
+      script("js/audio.js?v=20261005", function () {
+        script("js/world.js?v=20261005", function () {
           island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
           if (go && window.islandEnter) window.islandEnter();
         }, failed);

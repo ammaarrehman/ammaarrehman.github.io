@@ -1,4 +1,4 @@
-/* windows — the traffic lights work. every terminal window on the page (the
+/* windows: the traffic lights work. every terminal window on the page (the
    neofetch hero and each section pane) gets real controls:
      red / yellow  minimize into the dock at the bottom of the screen; the
                    window shrinks toward its dock tab and its section folds away,

@@ -1,4 +1,4 @@
-/* skills section — vanilla tabs. "::label" entries render as group labels. */
+/* skills section: vanilla tabs. "::label" entries render as group labels. */
 (function () {
   var root = document.getElementById("skills-app");
   if (!root) return;
@@ -7,7 +7,7 @@
     security_grc: ["::frameworks", "NIST Cybersecurity Framework", "CIS Controls (CIS 18)", "Ready5 / Discover5", "::practice", "Cyber readiness assessment support", "Capability gap analysis", "Findings documentation", "::controls", "EDR / MDR", "MFA & Conditional Access", "SPF / DKIM / DMARC", "DNS filtering", "Backup & restore testing"],
     systems_networking: ["::certified", "CompTIA Tech+", "::stack", "Linux", "DNS / DNSSEC", "Unbound", "AdGuard Home", "keepalived / VRRP", "Tailscale", "Networking fundamentals"],
     monitoring: ["Prometheus", "Grafana", "Uptime Kuma", "node-exporter", "cAdvisor"],
-    programming: ["Python — evals, tooling", "JavaScript — this site", "HTML / CSS — in production", "Java — basics", "Git / GitHub", "VS Code"],
+    programming: ["Python (evals, tooling)", "JavaScript (this site)", "HTML / CSS (in production)", "Java (basics)", "Git / GitHub", "VS Code"],
     ai_automation: ["Claude & the Anthropic API", "AWS Kiro", "AI-assisted development", "Prompt design", "Evaluating & refining AI outputs", "Technical documentation"]
   };
   var tabs = root.querySelector(".stack-tabs");
