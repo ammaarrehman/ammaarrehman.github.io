@@ -89,6 +89,14 @@ lets go on the handbrake (shift) so the back steps out and lays rubber. The isla
 time in Ellicott City (America/New_York), with sunrise and sunset worked out for the date.
 `?islandhour=22` previews any hour.
 
+Each landmark holds a log (its card). A log counts once its card has been open a second
+and a half, and eight pips in the HUD fill as they're found. Four logs wake the terminal's
+`evolve` command. The old shrine is sealed until all eight: then the camera cuts to it as the
+seal breaks. The first time a winner is crowned, a short credits roll ends on a contact card
+(email, LinkedIn, the résumé), and after that everything is open. Progress lives in one
+versioned save in this browser (the logs, whether pi evolved, where pi was, the comfort
+settings, who holds the core); a bad or unknown save just starts fresh.
+
 Find all eight landmarks and the island asks first (it says the fight is loud and flashes,
 with the flash switch right there), then the orbs fall out of the sky and fight for control
 of the site; the winner recolours the hero orb until the page reloads, and a restore site
@@ -130,7 +138,10 @@ settings panel has levels for the master, music, effects and ambience, a button 
 restarts the sound engine, and comfort switches for screen shake, bright flashes and the
 minimap. Everything is remembered in this browser.
 
-- keyboard: wasd / arrows to walk (by key position, so AZERTY works), shift to run, e / space / enter to look, m to mute, p or esc for the menu
+- keyboard: wasd / arrows to walk (by key position, so AZERTY works), shift to run, e / space / enter to use, m for the map, p or esc for the menu (the ♪ button mutes)
+- one verb: whatever is in reach gets a single prompt, [E] read · experience or [E] drive, and on touch the prompt is the button (getting out of a vehicle beats a door, a door beats a landmark, a landmark beats an animal)
+- the map (m) is the whole island with every found landmark named; pick one to travel there
+- first steps: the first landing has a landmark on screen, a walk hint sits beside pi until it moves, and if 20 seconds pass without a new log a chevron at the screen edge points at the nearest one. on touch, dragging anywhere makes a joystick
 - pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look
 - the menu lists all eight landmarks (pick one and pi goes there with its card open), the tour, settings, and back to portfolio
 - the tour (HUD or menu) visits every section in about a minute: space skips, esc stops, it ends on the contact card. on a phone the title card offers it first
