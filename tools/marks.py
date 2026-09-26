@@ -3,11 +3,10 @@
 
 Generates the ASCII assets for the portfolio:
   * ansi_shadow wordmark (AMMAAR / REHMAN) as tagged HTML for index.html
-  * crescent moon mark (NIGHTFALL cross-brand) as colored HTML spans
+  * crescent moon mark as colored HTML spans
   * pi pixel favicon (assets/favicon.png)
 
-Same technique as the NIGHTFALL company site (nightstarlabs/nightstar-labs-site):
-draw shape -> downsample to a 2:1 char grid -> brightness ramp " .:;t%S8X@"
+Technique: draw shape -> downsample to a 2:1 char grid -> brightness ramp " .:;t%S8X@"
 -> greys by brightness, ~7% seeded accent glyphs. The ASCII carries the color;
 the UI stays monochrome.
 

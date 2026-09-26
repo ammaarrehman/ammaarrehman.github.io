@@ -97,12 +97,6 @@ e.extend(bullets([
     "Supported mobile application development through testing, troubleshooting, and feedback",
     "Assisted with IT systems setup, account configuration, and basic troubleshooting",
 ]))
-e.append(job("NightStar Solutions, Ellicott City, MD — Founder", "May 2026 – Present"))
-e.extend(bullets([
-    "Built and maintain a small web and technology project brand focused on websites, digital setup, and IT-focused learning projects",
-    "Develop project documentation, service pages, and client-facing materials for future small business website work",
-    "Use the brand as a portfolio platform for web development, cloud, cybersecurity, and IT infrastructure projects",
-]))
 e.append(job("Howard CC Campus Store / Slingshot, Columbia, MD — Operations Associate", "Aug 2024 – Present"))
 e.extend(bullets([
     "Use Juniper and store operations software to receive merchandise, fulfill orders, update inventory records, and support back-end store operations",
