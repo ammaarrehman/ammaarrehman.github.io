@@ -365,13 +365,14 @@
   }
   // a 1px outline around everything opaque: the single biggest readability win in pixel art
   function outline(src, col) {
-    var w0 = src.width, h0 = src.height, d = src.getContext("2d").getImageData(0, 0, w0, h0).data;
+    var w0 = src.width, h0 = src.height, c = mkCanvas(); c.width = w0 + 2; c.height = h0 + 2;
+    var g = c.getContext("2d"); g.drawImage(src, 1, 1);
+    var d = g.getImageData(1, 1, w0, h0).data;       // read the copy: some sources were already read while being drawn
     function A(x, y) { return x >= 0 && y >= 0 && x < w0 && y < h0 && d[(y * w0 + x) * 4 + 3] > 40; }
-    var c = mkCanvas(); c.width = w0 + 2; c.height = h0 + 2;
-    var g = c.getContext("2d"); g.fillStyle = col;
+    g.globalCompositeOperation = "destination-over"; g.fillStyle = col;       // under the sprite, as if drawn first
     for (var y = -1; y <= h0; y++) for (var x = -1; x <= w0; x++)
       if (!A(x, y) && (A(x - 1, y) || A(x + 1, y) || A(x, y - 1) || A(x, y + 1))) g.fillRect(x + 1, y + 1, 1, 1);
-    g.drawImage(src, 1, 1);
+    g.globalCompositeOperation = "source-over";
     return c;
   }
   var LEAF = ["#0f2f1a", "#1a4a24", "#28662e", "#3f8a3a", "#62ad50"];
@@ -434,7 +435,8 @@
     // a mossy boulder: rock lit from the upper left, moss on its crown
     boulder: sprite(22, 16, function (r, g) {
       canopy(g, [[11, 9, 7], [6, 10, 5], [16, 11, 5]], ["#3e434a", "#595f68", "#767d86", "#979ea6", "#b6bcc2"]);
-      for (var i = 0; i < 22; i++) for (var j = 0; j < 8; j++) if (hash(i, j + 40) < 0.55 - j * 0.07) { var d = g.getImageData(i, j + 2, 1, 1).data; if (d[3] > 0 && j < 5) { g.fillStyle = tone(0.6 - j * 0.1, ["#2c5a2a", "#3f7a36", "#5a9a44"], i, j); g.fillRect(i, j + 2, 1, 1); } }
+      var px = g.getImageData(0, 2, 22, 8).data;                       // one read, not one per pixel
+      for (var i = 0; i < 22; i++) for (var j = 0; j < 8; j++) if (hash(i, j + 40) < 0.55 - j * 0.07) { if (px[(j * 22 + i) * 4 + 3] > 0 && j < 5) { g.fillStyle = tone(0.6 - j * 0.1, ["#2c5a2a", "#3f7a36", "#5a9a44"], i, j); g.fillRect(i, j + 2, 1, 1); } }
     }),
     stones: sprite(14, 7, function (r) { [[2, 3, "#6d737a"], [7, 2, "#858b92"], [10, 4, "#6d737a"], [5, 5, "#9aa0a6"]].forEach(function (q) { r(q[0], q[1], 3, 2, q[2]); r(q[0], q[1], 2, 1, "#b0b6bc"); r(q[0], q[1] + 2, 3, 1, "#3e434a"); }); }),
     // a clump of tall grass: blades of three greens, a few seed heads
