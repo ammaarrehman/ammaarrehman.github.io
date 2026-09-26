@@ -1754,15 +1754,17 @@
       if (skids.length > 500) skids.splice(0, skids.length - 500);
       if ((car.skidT -= dt) <= 0) { car.skidT = 0.22; sfx("skid", car.x, car.y, { vol: Math.min(1, (Math.abs(vl) + sp * 0.3) / 60) }); }
     }
-    var nx = car.x + car.vx * dt, ny = car.y + car.vy * dt;
-    if (carClear(nx, ny, car.a)) { car.x = nx; car.y = ny; }
-    else {
+    // move in steps of at most a third of a tile, so no speed can carry it through a wall
+    var nsub = Math.max(1, Math.ceil(Math.hypot(car.vx, car.vy) * dt / (T / 3))), sdt = dt / nsub;
+    for (var sub = 0; sub < nsub; sub++) {
+      var nx = car.x + car.vx * sdt, ny = car.y + car.vy * sdt;
+      if (carClear(nx, ny, car.a)) { car.x = nx; car.y = ny; continue; }
       var hitV = Math.hypot(car.vx, car.vy);
       if (carClear(nx, car.y, car.a)) { car.x = nx; car.vy *= -0.3; }
       else if (carClear(car.x, ny, car.a)) { car.y = ny; car.vx *= -0.3; }
       else { car.vx *= -0.3; car.vy *= -0.3; }
       if (hitV > 35) { sfx("thud", car.x, car.y); quake = Math.max(quake, Math.min(3, hitV / 45)); }
-      car.target = null;
+      car.target = null; break;
     }
     pi.x = car.x; pi.y = car.y;
   }
@@ -1782,6 +1784,7 @@
     if (car.driving && car.gear === "R") light(car.x - fx * 12, car.y - fy * 12, 14, "240,244,255", 0.6);      // reversing lights
   }
   function toggleCar() {
+    if (!car.driving && !can("vehicle")) return;
     if (!car.driving) { car.driving = true; car.gear = "D"; pi.path = null; bubble = { text: TOUCH ? "tap to drive. e parks." : "w/s drive and reverse · shift drifts · e parks", t: 3 }; return; }
     // park: pi hops out beside the driver's door
     car.driving = false; car.target = null;
@@ -1808,6 +1811,7 @@
     return [[0, 0], [9, 7], [-9, 7], [9, -7], [-9, -7]].every(function (p) { var tx = Math.floor((x + p[0]) / T), ty = Math.floor((y + p[1]) / T); return walkable(tx, ty) || at(tx, ty) === PAD; });
   }
   function toggleHeli() {
+    if (heli.state === "parked" && !can("vehicle")) return;
     if (heli.state === "parked") {
       heli.state = "spool"; pi.path = null; pi.want = null; keys = {}; car.target = null;
       bubble = { text: "pi:~$ spinning up. arrows fly, e lands", t: 3 }; return;
@@ -2056,6 +2060,7 @@
     tOut.appendChild(p); tOut.scrollTop = tOut.scrollHeight;
   }
   function openTerm() {
+    if (!can("terminal")) return;
     termOpen = true; keys = {}; pi.path = null; pi.want = null;
     term.hidden = false; tOut.innerHTML = ""; sudoTries = -1; setPrompt();
     print("pi-sh 1.0 on tty1, cave terminal (volcano, level 1)", "dim");
@@ -2327,9 +2332,8 @@
     if (yes) { rift = null; startRift(); } else bubble = { text: "pi:~$ they can wait. the clearing, whenever.", t: 3 };
   }
   function startRift() {
-    closeDialog(); keys = {}; pi.path = null; pi.want = null;
-    if (car.driving) toggleCar();
-    if (aboard()) { heli.state = "parked"; heli.z = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; zoomTo = 1; }
+    if (side) return;
+    settle();
     if (Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) > 200) { pi.x = ARENA.x; pi.y = ARENA.y + FIELD.ry + 30; camF.x = null; }
     if (REDUCED || !window.Orb) { crown("eclipse"); return; }
     rift = { phase: "dim", t: 0, orbs: RIVALS.map(rival), parts: [], shake: 0, dim: 0, next: 0, act: null, winner: null, ring: 0, novas: [], scorch: [], flash: 0, hits: 0 };
@@ -2990,8 +2994,8 @@
     return { sky: sky2, hills: hills, ground: grnd, far: cloudLayer(900, 170, 3, ["#a8c8f0", "#c8def6", "#e4f0fc", "#ffffff"], 26), near: cloudLayer(1100, 190, 9, ["#8ab4e8", "#b4d2f4", "#dceafa", "#ffffff"], 18), isle: isle, willow: willow(190, 150), mtn: mtn, totem: totem, deity: window.Orb ? window.Orb(mkCanvas(), { offscreen: { w: 200, h: 200 }, palette: "void", layers: [[30, 60, 1, 1], [16, 32, 0.8, 0.5]] }) : null };
   }
   function enterSide() {
-    closeDialog();
-    if (car.driving) toggleCar();
+    if (side || riftBusy()) return;
+    settle();
     sideArt = sideArt || buildSideArt();
     side = { x: 60, y: groundY(60), vy: 0, ground: true, face: 1, dist: 0, phase: "walk", t: 0, line: 0, warp: 0 };
     fade = 1; keys = {}; sfx("warp");
@@ -3543,6 +3547,36 @@
     }
   }
 
+  /* ════════ states ════════
+     what pi can be doing, and where it can go from each. gameState() reads the state, can()
+     answers whether a move is allowed, and settle() takes pi out of whatever it's in (the car,
+     the helicopter, a room, the terminal, a card, the settings, the tour) before a cutscene or
+     the fight takes over, so the two can never overlap.
+       explore   walking about             → vehicle, room, terminal, cutscene, fight, paused
+       vehicle   the car or the helicopter → explore, paused  (a cutscene or fight settles it first)
+       room      inside a building         → explore, paused
+       terminal  the cave terminal         → explore
+       cutscene  the shrine, side on       → explore, or the reboot
+       fight     the orbs                  → explore (once someone reigns), paused
+       paused    the menu                  → back to whatever it was */
+  var FLOW = { explore: ["vehicle", "room", "terminal", "cutscene", "fight", "paused"], vehicle: ["explore", "paused"], room: ["explore", "paused"],
+               terminal: ["explore"], cutscene: ["explore"], fight: ["explore", "paused"], paused: ["explore", "vehicle", "room", "fight"] };
+  function baseState() { return !open ? "closed" : paused ? "paused" : side ? "cutscene" : termOpen ? "terminal" : riftBusy() ? "fight" : room ? "room" : car.driving || aboard() ? "vehicle" : "explore"; }
+  function can(to) { var f = FLOW[baseState()]; return !!f && f.indexOf(to) >= 0; }
+  function landNow() { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; heli.target = null; zoomTo = 1; }
+  function settle() {
+    if (tour) endTour(true);
+    if (termOpen) closeTerm();
+    if (setOpen()) toggleSettings(false);
+    if (paused) setPaused(false);
+    pendingRift = false; asking = false;
+    if (!dlg.hidden) closeDialog();
+    if (car.driving) toggleCar();
+    if (aboard()) landNow();
+    if (room) exitRoom();
+    keys = {}; pi.path = null; pi.want = null; car.target = null;
+  }
+
   /* ════════ ?debug=1: a readout in the corner ════════ */
   var dbg = null, dbgT = 0, frameMs = [];
   function gameState() {
@@ -3594,7 +3628,7 @@
     raf = 0;
     if (!open) return;
     var ms = now - last; last = now;
-    if (!paused) {
+    if (!paused && !setOpen()) {
       acc += Math.min(0.1, Math.max(0, ms / 1000));
       for (var n = 0; acc >= STEP && n < 5; n++) { t += STEP; update(STEP); acc -= STEP; }
       if (acc >= STEP) acc = 0;
@@ -3648,7 +3682,7 @@
   function visitLandmark(id) {
     var q = STATIONS.filter(function (x) { return x.id === id; })[0]; if (!q) return;
     if (side) return;
-    if (!riftBusy()) { if (termOpen) closeTerm(); if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; } goto(id); }
+    if (!riftBusy()) { if (termOpen) closeTerm(); if (aboard()) landNow(); goto(id); }
     interact(q);
   }
   function setPaused(on) {
