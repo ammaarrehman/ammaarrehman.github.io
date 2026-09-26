@@ -57,15 +57,31 @@ node tools/deploy.mjs
 
 does the same, then runs `npx wrangler deploy` and checks the live site: a 200 on `/`, the CSP and HSTS headers present, `security.txt` reachable, and a real 404 for a missing page.
 
+```bash
+node tools/deploy.mjs --check
+```
+
+runs only those live checks. If they fail with `ENOTFOUND` right after a DNS change, this Mac is still holding an old "no such domain" answer from the home DNS; `dig ammaarrehman.com @1.1.1.1` shows whether the domain itself resolves. The negative cache runs out on its own.
+
 What the build refuses to ship: `*.md` files, `tools/`, `.git`, `*.env`, `.dev.vars`, `wrangler.*`, and any file containing something shaped like a key (`ghp_`, `github_pat_`, `-----BEGIN`). It also stops if a page references a file that isn't in the build, or if the CSP in the pages' `<meta>` tags differs from the one in `_headers`.
 
 The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.html` and `404.html` so it also applies on GitHub Pages. Two directives are header-only: `frame-ancestors` (not allowed in a meta tag) and `upgrade-insecure-requests` (in a meta tag it breaks testing on a phone over plain `http://` on the LAN).
 
-### After the first deploy (Claude does these)
+### After the first deploy
 
-- Check with `curl -I https://ammaarrehman.com/`, securityheaders.com and SSL Labs, and record the grades.
-- Move every absolute URL to the new domain: the canonical link, `og:url` and `og:image`, the JSON-LD `url`, `sitemap.xml`, `robots.txt`, and the `Canonical:` line in `.well-known/security.txt`.
-- After a week with no problems, raise HSTS in `_headers` to `max-age=31536000; includeSubDomains`. Don't preload yet.
+- [x] Check with `curl -I https://ammaarrehman.com/`, securityheaders.com and SSL Labs, and record the grades (below).
+- [x] Move every absolute URL to the new domain: the canonical link, `og:url` and `og:image`, the JSON-LD `url`, `sitemap.xml`, `robots.txt`, and the `Canonical:` line in `.well-known/security.txt`.
+- [ ] After a week with no problems (from 2026-10-03), raise HSTS in `_headers` to `max-age=31536000; includeSubDomains`. Don't preload yet.
+
+### Deploy log
+
+**2026-09-26, first deploy.**
+
+- Live checks: `/` 200 with every header in `_headers`; `http://` and `www.` both 301 to `https://ammaarrehman.com/` with path and query kept; a missing page is a real 404 (and carries the headers); `security.txt` 200. `README.md`, `AUDIT.md`, `docs/`, `tools/`, `wrangler.jsonc`, `_headers` and `.git/` all 404.
+- DNSSEC: validates (the `ad` flag from 1.1.1.1). Nameservers are Cloudflare's.
+- securityheaders.com: **A**. The one warning is the 300-second HSTS, which is on purpose for the first week.
+- SSL Labs: **B** on all four edge addresses. The certificate chain has no issues; the cap is because TLS 1.0 and 1.1 are still accepted, so "Minimum TLS Version 1.2" isn't in effect yet (Cloudflare dashboard: SSL/TLS, Edge Certificates). Expected A once it is; A+ also needs a long HSTS.
+- Cloudflare Web Analytics is injecting `static.cloudflareinsights.com/beacon.min.js` into the page. The CSP blocks it (two console errors), which is right: the site loads nothing from other origins. Turn the injection off (Analytics and Logs, Web Analytics, the site, "Disable" or remove automatic setup) rather than widening the CSP.
 
 ### GitHub Pages, once the flag clears
 

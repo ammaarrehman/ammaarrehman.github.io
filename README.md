@@ -193,8 +193,8 @@ until hovered.
 - Scripts and the stylesheet carry `?v=YYYYMMDD` in `index.html` (and the island's own paths in
   `js/site.js` and `js/world.js`). Bump it everywhere together whenever a script or the CSS
   changes, so returning visitors get the new files.
-- Deploying to ammaarrehman.com: `node tools/deploy.mjs` (or `--dry-run` to only build and
-  check). Everything about hosting, including the one-time Cloudflare and GoDaddy steps and how
+- Deploying to ammaarrehman.com: `node tools/deploy.mjs` (`--dry-run` only builds and checks;
+  `--check` only runs the live checks). Everything about hosting, including the one-time Cloudflare and GoDaddy steps and how
   to undo them, is in `docs/hosting.md`. `wrangler.jsonc` and `_headers` are the Cloudflare
   config. `AUDIT.md` tracks the site audit.
 

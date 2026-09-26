@@ -1,6 +1,6 @@
 # Site audit
 
-Not deployed (the deploy allowlist skips `*.md`). Started in Phase 5 with the go-live blockers; Phase 6 adds the rest of the audit (accessibility, performance, cross-browser, links, copy style).
+Not deployed (the deploy allowlist skips `*.md`). The site went live on ammaarrehman.com on 2026-09-26. Started in Phase 5 with the go-live blockers; Phase 6 adds the rest of the audit (accessibility, performance, cross-browser, links, copy style).
 
 Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / needs Ammaar.
 
@@ -18,7 +18,10 @@ Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / n
 | A6-8 | high | `assets/resume/Ammaar_Rehman_Resume.pdf` | The 14 bullets are byte 0x7F in Times-Roman with WinAnsi encoding, which has no glyph there, so they show as boxes or blanks. | In your own export: make the bullet • (U+2022). The PDF is not regenerated here. | needs Ammaar |
 | A6-9 | low | Transcript | No transcript PDF is deployed. | None. | fixed (nothing to do) |
 | A6-10 | medium | Third-party origins | The main page loaded Google Fonts (fonts.googleapis.com, fonts.gstatic.com). | Fonts self-hosted; the main page now contacts no other origin. The CSP allows `https://lab.ammaarrehman.com` for the live status later. | fixed in `7b916f9` |
-| A6-11 | low | `.well-known/security.txt` | Has Contact, Expires (2027-09-25, within a year), Preferred-Languages and Canonical. Canonical still points at github.io. | Move Canonical to ammaarrehman.com after the first deploy. | proposed (after deploy) |
+| A6-11 | low | `.well-known/security.txt` | Has Contact, Expires (2027-09-25, within a year), Preferred-Languages and Canonical. Canonical pointed at github.io. | Canonical (and every other absolute URL) moved to ammaarrehman.com. | fixed in `bdd161a` |
+| A6-13 | high | Cloudflare edge TLS | SSL Labs B on all four edge addresses: TLS 1.0 and 1.1 are accepted (`openssl s_client -tls1` connects). | Cloudflare dashboard: SSL/TLS, Edge Certificates, Minimum TLS Version 1.2. | needs Ammaar |
+| A6-14 | medium | Cloudflare Web Analytics | Cloudflare injects `static.cloudflareinsights.com/beacon.min.js`; the CSP blocks it, leaving two console errors on every load. | Turn off the automatic Web Analytics injection for the zone. Don't add the origin to the CSP. | needs Ammaar |
+| A6-15 | low | `_headers` | securityheaders.com A; X-Frame-Options not set (`frame-ancestors 'none'` covers modern browsers). | Added `X-Frame-Options: DENY`. The other warning, the 300 s HSTS, is deliberate for the first week. | fixed in `a0310c6` |
 | A6-12 | medium | `tools/resume.py`, `tools/marks.py` | `tools/resume.py` names "NightStar Solutions, Ellicott City, MD, Founder"; `tools/marks.py` mentions NIGHTFALL and nightstarlabs. Both are served publicly by GitHub Pages today (the new Cloudflare deploy doesn't ship `tools/`). | Flagged, not deleted. | needs Ammaar |
 
 ## A4. Performance (Phase 5 part)
@@ -63,3 +66,4 @@ Nothing here is changed until Ammaar approves it.
 4. Approve or change the two proposed copy lines.
 5. Fix the résumé PDF bullets in your own export (A6-8).
 6. Decide what to do with the NightStar and NIGHTFALL mentions in `tools/` (A6-12).
+7. Cloudflare dashboard: set Minimum TLS Version to 1.2 (A6-13) and turn off the Web Analytics injection (A6-14).
