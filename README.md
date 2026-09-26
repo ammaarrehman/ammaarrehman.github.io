@@ -14,6 +14,8 @@ Paper light mode follows the OS, with a ◐ toggle in the nav.
 ```
 index.html        single page
 css/styles.css    the design system
+js/head.js        runs before first paint: js on, saved theme, whether the boot screen plays
+js/theme.js       the 404 page's saved theme
 js/skills.js      skills tabs (vanilla, no framework)
 js/site.js        theme toggle, scroll reveal, nav scrollspy, card spotlight
 js/windows.js     working traffic lights: minimize to the dock, maximize, restore
@@ -29,6 +31,7 @@ assets/work/      project screenshots, copied in from the project repos
 assets/hands.json the ascii hands, as a character grid
 404.html          lost-page screen (GitHub Pages serves it for any bad URL)
 robots.txt, sitemap.xml, site.webmanifest   search + install metadata
+.well-known/security.txt   how to report a security issue (.nojekyll makes Pages serve it)
 ```
 
 ## the orb and pi's island
@@ -86,8 +89,10 @@ lets go on the handbrake (shift) so the back steps out and lays rubber. The isla
 time in Ellicott City (America/New_York), with sunrise and sunset worked out for the date.
 `?islandhour=22` previews any hour.
 
-Find all eight landmarks and the orbs fall out of the sky and fight for control
-of the site; the winner runs the hero orb for the rest of the session. Every clash tears
+Find all eight landmarks and the island asks first (it says the fight is loud and flashes,
+with the flash switch right there), then the orbs fall out of the sky and fight for control
+of the site; the winner recolours the hero orb until the page reloads, and a restore site
+button in the HUD puts everything back at any point. Every clash tears
 reality open from the point of impact and the island underneath is somewhere else: the
 jurassic island, a neon future city (every tree a lit tower, roads of light, flying
 traffic), or chaos (ink on paper, a black nervous system of strands and spheres, flickering
@@ -125,16 +130,28 @@ settings panel has levels for the master, music, effects and ambience, a button 
 restarts the sound engine, and comfort switches for screen shake, bright flashes and the
 minimap. Everything is remembered in this browser.
 
-- keyboard: wasd / arrows to walk, shift to run, e / space / enter to look, m to mute, esc to leave
+- keyboard: wasd / arrows to walk (by key position, so AZERTY works), shift to run, e / space / enter to look, m to mute, p or esc for the menu
 - pointer: tap anywhere to walk there (breadth-first pathing), tap a landmark to walk up and look
-- `#island` in the URL opens it directly
+- the menu lists all eight landmarks (pick one and pi goes there with its card open), the tour, settings, and back to portfolio
+- the tour (HUD or menu) visits every section in about a minute: space skips, esc stops, it ends on the contact card. on a phone the title card offers it first
+- `#island` in the URL opens it directly, `#island/experience` (or any landmark or section name) opens that card, `#island/tour` starts the tour
+- every landmark card is named twice (the lighthouse · experience) and its facts are the main page's own words
+- `?debug=1` shows frame time, particles, audio voices, canvases, state and the save; `?seed=n` makes the fight repeat exactly
 - first visit per session: pi hatches from an egg in the village square
 
 The background (`js/hands.js`) is two ASCII hands after the Sistine ceiling,
 rendered from `assets/hands.json`. They reach toward each other as you
 scroll and spark at the bottom of the page.
 
-Reduced motion: no warp (a plain cut), still orb and hands, no typing effect.
+Reduced motion: no warp (a plain cut), still orb and hands, no typing effect, and on the
+island no shake and no flashes by default. Every flash goes through one gate: at most three
+a second, and with bright flashes off a whiteout is soft and nothing inverts the screen.
+Screen readers get the cards whole, the canvas is a labelled application, and a polite live
+region names the landmark pi is next to and each log found. The island runs on a fixed 60 Hz
+step and pauses when the tab is hidden.
+
+The pages send a strict Content-Security-Policy (`script-src 'self'`, no inline scripts or
+styles), and every link that opens a new tab has `noopener noreferrer`.
 
 ## sections
 

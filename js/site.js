@@ -146,7 +146,7 @@
       if (island) return;
       island = 1;
       var sc = document.createElement("script");
-      sc.src = "js/world.js?v=20260927";
+      sc.src = "js/world.js?v=20260928";
       sc.onload = function () { island = 2; if (go && window.islandEnter) window.islandEnter(); };
       sc.onerror = function () { island = 0; };
       document.body.appendChild(sc);
