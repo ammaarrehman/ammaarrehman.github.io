@@ -142,19 +142,25 @@
   var orbBtn = document.querySelector(".orb-btn");
   if (orbBtn) {
     var island = 0, go = false;
+    // the island and its sound engine arrive together, the sound first (the island looks for it)
+    var hint = document.querySelector(".orb-hint"), hint0 = hint ? hint.textContent : "";
+    var script = function (src, done, fail) { var sc = document.createElement("script"); sc.src = src; sc.onload = done; sc.onerror = fail; document.body.appendChild(sc); };
     var loadIsland = function () {
       if (island) return;
       island = 1;
-      var sc = document.createElement("script");
-      sc.src = "js/world.js?v=20260930";
-      sc.onload = function () { island = 2; if (go && window.islandEnter) window.islandEnter(); };
-      sc.onerror = function () { island = 0; };
-      document.body.appendChild(sc);
+      var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
+      script("js/audio.js?v=20260930", function () {
+        script("js/world.js?v=20260930", function () {
+          island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
+          if (go && window.islandEnter) window.islandEnter();
+        }, failed);
+      }, failed);
     };
+    var waiting = function () { orbBtn.setAttribute("aria-busy", "true"); if (hint) hint.textContent = "[ loading pi's island… ]"; };
     orbBtn.addEventListener("pointerenter", loadIsland);
     orbBtn.addEventListener("focus", loadIsland);
     orbBtn.addEventListener("touchstart", loadIsland, { passive: true });
-    orbBtn.addEventListener("click", function () { if (island !== 2) { go = true; loadIsland(); } });
+    orbBtn.addEventListener("click", function () { if (island !== 2) { go = true; waiting(); loadIsland(); } });
     window.addEventListener("hashchange", function () { if (island !== 2 && location.hash.indexOf("#island") === 0) { go = true; loadIsland(); } });
     // an #island link: wait for the rest of the page's scripts (the sound engine, the orbs) first
     if (location.hash.indexOf("#island") === 0) {
