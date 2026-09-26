@@ -9,9 +9,9 @@ Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / n
 | ID | Severity | Where | Evidence | Fix | Status |
 |---|---|---|---|---|---|
 | A6-1 | high | Skills section and the CSP | No Vue anywhere; `js/skills.js` is plain JS and renders under `script-src 'self'`. | None needed. | fixed (nothing to do) |
-| A6-2 | blocker | `assets/work/ha-dns.webp` (HA DNS project card) | The terminal shows a private LAN address (`192.168.x.x`, the DNS server) three times, plus the Mac's user and host name (`ammaarrehman@Ammaars-MacBook-Pro`). | A replacement screenshot with a documentation address (for example 192.0.2.53) or the address cropped out. Not blurred here. | needs Ammaar |
-| A6-3 | medium | `assets/work/terraform.webp` | The address bar shows the CloudFront distribution's domain (`d12…cloudfront.net`), the shell host `homelab`, and the browser profile avatar. The page in it says "Recursive Resolution" (see A1-3). | If the distribution is destroyed, the domain reveals nothing; still, a crop above the address bar removes all three. | needs Ammaar |
-| A6-4 | low | `assets/work/triage.webp` | The prompt shows the Mac's user and host name. | A crop, or leave it (it identifies a laptop, not a network). | needs Ammaar |
+| A6-2 | blocker | `assets/work/ha-dns.webp` (HA DNS project card) | The terminal shows a private LAN address (`192.168.x.x`, the DNS server) three times, plus the Mac's user and host name (`ammaarrehman@Ammaars-MacBook-Pro`). | At Ammaar's request: solid redaction bars over the three addresses and the user and host name. No address was swapped for a fake one, so the image stays real output. | fixed in `4c349a9` |
+| A6-3 | medium | `assets/work/terraform.webp` | The address bar shows the CloudFront distribution's domain (`d12…cloudfront.net`), the shell host `homelab`, and the browser profile avatar. The page in it says "Recursive Resolution" (see A1-3). | Cropped to the rows from Uptime Kuma down to the footer, padded to 16:10 with the page's own background. The address bar, avatar, `homelab` prompt, old DNS row and the "Information Systems student" tagline are gone. | fixed in `4c349a9` |
+| A6-4 | low | `assets/work/triage.webp` | The prompt shows the Mac's user and host name. | Cropped below the prompt line. | fixed in `4c349a9` |
 | A6-5 | low | `assets/work/trading-lab.webp` | Clean. | None. | fixed (nothing to do) |
 | A6-6 | low | Every image in `assets/` | No EXIF, GPS or XMP metadata in any of the 11 images. | None. | fixed (nothing to do) |
 | A6-7 | low | `assets/resume/Ammaar_Rehman_Resume.pdf` | Metadata: Author "Ammaar Rehman", Title "Ammaar Rehman Resume", Producer "ReportLab PDF Library", Creator "(unspecified)", created 2026-09-25. No other personal fields. | None required. | fixed (nothing to do) |
@@ -19,10 +19,13 @@ Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / n
 | A6-9 | low | Transcript | No transcript PDF is deployed. | None. | fixed (nothing to do) |
 | A6-10 | medium | Third-party origins | The main page loaded Google Fonts (fonts.googleapis.com, fonts.gstatic.com). | Fonts self-hosted; the main page now contacts no other origin. The CSP allows `https://lab.ammaarrehman.com` for the live status later. | fixed in `7b916f9` |
 | A6-11 | low | `.well-known/security.txt` | Has Contact, Expires (2027-09-25, within a year), Preferred-Languages and Canonical. Canonical pointed at github.io. | Canonical (and every other absolute URL) moved to ammaarrehman.com. | fixed in `bdd161a` |
-| A6-13 | high | Cloudflare edge TLS | SSL Labs B on all four edge addresses: TLS 1.0 and 1.1 are accepted (`openssl s_client -tls1` connects). | Cloudflare dashboard: SSL/TLS, Edge Certificates, Minimum TLS Version 1.2. | needs Ammaar |
-| A6-14 | medium | Cloudflare Web Analytics | Cloudflare injects `static.cloudflareinsights.com/beacon.min.js`; the CSP blocks it, leaving two console errors on every load. | Turn off the automatic Web Analytics injection for the zone. Don't add the origin to the CSP. | needs Ammaar |
+| A6-13 | high | Cloudflare edge TLS | SSL Labs B on all four edge addresses: TLS 1.0 and 1.1 are accepted (`openssl s_client -tls1` connects). | Cloudflare dashboard: SSL/TLS, Edge Certificates, Minimum TLS Version 1.2. Rechecked after Ammaar turned on TLS 1.3: 1.3 works, but 1.0 and 1.1 still connect, so the minimum is still 1.0. | needs Ammaar |
+| A6-14 | medium | Cloudflare Web Analytics | Cloudflare injects `static.cloudflareinsights.com/beacon.min.js`; the CSP blocks it, leaving two console errors on every load. | Turn off the automatic Web Analytics injection for the zone. Don't add the origin to the CSP. Ammaar will look at it later. | needs Ammaar (later) |
 | A6-15 | low | `_headers` | securityheaders.com A; X-Frame-Options not set (`frame-ancestors 'none'` covers modern browsers). | Added `X-Frame-Options: DENY`. The other warning, the 300 s HSTS, is deliberate for the first week. | fixed in `a0310c6` |
-| A6-12 | medium | `tools/resume.py`, `tools/marks.py` | `tools/resume.py` names "NightStar Solutions, Ellicott City, MD, Founder"; `tools/marks.py` mentions NIGHTFALL and nightstarlabs. Both are served publicly by GitHub Pages today (the new Cloudflare deploy doesn't ship `tools/`). | Flagged, not deleted. | needs Ammaar |
+| A6-16 | medium | `js/boot.js` (boot screen) | Printed `homelab-dns-01` and `homelab-dns-02`, the Pis' hostnames, on every first visit. A scan of everything in `.deploy/` for hostnames, private and Tailscale addresses, MACs and `user@host` found nothing else. | "DNS node A / B" with primary and backup. | fixed in `1ae268f` |
+| A6-17 | low | Third-party inventory | Origins the main page contacts: none but its own. Reserved: `https://lab.ammaarrehman.com` in `connect-src` (E3, not live). Outbound links only (no requests): github.com, linkedin.com, the mailto address. Unwanted: Cloudflare's injected `static.cloudflareinsights.com` beacon, blocked by the CSP (A6-14). | None. | fixed (nothing to do) |
+| A6-18 | low | CDN scripts | No script, style or font is loaded from a CDN, so there's nothing to pin or give an SRI hash. | None. | fixed (nothing to do) |
+| A6-12 | medium | `tools/resume.py`, `tools/marks.py` | `tools/resume.py` names "NightStar Solutions, Ellicott City, MD, Founder"; `tools/marks.py` mentions NIGHTFALL and nightstarlabs. Both are served publicly by GitHub Pages today (the new Cloudflare deploy doesn't ship `tools/`). | Removed at Ammaar's call (the NightStar job in `resume.py`, the NIGHTFALL lines in `marks.py`). A tracked `tools/__pycache__/*.pyc` also carried it; untracked and ignored. Older commits keep them (no force-push). | fixed in `edcf5e9` |
 
 ## A4. Performance (Phase 5 part)
 
@@ -42,12 +45,13 @@ Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / n
 
 | ID | Severity | Where | Evidence | Fix | Status |
 |---|---|---|---|---|---|
-| A1-1 | blocker | Main page (hero, honors), the island's tablet card | "FBLA State Champion and Regional Champion" | Ammaar confirms or removes. | needs Ammaar |
+| A1-1 | blocker | Main page (about, honors), the island's tablet card | "FBLA State Champion and Regional Champion". The résumé source only has "FBLA 2023 National Qualifier". | Removed from the site at Ammaar's call (high school). The résumé is his to decide. | fixed in `42551f2` |
 | A1-2 | high | Main page, `~/projects/more`, dns-filtering row | "AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation." This says Unbound resolves the queries, which isn't confirmed (the last known setup sent AdGuard upstream to DoH). | See the proposed copy below. | proposed |
-| A1-3 | medium | `assets/work/terraform.webp` | The old page in the screenshot says "DNS Filtering and Recursive Resolution". | A new screenshot, or accept it as a picture of an old page. | needs Ammaar |
-| A1-4 | medium | Alt text of `assets/work/ha-dns.webp` | Alt says "keepalived failover: the floating IP now answering from the backup node". The image shows one `dig` answer; it doesn't show which node answered. | See the proposed copy below. | proposed |
+| A1-3 | medium | `assets/work/terraform.webp` | The old page in the screenshot says "DNS Filtering and Recursive Resolution". | The DNS row is cropped out of the screenshot (A6-3). | fixed in `4c349a9` |
+| A1-4 | medium | Alt text of `assets/work/ha-dns.webp` | Alt says "keepalived failover: the floating IP now answering from the backup node". The image shows one `dig` answer; it doesn't show which node answered. | The alt text now describes what the new image shows, with no failover claim. | fixed in `4c349a9` |
 | A1-5 | low | Education framing | Main page, meta description and island cards all say incoming, starting January 2027. Nothing implies current UMD enrollment. | None. | fixed (nothing to do) |
-| A1-6 | low | Nightfall / Nightstar | Not on any served page. Only in `tools/` (A6-12). | None. | fixed (nothing to do) |
+| A1-6 | low | Nightfall / Nightstar | Not on any served page or in the résumé PDF. Was in `tools/` (A6-12). | Removed from `tools/`. | fixed in `edcf5e9` |
+| A1-7 | high | JSON-LD | `alumniOf: Howard Community College` before the A.A. is finished. The handoff (A5) says no `alumniOf` until he has graduated. | Removed. | fixed in `c6a430c` |
 
 ## Proposed copy changes
 
@@ -56,14 +60,9 @@ Nothing here is changed until Ammaar approves it.
 | Current text | Proposed text | Reason | Source |
 |---|---|---|---|
 | "AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started." (main page, dns-filtering row) | "AdGuard Home and Unbound on a Raspberry Pi, filtering DNS for my devices. Where the homelab started." | Doesn't claim Unbound resolves the queries, and says per-device. If AdGuard now forwards to Unbound, the current text can stay. | Handoff 2 DNS rule; Ammaar to confirm where AdGuard forwards |
-| Alt: "keepalived failover: the floating IP now answering from the backup node" | Alt: "A dig query answered by the HA DNS pair's floating IP" | Describes what the screenshot shows. | The image itself |
 
 ## Needs Ammaar
 
-1. Confirm or remove the FBLA claim (A1-1).
-2. Replace the HA DNS screenshot, or approve a crop (A6-2); decide on A6-3 and A6-4.
-3. Say where AdGuard forwards (DoH or Unbound), which settles A1-2.
-4. Approve or change the two proposed copy lines.
-5. Fix the résumé PDF bullets in your own export (A6-8).
-6. Decide what to do with the NightStar and NIGHTFALL mentions in `tools/` (A6-12).
-7. Cloudflare dashboard: set Minimum TLS Version to 1.2 (A6-13) and turn off the Web Analytics injection (A6-14).
+1. Say where AdGuard forwards (DoH or Unbound), which settles A1-2, then approve or change that line.
+2. Cloudflare: set Minimum TLS Version to 1.2 (A6-13). Web Analytics injection (A6-14) later.
+3. Fix the résumé PDF bullets in your own export (A6-8), and decide whether FBLA stays on the résumé.
