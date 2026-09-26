@@ -22,8 +22,12 @@
   try { enabled = localStorage.getItem("sound") !== "off"; } catch (e) {}
   try { var saved = JSON.parse(localStorage.getItem("sound-mix") || "{}"); Object.keys(MIX).forEach(function (k) { if (typeof saved[k] === "number") MIX[k] = Math.max(0, Math.min(1, saved[k])); }); } catch (e) {}
 
+  // no context before the visitor's first click, tap or key. a page opened straight into the island
+  // (#island) would otherwise make one the browser won't run, and every sound started on it logs an
+  // autoplay warning. until then state() says "suspended", so the island offers its tap-for-sound chip
+  function gated() { return !!(navigator.userActivation && !navigator.userActivation.hasBeenActive); }
   function init() {
-    if (ctx || !AC || restarting) return ctx;
+    if (ctx || !AC || restarting || gated()) return ctx;
     ctx = new AC();
     // safari can interrupt the context (a call, siri, the lock screen); tell whoever's listening
     ctx.addEventListener("statechange", function () { var st = ctx ? ctx.state : "closed"; stateListeners.forEach(function (f) { f(st); }); });
@@ -472,7 +476,7 @@
     restart: restart,
     onRestart: function (f) { restartListeners.push(f); },
     stats: function () { return { state: ctx ? ctx.state : restarting ? "restarting" : "none", sources: live, voices: voices.length, loops: loops.length, mood: mood }; },
-    state: function () { return ctx ? ctx.state : "none"; },
+    state: function () { return ctx ? ctx.state : AC && !restarting ? "suspended" : "none"; },
     onState: function (f) { stateListeners.push(f); },
     ready: function () { return !!ctx && ctx.state === "running"; },
     on: function () { return enabled; },

@@ -870,7 +870,7 @@
   function startSound() {
     if (!SND) return;
     SND.unlock();
-    if (!amb) amb = { waves: SND.loop("waves"), falls: SND.loop("falls"), buzz: SND.loop("buzz"), aura: SND.loop("aura"), rumble: SND.loop("rumble"), rotor: SND.loop("rotor"), engine: SND.loop("engine") };
+    if (!amb && SND.stats().state !== "none") amb = { waves: SND.loop("waves"), falls: SND.loop("falls"), buzz: SND.loop("buzz"), aura: SND.loop("aura"), rumble: SND.loop("rumble"), rotor: SND.loop("rotor"), engine: SND.loop("engine") };
   }
   function stopSound() {
     if (!SND) return;
