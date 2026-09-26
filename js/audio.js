@@ -181,6 +181,8 @@
       for (i = 0; i < 12; i++) noise(0.05, 0.05, "bandpass", 200 + Math.random() * 3000, null, { when: 0.05 + i * 0.06 + Math.random() * 0.03, pan: Math.random() * 2 - 1, q: 5, verb: true });
       tone("sine", 60, 16, 2.2, 0.5, { verb: true }); noise(1.8, 0.16, "lowpass", 900, 40, { verb: true });
     },
+    // a special move about to land: a short rising tone
+    tele: function (o) { tone("sine", 220, 880, 0.15, 0.06, { pan: o.pan, attack: 0.02 }); tone("triangle", 110, 440, 0.15, 0.04, { pan: o.pan, attack: 0.02 }); },
     // the moment before a clash: the air dragged in
     dash: function (o) { noise(0.5, 0.16, "bandpass", 160, 2600, { pan: o.pan, q: 2.5, attack: 0.46, verb: true }); tone("sawtooth", 32, 110, 0.5, 0.05, { pan: o.pan, attack: 0.42 }); },
     // two stars meeting: a pressure wave you feel in the chest, a white roar that sweeps from

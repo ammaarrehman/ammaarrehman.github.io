@@ -1188,7 +1188,7 @@
     if (s.id === "heli") { toggleHeli(); return; }
     if (s.id === "car") { toggleCar(); bubble = { text: "pi:~$ vroom. arrows drive, space honks, e parks", t: 3.5 }; return; }
     if (s.id === "critter" || s.id === "bird" || s.id === "pond" || s.id === "nest" || s.id === "fence") { sayLocal(s); return; }
-    if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; irisTo(function () { enterRoom(rm); }); } else say(s.ref.name, s.ref.text, []); return; }
+    if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; pi.sq = 0.12; pi.sqStart = false; sfx("open"); irisTo(function () { enterRoom(rm); }); } else say(s.ref.name, s.ref.text, []); return; }
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
@@ -1967,7 +1967,7 @@
   }
   function toggleCar() {
     if (!car.driving && !can("vehicle")) return;
-    if (!car.driving) { car.driving = true; car.gear = "D"; pi.path = null; bubble = { text: TOUCH ? "tap to drive. e parks." : "w/s drive and reverse · shift drifts · e parks", t: 3 }; return; }
+    if (!car.driving) { quake = Math.max(quake, 1); sfx("stomp", car.x, car.y, { vol: 0.35 }); car.driving = true; car.gear = "D"; pi.path = null; bubble = { text: TOUCH ? "tap to drive. e parks." : "w/s drive and reverse · shift drifts · e parks", t: 3 }; return; }
     // park: pi hops out beside the driver's door
     car.driving = false; car.target = null;
     var sx = Math.cos(car.a), sy = Math.sin(car.a);
@@ -2591,7 +2591,7 @@
   function nova(a, b, x, y) {
     var kill = --b.hp <= 0, big = kill ? 2.3 : 1;
     b.flash = 1; a.flash = 0.6; rift.hits++;
-    rift.shake = kill ? 16 : 11; hitstop = kill ? 0.32 : 0.12; if (flashGate()) rift.flash = kill ? 1 : 0.7;
+    rift.shake = kill ? 16 : 11; hitstop = kill ? 0.1 : 0.07; if (flashGate()) rift.flash = kill ? 1 : 0.7;
     rift.novas.push({ x: x, y: y, t: 0, dur: kill ? 3.4 : 2.2, R: big, c1: dust(a.name), c2: dust(b.name) });
     rift.scorch.push({ x: x, y: y + 26, r: 30 * big, life: 1 });
     lens = { x: x, y: y, t: 0 };
@@ -2606,14 +2606,21 @@
     sfx("nova", x, y, { vol: kill ? 1.25 : 1 });
     if (kill) { b.alive = false; later(0.7, function () { sfx("nova", x, y, { vol: 0.7 }); }); }
   }
+  // every special move is telegraphed: 150 ms of the attacker glowing and a rising tone first
   function begin(att, tgt) {
-    rift.act = { a: att, b: tgt, kind: att.style, t: 0, fx: att.x, fy: att.y, ang: Math.atan2(att.y - tgt.y, att.x - tgt.x), done: false };
+    rift.act = { a: att, b: tgt, kind: att.style, t: 0, fx: att.x, fy: att.y, ang: Math.atan2(att.y - tgt.y, att.x - tgt.x), done: false, tele: 0.15 };
     att.trail = [];
-    if (att.style === "blink") sfx("whoosh", att.x, att.y); else sfx("dash", att.x, att.y);
+    sfx("tele", att.x, att.y);
   }
   function updateAct(dt) {
-    var d = rift.act, a = d.a, b = d.b; d.t += dt;
+    var d = rift.act, a = d.a, b = d.b;
     if (!a.alive || !b.alive) { rift.act = null; return; }
+    if (d.tele > 0) {
+      d.tele -= dt; a.rage = 1; a.flash = Math.max(a.flash, 0.5); a.vx *= 0.8; a.vy *= 0.8;
+      if (d.tele <= 0) { d.fx = a.x; d.fy = a.y; if (a.style === "blink") sfx("whoosh", a.x, a.y); else sfx("dash", a.x, a.y); }
+      return;
+    }
+    d.t += dt;
     if (d.kind === "charge") {
       if (d.t < 0.6) { a.vx *= 0.8; a.vy *= 0.8; a.x += (frand() - 0.5) * 3; a.rage = d.t / 0.6; d.fx = a.x; d.fy = a.y; }
       else {
