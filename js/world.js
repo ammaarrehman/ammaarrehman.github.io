@@ -858,10 +858,15 @@
     if (amb) { Object.keys(amb).forEach(function (k2) { amb[k2].stop(); }); amb = null; }
   }
   var shoreT = 0, shore = 0;
+  // each terrace has its own loop (the buildings are all on the lowland), and a night version
+  function regionMood() {
+    var tr = room ? 0 : tier(pi.x / T, (aboard() ? heli.y : pi.y) / T);
+    return ["low", "meadow", "high"][tr] + (sky.dark > 0.6 ? "-night" : "");
+  }
   function hush(names) { names.forEach(function (k2) { amb[k2].set({ vol: 0 }); }); }
   function updateSound(dt) {
     if (!amb || side) return;                        // the shrine sets its own sound
-    if (room) { hush(["waves", "falls", "rumble", "buzz", "rotor", "engine", "aura"]); SND.music(sky.dark > 0.6 ? "night" : "day"); return; }
+    if (room) { hush(["waves", "falls", "rumble", "buzz", "rotor", "engine", "aura"]); SND.music(regionMood()); return; }
     if (riftBusy()) {
       // when the orbs wake, the island goes silent: no surf, no birds, no music. then the dark
       // score creeps in out of nothing, and it only gets worse from there
@@ -870,7 +875,7 @@
       amb.aura.set({ vol: rift.phase === "dim" ? 0 : rift.phase === "fall" ? 0.14 : 0.24 + (rift.act ? 0.18 : 0), rate: rift.act ? 1 : 0.3 });
       return;
     }
-    SND.music(sky.dark > 0.6 ? "night" : "day");
+    SND.music(regionMood());
     shoreT -= dt;
     if (shoreT <= 0) {                               // how much water is around pi, for the surf
       shoreT = 0.3; var wn = 0, tx0 = Math.floor(pi.x / T), ty0 = Math.floor(pi.y / T);
@@ -1236,6 +1241,7 @@
   dlg.addEventListener("scroll", function () { if (logWait && dlg.scrollHeight > dlg.clientHeight + 4 && dlg.scrollTop + dlg.clientHeight >= dlg.scrollHeight - 2) { var s0 = logWait.s; logWait = null; markFound(s0); } });
   function say(name, text, links) {
     dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false; dSr.textContent = text;
+    if (SND && SND.duck) SND.duck(true);
     /* a real dialog, opened non-modal so the hud (back to portfolio, stop tour) stays usable;
        focus moves into it so a screen reader reads it whole, and escape or e closes it */
     if (dlg.show && !dlg.open) { try { dlg.show(); } catch (e) {} }
@@ -1270,6 +1276,7 @@
   function finishTyping() { clearInterval(typing); typing = null; dText.textContent = full; }
   function closeDialog() {
     finishTyping(); if (dlg.open && dlg.close) dlg.close(); dlg.hidden = true; cv.focus({ preventScroll: true });
+    if (SND && SND.duck) SND.duck(false);
     asking = false;
     if (tour) pendingRift = false;
     if (creditsNext && open) { creditsNext = false; showCredits(); return; }

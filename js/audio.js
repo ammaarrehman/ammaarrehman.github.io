@@ -8,7 +8,8 @@
    Sound.unlock()            call from a click/tap/key handler before the first sound
    Sound.sfx(name, opts)     one-shot: { pan: -1..1, vol: 0..1, surface, pitch }
    Sound.loop(name)          a held sound with live controls: .set({ vol, rate, pan }), .stop()
-   Sound.music(mood)         "day", "night", "dread", "doom", "doom-future", "doom-chaos", or null
+   Sound.music(mood)         "low", "meadow", "high" (each with a "-night" version), "day", "night", "dread", "doom", "doom-future", "doom-chaos", or null
+   Sound.muffle(0..1) / .duck(on)   sweep the music down for a transition / drop it 6 dB under a card
    Sound.intensity(0..1)     how far the dark scores have crept
    Sound.mix() / .setMix(k, v)   bus volumes 0..1: master, music, sfx, amb
    Sound.restart()           tear the engine down and build it again (the settings panel's button)
@@ -311,6 +312,10 @@
   var MOODS = {
     day:   { bpm: 96, lead: "square", bass: "triangle", chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], hat: true, vol: 0.8 },
     night: { bpm: 68, lead: "sine", bass: "triangle", chords: [[57, 60, 64], [53, 57, 60], [48, 52, 55], [55, 59, 62]], hat: false, vol: 0.7, echo: true },
+    // one loop per terrace of the island; add "-night" for the after-dark version (slower, darker)
+    low:    { bpm: 96, lead: "square", bass: "triangle", chords: [[60, 64, 67], [57, 60, 64], [53, 57, 60], [55, 59, 62]], hat: true, vol: 0.8, fade: 2 },
+    meadow: { bpm: 84, lead: "triangle", bass: "triangle", chords: [[65, 69, 72], [62, 65, 69], [58, 62, 65], [60, 64, 67]], hat: true, vol: 0.75, fade: 2, seed: 11 },
+    high:   { bpm: 72, lead: "sine", bass: "triangle", chords: [[57, 60, 64], [55, 59, 62], [53, 57, 60], [52, 55, 59]], hat: false, vol: 0.7, fade: 2, echo: true, seed: 23 },
     dread: { dark: true, root: 38, fade: 5, bpm: 30 },
     doom: { dark: true, root: 33, fade: 12, bpm: 40, heart: true, horn: true },
     "doom-future": { dark: true, root: 33, fade: 3, bpm: 40, heart: true, horn: true, metal: true },
@@ -319,7 +324,7 @@
   var mood = null, seq = null, step = 0, nextT = 0, pattern = null, moodGain = null, echo = null, held = [], intens = 0, darkF = null;
   function midi(n) { return 440 * Math.pow(2, (n - 69) / 12); }
   function makePattern(m) {
-    var s = 7, rnd = function () { s = (s * 16807) % 2147483647; return s / 2147483647; }, out = [];
+    var s = m.seed || 7, rnd = function () { s = (s * 16807) % 2147483647; return s / 2147483647; }, out = [];
     for (var bar = 0; bar < 4; bar++) for (var i = 0; i < 8; i++) {
       var ch = m.chords[bar];
       out.push(rnd() < 0.6 ? ch[(rnd() * 3) | 0] + 12 + (rnd() < 0.2 ? 12 : 0) : null);
@@ -395,22 +400,33 @@
       if (i === 0) note(m.bass, ch[0] - 12, nextT, eighth * 3.6, 0.14 * v);
       if (i === 4) note(m.bass, ch[2] - 24, nextT, eighth * 3.2, 0.1 * v);
       var ln = pattern[step % 32];
-      if (ln !== null) note(m.lead, ln, nextT, eighth * (mood === "night" ? 2.6 : 1.2), (mood === "night" ? 0.06 : 0.035) * v);
+      if (ln !== null) note(m.lead, ln, nextT, eighth * (/night$/.test(mood) ? 2.6 : 1.2), (/night$/.test(mood) ? 0.06 : 0.035) * v);
       if (m.hat && i % 2 === 1) { var h = ctx.createBufferSource(), hf = ctx.createBiquadFilter(), hg = ctx.createGain(); h.buffer = noiseBuf; hf.type = "highpass"; hf.frequency.value = 7000; hg.gain.setValueAtTime(0.022 * v, nextT); hg.gain.exponentialRampToValueAtTime(0.0001, nextT + 0.04); h.connect(hf); hf.connect(hg); hg.connect(moodGain); h.start(nextT, Math.random()); h.stop(nextT + 0.05); }
       nextT += eighth; step++;
     }
   }
+  // "meadow-night": the meadow loop, slower, through a lowpass, with an echo and no hats
+  function moodOf(name) {
+    if (MOODS[name]) return MOODS[name];
+    var base = name && name.slice(-6) === "-night" && MOODS[name.slice(0, -6)];
+    if (!base) return null;
+    var n = {}; Object.keys(base).forEach(function (k) { n[k] = base[k]; });
+    n.bpm = base.bpm * 0.78; n.lp = 1300; n.echo = true; n.hat = false; n.vol = base.vol * 0.85; n.lead = base.lead === "square" ? "triangle" : base.lead;
+    return (MOODS[name] = n);
+  }
   function music(m) {
     if (!ctx) return;
     if (m === mood) return;
+    if (m) moodOf(m);
     if (moodGain) {
-      var old = moodGain, oldHeld = held; old.gain.setTargetAtTime(0, now(), MOODS[mood] && MOODS[mood].dark ? 1.2 : 0.4);
+      var old = moodGain, oldHeld = held, om = MOODS[mood]; old.gain.setTargetAtTime(0, now(), om && om.dark ? 1.2 : om && om.fade ? om.fade / 3 : 0.4);      // a two-second crossfade between terraces
       setTimeout(function () { oldHeld.forEach(function (n) { try { n.stop(); } catch (e) {} }); old.disconnect(); }, 5000);
     }
     mood = m; clearInterval(seq); seq = null; moodGain = null; echo = null; held = []; darkF = null;
     if (!m || !MOODS[m]) { mood = null; return; }
     var M = MOODS[m];
-    moodGain = ctx.createGain(); moodGain.gain.value = 0.0001; moodGain.connect(musicBus);
+    moodGain = ctx.createGain(); moodGain.gain.value = 0.0001;
+    if (M.lp) { var mlp = ctx.createBiquadFilter(); mlp.type = "lowpass"; mlp.frequency.value = M.lp; mlp.Q.value = 0.6; moodGain.connect(mlp); mlp.connect(musicBus); } else moodGain.connect(musicBus);
     moodGain.gain.setTargetAtTime(1, now(), M.fade ? M.fade / 3 : 0.8);                 // the dark ones creep in
     if (M.echo) { echo = ctx.createDelay(); echo.delayTime.value = 0.42; var fb = ctx.createGain(); fb.gain.value = 0.35; echo.connect(fb); fb.connect(echo); echo.connect(moodGain); }
     if (M.dark) darkBed(M); else pattern = makePattern(M);
