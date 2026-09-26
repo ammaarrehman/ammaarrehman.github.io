@@ -3096,6 +3096,9 @@
   var fade = 0;
   function roomMove(o, dx, dy) {
     var hw = 4;
+    // the door is one tile wide: heading down near it, pi is steered into the doorway
+    var dcx = room.door * T + 8;
+    if (dy > 0 && Math.floor(o.y / T) >= room.h - 3 && Math.abs(o.x - dcx) < 14 && Math.abs(o.x - dcx) > 0.5) { var ax0 = Math.max(-1.2, Math.min(1.2, dcx - o.x)); if (!roomSolid(room, Math.floor((o.x + ax0 + (ax0 > 0 ? hw : -hw)) / T), Math.floor(o.y / T))) o.x += ax0; }
     function hit(px, py) { return roomSolid(room, Math.floor(px / T), Math.floor(py / T)); }
     if (dx && !hit(o.x + dx + (dx > 0 ? hw : -hw), o.y - 2) && !hit(o.x + dx + (dx > 0 ? hw : -hw), o.y + 1)) o.x += dx;
     if (dy && !hit(o.x - hw, o.y + dy + (dy > 0 ? 1 : -2)) && !hit(o.x + hw, o.y + dy + (dy > 0 ? 1 : -2))) o.y += dy;
