@@ -144,14 +144,14 @@
   var GH = "https://github.com/ammaarrehman/";
   var STATIONS = [
     { id: "sign", x: 44, y: 57, name: "signpost", text: "pi's jurassic island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
-    { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", found: true, text: "the homelab. two Raspberry Pi 5 nodes run AdGuard Home and Unbound behind a keepalived floating IP. pull the plug on one and DNS keeps answering from the other within seconds. failover tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"]] },
-    { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", found: true, wide: true, text: "a Claude intake triage assistant. messy free-text help requests go in; structured records come out with category, urgency, summary, next step, and a human-review flag. a 15-case eval harness took classification accuracy to 100%.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"]] },
-    { id: "uplink", x: 25, y: 63, name: "the uplink", found: true, text: "an AWS static site built end to end with Terraform: S3 hosting, CloudFront delivery, Route 53 DNS, IAM access controls. one command up, one command down. Ammaar is an AWS Certified Cloud Practitioner.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"]] },
-    { id: "tower", x: 58, y: 21, name: "the watchtower", found: true, text: "the monitoring stack. Prometheus and Grafana watch every host and container in the lab through node-exporter and cAdvisor, and Uptime Kuma pings every service. from up here you can see the whole island, and the volcano is still warm.", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"]] },
-    { id: "lighthouse", x: 89, y: 37, name: "the lighthouse", found: true, text: "the security work. Ammaar is a cyber security analyst in Cyber Ready Clinic's internship cohort, supporting nonprofit cyber-readiness assessments with the Discover5 and Ready5 frameworks, with findings aligned to the NIST CSF and CIS Controls. the Ready5 Practitioner badge is in progress, expected Nov 2026.", links: [["experience", "#experience"]] },
-    { id: "macbook", x: 66, y: 53, name: "a macbook on a blanket", found: true, text: "this website. hand-rolled HTML, CSS, JavaScript and a little Python, no frameworks. the orb, the hands, and this island are all drawn in plain canvas. you're standing in it.", links: [["site repo ↗", GH + "ammaarrehman.github.io"]] },
-    { id: "tablet", x: 52, y: 50, name: "a stone tablet", found: true, text: "the record. Howard Community College, A.A. through Dec 2026, 3.65 GPA, Dean's List. starting at UMD's Smith School, B.S. Information Systems, in Jan 2027. AWS Certified Cloud Practitioner, CompTIA Tech+. FBLA State and Regional Champion.", links: [["education", "#education"]] },
-    { id: "mailbox", x: 54, y: 63, name: "the mailbox", found: true, text: "ammaarrehmanf@gmail.com. email is the fastest way to reach Ammaar.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"]] },
+    { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "High-availability DNS. Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
+    { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took primary accuracy from 93% to 100% and multi-need coverage from 0% to 90%. Staff review every row.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
+    { id: "uplink", x: 25, y: 63, name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployed and destroyed with one command, inside the AWS free tier, with a budget alarm.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
+    { id: "tower", x: 58, y: 21, name: "the watchtower", sec: "projects", found: true, text: "monitoring-stack: Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker, tracking availability and response health for every homelab service. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
+    { id: "lighthouse", x: 89, y: 37, name: "the lighthouse", sec: "experience", found: true, text: "Cyber Ready Clinic, Cyber Security Analyst, Sep 2026 – present, Maryland · internship cohort. Support nonprofit cyber-readiness assessments using the Discover5 business-risk and Ready5 capability frameworks, with findings aligned to the NIST Cybersecurity Framework and CIS Controls. Working toward the Ready5 Practitioner digital badge, expected Nov 2026 on cohort completion. Also: NextGen Consulting Inc., Cloud & AI Operations Intern, May 2025 – present. HCC Campus Store · Slingshot, Campus Operations Associate, Aug 2024 – present.", links: [["experience", "#experience"]] },
+    { id: "macbook", x: 66, y: 53, name: "a macbook on a blanket", sec: "projects", found: true, text: "ammaarrehman.github.io. This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas. (you're standing in it.)", links: [["site repo ↗", GH + "ammaarrehman.github.io"], ["projects", "#projects"]] },
+    { id: "tablet", x: 52, y: 50, name: "a stone tablet", sec: "education & certs", found: true, text: "Howard Community College, A.A. General Studies, Aug 2024 – Dec 2026, GPA 3.65 · Dean's List. UMD · Smith School of Business, B.S. Information Systems, starts Jan 2027. Certifications: AWS Certified Cloud Practitioner (CLF-C02), CompTIA Tech+, Ready5 Practitioner (Cyber Ready Clinic, in progress · expected Nov 2026). FBLA State Champion and Regional Champion.", links: [["education", "#education"]] },
+    { id: "mailbox", x: 54, y: 63, name: "the mailbox", sec: "contact", found: true, text: "ammaarrehmanf@gmail.com. Want to talk? Email is the fastest way to reach me.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"], ["contact", "#contact"]] },
     { id: "drink", x: 50, y: 58, name: "a drink stand", text: "pi takes a sip. zoom mode for ten seconds." },
     { id: "shrine", x: 21, y: 21, name: "an old shrine", text: "" },
     { id: "cave", x: 41, y: 20, name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
@@ -1120,7 +1120,7 @@
     }
     var all = Object.keys(found).length === TOTAL && s.found, extra = "";
     if (all && !rift) { extra = " (that's all eight. the ground just shifted.)"; pendingRift = true; }
-    say(s.name, s.text + extra, s.links || []);
+    say(s.sec ? s.name + " · " + s.sec : s.name, s.text + extra, s.links || []);
   }
   function say(name, text, links) {
     dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false;
@@ -2870,7 +2870,7 @@
     ctx.restore();
     ctx.globalCompositeOperation = "source-over";
     var nb = dlg.hidden ? nearby() : null;
-    if (nb && nb.ax !== undefined) tag(TOUCH ? "tap" : "E", (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
+    if (nb && nb.ax !== undefined) tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     tag(R.name, W / 2, oy * E - 14, false);
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 22 - camY) * E, false);
   }
@@ -3411,12 +3411,12 @@
     drawRift(E);
     if (reality.glitch > 0 && !REDUCED) glitchSlices();
     var nb = !egg && dlg.hidden ? nearby() : null;
-    if (nb && nb.ax !== undefined) tag(TOUCH ? "tap" : "E", (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
+    if (nb && nb.ax !== undefined) tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     else if (nb) {
       // float the prompt just above the landmark's own sprite
       var topY = nb.id === "rex" ? rex.y - 15 : nb.id === "core" ? ARENA.y - 34 - OR * 1.9 : nb.id === "boat" ? nb.y * T : nb.y * T + 16 - SPR[nb.id].height;
       var sx = ((nb.id === "rex" ? rex.x : nb.id === "core" ? ARENA.x : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
-      tag(TOUCH ? "tap" : "E", sx, sy, true);
+      tag((TOUCH ? "tap" : "E") + (nb.sec ? " · " + nb.sec : ""), sx, sy, true);
     }
     drawMinimap();
     if (roarTag) tag("ROAR", (roarTag.x - camX) * E, (roarTag.y - camY) * E, false);
