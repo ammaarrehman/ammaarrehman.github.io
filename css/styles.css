@@ -420,6 +420,29 @@ html.in-world, html.in-world body { overflow:hidden; }
   background:rgba(4,6,12,.62); color:#efefef; font-family:var(--mono); font-size:13px;
 }
 .w-pause[hidden] { display:none; }
+/* the eight log pips in the hud */
+.w-pips { display:inline-flex; gap:3px; vertical-align:middle; margin-right:2px; }
+.w-pips i { display:inline-block; width:7px; height:7px; border:1px solid #4DD6E8; }
+.w-pips i.on { background:#4DD6E8; }
+.w-pips i.pop { animation:w-pip .6s var(--ease); }
+@keyframes w-pip { 0% { scale:1; } 35% { scale:1.9; background:#fff; } 100% { scale:1; } }
+/* the credits roll, then the contact card */
+.w-credits { position:absolute; inset:0; z-index:8; overflow:hidden; background:rgba(3,4,8,.97); color:#efefef; font-family:var(--mono); outline:none; }
+.w-credits[hidden] { display:none; }
+.w-roll { position:absolute; left:0; right:0; top:100%; text-align:center; font-size:14px; line-height:2.1; animation:w-roll 16s linear forwards; }
+.w-roll .w-roll-h { font-size:20px; letter-spacing:2px; font-weight:700; }
+.w-roll .w-roll-k { color:#8a8a8a; font-size:11px; letter-spacing:2px; text-transform:uppercase; }
+@keyframes w-roll { to { transform:translateY(calc(-100% - 100vh)); } }
+.w-contact { position:absolute; left:50%; top:50%; translate:-50% -50%; width:min(460px, calc(100% - 32px)); display:none; flex-direction:column; align-items:center; gap:12px; text-align:center;
+  padding:22px; background:#0a0a0a; border:2px solid #f4f4f4; box-shadow:4px 4px 0 rgba(0,0,0,.5); }
+.w-cred-end .w-roll { display:none; }
+.w-cred-end .w-contact { display:flex; animation:w-pop .25s var(--ease); }
+.w-contact b { font-size:18px; letter-spacing:1px; }
+.w-contact p { margin:0; font-family:var(--sans); font-size:15px; color:#cfcfcf; }
+.w-contact .w-row { display:flex; flex-wrap:wrap; gap:8px; justify-content:center; }
+.w-contact a, .w-contact button { font-family:var(--mono); font-size:12px; color:#efefef; border:1px solid #5e5e5e; padding:7px 12px; background:#141414; cursor:pointer; }
+.w-contact a:hover, .w-contact button:hover { border-color:#efefef; }
+.w-contact :focus-visible { outline:2px solid #f454a6; outline-offset:2px; }
 .w-snd-chip { position:absolute; left:50%; top:62px; translate:-50% 0; z-index:4; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:#0a0a0a; border:1px solid #f454a6; padding:7px 12px; }
 .w-snd-chip[hidden] { display:none; }
 .w-pause b { font-size:18px; letter-spacing:3px; text-transform:uppercase; }

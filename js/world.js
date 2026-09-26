@@ -162,8 +162,30 @@
   ];
   var TOTAL = STATIONS.filter(function (s) { return s.found; }).length;
   var OUT = STATIONS.filter(function (s) { return !s.room; });        // the landmarks that stand outdoors
+  /* ════════ the save ════════
+     one versioned object in localStorage: the logs found, the secrets, whether pi has evolved,
+     where pi was, the comfort settings, who holds the core, whether the credits have rolled.
+     a bad parse or an unknown version starts fresh instead of breaking the island, and a browser
+     that refuses storage (a private window) just doesn't remember */
+  var SAVE_KEY = "island-save";
+  function freshSave() { return { v: 1, logs: [], secrets: [], evolved: false, lastPos: null, settings: null, ruler: null, credits: false, hatched: false, seal: false }; }
+  var save = freshSave();
+  (function () {
+    var o = null; try { o = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { o = null; }
+    if (o && o.v === 1 && Array.isArray(o.logs)) {
+      Object.keys(save).forEach(function (k2) { if (o[k2] !== undefined && o[k2] !== null && typeof o[k2] === typeof save[k2]) save[k2] = o[k2]; else if (o[k2] !== undefined && save[k2] === null) save[k2] = o[k2]; });
+      if (!Array.isArray(save.secrets)) save.secrets = [];
+      if (!Array.isArray(save.lastPos) || save.lastPos.length !== 2 || !isFinite(save.lastPos[0]) || !isFinite(save.lastPos[1])) save.lastPos = null;
+      return;
+    }
+    try {                                                            // no save yet: bring over the older per-session keys
+      var old = JSON.parse(sessionStorage.getItem("pi-found") || "[]"); if (Array.isArray(old)) save.logs = old;
+      save.evolved = sessionStorage.getItem("pi-kaiju") === "1"; save.ruler = sessionStorage.getItem("rift-done") || null; save.hatched = sessionStorage.getItem("pi-hatched") === "1";
+    } catch (e) {}
+  })();
+  function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
   var found = {};
-  try { (JSON.parse(sessionStorage.getItem("pi-found") || "[]")).forEach(function (k) { found[k] = 1; }); } catch (e) {}
+  save.logs.forEach(function (k2) { if (typeof k2 === "string") found[k2] = 1; });
 
   /* ════════ collision ════════ */
   var solid = {}, fence = {};
@@ -775,7 +797,7 @@
   function shadow(x, y, w) { ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(x - w / 2 + 1, y - 1, w - 2, 1); ctx.fillRect(x - w / 2, y, w, 2); ctx.fillRect(x - w / 2 + 1, y + 2, w - 2, 1); }
 
   var SPAWN = { x: 46 * T + 8, y: 60 * T + 12 };
-  var pi = { kaiju: (function () { try { return sessionStorage.getItem("pi-kaiju") === "1"; } catch (e) { return false; } })(), x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
+  var pi = { kaiju: !!save.evolved, x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
   var rex = { x: 44 * T + 8, y: 62 * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
   var ptero = { on: false, x: 0, y: 0, vx: 0, next: 4 };
   var clouds = [0, 1, 2].map(function (i) { return { x: hash(i, 9) * MW * T, y: hash(9, i) * MH * T, w: 90 + i * 30, v: 5 + i * 2 }; });
@@ -893,12 +915,12 @@
   // with nothing saved, shake and flashes start from the system's reduced-motion setting, and follow it
   var OPT = { shake: REDUCED ? 0 : 1, flash: !REDUCED, map: true }, OPT_SAVED = {};
   try {
-    var so0 = JSON.parse(localStorage.getItem("island-opts") || "{}"); if (so0 && typeof so0 === "object") OPT_SAVED = so0;
+    var so0 = save.settings || JSON.parse(localStorage.getItem("island-opts") || "{}"); if (so0 && typeof so0 === "object") OPT_SAVED = so0; else so0 = {};
     if (typeof so0.shake === "number") OPT.shake = Math.max(0, Math.min(1, so0.shake));
     if (typeof so0.flash === "boolean") OPT.flash = so0.flash;
     if (so0.map === false) OPT.map = false;
   } catch (e) {}
-  function saveOpt() { OPT_SAVED = { shake: OPT.shake, flash: OPT.flash, map: OPT.map }; try { localStorage.setItem("island-opts", JSON.stringify(OPT)); } catch (e) {} }
+  function saveOpt() { OPT_SAVED = { shake: OPT.shake, flash: OPT.flash, map: OPT.map }; save.settings = OPT_SAVED; writeSave(); }
   var RMQ = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)");
   if (RMQ && RMQ.addEventListener) RMQ.addEventListener("change", function (e) {
     REDUCED = e.matches;
@@ -981,6 +1003,12 @@
   }
   function onKeyDown(e) {
     if (open) nudgeSound();
+    if (open && creditsOpen()) {
+      if (e.key === "Escape" || e.key === " " || e.key === "Enter" && !(document.activeElement && document.activeElement.tagName === "A")) {
+        e.preventDefault(); if (credEl.classList.contains("w-cred-end")) closeCredits(); else creditsEnd();
+      }
+      return;
+    }
     if (open && paused) {
       if (e.key === "Escape" || e.key === "p" || e.key === "P") { e.preventDefault(); setPaused(false); }
       return;
@@ -1137,6 +1165,7 @@
     if (s.id === "rex") { rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
     if (s.id === "core") { coreSay(false); return; }
     if (s.id === "cave") { openTerm(); return; }
+    if (s.id === "shrine" && sealed()) { say("an old shrine", "a standing stone, older than the park, with a ring carved into it. the ring is cold, and something has sealed it shut. (it opens when all eight logs are found: " + countFound() + " of " + TOTAL + ".)", []); return; }
     if (s.id === "shrine") { say("an old shrine", "a standing stone, older than the park, with a ring carved into it. the ring is warm. something on the other side of it is breathing. (what's through it contains flashing lights and loud sound.)", [["step through", "#descend"], [flashNote(OPT.flash), "#flash"]]); return; }
     if (s.id === "wake") { askRift(); return; }
     if (s.id === "heli") { toggleHeli(); return; }
@@ -1146,15 +1175,25 @@
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") pi.boost = 10;
-    if (s.found && !found[s.id]) {
-      found[s.id] = 1; paintFound(); later(0.12, function () { sfx("found"); });
-      announce("found " + countFound() + " of " + TOTAL + ": " + s.name + ", " + s.sec + ".");
-      try { sessionStorage.setItem("pi-found", JSON.stringify(Object.keys(found))); } catch (e) {}
-    }
-    var all = Object.keys(found).length === TOTAL && s.found, extra = "";
-    if (all && !rift) { extra = " (that's all eight. the ground just shifted.)"; pendingRift = true; }
-    say(s.sec ? s.name + " · " + s.sec : s.name, s.text + extra, s.links || []);
+    logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
+    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, s.links || []);
   }
+  /* the logs. a card counts as read once it has been open a second and a half, or scrolled to
+     its end. four logs wake the terminal's evolve command; all eight break the seal on the
+     shrine (a short cut to show it) and then the orbs ask to fight */
+  var logWait = null, sealNext = false;
+  function updateLog(dt) { if (!logWait) return; if (dlg.hidden) { logWait = null; return; } if ((logWait.t += dt) >= 1.5) { var s0 = logWait.s; logWait = null; markFound(s0); } }
+  function markFound(s) {
+    if (found[s.id]) return;
+    found[s.id] = 1; save.logs = Object.keys(found); writeSave();
+    var n = countFound();
+    paintFound(true); sfx("found"); pi.hop = 1;
+    announce("found " + n + " of " + TOTAL + ": " + s.name + ", " + s.sec + ".");
+    if (n === 4 && !pi.kaiju) bubble = { text: "pi:~$ four logs. something in the cave terminal just woke up.", t: 4 };
+    if (n === TOTAL && !save.seal) { sealNext = true; if (!rift) pendingRift = true; }
+    else if (n === TOTAL && !rift) pendingRift = true;
+  }
+  dlg.addEventListener("scroll", function () { if (logWait && dlg.scrollHeight > dlg.clientHeight + 4 && dlg.scrollTop + dlg.clientHeight >= dlg.scrollHeight - 2) { var s0 = logWait.s; logWait = null; markFound(s0); } });
   function say(name, text, links) {
     dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false; dSr.textContent = text;
     /* a real dialog, opened non-modal so the hud (back to portfolio, stop tour) stays usable;
@@ -1193,11 +1232,33 @@
     finishTyping(); if (dlg.open && dlg.close) dlg.close(); dlg.hidden = true; cv.focus({ preventScroll: true });
     asking = false;
     if (tour) pendingRift = false;
+    if (creditsNext && open) { creditsNext = false; showCredits(); return; }
+    if (sealNext && open && !tour) { sealNext = false; openSeal(); return; }
     if (pendingRift && open) { pendingRift = false; askRift(); }
   }
-  function paintFound() {
-    foundEl.textContent = "found " + Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length + "/" + TOTAL
-      + (rift && rift.winner ? " · core: " + rift.winner : "");
+  // eight pips in the hud, one per log; the newest pops
+  function paintFound(pop) {
+    var n = countFound(), h = '<span class="w-pips" role="img" aria-label="found ' + n + " of " + TOTAL + '">';
+    for (var i = 0; i < TOTAL; i++) h += "<i" + (i < n ? ' class="on' + (pop && i === n - 1 ? " pop" : "") + '"' : "") + "></i>";
+    foundEl.innerHTML = h + "</span>" + (rift && rift.winner ? '<span class="w-core"> · core: ' + rift.winner + "</span>" : "");
+  }
+  function sealed() { return !save.seal && countFound() < TOTAL; }
+  /* the seal breaking: a hard cut to the shrine, the ring cracks open with a toll, and back */
+  var cut = null;
+  function openSeal() {
+    var sh = STATIONS.filter(function (q) { return q.id === "shrine"; })[0];
+    cut = { x: sh.x * T + 8, y: sh.y * T, t: 0, broke: false };
+    camF.x = cut.x; camF.y = cut.y; fade = 0.9; keys = {}; pi.path = null;
+    announce("all eight logs found. the seal on the old shrine breaks.");
+  }
+  function updateCut(dt) {
+    cut.t += dt;
+    if (!cut.broke && cut.t > 0.9) {
+      cut.broke = true; save.seal = true; writeSave();
+      sfx("toll", cut.x, cut.y, { vol: 0.5 }); quake = Math.max(quake, 2);
+      for (var i = 0; i < 40; i++) { var a = Math.random() * 6.283, v = 20 + Math.random() * 50; embers.push({ x: cut.x, y: cut.y - 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life: 1 + Math.random() }); }
+    }
+    if (cut.t > 2.6) { cut = null; camF.x = null; fade = 0.9; bubble = { text: "pi:~$ something up on the highland just opened.", t: 3.5 }; if (pendingRift && open) later(1.2, function () { if (pendingRift && dlg.hidden && !side) { pendingRift = false; askRift(); } }); }
   }
   paintFound();
 
@@ -2186,17 +2247,18 @@
     evolve: function (args) {
       if (args[0] && args[0] !== "pi") { print("evolve: only pi can evolve. try ./evolve pi"); return; }
       if (pi.kaiju) { print("pi is already MIDDLE PATH. (devolve takes it back.)"); return; }
+      if (countFound() < 4) { print("evolve: pi isn't ready. it needs 4 of 8 logs first (" + countFound() + " found).", "err"); return; }
       var stages = [["  .--.  ", " /    \\ ", " \\____/ ", "   egg  "], ["  ▄███▄  ", "  █▀█▀█  ", " ▄█████  ", "   pi     "], ["   ???    ", "  (    )  ", "   ~~~~   ", "          "]];
       print("evolving pi...", "dim");
       stages.forEach(function (st, n) { setTimeout(function () { st.forEach(function (l) { print("   " + l); }); print("   ↓", "dim"); sfx(n === 2 ? "warp" : "blip"); }, 300 + n * 500); });
       setTimeout(function () {
         KAIJU_ART.forEach(function (l) { print(l, "hi"); });
         print("pi evolved into MIDDLE PATH. (devolve to go back)", "ok");
-        pi.kaiju = true; try { sessionStorage.setItem("pi-kaiju", "1"); } catch (e) {}
+        pi.kaiju = true; save.evolved = true; writeSave();
         sfx("grunt"); setTimeout(function () { sfx("squeak"); }, 260);             // a small roar, for a small kaiju
       }, 1900);
     },
-    devolve: function () { if (!pi.kaiju) { print("pi is as small as it gets."); return; } pi.kaiju = false; try { sessionStorage.removeItem("pi-kaiju"); } catch (e) {} print("pi is pi again.", "ok"); },
+    devolve: function () { if (!pi.kaiju) { print("pi is as small as it gets."); return; } pi.kaiju = false; save.evolved = false; writeSave(); print("pi is pi again.", "ok"); },
     sound: function (args) {
       if (!SND) { print("sound: not available in this browser"); return; }
       if ((args[0] === "on") !== SND.on() && (args[0] === "on" || args[0] === "off")) SND.toggle(); else if (!args[0]) SND.toggle();
@@ -2368,21 +2430,47 @@
   }
   function crown(name) {
     if (reality.cur !== "dino") shiftReality("dino", ARENA.x, ARENA.y - 34);
-    try { sessionStorage.setItem("rift-done", name); } catch (e) {}
+    save.ruler = name; writeSave();
     if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette(name); });
     if (!rift) rift = { orbs: [], parts: [], shake: 0, dim: 0, ring: 0, novas: [], scorch: [], flash: 0 };
     rift.phase = "reign"; rift.winner = name; rift.t = 0; rift.act = null;
     var w = rift.orbs.filter(function (o) { return o.name === name; })[0] || (window.Orb ? rival(name, 0) : null);
     if (w) { w.alive = true; w.alpha = 1; w.x = ARENA.x; w.y = ARENA.y; w.z = 34; w.scale = 1.7; rift.orbs = [w]; }
     paintFound();
+    if (!save.credits) creditsNext = true;
     coreSay(true);
+  }
+  /* the credits: after the first crowning, a short roll, then the contact card. after that the
+     island is free roam, everything open */
+  var creditsNext = false, credEl = root.querySelector(".w-credits");
+  function creditsOpen() { return credEl && !credEl.hidden; }
+  function showCredits() {
+    if (!credEl) return;
+    save.credits = true; writeSave();
+    var roll = credEl.querySelector(".w-roll"), lines = [["h", "pi's island"], ["", "a playable version of this portfolio"], ["", ""], ["k", "the eight logs"]];
+    STATIONS.filter(function (q) { return q.found; }).forEach(function (q) { lines.push(["", q.name + " · " + q.sec]); });
+    lines.push(["", ""], ["k", "the orbs"], ["", "eclipse, bone, halo, fog and void"], ["", (rift && rift.winner ? rift.winner : "eclipse") + " holds the core"], ["", ""], ["k", "the mascot"], ["", "Middle Path, drawn years ago by Ammaar and his friends"], ["", ""], ["h", "thanks for playing"]);
+    roll.innerHTML = ""; lines.forEach(function (l) { var d = document.createElement("div"); d.className = l[0] ? "w-roll-" + l[0] : ""; d.textContent = l[1] || "\u00a0"; roll.appendChild(d); });
+    credEl.hidden = false; credEl.classList.remove("w-cred-end");
+    keys = {};
+    if (REDUCED) creditsEnd(); else { roll.style.animation = "none"; void roll.offsetWidth; roll.style.animation = ""; }
+    credEl.focus({ preventScroll: true });
+  }
+  function creditsEnd() { if (!credEl) return; credEl.classList.add("w-cred-end"); var a0 = credEl.querySelector(".w-contact a"); if (a0) a0.focus({ preventScroll: true }); }
+  function closeCredits() { if (credEl) credEl.hidden = true; cv.focus({ preventScroll: true }); bubble = { text: "pi:~$ everything's open now. go anywhere.", t: 3.5 }; }
+  if (credEl) {
+    credEl.querySelector(".w-roll").addEventListener("animationend", creditsEnd);
+    credEl.addEventListener("click", function (e) {
+      if (e.target.closest && e.target.closest("[data-a=\"roam\"]")) { closeCredits(); return; }
+      if (!credEl.classList.contains("w-cred-end") && !(e.target.closest && e.target.closest("a"))) creditsEnd();
+    });
   }
   var restoreBtn = root.querySelector(".w-restore");
   function restoreSite() {
     if (!rift) return;
     closeDialog();
     rift = null; reality.cur = "dino"; reality.wipe = null; reality.glitch = 0; lens = null;
-    try { sessionStorage.removeItem("rift-done"); } catch (e) {}
+    save.ruler = null; writeSave();
     if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette("eclipse"); });
     if (SND) SND.intensity(0);
     paintFound(); paintRestore();
@@ -3161,6 +3249,8 @@
   function update(dt) {
     tickTimers(dt);
     updateTour(dt);
+    updateLog(dt);
+    if (cut) { updateCut(dt); return; }
     if (hitstop > 0) { hitstop -= dt; return; }
     if (side) { updateSide(dt); updateReality(dt); quake = Math.max(0, quake - dt * 8); if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; } return; }             // a beat of freeze on a big hit sells the impact
     updateRift(dt);
@@ -3435,7 +3525,7 @@
     var lvx = car.driving ? Math.sin(car.a) * car.v * 0.3 : aboard() ? heli.vx * 0.3 : pi.vx * 0.22, lvy = car.driving ? -Math.cos(car.a) * car.v * 0.3 : aboard() ? heli.vy * 0.3 : pi.vy * 0.22;
     var lk = car.driving || aboard() ? 30 : 14;
     look.x += (Math.max(-lk, Math.min(lk, lvx)) - look.x) * 0.03; look.y += (Math.max(-lk * 0.6, Math.min(lk * 0.6, lvy)) - look.y) * 0.03;
-    var foc = riftBusy() ? orbFocus() : null, fx = foc ? foc.x : pi.x + look.x, fy = foc ? foc.y : pi.y + look.y;
+    var foc = cut ? cut : riftBusy() ? orbFocus() : null, fx = foc ? foc.x : pi.x + look.x, fy = foc ? foc.y : pi.y + look.y;
     if (camF.x === null) { camF.x = fx; camF.y = fy; }
     camF.x += (fx - camF.x) * 0.06; camF.y += (fy - camF.y) * 0.06;
     var sh = shakeBy((rift ? rift.shake : 0) + quake);
@@ -3533,6 +3623,11 @@
     if (s.id === "shrine") {
       var sp2 = skin(SPR.shrine), sx1 = Math.round(bx - sp2.width / 2), sy1 = by - sp2.height + 2;
       ctx.drawImage(sp2, sx1, sy1);
+      if (sealed() && !(cut && cut.broke)) {
+        ctx.fillStyle = "rgba(150,170,190,.55)"; ctx.fillRect(sx1 + 3, sy1 + 15, sp2.width - 6, 1); ctx.fillRect(sx1 + 11, sy1 + 8, 2, 14);
+        light(bx, sy1 + 16, 14, "150,170,200", 0.3);
+        return;
+      }
       var gl = 0.35 + 0.35 * Math.sin(t * 1.3);
       ctx.fillStyle = "rgba(160,120,255," + gl.toFixed(2) + ")"; ctx.fillRect(sx1 + 11, sy1 + 15, 2, 2);
       light(bx, sy1 + 16, 26, "160,120,255", 0.8);
@@ -3661,7 +3756,7 @@
     raf = 0;
     if (!open) return;
     var ms = now - last; last = now;
-    if (!paused && !setOpen()) {
+    if (!paused && !setOpen() && !creditsOpen()) {
       acc += Math.min(0.1, Math.max(0, ms / 1000));
       for (var n = 0; acc >= STEP && n < 5; n++) { t += STEP; update(STEP); acc -= STEP; }
       if (acc >= STEP) acc = 0;
@@ -3806,13 +3901,15 @@
       document.documentElement.classList.add("in-world");
       root.hidden = false; root.classList.add("show");
       var first = false;
-      try { first = sessionStorage.getItem("pi-hatched") !== "1"; sessionStorage.setItem("pi-hatched", "1"); } catch (e) {}
+      first = !save.hatched; save.hatched = true; writeSave();
       egg = first && !REDUCED ? { t: 0 } : null;
       pi.x = SPAWN.x; pi.y = SPAWN.y; pi.vx = pi.vy = 0; pi.path = null; keys = {};
+      var lp = save.lastPos;                                            // back where pi left off
+      if (!first && lp && walkable(Math.floor(lp[0] / T), Math.floor(lp[1] / T))) { pi.x = lp[0]; pi.y = lp[1]; }
       zoom = REDUCED ? 1 : 2.6; zoomTo = 1;
       if (!first) bubble = { text: "pi:~$ welcome back.", t: 2.5 };
       camF.x = null;
-      var ruler = null; try { ruler = sessionStorage.getItem("rift-done"); } catch (e) {}
+      var ruler = save.ruler;
       if (ruler && !rift && window.Orb) { rift = { phase: "reign", winner: ruler, t: 0, orbs: [rival(ruler, 0)], parts: [], shake: 0, dim: 0, ring: 0 }; var w0 = rift.orbs[0]; w0.x = ARENA.x; w0.y = ARENA.y; w0.z = 34; w0.scale = 1.7; paintFound(); }
       else if (!ruler && !rift && Object.keys(found).length === TOTAL) later(first ? 3 : 1.2, function () { if (!rift && dlg.hidden) askRift(); });
       startLoop();
@@ -3831,12 +3928,13 @@
   function exit(then) {
     if (!open || exiting) return;
     exiting = true;
+    if (!room && !side && !riftBusy()) { save.lastPos = [Math.round(pi.x), Math.round(pi.y)]; writeSave(); }
     closeDialog(); if (termOpen) closeTerm();
     if (car.driving) toggleCar();
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
-      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour();
+      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour(); if (credEl) credEl.hidden = true;
       open = false; exiting = false; stopLoop(); unbindSession();
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");
