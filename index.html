@@ -63,6 +63,7 @@
   <div id="world" class="world" hidden role="dialog" aria-modal="true" aria-label="pi's island: a small walkable map of Ammaar's work">
     <div class="w-hud">
       <button class="w-exit" type="button" aria-label="Back to portfolio">← back<span class="w-sound-l"> to portfolio</span></button>
+      <button class="w-tour" type="button" aria-label="Take the tour: every section in about a minute">▶ tour</button>
       <div class="w-title"><span class="wp">&#9650;</span> pi's island <span class="w-found">found 0/8</span></div>
       <div class="w-keys">wasd / arrows or tap to walk · shift runs · e to look · m mutes · esc for menu</div>
       <button class="w-restore" type="button" aria-label="Restore site" hidden>restore<span class="w-sound-l"> site</span></button>
@@ -73,9 +74,9 @@
     <div class="sr-only" id="w-live" aria-live="polite"></div>
     <div class="w-set" id="w-set" role="dialog" aria-label="Island settings" hidden></div>
     <button class="w-snd-chip" type="button" hidden>♪ tap to resume sound</button>
-    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Island landmarks"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="settings">settings</button><button type="button" data-a="leave">back to portfolio</button></div></div>
-    <div class="w-card" hidden aria-hidden="true"><b>pi's island</b><span>a playable version of this portfolio.</span><span class="w-card-k">esc for menu</span></div>
-    <dialog class="w-dialog" hidden aria-labelledby="w-name" aria-describedby="w-sr">
+    <div class="w-pause" role="dialog" aria-label="Paused" hidden><b>paused</b><nav class="w-lm" aria-label="Island landmarks"></nav><div class="w-row"><button type="button" data-a="resume">resume (esc)</button><button type="button" data-a="tour">tour</button><button type="button" data-a="settings">settings</button><button type="button" data-a="leave">back to portfolio</button></div></div>
+    <div class="w-card" hidden><b>pi's island</b><span>a playable version of this portfolio.</span><span class="w-card-k">esc for menu</span><div class="w-card-go" hidden><button type="button" data-a="tour">take the tour</button><button type="button" data-a="play">play</button></div></div>
+    <dialog class="w-dialog" hidden tabindex="-1" aria-labelledby="w-name" aria-describedby="w-sr">
       <h2 class="w-name" id="w-name"></h2>
       <p class="w-text" aria-hidden="true"></p>
       <p class="sr-only" id="w-sr"></p>

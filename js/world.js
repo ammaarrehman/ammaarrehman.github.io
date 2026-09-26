@@ -988,6 +988,8 @@
     if (!open || termOpen || setOpen()) return;
     var tg = e.target && e.target.tagName;
     if (tg === "INPUT" || tg === "TEXTAREA" || tg === "SELECT") return;          // typing somewhere: leave the keys alone
+    if (tour && !e.repeat && (e.key === " " || e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === "ArrowRight")) { e.preventDefault(); if (tour.i >= TOUR.length - 1) { endTour(false); closeDialog(); } else tourStep(); return; }
+    if (tour && e.key === "Escape") { e.preventDefault(); endTour(true); return; }
     var d = dirKey(e);
     if (d) { keys[d] = 1; pi.path = null; pi.want = null; car.target = null; heli.target = null; e.preventDefault(); if (egg) egg.t = 99; return; }
     if (e.repeat) { if (e.key === " " || e.key === "Enter") e.preventDefault(); return; }
@@ -1128,8 +1130,10 @@
   }
   function say(name, text, links) {
     dName.textContent = name; dLinks.innerHTML = ""; dlg.hidden = false; dSr.textContent = text;
-    // a real modal dialog: it holds focus, escape closes it, and a screen reader reads it whole
-    if (dlg.showModal && !dlg.open) { try { dlg.showModal(); } catch (e) {} }
+    /* a real dialog, opened non-modal so the hud (back to portfolio, stop tour) stays usable;
+       focus moves into it so a screen reader reads it whole, and escape or e closes it */
+    if (dlg.show && !dlg.open) { try { dlg.show(); } catch (e) {} }
+    if (open) dlg.focus({ preventScroll: true });
     links.forEach(function (l) {
       var a = document.createElement("a"); a.textContent = l[0]; a.href = l[1] === "#exit" ? "#" : l[1];
       if (/^https?:|^mailto:/.test(l[1])) { a.target = "_blank"; a.rel = "noopener noreferrer"; }
@@ -1150,7 +1154,7 @@
     sfx("open");
     typing = setInterval(function () { i += 2; dText.textContent = full.slice(0, i); if (i % 8 === 0) sfx("type"); if (i >= full.length) finishTyping(); }, 16);
   }
-  dlg.addEventListener("cancel", function (e) { e.preventDefault(); if (typing) finishTyping(); else closeDialog(); });
+  dlg.addEventListener("cancel", function (e) { e.preventDefault(); if (tour) { endTour(true); return; } if (typing) finishTyping(); else closeDialog(); });
   dlg.addEventListener("click", function (e) {
     if (e.target !== dlg) return;
     var r = dlg.getBoundingClientRect();
@@ -1161,6 +1165,7 @@
   function closeDialog() {
     finishTyping(); if (dlg.open && dlg.close) dlg.close(); dlg.hidden = true; cv.focus({ preventScroll: true });
     asking = false;
+    if (tour) pendingRift = false;
     if (pendingRift && open) { pendingRift = false; askRift(); }
   }
   function paintFound() {
@@ -3124,6 +3129,7 @@
   }
   function update(dt) {
     tickTimers(dt);
+    updateTour(dt);
     if (hitstop > 0) { hitstop -= dt; return; }
     if (side) { updateSide(dt); updateReality(dt); quake = Math.max(0, quake - dt * 8); if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; } return; }             // a beat of freeze on a big hit sells the impact
     updateRift(dt);
@@ -3610,6 +3616,34 @@
       lmEl.appendChild(b);
     });
   }
+  /* the tour: every section in about a minute. pi jumps to each landmark in turn and its card
+     opens for six seconds; space (or e) skips ahead, escape stops. it ends on the contact card */
+  var TOUR = ["lighthouse", "rack", "desk", "uplink", "tower", "macbook", "tablet", "mailbox"], tour = null;
+  var tourBtn = root.querySelector(".w-tour");
+  function paintTour() { if (tourBtn) { tourBtn.setAttribute("aria-pressed", tour ? "true" : "false"); tourBtn.innerHTML = tour ? "■<span class=\"w-sound-l\"> stop tour</span>" : "▶<span class=\"w-sound-l\"> tour</span>"; } }
+  function startTour() {
+    egg = null;
+    if (side || riftBusy()) { bubble = { text: "pi:~$ the tour can wait for this.", t: 2.5 }; return; }
+    if (paused) setPaused(false);
+    if (setOpen()) toggleSettings(false);
+    tour = { i: -1, t: 0 }; paintTour(); tourStep();
+  }
+  function tourStep() {
+    if (!tour) return;
+    tour.i++; tour.t = 0;
+    if (tour.i >= TOUR.length) { endTour(false); return; }
+    fade = 0.8; visitLandmark(TOUR[tour.i]);
+    finishTyping();                                              // no typewriter on the tour: read straight away
+    announce("tour, " + (tour.i + 1) + " of " + TOUR.length + ".");
+  }
+  function endTour(stopped) {
+    if (!tour) return;
+    var last = !stopped; tour = null; paintTour();
+    if (stopped) closeDialog();
+    else if (last) bubble = { text: "pi:~$ that's everything. walk around, or head back.", t: 4 };
+  }
+  function updateTour(dt) { if (tour && (tour.t += dt) > 6) { if (tour.i < TOUR.length - 1) tourStep(); else endTour(false); } }     // the contact card stays up
+  if (tourBtn) tourBtn.addEventListener("click", function () { if (tour) endTour(true); else startTour(); });
   // from the menu: take pi to a landmark and open its card
   function visitLandmark(id) {
     var q = STATIONS.filter(function (x) { return x.id === id; })[0]; if (!q) return;
@@ -3631,7 +3665,7 @@
     var a2 = e.target.closest && e.target.closest("[data-a]"); if (!a2) return;
     var act = a2.getAttribute("data-a");
     setPaused(false);
-    if (act === "settings") toggleSettings(true); else if (act === "leave") exit();
+    if (act === "settings") toggleSettings(true); else if (act === "tour") startTour(); else if (act === "leave") exit();
   });
 
   /* ════════ the warp: orb → island and back ════════ */
@@ -3672,11 +3706,24 @@
   }
 
   var cardEl = root.querySelector(".w-card"), cardT = 0;
-  function showCard() {
+  var cardGo = cardEl && cardEl.querySelector(".w-card-go");
+  function showCard(offer) {
     if (!cardEl) return;
     cardEl.hidden = true; void cardEl.offsetWidth; cardEl.hidden = false;       // restart the fade
-    clearTimeout(cardT); cardT = setTimeout(function () { cardEl.hidden = true; }, REDUCED ? 1600 : 2200);
+    clearTimeout(cardT);
+    if (cardGo) cardGo.hidden = !offer; cardEl.classList.toggle("w-card-stay", !!offer);
+    if (offer) { var b0 = cardGo.querySelector("button"); if (b0) b0.focus({ preventScroll: true }); return; }
+    cardT = setTimeout(function () { cardEl.hidden = true; }, REDUCED ? 1600 : 2200);
   }
+  if (cardGo) cardGo.addEventListener("click", function (e) {
+    var b = e.target.closest && e.target.closest("[data-a]"); if (!b) return;
+    cardEl.hidden = true; cv.focus({ preventScroll: true });
+    if (b.getAttribute("data-a") === "tour") startTour();
+  });
+  // what a deep link can name: a landmark, or the section it holds
+  var DEEP = { rack: "rack", homelab: "rack", dns: "rack", desk: "desk", triage: "desk", uplink: "uplink", aws: "uplink", terraform: "uplink", tower: "tower", monitoring: "tower",
+               lighthouse: "lighthouse", experience: "lighthouse", macbook: "macbook", site: "macbook", tablet: "tablet", education: "tablet", mailbox: "mailbox", contact: "mailbox" };
+  window.addEventListener("hashchange", function () { if (!open && location.hash.indexOf("#island") === 0) enter(); });
   var lastFocus = null;
   var entering = false;
   function enter() {
@@ -3703,7 +3750,10 @@
       else if (!ruler && !rift && Object.keys(found).length === TOTAL) later(first ? 3 : 1.2, function () { if (!rift && dlg.hidden) askRift(); });
       startLoop();
       cv.focus({ preventScroll: true });
-      showCard();
+      var deep = (location.hash.match(/^#island\/([a-z-]+)/) || [])[1], lmk = deep && DEEP[deep];
+      showCard(!deep && TOUCH);
+      if (deep === "tour") later(0.2, startTour);
+      else if (lmk) { egg = null; later(0.2, function () { visitLandmark(lmk); }); }
       announce("pi's island, a playable version of this portfolio. Press Escape for a menu listing all eight sections.");
       hideWarp();
       if (window.orbs) window.orbs.forEach(function (o) { o.pause(true); });
@@ -3719,7 +3769,7 @@
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
-      paused = false; if (pauseEl) pauseEl.hidden = true;
+      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour();
       open = false; exiting = false; stopLoop(); unbindSession();
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");

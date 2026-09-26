@@ -17,7 +17,7 @@
   var AC = window.AudioContext || window.webkitAudioContext;
   var ctx = null, live = 0, restarting = false, stateListeners = [], voices = [], curBus = null, curEnd = 0, master, sfxBus, musicBus, ambBus, noiseBuf, verb, verbIn, enabled = true, listeners = [], restartListeners = [];
   var BASE = { master: 0.85, music: 0.42, sfx: 0.9, amb: 0.9 };
-  var MIX = { master: 1, music: 0.8, sfx: 1, amb: 0.8 };
+  var MIX = { master: 0.7, music: 0.8, sfx: 1, amb: 0.8 };             // a moderate start; the visitor's own levels are remembered
   try { enabled = localStorage.getItem("sound") !== "off"; } catch (e) {}
   try { var saved = JSON.parse(localStorage.getItem("sound-mix") || "{}"); Object.keys(MIX).forEach(function (k) { if (typeof saved[k] === "number") MIX[k] = Math.max(0, Math.min(1, saved[k])); }); } catch (e) {}
 

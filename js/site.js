@@ -155,6 +155,7 @@
     orbBtn.addEventListener("focus", loadIsland);
     orbBtn.addEventListener("touchstart", loadIsland, { passive: true });
     orbBtn.addEventListener("click", function () { if (island !== 2) { go = true; loadIsland(); } });
+    window.addEventListener("hashchange", function () { if (island !== 2 && location.hash.indexOf("#island") === 0) { go = true; loadIsland(); } });
     // an #island link: wait for the rest of the page's scripts (the sound engine, the orbs) first
     if (location.hash.indexOf("#island") === 0) {
       go = true;
