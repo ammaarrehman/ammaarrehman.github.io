@@ -123,17 +123,24 @@ also a terminal left logged in, in a cave at the foot of the volcano (a robot wi
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early.
 
-It plays like a small top-down game: pi eases into a walk and out of it, shift runs, the
-camera leads a little in the direction of travel, footsteps kick up dust and leave prints
-in the sand, ferns rustle, birds scatter, dinosaurs turn to watch you, big hits freeze for a
-beat, and a minimap (bottom right on wide screens) marks the landmarks you've found. The
+It plays like a small top-down game: pi reaches its pace in about a tenth of a second,
+squashes as it sets off and stretches as it stops, shift runs, the camera follows the same at
+any frame rate and leads a tile and a half ahead, footsteps land on the walk cycle and kick up
+dust and prints, ferns rustle, birds scatter, and a minimap (bottom right on wide screens)
+marks the landmarks you've found. Doors, fast travel, the shrine and landing all close and
+open an iris on pi while the music is swept down to a muffle and back. The world notices pi:
+compys scatter, the raptors pace their fence to keep level, the brachiosaurus lowers its head
+if pi stands beside it, dinosaurs doze at night (fireflies come out over the meadow), and the
+bots turn and say where the nearest log is, pass on a rumour, or tell a joke. Twelve secrets
+are kept in one table: each pops a toast when found, and the terminal's `secrets` lists
+them. Every special move in the fight is telegraphed for 150 ms, and each hit freezes for 70. The
 dinosaurs have six-frame walks (a four-beat gait for the quadrupeds), breathing idles,
 blinks, grazing, and a roar.
 
 Sound is all synthesized in the browser (`js/audio.js`): footsteps that change with the
 ground, surf, insects, the volcano's rumble, the rotor and the M3's engine, the t-rex, the
-orb fight, a little chiptune score for day and night, and dark scores for the shrine and the
-fight. It starts on the click into the island, `m` or the ♪ button mutes it, and the ⚙
+orb fight, a little chiptune loop for each terrace (crossfading as pi climbs, slower and
+darker at night, ducked under an open card), and dark scores for the shrine and the fight. It starts on the click into the island, `m` or the ♪ button mutes it, and the ⚙
 settings panel has levels for the master, music, effects and ambience, a button that
 restarts the sound engine, and comfort switches for screen shake, bright flashes and the
 minimap. Everything is remembered in this browser.
@@ -160,6 +167,10 @@ a second, and with bright flashes off a whiteout is soft and nothing inverts the
 Screen readers get the cards whole, the canvas is a labelled application, and a polite live
 region names the landmark pi is next to and each log found. The island runs on a fixed 60 Hz
 step and pauses when the tab is hidden.
+
+Glows are sprites drawn once and stretched rather than gradients built every frame, the
+fight's particles sit in a capped pool, a quality tier sheds the heaviest effects if frames
+run long, and the other realities' art is let go once the tear closes.
 
 The pages send a strict Content-Security-Policy (`script-src 'self'`, no inline scripts or
 styles), and every link that opens a new tab has `noopener noreferrer`.
