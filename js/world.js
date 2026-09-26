@@ -132,7 +132,7 @@
   for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) map[y][x] = PAD;
   // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost
   var BUILDINGS = [
-    { id: "visitor", x0: 39, y0: 58, w: 4, h: 2, room: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'please do not tap on the glass. the raptors can see you.'" },
+    { id: "visitor", x0: 39, y0: 58, w: 4, h: 2, room: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'lost and found: one hat, two sunglasses, a very small egg.'" },
     { id: "bunker", x0: 19, y0: 58, w: 4, h: 2, room: "bunker", name: "the bunker", text: "the outpost bunker." },
     { id: "depot", x0: 53, y0: 58, w: 3, h: 2, room: "depot", name: "the supply depot", text: "the supply depot. crates come off the boat, the cargo bots haul them in here, and the drones fly them out to wherever something needs fixing." }
   ];
@@ -166,7 +166,7 @@
   /* ════════ the portfolio, as landmarks ════════ */
   var GH = "https://github.com/ammaarrehman/";
   var STATIONS = [
-    { id: "sign", x: 44, y: 57, name: "signpost", text: "pi's jurassic island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
+    { id: "sign", x: 44, y: 57, name: "signpost", text: "pi's island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
     { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "High-availability DNS. Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
     { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took primary accuracy from 93% to 100% and multi-need coverage from 0% to 90%. Staff review every row.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
     { id: "uplink", x: 25, y: 63, name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployed and destroyed with one command, inside the AWS free tier, with a budget alarm.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
@@ -1458,7 +1458,7 @@
   var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":33,"h":20,"f":[[0,46],[34,46],[68,46],[102,46],[136,46],[170,46],[204,46],[238,46],[272,46],[306,46],[340,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":84,"h":83,"f":[[0,67],[85,67],[170,67],[255,67],[340,67],[425,67],[510,67],[595,67],[680,67],[765,67],[850,67],[935,67],[1020,67]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,151],[60,151],[120,151],[180,151],[240,151],[300,151],[360,151],[420,151],[480,151],[540,151],[600,151],[660,151],[720,151]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,192],[59,192],[118,192],[177,192],[236,192],[295,192],[354,192],[413,192],[472,192],[531,192],[590,192],[649,192],[708,192]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,229],[55,229],[110,229],[165,229],[220,229],[275,229],[330,229],[385,229],[440,229],[495,229],[550,229],[605,229],[660,229]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":46,"h":21,"f":[[0,272],[47,272],[94,272],[141,272],[188,272],[235,272],[282,272],[329,272],[376,272],[423,272],[470,272],[517,272],[564,272]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,294],[91,294],[182,294],[273,294],[364,294],[455,294],[546,294],[637,294],[728,294],[819,294],[910,294]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":41,"h":32,"f":[[0,346],[42,346],[84,346],[126,346],[168,346],[210,346],[252,346],[294,346],[336,346],[378,346],[420,346],[462,346],[504,346]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":31,"h":22,"f":[[0,379],[32,379],[64,379],[96,379],[128,379],[160,379],[192,379],[224,379],[256,379],[288,379],[320,379],[352,379],[384,379]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,402],[39,402],[78,402],[117,402],[156,402],[195,402],[234,402],[273,402],[312,402],[351,402],[390,402]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":17,"h":10,"f":[[0,443],[18,443],[36,443],[54,443],[72,443],[90,443],[108,443],[126,443],[144,443],[162,443],[180,443]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,454],[22,454],[44,454],[66,454],[88,454],[110,454],[132,454],[154,454],[176,454],[198,454],[220,454]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,473],[22,473],[44,473],[66,473],[88,473],[110,473],[132,473],[154,473],[176,473],[198,473],[220,473]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"ptero":{"w":32,"h":45,"f":[[0,492],[33,492],[66,492],[99,492],[132,492],[165,492],[198,492],[231,492],[264,492],[297,492],[330,492],[363,492],[396,492],[429,492],[462,492],[495,492],[528,492]],"m":{"fly":[0,1,2,3,4,5,6,7,8,9,10,11],"glide":[12,13,14,15],"blink":[16]}}};
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261005";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261006";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -1489,7 +1489,7 @@
     ankylo: { art: true, sp: 6, step: 1.1, graze: true, say: "an ankylosaurus. armored, unbothered, and swinging that tail at nothing in particular." },
     baby: { art: true, sp: 13, step: 0.8, say: "a baby dino. it squeaks at pi." },
     spino: { art: true, sp: 10, step: 1.9, say: ["a spinosaurus, working the riverbank for fish. the sail catches the light.", "a spinosaurus. its snout is more crocodile than dinosaur. it ignores pi completely, which is somehow worse."] },
-    dilo: { art: true, sp: 16, step: 2, say: ["a dilophosaurus. twin crests, and when it calls, a frill you really don't want aimed at you.", "a dilophosaurus. it hoots, and the frill fans out. pi decides that's a no."] },
+    dilo: { art: true, sp: 16, step: 2, say: ["a dilophosaurus. two thin crests on its head, and a call that carries across the paddock.", "a dilophosaurus. it hoots and bobs its crests. pi admires them from here."] },
     pachy: { art: true, sp: 12, step: 1.8, say: ["a pachycephalosaurus. the dome on its head is solid bone, about a foot thick.", "a pachycephalosaurus, sizing up the other one. they're going to butt heads again."] },
     galli: { art: true, sp: 30, step: 2.8, say: ["a gallimimus. an ostrich of a dinosaur, and just as quick to bolt.", "a gallimimus. the whole herd flinches when pi gets close."] },
     compy: { art: true, sp: 26, step: 1.2, say: ["a compsognathus. about the size of a chicken. there are more of them than pi counted.", "a compy. it chirps and darts off, and the others follow."] },
@@ -1571,7 +1571,7 @@
     if ((c.kind === "compy" && pd0 < 48) || (c.kind === "galli" && pd0 < 64)) {
       if (!c.flee || !c.tx) { var fa = Math.atan2(c.y - pi.y, c.x - pi.x) + (Math.random() - 0.5) * 0.8; c.tx = c.x + Math.cos(fa) * 60; c.ty = c.y + Math.sin(fa) * 40; c.fast = 1.6; c.flee = 1; if (Math.random() < 0.3) sfx(CALLS[c.kind], c.x, c.y); }
     } else c.flee = 0;
-    // the dilophosaurus fans its frill and calls; two pachycephalosaurs butt heads
+    // the dilophosaurus calls; two pachycephalosaurs butt heads
     if (c.kind === "dilo" && !c.tx && Math.random() < dt * 0.08) { c.roar = 1.4; sfx("screech", c.x, c.y); }
     if (c.kind === "pachy" && !c.tx && c.cd <= 0) {
       var rival2 = critters.filter(function (o) { return o.kind === "pachy" && o !== c && !o.tx; })[0];
@@ -2320,7 +2320,7 @@
     neofetch: function () {
       var up = Math.floor((Date.now() - uptime0) / 1000), n = nyNow();
       var art = ["    ▄███▄  ", "    █▀█▀█  ", "   ▄█████  ", "  ▀██████▀ ", "    ▀▀ ▀▀  "];
-      var info = ["pi@island", "---------", "os: pi's island (jurassic edition)", "host: Ellicott City, MD (ET)", "uptime: " + Math.floor(up / 60) + "m " + (up % 60) + "s",
+      var info = ["pi@island", "---------", "os: pi's island (cretaceous edition)", "host: Ellicott City, MD (ET)", "uptime: " + Math.floor(up / 60) + "m " + (up % 60) + "s",
                   "residents: " + critters.filter(function (c) { return DINOS[c.kind].art; }).length + " dinos, 3 bots, 2 cats, 2 cockatiels, 20 koi", "landmarks: " + countFound() + "/" + TOTAL + " found", "volcano: warm", "core: " + (rift && rift.winner ? rift.winner : "asleep")];
       info.forEach(function (l, i) { print((art[i] || "           ") + " " + l, i === 0 ? "hi" : ""); });
     },
@@ -2355,7 +2355,7 @@
     pwd: function () { print("/home/pi"); },
     cd: function (args) { print(args[0] ? "cd: this shell only has one room. try ls " + args[0] : "you're already home."); },
     man: function (args) { if (args[0] && CMDS[args[0]]) print(args[0] + ": see help. the manual was eaten by a raptor."); else CMDS.help(); },
-    uname: function () { print("pi-sh 1.0 island tty1 jurassic (cave terminal, volcano level 1)"); },
+    uname: function () { print("pi-sh 1.0 island tty1 (cave terminal, volcano level 1)"); },
     date: function () { CMDS.time([]); },
     echo: function (args) { print(args.join(" ")); },
     summon: function () { print("summon what? the orbs don't answer to that. maybe the hidden files know."); },
