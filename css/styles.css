@@ -445,6 +445,9 @@ html.in-world, html.in-world body { overflow:hidden; }
 .w-contact :focus-visible { outline:2px solid #f454a6; outline-offset:2px; }
 .w-snd-chip { position:absolute; left:50%; top:62px; translate:-50% 0; z-index:4; font-family:var(--mono); font-size:12px; color:#f4f4f4; cursor:pointer; background:#0a0a0a; border:1px solid #f454a6; padding:7px 12px; }
 .w-snd-chip[hidden] { display:none; }
+.w-toast { position:absolute; left:50%; top:98px; translate:-50% 0; z-index:5; font-family:var(--mono); font-size:12px; color:#0a0a0a; background:#FFB000; border:2px solid #0a0a0a; box-shadow:3px 3px 0 rgba(0,0,0,.45); padding:7px 12px; pointer-events:none; white-space:nowrap; }
+.w-toast[hidden] { display:none; }
+.w-toast-in { animation:w-pop .3s var(--ease); }
 .w-pause b { font-size:18px; letter-spacing:3px; text-transform:uppercase; }
 .w-pause .w-lm { display:grid; grid-template-columns:repeat(2, minmax(0, 1fr)); gap:6px; width:min(520px, calc(100% - 32px)); }
 .w-pause .w-lm button { text-align:left; border-color:#5e5e5e; }

@@ -208,6 +208,7 @@
     whoosh: function (o) { noise(o && o.out ? 0.6 : 0.9, 0.14, "bandpass", o && o.out ? 2400 : 300, o && o.out ? 300 : 2600, { q: 2, attack: 0.25 }); },
     pop: function (o) { tone("sine", jit(90, 0.3), 40, 0.12, 0.09 * (o.vol || 1), { pan: o.pan }); },     // a lava bubble
     beep: function () { tone("square", 988, null, 0.14, 0.05); },
+    secret: function () { [587, 880, 1175].forEach(function (f, i) { tone("triangle", f, null, 0.22, 0.05, { when: i * 0.07, verb: true }); }); tone("sine", 2349, null, 0.4, 0.02, { when: 0.21, verb: true }); },
     grant: function () { [440, 415, 311].forEach(function (f, i) { tone("square", f, null, 0.1, 0.04, { when: i * 0.08 }); }); },
     toll: function (o) { bell((o && o.f) || 73.4, (o && o.vol) || 0.2, 6, { pan: o && o.pan }); }
   };

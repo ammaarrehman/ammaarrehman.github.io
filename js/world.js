@@ -1024,7 +1024,7 @@
     if (aboard() && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleHeli(); return; }
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
-    if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); return; }
+    if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); foundSecret("honk"); return; }
     if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { irisTo(function () { side = null; if (SND) SND.music(null); }); } else if (!side) setPaused(true); return; }
     if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
     if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
@@ -1174,7 +1174,7 @@
   function interact(s) {
     if (!save.hints.use) { save.hints.use = true; writeSave(); }
     pi.path = null; pi.want = null; keys = {};
-    if (s.id === "rex") { rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
+    if (s.id === "rex") { foundSecret("rex"); rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
     if (s.id === "core") { coreSay(false); return; }
     if (s.id === "cave") { openTerm(); return; }
     if (s.id === "shrine" && sealed()) { say("an old shrine", "a standing stone, older than the park, with a ring carved into it. the ring is cold, and something has sealed it shut. (it opens when all eight logs are found: " + countFound() + " of " + TOTAL + ".)", []); return; }
@@ -1186,9 +1186,36 @@
     if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; irisTo(function () { enterRoom(rm); }); } else say(s.ref.name, s.ref.text, []); return; }
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
-    if (s.id === "drink") pi.boost = 10;
+    if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
     logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
     say(s.sec ? s.name + " · " + s.sec : s.name, s.text, s.links || []);
+  }
+  /* ════════ secrets ════════
+     every easter egg on the island is in this one table. finding one pops a toast, rings a
+     chime and goes in the save; the terminal's `secrets` lists them (the hints open up once
+     all eight logs are found) */
+  var SECRETS = [
+    { id: "dotfiles", name: "dotfiles", hint: "some files in the cave terminal start with a dot. ls -a." },
+    { id: "root", name: "root", hint: "sudo in the cave. the password is the orb that usually wins." },
+    { id: "evolve", name: "middle path", hint: "four logs, then ./evolve pi in the cave." },
+    { id: "koi", name: "feeding time", hint: "the koi in the garden are always hungry." },
+    { id: "roar", name: "too close", hint: "walk along the t-rex paddock's fence." },
+    { id: "heli", name: "air support", hint: "the helicopter on the pad isn't just for show." },
+    { id: "drift", name: "sideways", hint: "hold shift in the M3 when it's going fast." },
+    { id: "honk", name: "beep beep", hint: "the M3 has a horn." },
+    { id: "rex", name: "chrome dino", hint: "a small dinosaur near the village wants to say hi." },
+    { id: "zoom", name: "zoom mode", hint: "the drink stand in the square." },
+    { id: "night", name: "night shift", hint: "come back after dark, New York time." },
+    { id: "deity", name: "the first orb", hint: "step through the shrine and keep climbing." }
+  ];
+  var toastEl = root.querySelector(".w-toast"), toastT = 0;
+  function foundSecret(id) {
+    var q = SECRETS.filter(function (x) { return x.id === id; })[0];
+    if (!q || save.secrets.indexOf(id) >= 0) return;
+    save.secrets.push(id); writeSave();
+    var msg = "secret found (" + save.secrets.length + "/" + SECRETS.length + "): " + q.name;
+    if (toastEl) { toastEl.textContent = msg; toastEl.hidden = false; toastEl.classList.remove("w-toast-in"); void toastEl.offsetWidth; toastEl.classList.add("w-toast-in"); clearTimeout(toastT); toastT = setTimeout(function () { toastEl.hidden = true; }, 3200); }
+    sfx("secret"); announce(msg + ".");
   }
   /* the logs. a card counts as read once it has been open a second and a half, or scrolled to
      its end. four logs wake the terminal's evolve command; all eight break the seal on the
@@ -1326,6 +1353,7 @@
   var clockEl = document.createElement("span"); clockEl.className = "w-clock";
   foundEl.parentNode.appendChild(clockEl);
   function readSky() {
+    if (open && sky.dark > 0.6) foundSecret("night");
     var n = nyNow(), st = sunTimes(n.d, n.off), h = n.h;
     function ramp(x, a, b) { return Math.max(0, Math.min(1, (x - a) / (b - a))); }
     var light = Math.min(ramp(h, st.rise - 0.6, st.rise + 0.5), 1 - ramp(h, st.set - 0.5, st.set + 0.7));
@@ -1750,6 +1778,7 @@
   var ripples = [], food = null;
   // feeding time: pellets land on the water by the bank and every koi heads for them
   function feedKoi(bx, by) {
+    foundSecret("koi");
     if (bx === undefined) { bx = (KP.x - KP.rx * 0.72) * T; by = KP.y * T; }
     food = { x: bx, y: by, t: 12, bits: [] };
     for (var i = 0; i < 14; i++) food.bits.push({ x: bx + (Math.random() - 0.5) * 18, y: by + (Math.random() - 0.5) * 8, life: 1 });
@@ -1825,6 +1854,7 @@
     var fwx = Math.sin(car.a), fwy = -Math.cos(car.a), rtx = Math.cos(car.a), rty = Math.sin(car.a);
     var vf = car.vx * fwx + car.vy * fwy, vl = car.vx * rtx + car.vy * rty;
     var thr = (keys.u ? 1 : 0) - (keys.d ? 1 : 0), steer = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), hand = !!keys.run;
+    if (hand && car.driving && Math.hypot(car.vx, car.vy) > 60 && Math.abs(steer)) foundSecret("drift");
     if (car.target && !thr && !steer) {            // tap to drive: steer toward the tap, back out if it's behind you and close
       var dx = car.target.x - car.x, dy = car.target.y - car.y, dist = Math.hypot(dx, dy);
       if (dist < 12) car.target = null;
@@ -1926,7 +1956,7 @@
     heli.rot += heli.spin * dt * 38;
     var fx = 0, fy = 0;
     if (heli.state === "parked") { heli.spin = Math.max(0, heli.spin - dt * 0.4); return; }
-    if (heli.state === "spool") { heli.spin = Math.min(1, heli.spin + dt / 1.3); if (heli.spin >= 1) heli.state = "lift"; }
+    if (heli.state === "spool") { heli.spin = Math.min(1, heli.spin + dt / 1.3); if (heli.spin >= 1) { heli.state = "lift"; foundSecret("heli"); } }
     else if (heli.state === "lift") { heli.z += 26 * dt; zoomTo = 0.72; if (heli.z >= 34) heli.state = "flying"; }
     else if (heli.state === "descend") {
       heli.z = Math.max(0, heli.z - 22 * dt); heli.vx *= 0.9; heli.vy *= 0.9;
@@ -2193,7 +2223,7 @@
   var CMDS = {
     help: function () {
       ["commands:", "  help              this list", "  ls [-a]           list files", "  cat <file>        print a file", "  whoami            who's logged in", "  neofetch          island info",
-       "  census            who lives here", "  found             landmarks found so far", "  goto <place>      go somewhere (goto with no place lists them)", "  time [hour|reset] the island clock, synced to Ammaar's timezone",
+       "  census            who lives here", "  found             landmarks found so far", "  secrets           the island's secrets, found and not", "  goto <place>      go somewhere (goto with no place lists them)", "  time [hour|reset] the island clock, synced to Ammaar's timezone",
        "  feed koi          ring the dinner bell at the pond", "  sound [on|off]    music and sound effects", "  fly | drive       go to the helicopter or the M3", "  history           what you've typed", "  clear             clear the screen", "  exit              log out"].forEach(function (l) { print(l); });
     },
     ls: function (args) {
@@ -2212,6 +2242,7 @@
       if (f === "rift" || f === "./rift") f = ".rift";
       if (FILES[f] === undefined) { print("cat: " + args[0] + ": no such file"); return; }
       FILES[f].split("\n").forEach(function (l) { print(l); });
+      if (f.charAt(0) === ".") foundSecret("dotfiles");
     },
     whoami: function () { print("pi. a small white dino, Ammaar's mascot. you hatched here."); },
     neofetch: function () {
@@ -2256,6 +2287,11 @@
     date: function () { CMDS.time([]); },
     echo: function (args) { print(args.join(" ")); },
     summon: function () { print("summon what? the orbs don't answer to that. maybe the hidden files know."); },
+    secrets: function () {
+      var all = countFound() === TOTAL;
+      print("secrets: " + save.secrets.length + " of " + SECRETS.length + " found" + (all ? "" : " (hints open up once all eight logs are found)"), "dim");
+      SECRETS.forEach(function (q) { var got = save.secrets.indexOf(q.id) >= 0; print((got ? "  [x] " : "  [ ] ") + (got ? q.name : "???") + (!got && all ? "   " + q.hint : "")); });
+    },
     middlepath: function () { KAIJU_ART.forEach(function (l) { print(l, "hi"); }); },
     evolve: function (args) {
       if (args[0] && args[0] !== "pi") { print("evolve: only pi can evolve. try ./evolve pi"); return; }
@@ -2266,7 +2302,7 @@
       stages.forEach(function (st, n) { setTimeout(function () { st.forEach(function (l) { print("   " + l); }); print("   ↓", "dim"); sfx(n === 2 ? "warp" : "blip"); }, 300 + n * 500); });
       setTimeout(function () {
         KAIJU_ART.forEach(function (l) { print(l, "hi"); });
-        print("pi evolved into MIDDLE PATH. (devolve to go back)", "ok");
+        print("pi evolved into MIDDLE PATH. (devolve to go back)", "ok"); foundSecret("evolve");
         pi.kaiju = true; save.evolved = true; writeSave();
         sfx("grunt"); setTimeout(function () { sfx("squeak"); }, 260);             // a small roar, for a small kaiju
       }, 1900);
@@ -2284,7 +2320,7 @@
     if (sudoTries >= 0) {                                        // answering the sudo password prompt
       if (line.trim().toLowerCase() === "eclipse") {
         sudoTries = -1; setPrompt();
-        print("access granted.", "ok"); sfx("grant"); print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
+        print("access granted.", "ok"); sfx("grant"); foundSecret("root"); print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
         setTimeout(function () { closeTerm(); askRift(); }, 900);
       } else if (++sudoTries >= 3) { sudoTries = -1; setPrompt(); print("sudo: 3 incorrect password attempts. a raptor has been notified.", "err"); }
       else print("sorry, try again.", "err");
@@ -2368,6 +2404,7 @@
 
   // the t-rex roars when pi comes close to its fence: the screen shakes, the birds scatter
   function roar() {
+    foundSecret("roar");
     trex.roar = 1.4; trex.cd = 14; trex.tx = 0; trex.face = pi.x > trex.x ? 1 : -1; quake = 4;
     roarTag = { x: trex.x, y: trex.y - artH("trex") - 4, t: 1.6 };
     sfx("roar", trex.x, trex.y, { vol: 1.4 });
@@ -3251,6 +3288,7 @@
   }
   // thrown out: the island closes without ceremony and the machine reboots
   function throwOut() {
+    foundSecret("deity");
     side = null; closeDialog();
     try { sessionStorage.setItem("deity-met", "1"); } catch (e) {}
     stopSound();
