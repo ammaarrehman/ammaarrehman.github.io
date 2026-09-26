@@ -759,6 +759,9 @@ dl.tree dt::before { color:var(--accent); opacity:.7; }
   html { scroll-behavior:auto; }
   .js .rv, .js .section-heading .w > span { opacity:1; transform:none; transition:none; }
   .stack-chips span, .nav::after, .xp-dot.live, .status-live::before { animation:none; }
+  .cursor, .t-bar.busy::after, .w-more, .dock-item.pop { animation:none; }
+  .js .t-in { transition:none; }                       /* the hero is there at once, no staggered reveal */
+  .js .term.in .t-type { animation:none; width:8ch; }
   .nav::after { display:none; }
   ::view-transition-new(root) { animation:none; }
   *, *::before, *::after { transition-duration:.01ms !important; }
