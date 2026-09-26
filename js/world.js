@@ -1050,7 +1050,7 @@
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
     if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
     if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); foundSecret("honk"); return; }
-    if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { irisTo(function () { side = null; if (SND) SND.music(null); }); } else if (!side) setPaused(true); return; }
+    if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { irisTo(function () { side = null; freeSideArt(); if (SND) SND.music(null); }); } else if (!side) setPaused(true); return; }
     if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
     if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
     if (e.key === "Shift") { keys.run = 1; return; }
@@ -2590,7 +2590,7 @@
   function restoreSite() {
     if (!rift) return;
     closeDialog();
-    rift = null; reality.cur = "dino"; reality.wipe = null; reality.glitch = 0; lens = null;
+    rift = null; reality.cur = "dino"; reality.wipe = null; reality.glitch = 0; lens = null; freeSkins();
     save.ruler = null; writeSave();
     if (window.orbs) window.orbs.forEach(function (o) { if (o.palette) o.palette("eclipse"); });
     if (SND) SND.intensity(0);
@@ -2891,7 +2891,8 @@
     } else {
       c = mkCanvas(); c.width = ground.width; c.height = ground.height; g = c.getContext("2d");
       g.fillStyle = "#ece8df"; g.fillRect(0, 0, c.width, c.height);
-      g.globalAlpha = 0.35; g.drawImage(duotone(ground, ["#b8b4ab", "#d4d0c7", "#e6e2d8", "#ece8df"], 1.4), 0, 0); g.globalAlpha = 1;
+      var paper = duotone(ground, ["#b8b4ab", "#d4d0c7", "#e6e2d8", "#ece8df"], 1.4);
+      g.globalAlpha = 0.35; g.drawImage(paper, 0, 0); g.globalAlpha = 1; freeCanvas(paper);
       // a nervous system in ink: hundreds of tangled strands pouring out of the arena
       var seed = 11; function rnd() { seed = (seed * 16807) % 2147483647; return seed / 2147483647; }
       g.lineCap = "round";
@@ -2998,8 +2999,15 @@
     reality.cur = to; reality.glitch = 0.35;
     sfx("warp");
   }
+  /* the other realities' art is built the first time it's needed and let go once the island is
+     itself again (the fight over and the tear closed): the future and chaos grounds alone are
+     about 8 MB each, and ios quietly blanks canvases past its memory limit */
+  function freeSkins() {
+    if (skinCache) { skinCache.forEach(function (e) { Object.keys(e).forEach(function (k2) { freeCanvas(e[k2]); }); }); skinCache.clear(); }
+    Object.keys(realGrounds).forEach(function (k2) { freeCanvas(realGrounds[k2]); }); realGrounds = {};
+  }
   function updateReality(dt) {
-    if (reality.wipe) { reality.wipe.r += dt * (240 + reality.wipe.r * 2.2); if (reality.wipe.r > 1400) reality.wipe = null; }
+    if (reality.wipe) { reality.wipe.r += dt * (240 + reality.wipe.r * 2.2); if (reality.wipe.r > 1400) { reality.wipe = null; if (reality.cur === "dino" && !riftBusy()) freeSkins(); } }
     reality.glitch = Math.max(0, reality.glitch - dt);
   }
   function glitchSlices() {
@@ -3362,9 +3370,14 @@
     tag("← →  walk   space  jump", W / 2, H - 16, false);
   }
   // thrown out: the island closes without ceremony and the machine reboots
+  function freeSideArt() {
+    if (!sideArt) return;
+    Object.keys(sideArt).forEach(function (k2) { var v = sideArt[k2]; if (v && v.getContext) freeCanvas(v); else if (v && v.canvas && v.canvas.getContext) freeCanvas(v.canvas); });
+    sideArt = null;
+  }
   function throwOut() {
     foundSecret("deity");
-    side = null; closeDialog();
+    side = null; closeDialog(); freeSideArt();
     try { sessionStorage.setItem("deity-met", "1"); } catch (e) {}
     stopSound();
     open = false; stopLoop(); unbindSession();
@@ -4223,6 +4236,7 @@
     if (!open || exiting) return;
     exiting = true;
     if (!room && !side && !riftBusy()) { save.lastPos = [Math.round(pi.x), Math.round(pi.y)]; writeSave(); }
+    if (side) { side = null; freeSideArt(); }
     closeDialog(); if (termOpen) closeTerm();
     if (car.driving) toggleCar();
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
