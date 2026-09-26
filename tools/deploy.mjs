@@ -4,6 +4,7 @@
 
      node tools/deploy.mjs              build, check, deploy, smoke-test
      node tools/deploy.mjs --dry-run    build and check only (no Cloudflare account needed)
+     node tools/deploy.mjs --check      only the live checks, against what's deployed now
 
    It stops (exit 1) if:
      - a file the pages reference (html src/href/srcset, css url(), js paths) is missing
@@ -21,6 +22,7 @@ const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, ".deploy");
 const SITE = "https://ammaarrehman.com";
 const DRY = process.argv.includes("--dry-run");
+const CHECK = process.argv.includes("--check");
 
 // what ships: paths relative to the repo root (a folder ships whole)
 const ALLOW = [
@@ -36,6 +38,7 @@ const KEYISH = [/ghp_[A-Za-z0-9]{20,}/, /github_pat_[A-Za-z0-9_]{20,}/, /-----BE
 const TEXT = new Set([".html", ".css", ".js", ".json", ".txt", ".xml", ".webmanifest", ".svg", ""]);
 
 const fail = [];
+if (CHECK) { await live(); process.exit(0); }
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
 }
@@ -104,14 +107,21 @@ if (DRY) { console.log("dry run: stopping before the deploy"); process.exit(0); 
 
 // 5. deploy, then look at the live site
 execSync("npx wrangler deploy", { cwd: ROOT, stdio: "inherit" });
-const smoke = [];
-const home = await fetch(SITE + "/", { redirect: "manual" });
-if (home.status !== 200) smoke.push(`${SITE}/ returned ${home.status}`);
-if (!home.headers.get("content-security-policy")) smoke.push("no Content-Security-Policy header on /");
-if (!home.headers.get("strict-transport-security")) smoke.push("no Strict-Transport-Security header on /");
-const sec = await fetch(SITE + "/.well-known/security.txt");
-if (sec.status !== 200) smoke.push(`security.txt returned ${sec.status}`);
-const lost = await fetch(SITE + "/nothing-here-" + Date.now());
-if (lost.status !== 404) smoke.push(`a missing page returned ${lost.status}, not 404`);
-if (smoke.length) { console.error("\ndeployed, but the live checks failed:\n  " + smoke.join("\n  ")); process.exit(1); }
-console.log(`live and checked: ${SITE}/`);
+await live();
+
+async function live() {
+  const smoke = [];
+  const get = (u, o) => fetch(u, o).catch((e) => { smoke.push(`${u}: ${e.cause?.code || e.message}`); return null; });
+  const home = await get(SITE + "/", { redirect: "manual" });
+  if (home) {
+    if (home.status !== 200) smoke.push(`${SITE}/ returned ${home.status}`);
+    if (!home.headers.get("content-security-policy")) smoke.push("no Content-Security-Policy header on /");
+    if (!home.headers.get("strict-transport-security")) smoke.push("no Strict-Transport-Security header on /");
+  }
+  const sec = await get(SITE + "/.well-known/security.txt");
+  if (sec && sec.status !== 200) smoke.push(`security.txt returned ${sec.status}`);
+  const lost = await get(SITE + "/nothing-here-" + Date.now());
+  if (lost && lost.status !== 404) smoke.push(`a missing page returned ${lost.status}, not 404`);
+  if (smoke.length) { console.error("\nthe live checks failed (a new domain can take a few minutes to resolve; retry with --check):\n  " + smoke.join("\n  ")); process.exit(1); }
+  console.log(`live and checked: ${SITE}/`);
+}
