@@ -4,6 +4,11 @@
    everything here is progressive: with js off the page renders as-is. */
 (function () {
   var root = document.documentElement;
+  // with GitHub links off: the repo buttons go (css hides [data-gh=hide]); any other github link
+  // (a line in the projects list, a word in a sentence) stays as plain text
+  if (window.SITE && !window.SITE.GITHUB_LINKS_ENABLED) Array.prototype.forEach.call(document.querySelectorAll('a[href*="github.com/"]:not([data-gh])'), function (a) {
+    a.removeAttribute("href"); a.removeAttribute("target"); a.removeAttribute("rel"); a.classList.add("gh-off");
+  });
   // staggered entrances: the delay rides in data-d and becomes --d here
   Array.prototype.forEach.call(document.querySelectorAll("[data-d]"), function (el) { el.style.setProperty("--d", el.getAttribute("data-d")); });
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;

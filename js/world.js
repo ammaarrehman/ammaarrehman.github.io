@@ -1213,7 +1213,8 @@
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
     logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
-    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, s.links || []);
+    var ghOn = !window.SITE || window.SITE.GITHUB_LINKS_ENABLED;            // github links off while the account is flagged
+    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).filter(function (l) { return ghOn || l[1].indexOf("github.com/") < 0; }));
   }
   /* ════════ secrets ════════
      every easter egg on the island is in this one table. finding one pops a toast, rings a
