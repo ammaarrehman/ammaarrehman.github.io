@@ -294,7 +294,7 @@ canvas.orb-mini {
 }
 
 /* ── WINDOWS: working traffic lights, a dock, maximize (js/windows.js) ── */
-.win-ctl { display:flex; gap:7px; flex:none; }
+.win-ctl { display:flex; gap:12px; flex:none; }          /* 24px between centres: each light meets the 24px target rule (2.5.8) */
 .pane > .win-ctl { position:absolute; top:-7px; right:18px; padding:0 8px; background:var(--bg); z-index:2; }
 .wb {
   position:relative; width:12px; height:12px; padding:0; border:0; border-radius:50%; cursor:pointer;
@@ -303,7 +303,7 @@ canvas.orb-mini {
 .wb::after {                                         /* the glyphs appear on hover, like macOS */
   position:absolute; inset:0; display:grid; place-items:center; font:700 9px/1 var(--mono); color:rgba(0,0,0,.6); opacity:0; transition:opacity .15s;
 }
-@media (pointer: coarse) { .wb::before { content:""; position:absolute; inset:-6px -3px; } }   /* a 24px tap target around each 12px light */
+.wb::before { content:""; position:absolute; inset:-6px; }   /* a 24px hit area around each 12px light */
 .wb-close::after { content:"×"; } .wb-min::after { content:"–"; } .wb-max::after { content:"+"; }
 .win-ctl.live .wb-close, .win-ctl:hover .wb-close { background:#ff5f57; }
 .win-ctl.live .wb-min, .win-ctl:hover .wb-min { background:#febc2e; }
