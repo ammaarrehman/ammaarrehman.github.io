@@ -6,8 +6,8 @@
   "scripts": {
     "serve": "node serve.mjs",
     "audit": "node audit.mjs",
-    "html": "html-validate ../index.html ../404.html",
-    "spell": "cspell --no-progress --config cspell.json \"../index.html\" \"../404.html\" \"../js/*.js\" \"../.well-known/security.txt\"",
+    "html": "html-validate --config .htmlvalidate.json ../index.html ../404.html",
+    "spell": "cspell --no-progress --config cspell.json ../index.html ../404.html \"../js/*.js\" ../.well-known/security.txt ../site.webmanifest",
     "lighthouse": "node lighthouse.mjs"
   },
   "devDependencies": {
