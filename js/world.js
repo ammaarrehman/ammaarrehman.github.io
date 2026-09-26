@@ -168,7 +168,7 @@
      a bad parse or an unknown version starts fresh instead of breaking the island, and a browser
      that refuses storage (a private window) just doesn't remember */
   var SAVE_KEY = "island-save";
-  function freshSave() { return { v: 1, logs: [], secrets: [], evolved: false, lastPos: null, settings: null, ruler: null, credits: false, hatched: false, seal: false }; }
+  function freshSave() { return { v: 1, logs: [], secrets: [], evolved: false, lastPos: null, settings: null, ruler: null, credits: false, hatched: false, seal: false, hints: { move: false, use: false } }; }
   var save = freshSave();
   (function () {
     var o = null; try { o = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { o = null; }
@@ -1042,7 +1042,16 @@
     }
   }
 
-  cv.addEventListener("pointerup", function () { if (side) side.tap = 0; });
+  var joy = null;
+  cv.addEventListener("pointermove", function (e) {
+    if (!joy || e.pointerId !== joy.id) return;
+    var dx = e.clientX - joy.x0, dy = e.clientY - joy.y0, d = Math.hypot(dx, dy);
+    if (!joy.on && d > 14) { joy.on = true; pi.path = null; pi.want = null; roomTap = null; }
+    if (joy.on) { var m = Math.min(1, d / 44); joy.dx = d ? dx / d * m : 0; joy.dy = d ? dy / d * m : 0; joy.x = e.clientX; joy.y = e.clientY; }
+  });
+  function endJoy(e) { if (joy && (!e || e.pointerId === joy.id)) joy = null; }
+  cv.addEventListener("pointerup", function (e) { if (side) side.tap = 0; endJoy(e); });
+  cv.addEventListener("pointercancel", endJoy);
   cv.addEventListener("pointercancel", function () { if (side) side.tap = 0; });
   cv.addEventListener("lostpointercapture", function () { if (side) side.tap = 0; });
   function onKeyUp(e) { var d = dirKey(e); if (d) keys[d] = 0; if (e.key === "Shift") keys.run = 0; }
@@ -1086,6 +1095,7 @@
     var tx = Math.floor(wx / T), ty = Math.floor(wy / T);
     if (car.driving) { car.target = { x: wx, y: wy }; return; }
     if (side) { if (side.phase === "walk") { if (e.clientY < H * 0.45) keys.jump = 1; else side.tap = e.clientX < W / 2 ? -1 : 1; } return; }
+    if (e.pointerType === "touch" && !joy && !car.driving && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (room) { pi.path = null; roomTap = { x: wx, y: wy }; var rc = roomCandidates().filter(function (c) { return Math.hypot(wx - c.v.ax, wy - c.v.ay - 12) < 18; })[0]; if (rc) roomTap.want = rc.v; return; }
     if (heli.state === "flying") { if (Math.hypot(wx - heli.x, wy - heli.y + heli.z) < 16) toggleHeli(); else heli.target = { x: wx, y: wy }; return; }
     if (aboard()) return;
@@ -1096,6 +1106,7 @@
     if (!hit && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
     if (!hit) critters.forEach(function (c) { if (!hit && Math.hypot(wx - c.x, wy - c.y + 5) < 10) hit = { id: "critter", ref: c, gx: Math.floor(c.x / T), gy: Math.floor(c.y / T) }; });
     if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: 36, y: 25 };
+    if (e.pointerType === "touch" && !joy && !car.driving && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (hit) {
       var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [36, 26] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
       pi.path = bfs([Math.floor(pi.x / T), Math.floor(pi.y / T)], goal, true); pi.want = hit;
@@ -1161,6 +1172,7 @@
   var typing = null, full = "";
   var REX = ["rex: RAWR. (he means hi.)", "rex does a little hop. he's a chrome-dino homage and he knows it.", "rex: have you tried turning the router off and on again?", "rex is guarding the meadow from pterodactyls. so far, so good."];
   function interact(s) {
+    if (!save.hints.use) { save.hints.use = true; writeSave(); }
     pi.path = null; pi.want = null; keys = {};
     if (s.id === "rex") { rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
     if (s.id === "core") { coreSay(false); return; }
@@ -1185,6 +1197,7 @@
   function updateLog(dt) { if (!logWait) return; if (dlg.hidden) { logWait = null; return; } if ((logWait.t += dt) >= 1.5) { var s0 = logWait.s; logWait = null; markFound(s0); } }
   function markFound(s) {
     if (found[s.id]) return;
+    sinceLog = 0;
     found[s.id] = 1; save.logs = Object.keys(found); writeSave();
     var n = countFound();
     paintFound(true); sfx("found"); pi.hop = 1;
@@ -3261,6 +3274,9 @@
     if (egg) { egg.t += dt; if (egg.t > 2.2) { egg = null; bubble = { text: "pi:~$ fresh hatch. hi.", t: 3 }; } return; }
     var top = (pi.boost > 0 ? 95 : 58) * (keys.run ? 1.6 : 1); pi.boost = Math.max(0, pi.boost - dt);
     var mx = (keys.r ? 1 : 0) - (keys.l ? 1 : 0), my = (keys.d ? 1 : 0) - (keys.u ? 1 : 0), onPath = false;
+    if (joy && joy.on) { mx = joy.dx; my = joy.dy; pi.path = null; }
+    sinceLog += dt;
+    if (!save.hints.move && Math.hypot(pi.x - hintFrom.x, pi.y - hintFrom.y) > 3 * T) { save.hints.move = true; writeSave(); }
     if (!dlg.hidden) mx = my = 0;
     if (riftBusy() || car.driving || aboard() || termOpen) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
     if (!mx && !my && pi.path && pi.path.length) {
@@ -3565,12 +3581,45 @@
       var vx0 = car.driving ? car.x : heli.x, vy0 = car.driving ? car.y - 14 : heli.y - heli.z - 22;
       tag(promptText({ id: car.driving ? "exitcar" : "exitheli" }), (vx0 - camX) * E, (vy0 - camY) * E, true);
     }
+    drawGuide(E);
     drawMinimap();
     if (roarTag) tag("ROAR", (roarTag.x - camX) * E, (roarTag.y - camY) * E, false);
     if (bubble) tag(bubble.text, (pi.x - camX) * E, (pi.y - 16 - (aboard() ? heli.z + 10 : 0) - camY) * E - 6, false);
     drawFade();
   }
   function drawFade() { if (fade > 0) { ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "rgba(0,0,0," + fade.toFixed(3) + ")"; ctx.fillRect(0, 0, W, H); fade = Math.max(0, fade - 0.06); } }
+  /* first steps: a hint beside pi until it has walked three tiles, the same for the first
+     prompt, and if a while goes by with no new log, a chevron at the edge of the screen points
+     at the nearest one still to find (it goes once that landmark is on screen) */
+  var sinceLog = 0, hintFrom = { x: 0, y: 0 };
+  function guideTarget() {
+    var best = null, bd = 1e9;
+    STATIONS.forEach(function (q) {
+      if (!q.found || found[q.id]) return;
+      var p = q.room ? BUILDINGS.filter(function (b) { return b.room === q.room; }).map(function (b) { return { x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T }; })[0] : { x: q.x * T + 8, y: q.y * T + 8 };
+      var d = Math.hypot(p.x - pi.x, p.y - pi.y); if (d < bd) { bd = d; best = p; }
+    });
+    return best;
+  }
+  function drawGuide(E) {
+    if (egg || riftBusy() || cut || tour) return;
+    if (!save.hints.move && dlg.hidden) tag(TOUCH ? "drag to move, or tap a spot" : "wasd / arrow keys to walk", (pi.x - camX) * E, (pi.y + 26 - camY) * E, false);
+    else if (!save.hints.use && promptRect && dlg.hidden) tag(TOUCH ? "tap the prompt to use it" : "e, space or enter to use", promptRect[0] + promptRect[2] / 2, promptRect[1] - 4, false);
+    if (sinceLog > 20 && countFound() < TOTAL && dlg.hidden && !car.driving && !aboard()) {
+      var g = guideTarget(); if (!g) return;
+      var sx = (g.x - camX) * E, sy = (g.y - camY) * E, m = 26;
+      if (sx > m && sx < W - m && sy > 60 && sy < H - m) return;                      // it's on screen
+      var cx = W / 2, cy = H / 2, a = Math.atan2(sy - cy, sx - cx), k2 = Math.min((W / 2 - m) / Math.abs(Math.cos(a) || 1e-6), (H / 2 - 60) / Math.abs(Math.sin(a) || 1e-6));
+      var ex = cx + Math.cos(a) * k2, ey = cy + Math.sin(a) * k2, bob = Math.sin(t * 5) * 3;
+      ctx.save(); ctx.translate(ex + Math.cos(a) * bob, ey + Math.sin(a) * bob); ctx.rotate(a);
+      ctx.fillStyle = "#0a0a0a"; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-8, -10); ctx.lineTo(-3, 0); ctx.lineTo(-8, 10); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = "#4DD6E8"; ctx.lineWidth = 2; ctx.stroke(); ctx.restore();
+    }
+    if (joy && joy.on) {
+      ctx.strokeStyle = "rgba(244,244,244,.45)"; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(joy.x0, joy.y0, 44, 0, 6.283); ctx.stroke();
+      ctx.fillStyle = "rgba(244,244,244,.5)"; ctx.beginPath(); ctx.arc(joy.x0 + joy.dx * 44, joy.y0 + joy.dy * 44, 16, 0, 6.283); ctx.fill();
+    }
+  }
   var nearId = null, nearT = 0;
   function nearNote(nb) {
     var id = nb && nb.sec ? nb.id : null;
@@ -3588,7 +3637,7 @@
 
   function drawPi() {
     if (egg) {
-      var e = egg.t, cx = SPAWN.x, cy = SPAWN.y, rock = e < 1.6 ? Math.sin(e * (6 + e * 10)) * Math.min(2, e * 1.5) : 0;
+      var e = egg.t, cx = pi.x, cy = pi.y, rock = e < 1.6 ? Math.sin(e * (6 + e * 10)) * Math.min(2, e * 1.5) : 0;
       shadow(cx, cy, 10);
       if (e < 1.6) {
         for (var j = 0; j < 14; j++) { var w = Math.round(Math.sqrt(1 - Math.pow((j - 8) / 8.5, 2)) * 6); ctx.fillStyle = j > 11 ? "#cfcfcf" : "#f4f4f4"; ctx.fillRect(Math.round(cx - w + rock), cy - 14 + j, w * 2, 1); }
@@ -3904,6 +3953,8 @@
       first = !save.hatched; save.hatched = true; writeSave();
       egg = first && !REDUCED ? { t: 0 } : null;
       pi.x = SPAWN.x; pi.y = SPAWN.y; pi.vx = pi.vy = 0; pi.path = null; keys = {};
+      if (first) { pi.x = 50 * T + 8; pi.y = 61 * T + 10; if (!walkable(50, 61)) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }   // the mailbox is on screen
+      hintFrom = { x: pi.x, y: pi.y }; sinceLog = 0;
       var lp = save.lastPos;                                            // back where pi left off
       if (!first && lp && walkable(Math.floor(lp[0] / T), Math.floor(lp[1] / T))) { pi.x = lp[0]; pi.y = lp[1]; }
       zoom = REDUCED ? 1 : 2.6; zoomTo = 1;
