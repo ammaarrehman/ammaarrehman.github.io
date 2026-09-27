@@ -1210,7 +1210,7 @@
     if (s.id === "heli") { toggleHeli(); return; }
     if (s.id === "car") { toggleCar(); bubble = { text: "pi:~$ vroom. arrows drive, space honks, e parks", t: 3.5 }; return; }
     if (s.id === "critter" || s.id === "bird" || s.id === "pond" || s.id === "nest" || s.id === "fence") { sayLocal(s); return; }
-    if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; pi.sq = 0.12; pi.sqStart = false; sfx("open"); irisTo(function () { enterRoom(rm); }); } else say(s.ref.name, s.ref.text, []); return; }
+    if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; pi.sq = 0.12; pi.sqStart = false; sfx("open"); doorAnim = { bd: s.ref, t0: performance.now(), open: true }; stepIn = { y: pi.y, t0: performance.now() }; irisTo(function () { stepIn = null; enterRoom(rm); }, DOOR_CLOSE, DOOR_OPEN, ROOMS[rm]); } else say(s.ref.name, s.ref.text, []); return; }
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
@@ -1458,7 +1458,7 @@
   var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":33,"h":20,"f":[[0,46],[34,46],[68,46],[102,46],[136,46],[170,46],[204,46],[238,46],[272,46],[306,46],[340,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":84,"h":83,"f":[[0,67],[85,67],[170,67],[255,67],[340,67],[425,67],[510,67],[595,67],[680,67],[765,67],[850,67],[935,67],[1020,67]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,151],[60,151],[120,151],[180,151],[240,151],[300,151],[360,151],[420,151],[480,151],[540,151],[600,151],[660,151],[720,151]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,192],[59,192],[118,192],[177,192],[236,192],[295,192],[354,192],[413,192],[472,192],[531,192],[590,192],[649,192],[708,192]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,229],[55,229],[110,229],[165,229],[220,229],[275,229],[330,229],[385,229],[440,229],[495,229],[550,229],[605,229],[660,229]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":46,"h":21,"f":[[0,272],[47,272],[94,272],[141,272],[188,272],[235,272],[282,272],[329,272],[376,272],[423,272],[470,272],[517,272],[564,272]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,294],[91,294],[182,294],[273,294],[364,294],[455,294],[546,294],[637,294],[728,294],[819,294],[910,294]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":41,"h":32,"f":[[0,346],[42,346],[84,346],[126,346],[168,346],[210,346],[252,346],[294,346],[336,346],[378,346],[420,346],[462,346],[504,346]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":31,"h":22,"f":[[0,379],[32,379],[64,379],[96,379],[128,379],[160,379],[192,379],[224,379],[256,379],[288,379],[320,379],[352,379],[384,379]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,402],[39,402],[78,402],[117,402],[156,402],[195,402],[234,402],[273,402],[312,402],[351,402],[390,402]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":17,"h":10,"f":[[0,443],[18,443],[36,443],[54,443],[72,443],[90,443],[108,443],[126,443],[144,443],[162,443],[180,443]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,454],[22,454],[44,454],[66,454],[88,454],[110,454],[132,454],[154,454],[176,454],[198,454],[220,454]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,473],[22,473],[44,473],[66,473],[88,473],[110,473],[132,473],[154,473],[176,473],[198,473],[220,473]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"ptero":{"w":32,"h":45,"f":[[0,492],[33,492],[66,492],[99,492],[132,492],[165,492],[198,492],[231,492],[264,492],[297,492],[330,492],[363,492],[396,492],[429,492],[462,492],[495,492],[528,492]],"m":{"fly":[0,1,2,3,4,5,6,7,8,9,10,11],"glide":[12,13,14,15],"blink":[16]}}};
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261007";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261008";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -3073,20 +3073,35 @@
   /* the iris: a circle closing on pi (300 ms), the cut, then opening again (300 ms), with the
      music swept down to a muffle and back. doors, fast travel, the shrine and landing all use it */
   var iris = null, IRIS = 0.3;
-  function irisTo(fn) {
-    if (REDUCED || !open) { if (fn) fn(); return; }
-    if (iris) { if (iris.fn) { var f0 = iris.fn; iris.fn = null; f0(); } iris.t0 = performance.now() - IRIS * 1000; if (fn) fn(); return; }
-    iris = { t0: performance.now(), fn: fn || null }; keys = {};
-    if (SND && SND.muffle) SND.muffle(1, IRIS);
+  /* doors are quicker: 150 ms closing, 170 ms opening, no hold on black. fast travel and the
+     shrine keep 300 + 300. under reduced motion every transition is a 150 ms crossfade instead */
+  var DOOR_CLOSE = 0.15, DOOR_OPEN = 0.17, XFADE = 0.15, xfade = null;
+  function irisTo(fn, close, opn, pre) {
+    if (!open) { if (fn) fn(); return; }
+    if (REDUCED) {                                                    // snapshot the frame, cut, fade the snapshot out
+      if (xfade) freeCanvas(xfade.img);
+      var snap = mkCanvas(); snap.width = cv.width; snap.height = cv.height; snap.getContext("2d").drawImage(cv, 0, 0);
+      xfade = { img: snap, t0: performance.now() }; if (pre) roomBgStep(pre, 1e9); if (fn) fn(); return;
+    }
+    if (iris) { if (iris.fn) { var f0 = iris.fn; iris.fn = null; f0(); } iris.t0 = performance.now() - iris.c * 1000; if (fn) fn(); return; }
+    iris = { t0: performance.now(), fn: fn || null, c: close || IRIS, o: opn || IRIS, pre: pre || null }; keys = {};
+    if (SND && SND.muffle) SND.muffle(1, iris.c);
   }
-  function irisOpen() { if (REDUCED) return; iris = { t0: performance.now() - IRIS * 1000, fn: null }; if (SND && SND.muffle) { SND.muffle(1, 0.01); SND.muffle(0, IRIS * 1.3); } }
-  function irisBusy() { return !!iris && performance.now() - iris.t0 < IRIS * 1000; }         // closing: hold the controls
+  function irisOpen() { if (REDUCED) return; iris = { t0: performance.now() - IRIS * 1000, fn: null, c: IRIS, o: IRIS }; if (SND && SND.muffle) { SND.muffle(1, 0.01); SND.muffle(0, IRIS * 1.3); } }
+  function irisBusy() { return !!iris && performance.now() - iris.t0 < iris.c * 1000; }        // closing: hold the controls
   function drawIris(cx, cy) {
+    if (xfade) {
+      var a = 1 - (performance.now() - xfade.t0) / 1000 / XFADE;
+      if (a <= 0) { freeCanvas(xfade.img); xfade = null; }
+      else { ctx.save(); ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.globalAlpha = a; ctx.drawImage(xfade.img, 0, 0); ctx.restore(); }
+    }
     if (!iris) return;
-    var u = (performance.now() - iris.t0) / 1000;
-    if (u >= IRIS && iris.fn) { var f = iris.fn; iris.fn = null; f(); if (SND && SND.muffle) SND.muffle(0, IRIS * 1.3); }
-    if (u >= IRIS * 2) { iris = null; return; }
-    var k0 = u < IRIS ? 1 - u / IRIS : (u - IRIS) / IRIS, e = k0 * k0 * (3 - 2 * k0), R = Math.hypot(W, H) * e;
+    var u = (performance.now() - iris.t0) / 1000, C = iris.c, O = iris.o;
+    if (stepIn) pi.y = stepIn.y - 4 * Math.min(1, (performance.now() - stepIn.t0) / 1000 / DOOR_CLOSE);   // pi steps into the doorway
+    if (u < C && iris.pre) roomBgStep(iris.pre, 5);                   // finish the room while the circle closes
+    if (u >= C && iris.fn) { var f = iris.fn; iris.fn = null; if (iris.pre) roomBgStep(iris.pre, 1e9); f(); if (SND && SND.muffle) SND.muffle(0, O * 1.3); }
+    if (u >= C + O) { iris = null; return; }
+    var k0 = u < C ? 1 - u / C : (u - C) / O, e = k0 * k0 * (3 - 2 * k0), R = Math.hypot(W, H) * e;
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.fillStyle = "#000"; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, Math.max(0, R), 0, Math.PI * 2, true); ctx.fill("evenodd");   // a true 2π: 6.283 anticlockwise drew a sliver, so the hole was missing and the screen went solid black
     ctx.restore();
@@ -3094,7 +3109,45 @@
   function exitRoom() {
     var bd = BUILDINGS.filter(function (q) { return q.room === room.id; })[0];
     room = null; sfx("open");
-    pi.x = (bd.x0 + bd.w / 2) * T; pi.y = (bd.y0 + bd.h) * T + 10; pi.vx = pi.vy = 0; camF.x = null;
+    pi.x = (bd.x0 + bd.w / 2) * T; pi.y = (bd.y0 + bd.h) * T + 6; pi.vx = pi.vy = 0; pi.dir = "down"; camF.x = null;   // in the doorway, facing out
+    doorAnim = { bd: bd, t0: performance.now() + DOOR_OPEN * 1000, open: false };                            // it swings shut once the circle is open
+  }
+  /* doors: hinged ones swing in, the depot's roller rolls up. x, y, w, h in the building sprite */
+  var DOORS = { visitor: [29, 33, 10, 17, "hinge"], bunker: [29, 21, 12, 21, "hinge"], depot: [14, 26, 24, 18, "roller"] };
+  var doorAnim = null, stepIn = null;
+  function drawDoor(bd, bx, by) {
+    var D = DOORS[bd.id]; if (!D || !doorAnim || doorAnim.bd !== bd) return;
+    var k = Math.max(0, Math.min(1, (performance.now() - doorAnim.t0) / 1000 / 0.15)), o = doorAnim.open ? k : 1 - k;
+    if (!doorAnim.open && k >= 1) { doorAnim = null; return; }
+    var x = bx + D[0], y = by + D[1], w = D[2], h = D[3];
+    ctx.fillStyle = "#140e0a"; ctx.fillRect(x, y, w, h);                              // the dark inside
+    ctx.fillStyle = "rgba(255,210,140,.18)"; ctx.fillRect(x + 1, y + h - 4, w - 2, 4);  // lamplight on the threshold
+    if (D[4] === "roller") { ctx.fillStyle = "#7a838b"; ctx.fillRect(x, y, w, Math.round(h * (1 - o))); }
+    else { var pw = Math.max(1, Math.round(w * (1 - 0.8 * o))); ctx.fillStyle = bd.id === "bunker" ? "#4a5058" : "#f2d58a"; ctx.fillRect(x, y, pw, h); ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.fillRect(x + pw - 1, y, 1, h); }
+  }
+  /* each room's floor and walls are drawn once into a canvas, a few rows at a time: starting when
+     pi is within 3 tiles of its door, and finishing while the iris closes, so nothing heavy runs
+     on the frames around the cut */
+  function roomBgStep(R, budgetMs) {
+    if (R._bg && R._bgDone) return;
+    var t0b = performance.now();
+    if (!R._bg) { R._bg = mkCanvas(); R._bg.width = R.w * T; R._bg.height = R.h * T; R._bgRow = 0; }
+    var g = R._bg.getContext("2d");
+    while (R._bgRow < R.h && performance.now() - t0b < budgetMs) {
+      var ty = R._bgRow++;
+      for (var tx = 0; tx < R.w; tx++) for (var j = 0; j < T; j += 2) for (var i = 0; i < T; i += 2) {
+        var X = tx * T + i, Y = ty * T + j;
+        if (ty >= 2) { var seam = (i === 0 || j === 0) ? -0.18 : 0; g.fillStyle = tone(0.5 + seam + (hash(X, Y) - 0.5) * 0.25, R.floor, X, Y); }
+        else g.fillStyle = tone(0.35 + (Y / 32) * 0.4 + (hash(X >> 2, Y >> 2) - 0.5) * 0.15, R.wall, X, Y);
+        g.fillRect(X, Y, 2, 2);
+      }
+    }
+    if (R._bgRow >= R.h) {
+      g.fillStyle = R.trim; g.fillRect(0, 2 * T - 2, R.w * T, 2);
+      g.fillStyle = R.wall[0]; g.fillRect(0, 0, T * 0.5, R.h * T); g.fillRect(R.w * T - T * 0.5, 0, T * 0.5, R.h * T); g.fillRect(0, (R.h - 1) * T + 6, R.door * T, 10); g.fillRect((R.door + 1) * T, (R.h - 1) * T + 6, (R.w - R.door - 1) * T, 10);
+      g.fillStyle = "rgba(255,255,255,.08)"; g.fillRect(R.door * T + 2, (R.h - 1) * T, T - 4, T);
+      R._bgDone = true;
+    }
   }
   var fade = 0;
   function roomMove(o, dx, dy) {
@@ -3105,7 +3158,7 @@
     function hit(px, py) { return roomSolid(room, Math.floor(px / T), Math.floor(py / T)); }
     if (dx && !hit(o.x + dx + (dx > 0 ? hw : -hw), o.y - 2) && !hit(o.x + dx + (dx > 0 ? hw : -hw), o.y + 1)) o.x += dx;
     if (dy && !hit(o.x - hw, o.y + dy + (dy > 0 ? 1 : -2)) && !hit(o.x + hw, o.y + dy + (dy > 0 ? 1 : -2))) o.y += dy;
-    if (Math.floor(o.y / T) >= room.h - 1 && dy > 0 && !iris) irisTo(function () { if (room) exitRoom(); });      // out through the door
+    if (Math.floor(o.y / T) >= room.h - 1 && dy > 0 && !iris) irisTo(function () { if (room) exitRoom(); }, DOOR_CLOSE, DOOR_OPEN);      // out through the door
   }
   function roomCandidates() {
     var out = [];
@@ -3146,15 +3199,9 @@
     ctx.imageSmoothingEnabled = false;
     ctx.fillStyle = "#07080a"; ctx.fillRect(-ox, -oy, W / E, H / E);
     lights = []; beamAt = null;
-    // floor, then the back wall (two tiles tall), side walls, and the doorway
-    for (var ty = 2; ty < R.h; ty++) for (var tx = 0; tx < R.w; tx++) for (var j = 0; j < T; j += 2) for (var i = 0; i < T; i += 2) {
-      var X = tx * T + i, Y = ty * T + j, seam = (i === 0 || j === 0) ? -0.18 : 0;
-      ctx.fillStyle = tone(0.5 + seam + (hash(X, Y) - 0.5) * 0.25, R.floor, X, Y); ctx.fillRect(X, Y, 2, 2);
-    }
-    for (ty = 0; ty < 2; ty++) for (tx = 0; tx < R.w; tx++) for (j = 0; j < T; j += 2) for (i = 0; i < T; i += 2) { X = tx * T + i; Y = ty * T + j; ctx.fillStyle = tone(0.35 + (Y / 32) * 0.4 + (hash(X >> 2, Y >> 2) - 0.5) * 0.15, R.wall, X, Y); ctx.fillRect(X, Y, 2, 2); }
-    ctx.fillStyle = R.trim; ctx.fillRect(0, 2 * T - 2, R.w * T, 2);
-    ctx.fillStyle = R.wall[0]; ctx.fillRect(0, 0, T * 0.5, R.h * T); ctx.fillRect(R.w * T - T * 0.5, 0, T * 0.5, R.h * T); ctx.fillRect(0, (R.h - 1) * T + 6, R.door * T, 10); ctx.fillRect((R.door + 1) * T, (R.h - 1) * T + 6, (R.w - R.door - 1) * T, 10);
-    ctx.fillStyle = "rgba(255,255,255,.08)"; ctx.fillRect(R.door * T + 2, (R.h - 1) * T, T - 4, T);
+    // floor, back wall, side walls and doorway: built once (roomBgStep), drawn as one image
+    roomBgStep(R, 1e9); ctx.drawImage(R._bg, 0, 0);
+    var i;
     for (i = 2; i < R.w - 1; i += 4) { ctx.fillStyle = "#fff4c2"; ctx.fillRect(i * T + 6, 2, 4, 2); light(i * T + 8, 6, 60, R.light, 0.7); }   // ceiling lamps
     var list = R.items.map(function (it) { return { y: (it.y + (it.h || 1)) * T, f: function () { drawRoomItem(it); } }; });
     list.push({ y: pi.y, f: drawPi });
@@ -3494,6 +3541,8 @@
     if (behind) ctx.globalAlpha = 0.45;
     ctx.drawImage(skin(sp), bx, by);
     ctx.globalAlpha = 1;
+    drawDoor(bd, bx, by);
+    if (bd.room && !ROOMS[bd.room]._bgDone && Math.hypot(pi.x - (bd.x0 + bd.w / 2) * T, pi.y - (bd.y0 + bd.h) * T) < 3 * T) roomBgStep(ROOMS[bd.room], 3);
     var night = sky.dark > 0.4;
     if (bd.id === "visitor") {
       if (night) { ctx.fillStyle = "rgba(255,214,120,.55)"; [9, 19, 45, 55].forEach(function (wx) { ctx.fillRect(bx + wx + 1, by + 34, 6, 7); }); }
@@ -4073,9 +4122,17 @@
     }
     render();
     qualityWatch(ms);
-    if (DEBUG) drawDebug(ms);
+    if (DEBUG) { drawDebug(ms); work.push(performance.now() - now); if (work.length > 600) work.shift(); }
     raf = requestAnimationFrame(loop);
   }
+  /* ?debug=1 only: a small test API (handoff 2 C5 grows it). work[] is how long each recent frame's
+     update and render took, in ms, which is what the transition tests check against 16 ms */
+  var work = [];
+  if (DEBUG) window.__island = {
+    teleport: function (x, y) { pi.x = x; pi.y = y; pi.vx = pi.vy = 0; pi.path = null; camF.x = null; },
+    getState: function () { return { open: open, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
+    frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; }
+  };
   /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
      carries on by itself */
   var pauseEl = root.querySelector(".w-pause");
