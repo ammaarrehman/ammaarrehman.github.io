@@ -4,11 +4,18 @@
    everything here is progressive: with js off the page renders as-is. */
 (function () {
   var root = document.documentElement;
-  // with GitHub links off: the repo buttons go (css hides [data-gh=hide]); any other github link
-  // (a line in the projects list, a word in a sentence) stays as plain text
-  if (window.SITE && !window.SITE.GITHUB_LINKS_ENABLED) Array.prototype.forEach.call(document.querySelectorAll('a[href*="github.com/"]:not([data-gh])'), function (a) {
-    a.removeAttribute("href"); a.removeAttribute("target"); a.removeAttribute("rel"); a.classList.add("gh-off");
+  // repo links follow SITE.CODE_HOST (js/head.js). the markup names github.com paths; with a host set
+  // they're rewritten to it (GitLab's tree paths carry a /-/), and the "on <host>" sentences show.
+  // with none: the repo buttons go (css hides [data-gh=hide]) and any other repo link stays as plain text
+  var HOST = window.SITE && window.SITE.CODE_HOST;
+  Array.prototype.forEach.call(document.querySelectorAll('a[href*="github.com/ammaarrehman"]'), function (a) {
+    if (HOST) a.href = window.SITE.hostUrl(a.getAttribute("href"));
+    else if (!a.hasAttribute("data-gh")) { a.removeAttribute("href"); a.removeAttribute("target"); a.removeAttribute("rel"); a.classList.add("gh-off"); }
   });
+  if (HOST) {
+    Array.prototype.forEach.call(document.querySelectorAll("[data-host-only]"), function (e) { e.hidden = false; });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-host-name]"), function (e) { e.textContent = HOST.name; });
+  }
   // staggered entrances: the delay rides in data-d and becomes --d here
   Array.prototype.forEach.call(document.querySelectorAll("[data-d]"), function (el) { el.style.setProperty("--d", el.getAttribute("data-d")); });
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
@@ -154,8 +161,8 @@
       if (island) return;
       island = 1;
       var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
-      script("js/audio.js?v=20261009", function () {
-        script("js/world.js?v=20261009", function () {
+      script("js/audio.js?v=20261010", function () {
+        script("js/world.js?v=20261010", function () {
           island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
           if (go && window.islandEnter) window.islandEnter();
         }, failed);

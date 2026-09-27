@@ -2,7 +2,7 @@
    you can walk around as pi. every landmark is a piece of the portfolio: the rack
    is the homelab, the lighthouse is the security work, the boat takes you home.
    there's a volcano, fenced paddocks, a helicopter on the pad, Ammaar's koi, cats,
-   cockatiels and M3, and a terminal left logged in inside a cave.
+   cockatiels and car, and a terminal left logged in inside a cave.
    keyboard: wasd / arrows to walk, e / space / enter to look, esc to leave.
    pointer: tap anywhere to walk there, tap a landmark to walk up and look. */
 (function () {
@@ -122,7 +122,7 @@
   road([[52.4, 46], [57, 46.6], [62.4, 44.6], [68.6, 44.6], [74.5, 43.4], [80, 40.4], [86.5, 37.6]], 1.9);   // east, past the garden and out along the headland
   road([[62.4, 44.6], [63, 41], [64.4, 38]], 1);                                                              // the raptor pen
   road([[45.6, 47], [42.6, 48.6], [40.8, 50.4]], 1);                                                          // the t-rex paddock viewpoint
-  road([[68.6, 44.6], [67.4, 50.4], [66.4, 52]], 1);                                                          // the garden: pond, blanket, the M3
+  road([[68.6, 44.6], [67.4, 50.4], [66.4, 52]], 1);                                                          // the garden: pond, blanket, the car
   road([[44.4, 60.4], [38, 61.6], [31.6, 61.2], [27, 61.4]], 1.3);                                            // the coast road to the outpost
   road([[49.4, 60.8], [54, 61.8], [58.6, 62.6]], 1.3);                                                        // the helipad and the herd plain
   road([[48, 62.6], [50.4, 63.4], [DOCKX + 0.5, dockY + 0.5]], 1.3);                                          // the dock
@@ -167,10 +167,10 @@
   var GH = "https://github.com/ammaarrehman/";
   var STATIONS = [
     { id: "sign", x: 44, y: 57, name: "signpost", text: "pi's island. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
-    { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "High-availability DNS. Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
-    { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took primary accuracy from 93% to 100% and multi-need coverage from 0% to 90%. Staff review every row.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
-    { id: "uplink", x: 25, y: 63, name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployed and destroyed with one command, inside the AWS free tier, with a budget alarm.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
-    { id: "tower", x: 58, y: 21, name: "the watchtower", sec: "projects", found: true, text: "monitoring-stack: Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker, tracking availability and response health for every homelab service. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
+    { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "High-availability DNS. Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. keepalived moves the floating IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
+    { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
+    { id: "uplink", x: 25, y: 63, name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
+    { id: "tower", x: 58, y: 21, name: "the watchtower", sec: "projects", found: true, text: "monitoring-stack: Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker, tracking availability and response health for the homelab's services. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
     { id: "lighthouse", x: 89, y: 37, name: "the lighthouse", sec: "experience", found: true, text: "Cyber Ready Clinic, Cyber Security Analyst, Sep 2026 – present, Maryland · internship cohort. Support nonprofit cyber-readiness assessments using the Discover5 business-risk and Ready5 capability frameworks, with findings aligned to the NIST Cybersecurity Framework and CIS Controls. Working toward the Ready5 Practitioner digital badge, expected Nov 2026 on cohort completion. Also: NextGen Consulting Inc., Cloud & AI Operations Intern, May 2025 – present. HCC Campus Store · Slingshot, Campus Operations Associate, Aug 2024 – present.", links: [["experience", "#experience"]] },
     { id: "macbook", x: 66, y: 53, name: "a macbook on a blanket", sec: "projects", found: true, text: "ammaarrehman.com. This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas. (you're standing in it.)", links: [["site repo ↗", GH + "ammaarrehman.github.io"], ["projects", "#projects"]] },
     { id: "tablet", x: 52, y: 50, name: "a stone tablet", sec: "education & certs", found: true, text: "Howard Community College, A.A. General Studies, Aug 2024 – Dec 2026, GPA 3.65 · Dean's List. UMD · Smith School of Business, B.S. Information Systems, starts Jan 2027. Certifications: AWS Certified Cloud Practitioner (CLF-C02), CompTIA Tech+, Ready5 Practitioner (Cyber Ready Clinic, in progress · expected Nov 2026).", links: [["education", "#education"]] },
@@ -1215,8 +1215,9 @@
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
     logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
-    var ghOn = !window.SITE || window.SITE.GITHUB_LINKS_ENABLED;            // github links off while the account is flagged
-    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).filter(function (l) { return ghOn || l[1].indexOf("github.com/") < 0; }));
+    var host = window.SITE && window.SITE.CODE_HOST;                          // repo links only once the code host is public
+    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).filter(function (l) { return host || l[1].indexOf("github.com/") < 0; })
+      .map(function (l) { return l[1].indexOf("github.com/") < 0 ? l : [l[0].replace(/github/i, host.name), window.SITE.hostUrl(l[1])]; }));
   }
   /* ════════ secrets ════════
      every easter egg on the island is in this one table. finding one pops a toast, rings a
@@ -1229,8 +1230,8 @@
     { id: "koi", name: "feeding time", hint: "the koi in the garden are always hungry." },
     { id: "roar", name: "too close", hint: "walk along the t-rex paddock's fence." },
     { id: "heli", name: "air support", hint: "the helicopter on the pad isn't just for show." },
-    { id: "drift", name: "sideways", hint: "hold shift in the M3 when it's going fast." },
-    { id: "honk", name: "beep beep", hint: "the M3 has a horn." },
+    { id: "drift", name: "sideways", hint: "hold shift in the car when it's going fast." },
+    { id: "honk", name: "beep beep", hint: "the car has a horn." },
     { id: "rex", name: "chrome dino", hint: "a small dinosaur near the village wants to say hi." },
     { id: "zoom", name: "zoom mode", hint: "the drink stand in the square." },
     { id: "night", name: "night shift", hint: "come back after dark, New York time." },
@@ -1458,7 +1459,7 @@
   var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":33,"h":20,"f":[[0,46],[34,46],[68,46],[102,46],[136,46],[170,46],[204,46],[238,46],[272,46],[306,46],[340,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":84,"h":83,"f":[[0,67],[85,67],[170,67],[255,67],[340,67],[425,67],[510,67],[595,67],[680,67],[765,67],[850,67],[935,67],[1020,67]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,151],[60,151],[120,151],[180,151],[240,151],[300,151],[360,151],[420,151],[480,151],[540,151],[600,151],[660,151],[720,151]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,192],[59,192],[118,192],[177,192],[236,192],[295,192],[354,192],[413,192],[472,192],[531,192],[590,192],[649,192],[708,192]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,229],[55,229],[110,229],[165,229],[220,229],[275,229],[330,229],[385,229],[440,229],[495,229],[550,229],[605,229],[660,229]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":46,"h":21,"f":[[0,272],[47,272],[94,272],[141,272],[188,272],[235,272],[282,272],[329,272],[376,272],[423,272],[470,272],[517,272],[564,272]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,294],[91,294],[182,294],[273,294],[364,294],[455,294],[546,294],[637,294],[728,294],[819,294],[910,294]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":41,"h":32,"f":[[0,346],[42,346],[84,346],[126,346],[168,346],[210,346],[252,346],[294,346],[336,346],[378,346],[420,346],[462,346],[504,346]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":31,"h":22,"f":[[0,379],[32,379],[64,379],[96,379],[128,379],[160,379],[192,379],[224,379],[256,379],[288,379],[320,379],[352,379],[384,379]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,402],[39,402],[78,402],[117,402],[156,402],[195,402],[234,402],[273,402],[312,402],[351,402],[390,402]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":17,"h":10,"f":[[0,443],[18,443],[36,443],[54,443],[72,443],[90,443],[108,443],[126,443],[144,443],[162,443],[180,443]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,454],[22,454],[44,454],[66,454],[88,454],[110,454],[132,454],[154,454],[176,454],[198,454],[220,454]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,473],[22,473],[44,473],[66,473],[88,473],[110,473],[132,473],[154,473],[176,473],[198,473],[220,473]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"ptero":{"w":32,"h":45,"f":[[0,492],[33,492],[66,492],[99,492],[132,492],[165,492],[198,492],[231,492],[264,492],[297,492],[330,492],[363,492],[396,492],[429,492],[462,492],[495,492],[528,492]],"m":{"fly":[0,1,2,3,4,5,6,7,8,9,10,11],"glide":[12,13,14,15],"blink":[16]}}};
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261009";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261010";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -1899,7 +1900,7 @@
     ctx.globalAlpha = 1;
   }
 
-  /* ════════ the BMW ════════ */
+  /* ════════ the car ════════ */
   var CAR = {
     rows: ["..HHBBBBBHH..", ".BBBKKBKKBBB.", "TBBBKKBKKBBBT", "TBNBBMmRBBNBT", "TBBNBWUWBNBBT", ".BBNBUWUBNBB.", ".BBBBWUWBBBB.", ".BBBBBBBBBBB.",
            ".GGGGGGGGGGG.", "XGGGGGGGGGGGX", ".GGGGGGGGGGG.", ".BCCCCCCCCCB.", ".BCcCcCcCcCB.", ".BCCCCCCCCCB.", ".BCcCcCcCcCB.",
@@ -1907,7 +1908,7 @@
     pal: { B: "#8b9096", N: "#a9aeb3", C: "#161616", c: "#2a2a2a", G: "#34465a", K: "#0b0b0b", E: "#cfd6dc", H: "#fff4c2", R: "#e0231f",
            U: "#1c69d4", W: "#f4f4f4", T: "#0e0e0e", X: "#8b9096", M: "#3fa9f5", m: "#1f3f9e" }
   };
-  /* the M3 drives like a car, not a cursor. it has a drive and a reverse gear (tap s or down
+  /* the car drives like a car, not a cursor. it has a drive and a reverse gear (tap s or down
      when it's stopped or rolling back and it drops into reverse, with a clunk and the reversing
      lights on), a torque curve that fades toward top speed, brakes that bite, and grip: the
      tyres kill sideways slide, until you pull the handbrake (shift) and the back steps out into
@@ -2296,7 +2297,7 @@
     help: function () {
       ["commands:", "  help              this list", "  ls [-a]           list files", "  cat <file>        print a file", "  whoami            who's logged in", "  neofetch          island info",
        "  census            who lives here", "  found             landmarks found so far", "  secrets           the island's secrets, found and not", "  goto <place>      go somewhere (goto with no place lists them)", "  time [hour|reset] the island clock, synced to Ammaar's timezone",
-       "  feed koi          ring the dinner bell at the pond", "  sound [on|off]    music and sound effects", "  fly | drive       go to the helicopter or the M3", "  history           what you've typed", "  clear             clear the screen", "  exit              log out"].forEach(function (l) { print(l); });
+       "  feed koi          ring the dinner bell at the pond", "  sound [on|off]    music and sound effects", "  fly | drive       go to the helicopter or the car", "  history           what you've typed", "  clear             clear the screen", "  exit              log out"].forEach(function (l) { print(l); });
     },
     ls: function (args) {
       var dir = args.filter(function (a) { return a[0] !== "-"; })[0];
@@ -2347,7 +2348,7 @@
       feedKoi(); print("dinner bell rung. the koi are heading for the west bank of the pond.");
     },
     fly: function () { goto("heli"); print("walking you to the helipad..."); setTimeout(closeTerm, 350); },
-    drive: function () { goto("car"); print("walking you to the M3..."); setTimeout(closeTerm, 350); },
+    drive: function () { goto("car"); print("walking you to the car..."); setTimeout(closeTerm, 350); },
     history: function () { tHist.forEach(function (h, i) { print("  " + (i + 1) + "  " + h); }); },
     clear: function () { tOut.innerHTML = ""; },
     exit: function () { closeTerm(); },
@@ -2471,7 +2472,7 @@
       sfx("zap", v.fx * T + 8, v.fy * T);
       if (pd && pd.name !== "raptor pen" && trex.cd <= 0) roar();
     }
-    else if (v.id === "car") { say("the M3", "Ammaar's BMW M3. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
+    else if (v.id === "car") { say("the car", "Ammaar's car. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
   }
 
   // the t-rex roars when pi comes close to its fence: the screen shakes, the birds scatter

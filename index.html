@@ -27,18 +27,17 @@
     "image": "https://ammaarrehman.com/assets/headshot.jpg",
     "jobTitle": "Cyber Security Analyst (internship cohort)",
     "address": { "@type": "PostalAddress", "addressLocality": "Ellicott City", "addressRegion": "MD", "addressCountry": "US" },
-    "sameAs": ["https://github.com/ammaarrehman", "https://www.linkedin.com/in/ammaarrehman/"]
+    "sameAs": ["https://www.linkedin.com/in/ammaarrehman/"]
   }
   </script>
-  <script src="js/head.js?v=20261009"></script>
+  <script src="js/head.js?v=20261010"></script>
   <link rel="icon" type="image/svg+xml" href="assets/favicon.svg" />
   <link rel="icon" type="image/png" sizes="32x32" href="assets/favicon-32.png" />
   <link rel="apple-touch-icon" href="assets/apple-touch-icon.png" />
   <link rel="manifest" href="site.webmanifest" />
-  <link rel="me" href="https://github.com/ammaarrehman" />
   <link rel="me" href="https://www.linkedin.com/in/ammaarrehman/" />
   <link rel="preload" href="fonts/cascadia-mono-latin.woff2" as="font" type="font/woff2" crossorigin />
-  <link rel="stylesheet" href="css/styles.css?v=20261009" />
+  <link rel="stylesheet" href="css/styles.css?v=20261010" />
 </head>
 <body>
 
@@ -224,17 +223,17 @@
             <p>
               At <b>NextGen Consulting</b> I started as an IT Operations Intern and
               closed out 200+ user issues. I'm now a <b>Cloud &amp; AI Operations
-              Intern</b> on the same team, using Claude and AWS Kiro daily to
-              investigate errors and triage tickets, and I write the support docs
-              other staff end up reusing.
+              Intern</b> on the same team, using Claude and AWS Kiro to
+              investigate errors and triage tickets, and to improve our support
+              documentation.
             </p>
             <p>
               Outside work I build and test things in the open. Two Raspberry Pi 5
               nodes run <b>high-availability DNS</b> behind a keepalived floating IP,
               with failover tested in both directions. In <b>trading-lab</b> I wrote
               the pass/fail rules for seven trading strategies before touching any
-              data, and rejected every one before a dollar moved. It's all on
-              <a href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer"><b>GitHub</b></a>, this site included.
+              data, and rejected every one before a dollar moved.<span data-host-only hidden> The code is
+              <a data-gh="hide" href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer"><b>public</b></a>, this site included.</span>
             </p>
             <dl class="tree">
               <div><dt>certs</dt><dd>AWS Cloud Practitioner (CLF-C02) · CompTIA Tech+</dd></div>
@@ -289,14 +288,14 @@
               <h3>NextGen Consulting Inc.</h3>
               <p class="role">Cloud &amp; AI Operations Intern</p>
               <ul>
-                <li>Use AI-assisted tools (Claude, AWS Kiro) daily to investigate errors, summarize issues, and improve internal support documentation other staff reuse</li>
+                <li>Use Claude, AWS Kiro and AWS services to investigate errors, summarize issues, and improve documentation</li>
                 <li>Run configuration checks, service testing, and issue triage on active cloud projects</li>
                 <li>Translate technical problems into clear next steps for non-technical users and stakeholders</li>
               </ul>
               <p class="role role-2">Information Technology Operations Intern <span class="where">· Jun 2024 – May 2025</span></p>
               <ul>
                 <li>Resolved 200+ user issues spanning account configuration, access, and mobile app troubleshooting</li>
-                <li>Tested app functionality, documented bugs, and built support documentation that reduced repeat-issue resolution time</li>
+                <li>Tested app functionality, documented bugs, and built support documentation to reduce repeat-issue resolution time</li>
               </ul>
             </div>
           </div>
@@ -308,7 +307,6 @@
               <p class="role">Campus Operations Associate</p>
               <ul>
                 <li>Operate order, fulfillment, and inventory systems serving students, faculty, staff, and departments in a fast-paced, high-volume environment</li>
-                <li>Troubleshoot order, delivery, and account issues, and identify recurring workflow problems to improve consistency during peak periods</li>
               </ul>
             </div>
           </div>
@@ -324,7 +322,7 @@
       <div class="pane rv" data-win="projects">
         <h2 class="pane-title">projects</h2>
         <p class="pane-cmd" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls -la ~/projects</p>
-        <p class="pane-sub">Four featured builds, then the rest. Every one is documented on GitHub.</p>
+        <p class="pane-sub">Four featured builds, then the rest.<span data-host-only hidden> Each has its code and write-up on <span data-host-name>GitLab</span>.</span></p>
         <div class="work-grid">
 
           <article class="work-item">
@@ -333,7 +331,7 @@
             <div class="work-body">
               <div class="work-meta"><span class="status status-live">LIVE</span><span class="work-type">homelab / networking</span></div>
               <h3 class="work-title">High-availability DNS</h3>
-              <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. A service-level health check moves the IP to the backup node within seconds; failover and failback tested in both directions, config synced every 10 minutes.</p>
+              <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. keepalived moves the floating IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes.</p>
               <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
               <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
             </div>
@@ -357,7 +355,7 @@
             <div class="work-body">
               <div class="work-meta"><span class="status status-shipped">SHIPPED</span><span class="work-type">ai / automation</span></div>
               <h3 class="work-title">Claude intake triage assistant</h3>
-              <p class="work-desc">Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took primary accuracy from 93% to 100% and multi-need coverage from 0% to 90%. Staff review every row.</p>
+              <p class="work-desc">Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.</p>
               <div class="work-stack"><span>Claude API</span><span>Apps Script</span><span>Google Sheets</span><span>Python evals</span></div>
               <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener noreferrer">repo ↗</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener noreferrer">demo ↗</a></div>
             </div>
@@ -369,8 +367,8 @@
             <div class="work-body">
               <div class="work-meta"><span class="status status-shipped">SHIPPED</span><span class="work-type">cloud / IaC</span></div>
               <h3 class="work-title">AWS static site with Terraform</h3>
-              <p class="work-desc">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployed and destroyed with one command, inside the AWS free tier, with a budget alarm.</p>
-              <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>OAC</span><span>AWS Budgets</span></div>
+              <p class="work-desc">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.</p>
+              <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>OAC</span></div>
               <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
             </div>
           </article>
@@ -394,13 +392,7 @@
           <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener noreferrer">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">uptime-monitoring/</span>
-            <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for every homelab service.</span>
-            <span class="status status-live">LIVE</span>
-          </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/homepage" target="_blank" rel="noopener noreferrer">
-            <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
-            <span class="rack-title">homepage/</span>
-            <span class="rack-desc">A config-driven dashboard for the whole lab, running full-screen on the rack's touchscreen in kiosk mode.</span>
+            <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for the homelab's services.</span>
             <span class="status status-live">LIVE</span>
           </a>
           <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener noreferrer">
@@ -498,16 +490,16 @@
     <div class="container footer-inner">
       <span><b>AMMAAR REHMAN</b> © 2026 · Ellicott City, MD · updated Sep 2026</span>
       <button class="reboot-btn" type="button">↻ reboot</button>
-      <span>HTML / CSS / JS / Python · <a href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener noreferrer">source on GitHub</a> · pi lives on the island</span>
+      <span>HTML / CSS / JS / Python<span data-host-only hidden> · <a data-gh="hide" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener noreferrer">source on <span data-host-name>GitLab</span></a></span> · pi lives on the island</span>
     </div>
   </footer>
 
-  <script src="js/skills.js?v=20261009"></script>
-  <script src="js/boot.js?v=20261009"></script>
-  <script src="js/site.js?v=20261009"></script>
-  <script src="js/windows.js?v=20261009"></script>
-  <script src="js/face.js?v=20261009"></script>
-  <script src="js/orb.js?v=20261009"></script>
-  <script src="js/hands.js?v=20261009"></script>
+  <script src="js/skills.js?v=20261010"></script>
+  <script src="js/boot.js?v=20261010"></script>
+  <script src="js/site.js?v=20261010"></script>
+  <script src="js/windows.js?v=20261010"></script>
+  <script src="js/face.js?v=20261010"></script>
+  <script src="js/orb.js?v=20261010"></script>
+  <script src="js/hands.js?v=20261010"></script>
 </body>
 </html>

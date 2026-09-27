@@ -187,9 +187,9 @@ until hovered.
 ## Running, switches and deploying
 
 - Run locally: `python3 -m http.server 8000` in the repo, then open http://localhost:8000.
-- `js/head.js` holds the site switches. `GITHUB_LINKS_ENABLED` is false while the GitHub account
-  is flagged (repo buttons hide, other github links read as plain text); set it to true to bring
-  them back.
+- `js/head.js` holds the site switches. `CODE_HOST` is where the project repos live: `null` hides
+  every repo link and the "code is on ..." sentences; `{ name: "GitLab", base: "https://gitlab.com/ammaarrehman" }`
+  brings them back, rewritten from the github.com paths in the markup (GitLab's tree paths get their `/-/`).
 - Scripts and the stylesheet carry `?v=YYYYMMDD` in `index.html` (and the island's own paths in
   `js/site.js` and `js/world.js`). Bump it everywhere together whenever a script or the CSS
   changes, so returning visitors get the new files.
@@ -233,7 +233,7 @@ Nothing here identifies a visitor, and nothing is sent anywhere. Every read and 
 
 | Config | File |
 |---|---|
-| Site switches (`GITHUB_LINKS_ENABLED`) | `js/head.js` |
+| Site switches (`CODE_HOST`) | `js/head.js` |
 | Cache version (`?v=`) | `index.html`, `js/site.js`, `js/world.js` (bump all together) |
 | Security headers and CSP | `_headers`, and the same CSP in the `<meta>` of `index.html` and `404.html` |
 | Cloudflare Worker (name, domain, 404 handling) | `wrangler.jsonc` |

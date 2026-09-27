@@ -41,7 +41,8 @@ Source of truth: the résumé PDF on the site (`assets/resume/Ammaar_Rehman_Resu
 | Code host | GitLab, username `ammaarrehman` (Phase 7). |
 | DNS | On hold: Ammaar is auditing the homelab. Until AdGuard is verified to forward to Unbound, no copy says Unbound resolves queries. |
 | Island personal details | Keep the cats, cockatiels, koi pond, Middle Path drawing and timezone. The car loses its make and model (C-12). |
-| Kaiju | Keep its current colouring (it's Middle Path's monster). Code shows a possible redesign for review; nothing changes without Ammaar's OK. |
+| Kaiju | Option A (2026-09-27): the same grey, new shapes (a rounder head with pi's eyes, soft back bumps instead of spikes, tail lines that glow at night). |
+| Reserve | Mossgate Reserve (2026-09-27), replacing the working name. |
 
 ### Inventory
 
@@ -82,7 +83,7 @@ Source of truth: the résumé PDF on the site (`assets/resume/Ammaar_Rehman_Resu
 
 ## Proposed copy changes
 
-Nothing here changes until Ammaar approves. Each row is one decision.
+Approved by Ammaar on 2026-09-27. Applied: P-1 to P-7, P-10, P-12. P-8 and P-9 are wired to `CODE_HOST` and show once the GitLab repos are public. P-11 waits for the homelab audit. P-13 and P-14 stay as they are.
 
 | # | Current text | Proposed text | Reason | Source |
 |---|---|---|---|---|
@@ -179,8 +180,8 @@ All 27 links checked: in-page anchors resolve, site files exist, the mailto is a
 
 ## Needs Ammaar
 
-1. Approve or change the copy batch (P-1 to P-14). P-8 and P-9 ship with the GitLab links in Phase 7; P-11 waits for your homelab audit.
-2. Cloudflare: Minimum TLS Version 1.2 and the Web Analytics toggle (click paths in `docs/hosting.md`).
-3. Run the Firefox command above and paste the output.
+1. Cloudflare: Minimum TLS Version 1.2 and the Web Analytics toggle (click paths in `docs/hosting.md`).
+2. Run the Firefox audit command (A7) and paste the output.
+3. The homelab audit settles P-11 and C-19.
 4. Decide on the dead-file candidates in the README.
 5. Fix the résumé PDF bullets in your own export (A6-8).
