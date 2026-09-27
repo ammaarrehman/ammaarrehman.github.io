@@ -305,6 +305,76 @@ def lilies(seed):
     sp.outline(skip=("blossom",)); return sp, (8, 9)
 
 
+def rockblob(sp, cx, cy, rx, ry, rng, moss=True):
+    """one boulder in a pile: faceted, lit from the top left, a moss cap"""
+    facets = rng.choice([4, 5, 6])
+    for y in range(int(cy - ry) - 1, int(cy + ry) + 2):
+        for x in range(int(cx - rx) - 1, int(cx + rx) + 2):
+            u, v = (x + 0.5 - cx) / rx, (y + 0.5 - cy) / ry
+            d = u * u + v * v
+            if d > 1: continue
+            ang = round(math.atan2(v, u) / (math.pi / facets)) * (math.pi / facets)
+            rr = math.sqrt(d); nx, ny = math.cos(ang) * rr, math.sin(ang) * rr
+            nz = math.sqrt(max(0, 1 - nx * nx - ny * ny))
+            lam = max(0.0, nx * L[0] + ny * L[1] + nz * L[2])
+            if moss and ny < -0.5 + 0.2 * math.sin(x * 0.9 + cx):
+                sp.put(x, y, tone(R["moss"], 0.35 + 0.65 * lam, x, y, 0.2), "moss")
+            else:
+                sp.put(x, y, tone(R["rock"], min(1, 0.12 + 0.88 * lam), x, y, 0.15), "rock")
+
+
+def cavemouth(seed):
+    """ref-6's cave: a hillside of stacked boulders around a dark opening, grass hanging over the
+    lip, the floor running in. the terminal's glow is drawn by the game, inside the opening"""
+    rng = random.Random(seed); W, H = 60, 46; sp = Sprite(W, H)
+    # the hill behind: big boulders, back to front
+    piles = [(12, 26, 11, 9), (48, 26, 11, 9), (18, 14, 10, 8), (42, 14, 10, 8), (30, 9, 12, 8), (8, 36, 8, 7), (52, 36, 8, 7), (22, 32, 7, 7), (38, 32, 7, 7)]
+    for (cx, cy, rx, ry) in piles: rockblob(sp, cx, cy, rx, ry, rng)
+    # grass over the top of the hill, hanging in tufts
+    for x in range(8, 53):
+        top = next((y for y in range(H) if sp.px[y, x, 3]), None)
+        if top is None: continue
+        hang = 2 + int(abs(math.sin(x * 0.7 + seed)) * 3) + (3 if (x * 7 + seed) % 11 == 0 else 0)
+        for k in range(-1, hang):
+            if 0 <= top + k < H: sp.put(x, top + k, R["grass"][5 if k < 0 else 4 if k < hang - 1 else 2], "grass")
+    # the opening: an arch, dark and going darker inward, with a lit rim of rock around it
+    ox, oy, orx, ory = 30, 34, 10, 13
+    for y in range(oy - ory, H):
+        for x in range(ox - orx - 1, ox + orx + 2):
+            u, v = (x + 0.5 - ox) / orx, (y + 0.5 - oy) / ory
+            inside = (u * u + v * v <= 1) if y < oy else abs(u) <= 1 - (y - oy) * 0.01
+            if not inside: continue
+            depth = 1 - min(1, abs(u) * 0.8 + max(0, (oy - y) / ory) * 0.3)
+            c = (int(22 - 14 * depth), int(18 - 12 * depth), int(30 - 16 * depth))
+            sp.put(x, y, c, "void")
+    for x in range(ox - orx, ox + orx + 1):                      # a lip of lit rock over the arch
+        for y in range(oy - ory - 2, oy + 2):
+            if sp.mat[y, x] == "rock" and 0 <= y + 1 < H and sp.mat[y + 1, x] == "void":
+                sp.put(x, y, R["rock"][4], "rock"); break
+    for y in range(H - 6, H):                                     # the floor running in, packed dirt
+        for x in range(ox - orx + 2, ox + orx - 1):
+            if sp.mat[y, x] == "void" and (y - (H - 6)) > abs(x - ox) * 0.4:
+                sp.put(x, y, tone(R["dirt"], 0.25 + (y - (H - 6)) * 0.08, x, y, 0.2), "dirt")
+    sp.outline(skip=("void", "grass", "moss", "dirt")); return sp, (30, H - 1)
+
+
+def baretree(seed):
+    """a dead, branching tree by the cave: no leaves, wood lit on the left"""
+    rng = random.Random(seed); sp = Sprite(30, 36)
+    def branch(x, y, ang, length, w, depth):
+        for i in range(int(length)):
+            px, py = x + math.cos(ang) * i, y + math.sin(ang) * i
+            for k in range(-int(w // 2), int(w // 2) + 1):
+                qx = int(round(px + k * math.cos(ang + math.pi / 2)))
+                sp.put(qx, int(round(py)), R["wood"][3 if k < 0 else 2 if k == 0 else 1], "wood")
+        ex, ey = x + math.cos(ang) * length, y + math.sin(ang) * length
+        if depth > 0:
+            for s in (-1, 1):
+                if rng.random() < 0.9: branch(ex, ey, ang + s * rng.uniform(0.35, 0.7), length * rng.uniform(0.55, 0.75), max(1, w - 1), depth - 1)
+    branch(15, 35, -math.pi / 2, 12, 3, 4)
+    sp.outline(); return sp, (15, 35)
+
+
 def all_sprites():
     s = {}
     for i in range(3): s["oak%d" % i] = broadleaf(10 + i)
@@ -321,6 +391,8 @@ def all_sprites():
         for v in range(5): s["rock%d_%d" % (size, v)] = rock(size, v)
     for i in range(3): s["reeds%d" % i] = reeds(120 + i)
     for i in range(3): s["lilies%d" % i] = lilies(130 + i)
+    s["cavemouth"] = cavemouth(140)
+    for i in range(2): s["baretree%d" % i] = baretree(150 + i)
     return s
 
 
@@ -328,7 +400,7 @@ def main():
     sprites = all_sprites()
     # shelf-pack them into one atlas
     items = sorted(sprites.items(), key=lambda kv: -kv[1][0].h)
-    W, x, y, rowh, pos = 256, 0, 0, 0, {}
+    W, x, y, rowh, pos = 320, 0, 0, 0, {}
     for name, (sp, anchor) in items:
         if x + sp.w > W: x, y, rowh = 0, y + rowh + 1, 0
         pos[name] = (x, y); x += sp.w + 1; rowh = max(rowh, sp.h)

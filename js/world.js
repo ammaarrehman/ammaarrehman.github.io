@@ -83,7 +83,7 @@
      tools/envart.py). the rest of the island converts once Ammaar approves the look */
   var TEST = [[13, 18, 41, 47], [57, 39, 81, 57]];
   function inTest(x, y) { for (var i = 0; i < TEST.length; i++) { var r = TEST[i]; if (x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true; } return false; }
-  var ENV = {"pine0":[0,0,28,50,14,48],"pine1":[29,0,28,50,14,48],"birch0":[58,0,26,46,13,44],"birch1":[85,0,26,46,13,44],"oak0":[112,0,34,42,17,40],"oak1":[147,0,34,42,17,40],"oak2":[182,0,34,42,17,40],"ginkgo0":[217,0,30,40,15,38],"ginkgo1":[0,51,30,40,15,38],"tfern0":[31,51,34,34,17,32],"tfern1":[66,51,34,34,17,32],"cycad0":[101,51,24,22,12,20],"cycad1":[126,51,24,22,12,20],"rock2_0":[151,51,28,22,14,20],"rock2_1":[180,51,28,22,14,20],"rock2_2":[209,51,28,22,14,20],"rock2_3":[0,92,28,22,14,20],"rock2_4":[29,92,28,22,14,20],"horsetail0":[58,92,14,18,7,17],"magnolia0":[73,92,22,16,11,15],"rock1_0":[96,92,20,16,10,14],"rock1_1":[117,92,20,16,10,14],"rock1_2":[138,92,20,16,10,14],"rock1_3":[159,92,20,16,10,14],"rock1_4":[180,92,20,16,10,14],"reeds0":[201,92,12,16,6,15],"reeds1":[214,92,12,16,6,15],"reeds2":[227,92,12,16,6,15],"bush0":[0,115,18,14,9,13],"bush1":[19,115,18,14,9,13],"fern0":[38,115,20,14,10,13],"fern1":[59,115,20,14,10,13],"rock0_0":[80,115,14,12,7,10],"rock0_1":[95,115,14,12,7,10],"rock0_2":[110,115,14,12,7,10],"rock0_3":[125,115,14,12,7,10],"rock0_4":[140,115,14,12,7,10],"lilies0":[155,115,16,10,8,9],"lilies1":[172,115,16,10,8,9],"lilies2":[189,115,16,10,8,9]};
+  var ENV = {"pine0":[0,0,28,50,14,48],"pine1":[29,0,28,50,14,48],"birch0":[58,0,26,46,13,44],"birch1":[85,0,26,46,13,44],"cavemouth":[112,0,60,46,30,45],"oak0":[173,0,34,42,17,40],"oak1":[208,0,34,42,17,40],"oak2":[243,0,34,42,17,40],"ginkgo0":[278,0,30,40,15,38],"ginkgo1":[0,51,30,40,15,38],"baretree0":[31,51,30,36,15,35],"baretree1":[62,51,30,36,15,35],"tfern0":[93,51,34,34,17,32],"tfern1":[128,51,34,34,17,32],"cycad0":[163,51,24,22,12,20],"cycad1":[188,51,24,22,12,20],"rock2_0":[213,51,28,22,14,20],"rock2_1":[242,51,28,22,14,20],"rock2_2":[271,51,28,22,14,20],"rock2_3":[0,92,28,22,14,20],"rock2_4":[29,92,28,22,14,20],"horsetail0":[58,92,14,18,7,17],"magnolia0":[73,92,22,16,11,15],"rock1_0":[96,92,20,16,10,14],"rock1_1":[117,92,20,16,10,14],"rock1_2":[138,92,20,16,10,14],"rock1_3":[159,92,20,16,10,14],"rock1_4":[180,92,20,16,10,14],"reeds0":[201,92,12,16,6,15],"reeds1":[214,92,12,16,6,15],"reeds2":[227,92,12,16,6,15],"bush0":[240,92,18,14,9,13],"bush1":[259,92,18,14,9,13],"fern0":[278,92,20,14,10,13],"fern1":[299,92,20,14,10,13],"rock0_0":[0,115,14,12,7,10],"rock0_1":[15,115,14,12,7,10],"rock0_2":[30,115,14,12,7,10],"rock0_3":[45,115,14,12,7,10],"rock0_4":[60,115,14,12,7,10],"lilies0":[75,115,16,10,8,9],"lilies1":[92,115,16,10,8,9],"lilies2":[109,115,16,10,8,9]};
   var PAL = { grass: ["#24463f", "#2e5d44", "#3d7a47", "#55944a", "#73ad51", "#98c65c"], dirt: ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
               water: ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"], rim: ["#b4e4e0", "#e2f6ee"], rock: ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
               moss: ["#35553a", "#4f7a3c", "#79a24a"], wood: ["#2e2433", "#4a3635", "#6b4d3c", "#8e6a48", "#b08a5c"], flower: ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"] };   // from art/palette.json
@@ -322,6 +322,15 @@
       props.push({ kind: "rock", tx: x, ty: y });
     }
   }
+  // the cave's surroundings (ref-6): the hillside is solid, two bare trees and some stones beside it
+  (function () {
+    var cs = STATIONS.filter(function (q) { return q.id === "cave"; })[0]; if (!cs) return;
+    for (var yy = cs.y - 2; yy <= cs.y - 1; yy++) for (var xx = cs.x - 2; xx <= cs.x + 2; xx++) solid[k(xx, yy)] = 1;
+    solid[k(cs.x - 2, cs.y)] = 1; solid[k(cs.x + 2, cs.y)] = 1;
+    [["e:baretree0", cs.x - 4, cs.y], ["e:baretree1", cs.x + 4, cs.y - 1], ["e:rock0_1", cs.x - 3, cs.y + 1], ["e:rock0_3", cs.x + 3, cs.y + 1], ["e:rock1_2", cs.x + 5, cs.y + 1]].forEach(function (q) {
+      if (walkable0(q[1], q[2])) { props.push({ kind: q[0], tx: q[1], ty: q[2], flip: hash(q[1], q[2]) < 0.5, ox: 0, oy: 0 }); if (/tree/.test(q[0])) solid[k(q[1], q[2])] = 1; }
+    });
+  })();
   // lily pads on the test area's water: a few clusters on the pond, clear of the middle
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
     if (!inTest(x, y) || map[y][x] !== POND) continue;
@@ -849,6 +858,15 @@
     }
 
     paintTest(g);
+    // a puddle on the path into the cave, lit on its far rim
+    (function () {
+      var cs = STATIONS.filter(function (q) { return q.id === "cave"; })[0]; if (!cs) return;
+      var pcx = (cs.x + 1.2) * T, pcy = (cs.y + 1.4) * T;
+      for (var yy = -4; yy <= 4; yy++) for (var xx = -8; xx <= 8; xx++) {
+        var d = (xx * xx) / 64 + (yy * yy) / 14 + (hash(xx + 40, yy + 40) - 0.5) * 0.15; if (d > 1) continue;
+        g.fillStyle = d > 0.72 && yy < 0 ? PAL.rim[0] : soft(0.55 - d * 0.35, PAL.water, pcx + xx, pcy + yy); g.fillRect(pcx + xx, pcy + yy, 1, 1);
+      }
+    })();
     // the pond, pixel by pixel: deeper toward the middle, a stone rim, reeds and lily pads
     var oldPond = !inTest(Math.round(KP.x), Math.round(KP.y));
     if (oldPond) for (var py = Math.floor((KP.y - 3) * T); py < (KP.y + 3) * T; py++) for (var px = Math.floor((KP.x - 7) * T); px < (KP.x + 7) * T; px++) {
@@ -1677,10 +1695,10 @@
       c.getContext("2d").drawImage(ENV_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); SPR["e:" + n] = c;
     });
   };
-  ENV_IMG.src = "img/atlas/env.png?v=20261013";
+  ENV_IMG.src = "img/atlas/env.png?v=20261014";
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261013";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261014";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -4220,6 +4238,19 @@
       var gl = 0.35 + 0.35 * Math.sin(t * 1.3);
       ctx.fillStyle = "rgba(160,120,255," + gl.toFixed(2) + ")"; ctx.fillRect(sx1 + 11, sy1 + 15, 2, 2);
       light(bx, sy1 + 16, 26, "160,120,255", 0.8);
+      return;
+    }
+    if (s.id === "cave" && SPR["e:cavemouth"]) {
+      // ref-6's cave (handoff 3, E3): a hillside of mossy boulders round a dark mouth, grass over the
+      // lip, the floor running in. the terminal still hums green deep inside
+      var cm = SPR["e:cavemouth"], mx = s.x * T + 8 - 30, my = s.y * T + 15 - 45;
+      softShadow(s.x * T + 10, s.y * T + 14, 56);
+      ctx.drawImage(cm, mx, my);
+      var fl2 = 0.55 + 0.35 * Math.sin(t * 7) * Math.sin(t * 2.3);
+      ctx.fillStyle = "#15151a"; ctx.fillRect(mx + 26, my + 30, 8, 6);
+      ctx.fillStyle = "rgba(74,222,128," + fl2.toFixed(2) + ")"; ctx.fillRect(mx + 27, my + 31, 6, 4);
+      if (Math.floor(t * 2) % 2) { ctx.fillStyle = "#b8ffd0"; ctx.fillRect(mx + 27, my + 34, 1, 1); }
+      light(mx + 30, my + 34, 22, "74,222,128", 0.7);
       return;
     }
     if (s.id === "cave") {
