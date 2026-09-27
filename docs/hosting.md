@@ -71,7 +71,7 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 
 - [x] Check with `curl -I https://ammaarrehman.com/`, securityheaders.com and SSL Labs, and record the grades (below).
 - [x] Move every absolute URL to the new domain: the canonical link, `og:url` and `og:image`, the JSON-LD `url`, `sitemap.xml`, `robots.txt`, and the `Canonical:` line in `.well-known/security.txt`.
-- [ ] After a week with no problems (from 2026-10-03), raise HSTS in `_headers` to `max-age=31536000; includeSubDomains`. Don't preload yet.
+- [ ] On or after 2026-10-04, if nothing broke in the first week, raise HSTS in `_headers` to `max-age=31536000; includeSubDomains` and deploy. Don't preload.
 
 ### Deploy log
 
@@ -82,6 +82,36 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - securityheaders.com: **A**. The one warning is the 300-second HSTS, which is on purpose for the first week.
 - SSL Labs: **B** on all four edge addresses. The certificate chain has no issues; the cap is because TLS 1.0 and 1.1 are still accepted, so "Minimum TLS Version 1.2" isn't in effect yet (Cloudflare dashboard: SSL/TLS, Edge Certificates). Expected A once it is; A+ also needs a long HSTS.
 - Cloudflare Web Analytics is injecting `static.cloudflareinsights.com/beacon.min.js` into the page. The CSP blocks it (two console errors), which is right: the site loads nothing from other origins. Turn the injection off (Analytics and Logs, Web Analytics, the site, "Disable" or remove automatic setup) rather than widening the CSP.
+
+### Two dashboard items for Ammaar
+
+**1. Minimum TLS version.** Checked 2026-09-27: TLS 1.3 is on, but TLS 1.0 and 1.1 still connect (`openssl s_client -tls1` completes a handshake). Turning 1.3 on and setting the minimum are two different switches.
+
+1. Cloudflare dashboard, then the `ammaarrehman.com` zone.
+2. SSL/TLS, then Edge Certificates.
+3. Scroll to **Minimum TLS Version** and choose **TLS 1.2**. (Leave "TLS 1.3" on; it's a separate switch further down.)
+4. Check it took: `openssl s_client -connect ammaarrehman.com:443 -tls1_1 </dev/null` should now fail with an alert, and `-tls1_2` should still connect.
+5. Re-run SSL Labs (https://www.ssllabs.com/ssltest/analyze.html?d=ammaarrehman.com&latest). Expected: A. Record it in the deploy log.
+
+**2. The console error behind Lighthouse's 92.** Cloudflare's Web Analytics adds this to every page it serves to a browser (curl without browser headers doesn't get it):
+
+```html
+<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/..." data-cf-beacon='{"token": ...}'>
+```
+
+The site's CSP only allows scripts from its own origin, so the browser refuses it and logs an error. That refusal is correct: the site loads nothing from other origins. Don't widen the CSP; switch the injection off:
+
+1. Cloudflare dashboard, then the `ammaarrehman.com` zone.
+2. Analytics & Logs, then **Web Analytics**.
+3. On the `ammaarrehman.com` row, open **Manage site** (or the site's settings).
+4. Turn off automatic setup (the option is labelled **Disable** or an **Enable** toggle, depending on the dashboard version) and save.
+
+The zone's own traffic analytics (Analytics & Logs, Traffic) keep working with no script on the page. After the change, `node tools/lighthouse.mjs` should show best practices 100.
+
+### Verified 2026-09-27
+
+- `https://www.ammaarrehman.com/some/path?q=1` returns 301 to `https://ammaarrehman.com/some/path?q=1`: path and query kept.
+- DNSSEC: the DS record is published at the parent (key tag 2371, algorithm 13) and answers from 1.1.1.1 carry the `ad` flag, so the chain validates.
 
 ### GitHub Pages, once the flag clears
 
