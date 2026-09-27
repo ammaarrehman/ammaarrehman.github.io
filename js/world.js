@@ -3088,7 +3088,7 @@
     if (u >= IRIS * 2) { iris = null; return; }
     var k0 = u < IRIS ? 1 - u / IRIS : (u - IRIS) / IRIS, e = k0 * k0 * (3 - 2 * k0), R = Math.hypot(W, H) * e;
     ctx.save(); ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, Math.max(0, R), 0, 6.283, true); ctx.fill("evenodd");
+    ctx.fillStyle = "#000"; ctx.beginPath(); ctx.rect(0, 0, W, H); ctx.arc(cx, cy, Math.max(0, R), 0, Math.PI * 2, true); ctx.fill("evenodd");   // a true 2π: 6.283 anticlockwise drew a sliver, so the hole was missing and the screen went solid black
     ctx.restore();
   }
   function exitRoom() {
