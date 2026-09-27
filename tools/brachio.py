@@ -9,11 +9,10 @@ What makes it read as a Brachiosaurus rather than a generic sauropod:
 Sources: Taylor 2009, "A re-evaluation of Brachiosaurus altithorax" (JVP 29:3); the Natural
 History Museum's Brachiosaurus page (nhm.ac.uk/discover/dino-directory/brachiosaurus.html).
 
-Frames match the sheet's slots (84 x 83, feet on the bottom row): walk 0-5, idle 6-9, blink 10,
-graze 11-12. Light comes from the top left; one outline in the darkest tone of the skin.
+Frames are 84 x 83 with the feet on the bottom row. Light comes from the top left; one outline in the darkest tone of the skin.
 
-  python3 tools/brachio.py            writes the frames into the sheet
-  python3 tools/brachio.py preview    writes tools/out/brachio-preview.png only
+  python3 tools/brachio.py            writes tools/out/brachio-preview.png
+  (tools/animate.py puts the cycles into the sheet: walk 12, idle 12, blink 1, graze 8)
 Requires: pillow
 """
 import json, math, re, sys
@@ -147,21 +146,25 @@ def B(dx=0):
     return lambda sh, hip: (hip[0] + 2 + dx, hip[1] + 2)
 
 
-def walk(i):
-    # a slow walk: each foot swings forward (lifted) for 2 of 6 frames, the diagonal pairs offset
-    ph = [0, 1, 2, 3, 4, 5]
-    def foot(base, phase):
-        p = (i + phase) % 6
-        swing = [-4, -1.5, 1.5, 4, 2, -2][p]
-        lift = [0, 0, 0, 0, 3, 3][p]
-        return base + swing, lift
-    fnx, fnl = foot(58, 0); ffx, ffl = foot(54, 3)
-    bnx, bnl = foot(28, 3); bfx, bfl = foot(24, 0)
+def walk(ph):
+    """ph in 0..1: each foot plants, slides back through the stance, then lifts and swings forward;
+    the diagonal pairs half a cycle apart (lateral sequence)"""
+    def foot(base, off):
+        p = (ph + off) % 1
+        duty = 0.65
+        if p < duty:
+            x = base + 4 - 8 * (p / duty); lift = 0
+        else:
+            q = (p - duty) / (1 - duty); x = base - 4 + 8 * (0.5 - 0.5 * math.cos(math.pi * q)); lift = 3 * math.sin(math.pi * q)
+        return x, lift
+    fnx, fnl = foot(58, 0.25); ffx, ffl = foot(54, 0.75)
+    bnx, bnl = foot(28, 0.0); bfx, bfl = foot(24, 0.5)
+    w = 2 * math.pi * ph
     return {
-        "bob": [0, 0, 1, 0, 0, 1][i],
+        "bob": round(0.5 - 0.5 * math.cos(2 * w)),
         "near": [(B(), bnx, bnl, 11), (F(), fnx, fnl, 10)],
         "far": [(B(-3), bfx, bfl, 9), (F(-3), ffx, ffl, 8)],
-        "tail": [0, 1, 1, 0, -1, -1][i], "nx": [0, 0, 1, 1, 0, 0][i], "hx": [0, 0, 1, 1, 0, 0][i],
+        "tail": round(1.2 * math.sin(w + 1)), "nx": round(1.0 * math.sin(w)), "hx": round(1.0 * math.sin(w)),
     }
 
 
@@ -171,18 +174,22 @@ def still(extra=None):
     return p
 
 
-FRAMES = [walk(i) for i in range(6)] + [
-    still({"hy": 0}), still({"hy": 1, "tail": 1}), still({"hy": 1, "hx": 1, "tail": 1}), still({"hy": 0, "tail": 0}),   # idle: the neck breathes
-    still({"blink": True}),                                                                                           # blink
-    still({"hx": 2, "hy": -1, "nx": 2, "tilt": 0.35, "jaw": 1}), still({"hx": 2, "hy": -1, "nx": 2, "tilt": 0.35}),     # graze: reaching up to browse
-]
+def cycles():
+    """walk 12, idle 12 (the neck breathes and the head looks about), blink, graze 8 (browsing high)"""
+    return {
+        "walk": [walk(i / 12) for i in range(12)],
+        "idle": [still({"hy": round(0.8 * math.sin(2 * math.pi * i / 12)), "hx": round(0.8 * math.sin(2 * math.pi * i / 12 + 1)), "tail": round(math.sin(2 * math.pi * i / 12 + 2))}) for i in range(12)],
+        "blink": [still({"blink": True})],
+        "graze": [still({"hx": 2, "hy": -1 + round(0.8 * math.sin(2 * math.pi * i / 8)), "nx": 2, "tilt": 0.35, "jaw": i % 2}) for i in range(8)],
+    }
+
+
+FRAMES = [f for m in ("walk", "idle", "blink", "graze") for f in cycles()[m]]
 
 
 def main():
     world = (ROOT / "js/world.js").read_text()
     sheet = json.loads(re.search(r"var SHEET = (\{.*?\});\n", world).group(1))
-    b = sheet["brachio"]
-    assert (b["w"], b["h"]) == (W, H) and len(b["f"]) == len(FRAMES)
     frames = [render(p) for p in FRAMES]
     out_dir = ROOT / "tools/out"; out_dir.mkdir(exist_ok=True)
     prev = Image.new("RGBA", (W * 7 * 3, H * 2 * 3), (200, 214, 196, 255))
@@ -190,14 +197,7 @@ def main():
         big = f.resize((W * 3, H * 3), Image.NEAREST)
         prev.paste(big, ((i % 7) * W * 3, (i // 7) * H * 3), big)
     prev.save(out_dir / "brachio-preview.png")
-    if len(sys.argv) > 1 and sys.argv[1] == "preview":
-        return
-    sh = Image.open(ROOT / "assets/island/dinos.png").convert("RGBA")
-    for (x, y), f in zip(b["f"], frames):
-        sh.paste((0, 0, 0, 0), (x, y, x + W, y + H))
-        sh.paste(f, (x, y))
-    sh.save(ROOT / "assets/island/dinos.png", optimize=True)
-    print("wrote", len(frames), "brachiosaurus frames")
+    # the sheet itself is written by tools/animate.py, which calls cycles() and render()
 
 
 if __name__ == "__main__":
