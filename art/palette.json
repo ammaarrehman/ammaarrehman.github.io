@@ -1,0 +1,18 @@
+{
+  "_": "The island's master palette (handoff 3, D1). Every ramp runs dark to light. Darks shift cool, toward blue-violet; lights shift warm, toward yellow. No pure black: each material's darkest tone is its own dark, and that tone is its outline.",
+  "grass":   ["#24463f", "#2e5d44", "#3d7a47", "#55944a", "#73ad51", "#98c65c"],
+  "leaf":    ["#1f3a3a", "#28503f", "#356b44", "#4b884a", "#6aa453", "#92c060"],
+  "leaf2":   ["#2c4a3a", "#3f6a42", "#5c8c49", "#86ad55", "#b6cf6b"],
+  "ginkgo":  ["#4a5a2e", "#6d7f33", "#97a33f", "#c2c457", "#e6de7a"],
+  "wood":    ["#2e2433", "#4a3635", "#6b4d3c", "#8e6a48", "#b08a5c"],
+  "birch":   ["#2f2d3d", "#6f6b77", "#b7b3ae", "#e2ddd0", "#f6f1e2"],
+  "rock":    ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
+  "moss":    ["#35553a", "#4f7a3c", "#79a24a"],
+  "dirt":    ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
+  "sand":    ["#b99a6c", "#d6bb86", "#ecd9a6"],
+  "water":   ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"],
+  "rim":     ["#b4e4e0", "#e2f6ee"],
+  "flower":  ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"],
+  "blossom": ["#e7a9bf", "#f6dde4"],
+  "shadow":  "rgba(26,20,58,0.35)"
+}

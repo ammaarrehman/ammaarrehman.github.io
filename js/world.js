@@ -78,6 +78,15 @@
   function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : map[y][x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
+  /* the art test area (handoff 3, D3): the west meadow where the river falls off the highland,
+     and the koi garden, drawn in the new style (art/palette.json, img/atlas/env.png from
+     tools/envart.py). the rest of the island converts once Ammaar approves the look */
+  var TEST = [[13, 18, 41, 47], [57, 39, 81, 57]];
+  function inTest(x, y) { for (var i = 0; i < TEST.length; i++) { var r = TEST[i]; if (x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true; } return false; }
+  var ENV = {"pine0":[0,0,28,50,14,48],"pine1":[29,0,28,50,14,48],"birch0":[58,0,26,46,13,44],"birch1":[85,0,26,46,13,44],"oak0":[112,0,34,42,17,40],"oak1":[147,0,34,42,17,40],"oak2":[182,0,34,42,17,40],"ginkgo0":[217,0,30,40,15,38],"ginkgo1":[0,51,30,40,15,38],"tfern0":[31,51,34,34,17,32],"tfern1":[66,51,34,34,17,32],"cycad0":[101,51,24,22,12,20],"cycad1":[126,51,24,22,12,20],"rock2_0":[151,51,28,22,14,20],"rock2_1":[180,51,28,22,14,20],"rock2_2":[209,51,28,22,14,20],"rock2_3":[0,92,28,22,14,20],"rock2_4":[29,92,28,22,14,20],"horsetail0":[58,92,14,18,7,17],"magnolia0":[73,92,22,16,11,15],"rock1_0":[96,92,20,16,10,14],"rock1_1":[117,92,20,16,10,14],"rock1_2":[138,92,20,16,10,14],"rock1_3":[159,92,20,16,10,14],"rock1_4":[180,92,20,16,10,14],"reeds0":[201,92,12,16,6,15],"reeds1":[214,92,12,16,6,15],"reeds2":[227,92,12,16,6,15],"bush0":[0,115,18,14,9,13],"bush1":[19,115,18,14,9,13],"fern0":[38,115,20,14,10,13],"fern1":[59,115,20,14,10,13],"rock0_0":[80,115,14,12,7,10],"rock0_1":[95,115,14,12,7,10],"rock0_2":[110,115,14,12,7,10],"rock0_3":[125,115,14,12,7,10],"rock0_4":[140,115,14,12,7,10],"lilies0":[155,115,16,10,8,9],"lilies1":[172,115,16,10,8,9],"lilies2":[189,115,16,10,8,9]};
+  var PAL = { grass: ["#24463f", "#2e5d44", "#3d7a47", "#55944a", "#73ad51", "#98c65c"], dirt: ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
+              water: ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"], rim: ["#b4e4e0", "#e2f6ee"], rock: ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
+              moss: ["#35553a", "#4f7a3c", "#79a24a"], wood: ["#2e2433", "#4a3635", "#6b4d3c", "#8e6a48", "#b08a5c"], flower: ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"] };   // from art/palette.json
   // the koi pond: a wobbly blob (tile units). < 1 is water
   var KP = { x: 69, y: 48.5, rx: 5.2, ry: 2.4 };
   function pondF(fx, fy) {
@@ -259,6 +268,27 @@
   function inCompound(x, y) { return x >= COMPOUND.x0 && x <= COMPOUND.x1 && y >= COMPOUND.y0 - 1 && y <= COMPOUND.y1; }
   function clearing(x, y) { return inCompound(x, y) || Math.hypot(x - 21, y - 21.5) < 1.7 || CLEAR.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2]; }); }
   var props = [];     // trees, palms, ferns, rocks, nests: static, y-sorted with everything else
+  // the test area's planting. species grow in stands (a slow noise picks the stand), variants by hash;
+  // under the trees and along the edges: tree ferns, cycads, bushes, magnolia, fern clumps; horsetails
+  // and reeds by the water; boulders at the foot of the cliffs and pebbles by the paths
+  function epick(base, n, h) { return "e:" + base + Math.min(n - 1, Math.floor(h * 97 % n)); }
+  function testTree(x, y, inF, h) {
+    var st = fbm(x * 0.45 + 300, y * 0.45 + 120);
+    if (nearWater(x, y, 2)) return epick("birch", 2, h);
+    if (!inF) return st > 0.15 ? epick("ginkgo", 2, h) : epick("oak", 3, h);
+    return st < -0.2 ? epick("pine", 2, h) : st < 0.12 ? epick("oak", 3, h) : st < 0.3 ? epick("birch", 2, h) : epick("ginkgo", 2, h);
+  }
+  function testUnder(x, y, edge, inF, h2) {
+    var wetNear = nearWater(x, y, 1), p = { tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: jit(x, y, 7) / 3 };
+    var drift = fbm(x * 1.1 + 70, y * 1.1 + 20);                    // plants gather in drifts, not a scatter
+    if (lvl(x, y - 1) > lvl(x, y) && h2 < 0.45) { p.kind = epick("rock2_", 5, h2); p.oy = 2; solid[k(x, y)] = 1; }       // boulders under the cliffs
+    else if (wetNear && h2 < 0.2) p.kind = drift > 0.12 ? epick("reeds", 3, h2) : h2 < 0.1 ? "e:horsetail0" : undefined;
+    else if ((edge || inF) && h2 < 0.34) p.kind = h2 < 0.08 ? epick("tfern", 2, h2) : h2 < 0.14 ? epick("cycad", 2, h2) : h2 < 0.2 ? "e:magnolia0" : h2 < 0.27 ? epick("bush", 2, h2) : epick("fern", 2, h2);
+    else if (drift > 0.3 && h2 < 0.3) p.kind = epick("fern", 2, h2);
+    else if (near(x, y, 1, function (a2, b2) { return at(a2, b2) === PATH; }) && h2 < 0.12) p.kind = epick("rock0_", 5, h2);
+    else if (h2 < 0.05) p.kind = epick("rock1_", 5, h2);
+    if (p.kind) props.push(p);
+  }
   function busy(a, b) { var q = at(a, b); return q === PATH || q === POND || q === PAD || q === DOCK || q === LAVA || q === RIVER || q === BRIDGE || fence[k(a, b)] || nearStation(a, b) || inBuilding(a, b) || Math.abs(a - GATE.x) <= 3 && Math.abs(b - GATE.y) <= 1; }
   function nearWater(a, b, r) { return near(a, b, r, function (i, j) { var q = at(i, j); return q === RIVER || q === POND; }); }
   function jit(x, y, n) { return Math.round((hash(x * n, y * 3 + n) - 0.5) * 8); }
@@ -275,11 +305,13 @@
       if (!clearing(x, y) && h < dense && !near(x, y, 1, busy)) {
         var kind = inF ? (h < dense * 0.18 ? "jtree" : h < dense * 0.55 ? "tree" : h < dense * 0.8 ? "tree2" : "tfern") : (h < dense * 0.5 ? "tree2" : "palm");
         if (kind === "jtree" && near(x, y, 1, function (a2, b2) { return solid[k(a2, b2)]; })) kind = "tree";
+        if (inTest(x, y)) kind = testTree(x, y, inF, h);
         props.push({ kind: kind, tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 }); solid[k(x, y)] = 1;
         continue;
       }
       var h2 = hash(x * 7, y * 13);
       if (busy(x, y)) continue;
+      if (inTest(x, y)) { testUnder(x, y, edge, inF, h2); continue; }
       if ((edge || nearWater(x, y, 1)) && h2 < 0.3) props.push({ kind: h2 < 0.2 ? "fern" : "cycad", tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: 0 });   // pi walks behind these
       else if (!inF && fbm(x * 2.3 + 40, y * 2.3) > 0.25 && h2 < 0.36) props.push({ kind: "tallgrass", tx: x, ty: y, flip: h2 < 0.18, ox: jit(x, y, 4), oy: jit(x, y, 6) / 2 });
       else if (rim(x, y + 1) && h2 < 0.25) props.push({ kind: "stones", tx: x, ty: y, ox: jit(x, y, 5), oy: 0 });
@@ -289,6 +321,12 @@
     } else if (t === SHAL && h < 0.02 && Math.abs(x - DOCKX) > 3) {
       props.push({ kind: "rock", tx: x, ty: y });
     }
+  }
+  // lily pads on the test area's water: a few clusters on the pond, clear of the middle
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
+    if (!inTest(x, y) || map[y][x] !== POND) continue;
+    var pf0 = pondF(x + 0.5, y + 0.5);
+    if (pf0 > 0.35 && pf0 < 0.85 && fbm(x * 1.7 + 11, y * 1.7) > 0.05 && hash(x * 5, y * 11) < 0.5) props.push({ kind: epick("lilies", 3, hash(y, x)), tx: x, ty: y, flip: hash(x, y) < 0.5, ox: jit(x, y, 2), oy: 0, flat: true });
   }
   // nests in the meadow, each with a clutch of speckled eggs
   var nests = [[57, 55], [63, 57], [66, 54], [15, 39]].filter(function (n) { return walkable0(n[0], n[1]); }).map(function (n) {
@@ -569,6 +607,146 @@
     SPR[k] = outline(SPR[k], /tree|fern|palm|cycad/.test(k) ? "rgba(10,28,16,.9)" : k === "cave" || k === "tallgrass" ? "rgba(0,0,0,0)" : "rgba(18,18,20,.88)");
   });
 
+  /* ════════ the test area's ground (handoff 3, D1) ════════
+     pixel by pixel. grass, dirt and water are decided from a smooth field (each tile's type,
+     blended across its neighbours) plus a little noise, so edges wander a few pixels off the tile
+     grid instead of stepping along it; walking still follows the tiles. grass is lit on the edge
+     it overhangs, and throws a cool shadow on the dirt below it. water is lighter in the shallows
+     with a pale rim along every edge and stones showing under the surface. flowers, clover,
+     pebbles and twigs grow in drifts. */
+  function field(fx, fy, test) {                               // 0..1: how much of (fx, fy) is "test" ground
+    var x0 = Math.floor(fx - 0.5), y0 = Math.floor(fy - 0.5), u = fx - 0.5 - x0, v = fy - 0.5 - y0;
+    var a = test(at(x0, y0)) ? 1 : 0, b = test(at(x0 + 1, y0)) ? 1 : 0, c = test(at(x0, y0 + 1)) ? 1 : 0, d = test(at(x0 + 1, y0 + 1)) ? 1 : 0;
+    var su = u * u * (3 - 2 * u), sv = v * v * (3 - 2 * v);
+    return (a * (1 - su) + b * su) * (1 - sv) + (c * (1 - su) + d * su) * sv;
+  }
+  var BAY2 = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
+  function soft(v, ramp, x, y, spread) {
+    var n = ramp.length, q = v * (n - 1) + ((BAY2[(y & 3) * 4 + (x & 3)] + 0.5) / 16 - 0.5) * (spread || 0.28);
+    return ramp[Math.max(0, Math.min(n - 1, Math.round(q)))];
+  }
+  function isDirt(t) { return t === PATH || t === PAD; }
+  function isWater(t) { return t === RIVER || t === POND || t === SHAL || t === DEEP; }
+  function kindAt(px, py) {                                   // "g" grass, "d" dirt, "w" water, "" leave it
+    var tx = Math.floor(px / T), ty = Math.floor(py / T), t0 = at(tx, ty);
+    if (t0 === SAND || t0 === DOCK || t0 === BRIDGE || t0 === LAVA) return "";
+    var fx = (px + 0.5) / T, fy = (py + 0.5) / T, n = (hash(px >> 1, py >> 1) - 0.5) * 0.12 + (fbm(fx * 3.1 + 5, fy * 3.1) * 0.22);
+    if (t0 === POND || (t0 === GRASS && pondF(fx, fy) < 1.2)) return pondF(fx + n * 0.2, fy) < 1 ? "w" : "g";
+    var w = field(fx, fy, function (q) { return q === RIVER; });
+    if (w + n > 0.5 && (t0 === RIVER || t0 === GRASS)) return "w";
+    if (t0 === RIVER) return "g";
+    var dd = field(fx, fy, isDirt);
+    if (dd + n > 0.5 && t0 !== SHAL && t0 !== DEEP) return "d";
+    return t0 === GRASS || isDirt(t0) ? "g" : "";
+  }
+  function paintTest(g) {
+    TEST.forEach(function (r) {
+      var X0 = r[0] * T, Y0 = r[1] * T, X1 = (r[2] + 1) * T, Y1 = (r[3] + 1) * T, W2 = X1 - X0, H2 = Y1 - Y0, K = new Array(W2 * H2);
+      for (var py = Y0; py < Y1; py++) for (var px = X0; px < X1; px++) K[(py - Y0) * W2 + px - X0] = kindAt(px, py);
+      function kk(px, py) { return px < X0 || py < Y0 || px >= X1 || py >= Y1 ? kindAt(px, py) : K[(py - Y0) * W2 + px - X0]; }
+      for (py = Y0; py < Y1; py++) for (px = X0; px < X1; px++) {
+        var kd = kk(px, py); if (!kd) continue;
+        var edgeD = Math.min(px - X0, X1 - 1 - px, py - Y0, Y1 - 1 - py);
+        if (edgeD < 24 && (BAY2[(py & 3) * 4 + (px & 3)] + 0.5) / 16 > edgeD / 24 && kd !== "w") continue;    // keep the old ground here
+        var tx = Math.floor(px / T), ty = Math.floor(py / T), fx = (px + 0.5) / T, fy = (py + 0.5) / T, c;
+        if (kd === "g") {
+          var fo = forest(tx, ty), patch = fbm(fx * 1.6 + 7, fy * 1.6);
+          var gv = 0.71 + patch * 0.28 - Math.max(0, Math.min(1, (fo - 0.1) * 4)) * 0.2 + ELEV[ty][tx] * 0.05;
+          var below = kk(px, py + 1), right = kk(px + 1, py);
+          if (below === "d" || below === "w") gv = 0.98;                        // the lit lip where grass overhangs
+          else if (kk(px, py + 2) === "d") gv = Math.max(gv, 0.8);
+          c = soft(gv, PAL.grass, px, py, 0.2);
+        } else if (kd === "d") {
+          var dv = 0.58 + (hash(px >> 1, py >> 1) - 0.5) * 0.28 + fbm(fx * 4 + 30, fy * 4) * 0.2;
+          if (kk(px, py - 1) === "g" || kk(px, py - 2) === "g") dv = 0.12;       // grass is a step higher: its cool shadow on the dirt
+          else if (kk(px - 1, py) === "g") dv -= 0.25;
+          c = soft(dv, PAL.dirt, px, py);
+        } else {
+          var edge = 0;
+          for (var q = 1; q <= 5 && !edge; q++) if (kk(px - q, py) !== "w" || kk(px + q, py) !== "w" || kk(px, py - q) !== "w" || kk(px, py + q) !== "w") edge = q;
+          var wv = edge ? 0.35 + edge * 0.1 : 0.3;
+          if (at(tx, ty) === POND) wv = 0.85 - Math.min(1, 1 - pondF(fx, fy)) * 0.75;
+          c = edge === 1 ? PAL.rim[(px + py) % 3 ? 0 : 1] : soft(Math.min(0.95, wv), PAL.water, px, py, 0.22);
+        }
+        g.fillStyle = c; g.fillRect(px, py, 1, 1);
+      }
+      // stones under the surface, near the banks
+      for (var n3 = 0; n3 < (W2 * H2) / 1400; n3++) {
+        var sx = X0 + Math.floor(hash(n3, r[0] * 7) * W2), sy = Y0 + Math.floor(hash(r[1] * 3, n3) * H2), rr = 1.5 + hash(n3, 5) * 1.6;
+        if (kk(sx, sy) !== "w" || kk(sx + 4, sy) === "w" && kk(sx - 4, sy) === "w" && kk(sx, sy + 4) === "w" && kk(sx, sy - 4) === "w") continue;
+        for (var yy = -2; yy <= 2; yy++) for (var xx = -3; xx <= 3; xx++) {
+          if ((xx * xx) / (rr * rr * 1.6) + (yy * yy) / (rr * rr) > 1 || kk(sx + xx, sy + yy) !== "w") continue;
+          g.fillStyle = yy < 0 && xx < 1 ? PAL.water[3] : PAL.water[1]; g.fillRect(sx + xx, sy + yy, 1, 1);
+        }
+      }
+      // decals, in drifts: flowers (one colour per drift), clover, pebbles by paths and water, twigs under trees
+      for (var ty2 = r[1]; ty2 <= r[3]; ty2++) for (var tx2 = r[0]; tx2 <= r[2]; tx2++) {
+        if (map[ty2][tx2] !== GRASS) continue;
+        var X = tx2 * T, Y = ty2 * T, fl = fbm(tx2 * 0.8 + 500, ty2 * 0.8 + 77), fo2 = forest(tx2, ty2), hh = hash(tx2 * 13, ty2 * 7);
+        for (var tf = 0; tf < 4; tf++) {
+          var bxt = X + 1 + Math.floor(hash(tx2 * 5 + tf, ty2 * 9) * 13), byt = Y + 2 + Math.floor(hash(ty2 * 7 + tf, tx2 * 2) * 12);
+          if (kk(bxt, byt) !== "g" || kk(bxt, byt + 2) !== "g") continue;
+          g.fillStyle = PAL.grass[2]; g.fillRect(bxt, byt, 1, 2); g.fillRect(bxt - 1, byt - 1, 1, 1);
+          g.fillStyle = PAL.grass[5]; g.fillRect(bxt + 1, byt - 1, 1, 1);
+        }
+        if (fl > 0.22 && fo2 < 0.2 && hh < 0.75) {
+          var fc = PAL.flower[Math.floor(hash(tx2 >> 2, ty2 >> 2) * 4)];
+          for (var f2 = 0; f2 < 2 + Math.floor(hh * 4); f2++) {
+            var fx2 = X + 2 + Math.floor(hash(tx2 * 3 + f2, ty2) * 12), fy2 = Y + 2 + Math.floor(hash(tx2, ty2 * 3 + f2) * 12);
+            if (kk(fx2, fy2) !== "g") continue;
+            g.fillStyle = fc; g.fillRect(fx2, fy2, 1, 1); g.fillRect(fx2 - 1, fy2 + 1, 1, 1); g.fillRect(fx2 + 1, fy2 + 1, 1, 1); g.fillRect(fx2, fy2 + 2, 1, 1);
+            g.fillStyle = fc === PAL.flower[1] ? "#c8762e" : PAL.flower[1]; g.fillRect(fx2, fy2 + 1, 1, 1);
+          }
+        } else if (fbm(tx2 * 1.3 + 900, ty2 * 1.3) > 0.3 && hh < 0.6) {
+          for (var c2 = 0; c2 < 3; c2++) {
+            var cx3 = X + 3 + Math.floor(hash(tx2 + c2, ty2 * 5) * 10), cy3 = Y + 3 + Math.floor(hash(tx2 * 5, ty2 + c2) * 10);
+            g.fillStyle = PAL.grass[4]; g.fillRect(cx3, cy3, 1, 1); g.fillRect(cx3 + 2, cy3, 1, 1); g.fillRect(cx3 + 1, cy3 + 1, 1, 1);
+            g.fillStyle = PAL.grass[2]; g.fillRect(cx3 + 1, cy3 + 2, 1, 1);
+          }
+        }
+        if (near(tx2, ty2, 1, function (a2, b2) { return isDirt(at(a2, b2)) || at(a2, b2) === RIVER || at(a2, b2) === POND; }) && hh > 0.55) {
+          for (var pb = 0; pb < 2; pb++) { var bx4 = X + Math.floor(hash(tx2 * 7 + pb, ty2) * 14), by4 = Y + Math.floor(hash(tx2, ty2 * 7 + pb) * 14); g.fillStyle = PAL.rock[4]; g.fillRect(bx4, by4, 2, 1); g.fillStyle = PAL.rock[1]; g.fillRect(bx4, by4 + 1, 2, 1); }
+        }
+        if (fo2 > 0.26 && hh < 0.4) { var tw0 = X + 4 + Math.floor(hh * 16), tw1 = Y + 6 + Math.floor(hash(ty2, tx2) * 6); g.fillStyle = PAL.wood[2]; g.fillRect(tw0, tw1, 1, 1); g.fillRect(tw0 + 1, tw1 + 1, 1, 1); g.fillRect(tw0 + 2, tw1 + 1, 1, 1); g.fillRect(tw0 + 3, tw1 + 2, 1, 1); }
+      }
+    });
+  }
+  /* cliffs in the test area: the face in vertical stone planes, each lit on its left edge and
+     darkening toward the foot, the odd fissure, a cool shadow at the base, and grass hanging over
+     the lip with a root or a vine here and there */
+  function cliffTest(g) {
+    for (var cy2 = 1; cy2 < MH; cy2++) for (var cx2 = 0; cx2 < MW; cx2++) {
+      if (!inTest(cx2, cy2)) continue;
+      var L0 = lvl(cx2, cy2), Lup = lvl(cx2, cy2 - 1), tt2 = map[cy2][cx2];
+      if (Lup <= L0 || tt2 === PATH || map[cy2 - 1][cx2] === PATH || tt2 === RIVER || tt2 === BRIDGE || map[cy2 - 1][cx2] === RIVER) continue;
+      var X2 = cx2 * T, Y2 = cy2 * T, fh = 16 + 5 * (Lup - L0), below = map[cy2 + 1] ? map[cy2 + 1][cx2] : DEEP;
+      if (below === PATH || below === RIVER) fh = 14;
+      for (var fx2 = 0; fx2 < T; fx2++) {
+        var gx = X2 + fx2;
+        // vertical slabs of stone, 3 to 9 px wide (the slab boundaries come from a hash of the column,
+        // so they line up across tiles): lit on the left edge and across a short cap at the top, one
+        // or two ledges, and darker toward the foot, the way the references' cliffs read
+        var sx0 = gx, sw0 = 0;
+        while (sx0 > gx - 9 && hash(sx0, cy2 * 17) > 0.28) sx0--;
+        var sx1 = gx + 1; while (sx1 < gx + 10 && hash(sx1, cy2 * 17) > 0.28) sx1++;
+        var slab = sx0, sw = Math.max(3, sx1 - sx0), inS = gx - sx0, cap = 1 + Math.floor(hash(slab, cy2 * 5) * 3);
+        var ledge = 6 + Math.floor(hash(slab * 3, cy2) * (fh - 10)), tint = (hash(slab, cy2 * 23) - 0.5) * 0.14;
+        for (var fy2 = 0; fy2 < fh; fy2++) {
+          var u = fy2 / fh, v = 0.8 - u * 0.62 + tint + (hash(gx >> 1, (Y2 + fy2) >> 2) - 0.5) * 0.06;
+          if (fy2 < cap) v += 0.2;
+          if (inS === 0) v += 0.12; else if (inS >= sw - 1) v -= 0.3;
+          if (fy2 === ledge) v -= 0.3; else if (fy2 === ledge + 1) v += 0.16;
+          g.fillStyle = soft(Math.max(0.02, Math.min(0.98, v)), PAL.rock, gx, Y2 + fy2, 0.18); g.fillRect(gx, Y2 + fy2, 1, 1);
+        }
+        var hang = 1 + Math.floor(hash(gx, cy2 * 5) * 3) + (hash(gx >> 1, cy2) < 0.12 ? 3 : 0);
+        for (var hy = 0; hy < hang; hy++) { g.fillStyle = hy === hang - 1 ? PAL.grass[2] : PAL.grass[4 - (hy > 1 ? 1 : 0)]; g.fillRect(gx, Y2 + hy, 1, 1); }
+        if (hash(gx * 3, cy2) < 0.015) for (var rt = 0; rt < 3 + hash(gx, 7) * 5; rt++) { g.fillStyle = rt % 2 ? PAL.wood[1] : PAL.wood[2]; g.fillRect(gx + (rt > 3 ? 1 : 0), Y2 + hang + rt, 1, 1); }
+        else if (hash(gx * 7, cy2) < 0.04) for (var vn = 0; vn < 4 + hash(gx, 9) * 8; vn++) { g.fillStyle = vn % 2 ? PAL.moss[1] : PAL.moss[2]; g.fillRect(gx, Y2 + hang + vn, 1, 1); }
+      }
+      for (var sh2 = 0; sh2 < 4; sh2++) { g.fillStyle = "rgba(26,20,58," + (0.3 - sh2 * 0.07).toFixed(2) + ")"; g.fillRect(X2, Y2 + fh + sh2, T, 1); }
+    }
+  }
+
   /* ════════ ground, drawn once ════════ */
   var COL = { deep: "#1f4e79", deep2: "#1a4470", shal: "#3d8fc4", shal2: "#4fa3d6", sand: "#ecd9a0", sand2: "#dcc586", wetsand: "#cdb57a",
               grass: "#4f9a3e", grass2: "#3f8433", grass3: "#6cb452", path: "#c69a66", path2: "#a97c4c", pond: "#4aa3c9", pondrim: "#3b86a8", dock: "#8b5e34", dock2: "#6e4826" };
@@ -670,8 +848,10 @@
       }
     }
 
+    paintTest(g);
     // the pond, pixel by pixel: deeper toward the middle, a stone rim, reeds and lily pads
-    for (var py = Math.floor((KP.y - 3) * T); py < (KP.y + 3) * T; py++) for (var px = Math.floor((KP.x - 7) * T); px < (KP.x + 7) * T; px++) {
+    var oldPond = !inTest(Math.round(KP.x), Math.round(KP.y));
+    if (oldPond) for (var py = Math.floor((KP.y - 3) * T); py < (KP.y + 3) * T; py++) for (var px = Math.floor((KP.x - 7) * T); px < (KP.x + 7) * T; px++) {
       var pf = pondF((px + 0.5) / T, (py + 0.5) / T);
       if (pf < 1) g.fillStyle = tone(1 - pf * 0.95, ["#4aa3c9", "#3d8fc0", "#2f78a8", "#24628f"], px, py);
       else if (pf < 1.07) g.fillStyle = ["#8f8a7c", "#6f6a5e", "#a8a291", "#7d786b"][(hash(px >> 1, py >> 1) * 4) | 0];
@@ -679,14 +859,14 @@
       else continue;
       g.fillRect(px, py, 1, 1);
     }
-    for (var n2 = 0; n2 < 26; n2++) {
+    for (var n2 = 0; oldPond && n2 < 26; n2++) {
       var la = hash(n2, 77) * 6.283, lr = 0.25 + hash(77, n2) * 0.6, lx = (KP.x + Math.cos(la) * lr * KP.rx) * T, ly = (KP.y + Math.sin(la) * lr * KP.ry) * T;
       if (pondF(lx / T, ly / T) > 0.85) continue;
       g.fillStyle = "#3f9137"; g.beginPath(); g.arc(lx, ly, 2.6, 0.5, 6.1); g.lineTo(lx, ly); g.fill();
       g.fillStyle = "#58ad47"; g.fillRect(Math.round(lx) - 1, Math.round(ly) - 1, 1, 1);
       if (n2 % 4 === 0) { g.fillStyle = "#ff9ec4"; g.fillRect(Math.round(lx), Math.round(ly) - 1, 2, 2); g.fillStyle = "#ffe066"; g.fillRect(Math.round(lx), Math.round(ly) - 1, 1, 1); }
     }
-    for (n2 = 0; n2 < 40; n2++) {                          // reeds around the rim
+    for (n2 = 0; oldPond && n2 < 40; n2++) {               // reeds around the rim
       var ra = hash(n2, 91) * 6.283, rx0 = (KP.x + Math.cos(ra) * 1.08 * KP.rx * 1.05) * T, ry0 = (KP.y + Math.sin(ra) * 1.08 * KP.ry * 1.1) * T;
       if (hash(91, n2) < 0.5 || at(Math.floor(rx0 / T), Math.floor(ry0 / T)) === PATH) continue;
       g.fillStyle = "#2f6f2c"; g.fillRect(Math.round(rx0), Math.round(ry0) - 4, 1, 5); g.fillRect(Math.round(rx0) + 2, Math.round(ry0) - 3, 1, 4);
@@ -754,6 +934,7 @@
       if (L0 > Lup && !isPath) r(X2, Y2, T, 1, "rgba(255,255,255,.18)");   // back edge of a raised tile
     }
 
+    cliffTest(g);
     // shadows, baked into the ground: trees and buildings cast soft dithered shadows down and
     // to the right (the light comes from the upper left, like the sprites)
     var SH = { jtree: [22, 9, 10, 4], tree: [15, 7, 6, 3], tree2: [15, 7, 6, 3], tfern: [11, 5, 5, 2], palm: [12, 5, 7, 2], boulder: [10, 5, 3, 2] };
@@ -1489,9 +1670,17 @@
      sprite, pixel for pixel. middle path is traced from Ammaar's drawing. every sprite faces
      right with its feet on the bottom row; SHEET says where each frame of each mode sits. */
   var SHEET = {"trex":{"w":85,"h":45,"f":[[0,0],[86,0],[172,0],[258,0],[344,0],[430,0],[516,0],[602,0],[688,0],[774,0],[860,0],[946,0],[1032,0],[1118,0],[1204,0],[1290,0],[1376,0],[1462,0],[1548,0],[1634,0],[1720,0],[1806,0],[1892,0],[1978,0],[2064,0],[2150,0],[2236,0],[2322,0],[2408,0],[2494,0],[2580,0]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"roar":[25,26,27,28,29,30]}},"raptor":{"w":39,"h":20,"f":[[0,46],[40,46],[80,46],[120,46],[160,46],[200,46],[240,46],[280,46],[320,46],[360,46],[400,46],[440,46],[480,46],[520,46],[560,46],[600,46],[640,46],[680,46],[720,46],[760,46],[800,46],[840,46],[880,46],[920,46],[960,46]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24]}},"brachio":{"w":84,"h":83,"f":[[0,67],[85,67],[170,67],[255,67],[340,67],[425,67],[510,67],[595,67],[680,67],[765,67],[850,67],[935,67],[1020,67],[1105,67],[1190,67],[1275,67],[1360,67],[1445,67],[1530,67],[1615,67],[1700,67],[1785,67],[1870,67],[1955,67],[2040,67],[2125,67],[2210,67],[2295,67],[2380,67],[2465,67],[2550,67],[2635,67],[2720,67]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"graze":[25,26,27,28,29,30,31,32]}},"stego":{"w":65,"h":40,"f":[[0,151],[66,151],[132,151],[198,151],[264,151],[330,151],[396,151],[462,151],[528,151],[594,151],[660,151],[726,151],[792,151],[858,151],[924,151],[990,151],[1056,151],[1122,151],[1188,151],[1254,151],[1320,151],[1386,151],[1452,151],[1518,151],[1584,151],[1650,151],[1716,151],[1782,151],[1848,151],[1914,151],[1980,151],[2046,151],[2112,151]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"graze":[25,26,27,28,29,30,31,32]}},"trike":{"w":64,"h":36,"f":[[0,192],[65,192],[130,192],[195,192],[260,192],[325,192],[390,192],[455,192],[520,192],[585,192],[650,192],[715,192],[780,192],[845,192],[910,192],[975,192],[1040,192],[1105,192],[1170,192],[1235,192],[1300,192],[1365,192],[1430,192],[1495,192],[1560,192],[1625,192],[1690,192],[1755,192],[1820,192],[1885,192],[1950,192],[2015,192],[2080,192]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"graze":[25,26,27,28,29,30,31,32]}},"para":{"w":60,"h":42,"f":[[0,229],[61,229],[122,229],[183,229],[244,229],[305,229],[366,229],[427,229],[488,229],[549,229],[610,229],[671,229],[732,229],[793,229],[854,229],[915,229],[976,229],[1037,229],[1098,229],[1159,229],[1220,229],[1281,229],[1342,229],[1403,229],[1464,229],[1525,229],[1586,229],[1647,229],[1708,229],[1769,229],[1830,229],[1891,229],[1952,229]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"graze":[25,26,27,28,29,30,31,32]}},"ankylo":{"w":52,"h":21,"f":[[0,272],[53,272],[106,272],[159,272],[212,272],[265,272],[318,272],[371,272],[424,272],[477,272],[530,272],[583,272],[636,272],[689,272],[742,272],[795,272],[848,272],[901,272],[954,272],[1007,272],[1060,272],[1113,272],[1166,272],[1219,272],[1272,272],[1325,272],[1378,272],[1431,272],[1484,272],[1537,272],[1590,272],[1643,272],[1696,272]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"graze":[25,26,27,28,29,30,31,32]}},"spino":{"w":96,"h":51,"f":[[0,294],[97,294],[194,294],[291,294],[388,294],[485,294],[582,294],[679,294],[776,294],[873,294],[970,294],[1067,294],[1164,294],[1261,294],[1358,294],[1455,294],[1552,294],[1649,294],[1746,294],[1843,294],[1940,294],[2037,294],[2134,294],[2231,294],[2328,294]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24]}},"dilo":{"w":47,"h":32,"f":[[0,346],[48,346],[96,346],[144,346],[192,346],[240,346],[288,346],[336,346],[384,346],[432,346],[480,346],[528,346],[576,346],[624,346],[672,346],[720,346],[768,346],[816,346],[864,346],[912,346],[960,346],[1008,346],[1056,346],[1104,346],[1152,346],[1200,346],[1248,346],[1296,346],[1344,346],[1392,346],[1440,346]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"roar":[25,26,27,28,29,30]}},"pachy":{"w":37,"h":22,"f":[[0,379],[38,379],[76,379],[114,379],[152,379],[190,379],[228,379],[266,379],[304,379],[342,379],[380,379],[418,379],[456,379],[494,379],[532,379],[570,379],[608,379],[646,379],[684,379],[722,379],[760,379],[798,379],[836,379],[874,379],[912,379],[950,379],[988,379],[1026,379],[1064,379],[1102,379],[1140,379]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24],"roar":[25,26,27,28,29,30]}},"galli":{"w":44,"h":40,"f":[[0,402],[45,402],[90,402],[135,402],[180,402],[225,402],[270,402],[315,402],[360,402],[405,402],[450,402],[495,402],[540,402],[585,402],[630,402],[675,402],[720,402],[765,402],[810,402],[855,402],[900,402],[945,402],[990,402],[1035,402],[1080,402]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24]}},"compy":{"w":23,"h":10,"f":[[0,443],[24,443],[48,443],[72,443],[96,443],[120,443],[144,443],[168,443],[192,443],[216,443],[240,443],[264,443],[288,443],[312,443],[336,443],[360,443],[384,443],[408,443],[432,443],[456,443],[480,443],[504,443],[528,443],[552,443],[576,443]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24]}},"baby":{"w":27,"h":18,"f":[[0,454],[28,454],[56,454],[84,454],[112,454],[140,454],[168,454],[196,454],[224,454],[252,454],[280,454],[308,454],[336,454],[364,454],[392,454],[420,454],[448,454],[476,454],[504,454],[532,454],[560,454],[588,454],[616,454],[644,454],[672,454]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24]}},"baby2":{"w":27,"h":18,"f":[[0,473],[28,473],[56,473],[84,473],[112,473],[140,473],[168,473],[196,473],[224,473],[252,473],[280,473],[308,473],[336,473],[364,473],[392,473],[420,473],[448,473],[476,473],[504,473],[532,473],[560,473],[588,473],[616,473],[644,473],[672,473]],"m":{"walk":[0,1,2,3,4,5,6,7,8,9,10,11],"idle":[12,13,14,15,16,17,18,19,20,21,22,23],"blink":[24]}},"ptero":{"w":32,"h":45,"f":[[0,492],[33,492],[66,492],[99,492],[132,492],[165,492],[198,492],[231,492],[264,492],[297,492],[330,492],[363,492],[396,492],[429,492],[462,492],[495,492],[528,492]],"m":{"fly":[0,1,2,3,4,5,6,7,8,9,10,11],"glide":[12,13,14,15],"blink":[16]}}};
+  var ENV_IMG = new Image();
+  ENV_IMG.onload = function () {
+    Object.keys(ENV).forEach(function (n) {
+      var e = ENV[n], c = mkCanvas(); c.width = e[2]; c.height = e[3];
+      c.getContext("2d").drawImage(ENV_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); SPR["e:" + n] = c;
+    });
+  };
+  ENV_IMG.src = "img/atlas/env.png?v=20261013";
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261012";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261013";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -1828,7 +2017,7 @@
     function top(id) { var s = STATIONS.filter(function (q) { return q.id === id; })[0]; return { x: s.x * T + 8, y: s.y * T + 17 - SPR[id].height, gy: s.y * T + 16 }; }
     ["sign", "mailbox", "tablet", "uplink"].forEach(function (id) { perches.push(top(id)); });
     props.filter(function (p) { return /tree/.test(p.kind) && Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8; }).slice(0, 6).forEach(function (p) {
-      perches.push({ x: p.tx * T + 8, y: p.ty * T + 16 - SPR[p.kind].height + 4, gy: p.ty * T + 15 });
+      if (SPR[p.kind]) perches.push({ x: p.tx * T + 8, y: p.ty * T + 16 - SPR[p.kind].height + 4, gy: p.ty * T + 15 });
     });
   })();
   var birds = [0, 1].map(function (i) { var p = perches[i]; return { i: i, x: p.x + i * 4, y: p.y, gy: p.gy, z: 0, perch: i, fly: null, face: i ? -1 : 1, rest: 3 + i * 2 }; });
@@ -3567,7 +3756,7 @@
 
   /* ════════ footfalls: a sound per step, dust on dry ground, prints in the sand, ferns that rustle ════════ */
   var puffs = [], prints = [], rustling = [];
-  var ferns = {}; props.forEach(function (p) { if (p.kind === "fern" || p.kind === "cycad" || p.kind === "tallgrass") ferns[k(p.tx, p.ty)] = p; });
+  var ferns = {}; props.forEach(function (p) { if (p.kind === "fern" || p.kind === "cycad" || p.kind === "tallgrass" || /^e:(fern|cycad|horsetail|bush|magnolia|reeds)/.test(p.kind)) ferns[k(p.tx, p.ty)] = p; });
 
   /* ════════ buildings and the waterfall ════════ */
   function drawBuilding(bd) {
@@ -3597,6 +3786,13 @@
     }
     ctx.fillStyle = "rgba(240,252,255,.8)";
     for (i = 0; i < 9; i++) { var a3 = t * 3 + i * 0.7, rr = (t * 9 + i * 3) % 7; ctx.fillRect(Math.round(WF.x - 9 + i * 2 + Math.sin(a3) * 2), Math.round(y0 + hgt - rr * 0.5 + 1), 2, 1); }
+    // foam where it lands: a churned band of white, wider than the ribbon, breathing with the flow
+    var ft = REDUCED ? 0 : t;
+    for (i = 0; i < 26; i++) {
+      var fxw = WF.x - 13 + (i * 7 % 26) + Math.round(Math.sin(ft * 2.3 + i) * 1.5), fyw = y0 + hgt + 1 + (i % 3) + Math.round(Math.sin(ft * 3.1 + i * 1.7));
+      ctx.fillStyle = i % 4 === 0 ? "rgba(255,255,255,.95)" : i % 4 === 1 ? "rgba(226,246,238,.85)" : "rgba(180,228,224,.7)";
+      ctx.fillRect(Math.round(fxw), Math.round(fyw), i % 3 ? 2 : 3, 1);
+    }
     light(WF.x, y0 + hgt, 20, "200,240,255", 0.35);
   }
   function footfall(moved) {
@@ -3797,6 +3993,13 @@
       if (p.tx < x0 - 2 || p.tx > x1 + 2 || p.ty < y0 - 1 || p.ty > y1 + 4) return;
       list.push({ y: p.ty * T + 14, f: function () {
         var bx = p.tx * T + 8, by = p.ty * T + 14, s = SPR[p.kind];
+        if (!s) return;                                         // an atlas sprite that hasn't loaded yet
+        var envK = p.kind.charCodeAt(0) === 101 && p.kind.charAt(1) === ":";
+        if (envK) {
+          bx += p.ox || 0; by += p.oy || 0;
+          if (p.flat) { ctx.drawImage(s, Math.round(bx - s.width / 2), Math.round(by - s.height + 4 + (REDUCED ? 0 : Math.sin(t * 1.3 + p.tx) * 0.5))); return; }
+          softShadow(bx + 1, by + 2, Math.max(8, s.width * (/oak|ginkgo|pine|birch/.test(p.kind) ? 0.75 : 0.85)));
+        }
         if (p.kind === "nest") {
           ctx.drawImage(s, bx - 10, by - 10);
           for (var e = 0; e < p.eggs; e++) {                 // speckled teal eggs; one of them wobbles
@@ -3809,11 +4012,11 @@
         if (p.kind === "lamp" || p.kind === "crates") shadow(bx, by, p.kind === "lamp" ? 6 : 14);
         if (p.kind === "rock") { ctx.drawImage(s, bx - 9, by - 11 + Math.round(Math.sin(t + p.tx) * 0.5)); return; }
         var sway = (p.kind === "palm" || p.kind === "tfern") && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
-        if (p.kind === "tallgrass" && !REDUCED) sway = Math.round(Math.sin(t * 1.8 + p.tx * 0.7 + p.ty * 0.3) * 0.8);   // wind rolls across the field
+        if ((p.kind === "tallgrass" || /^e:(fern|reeds|horsetail|tfern|bush)/.test(p.kind)) && !REDUCED) sway = Math.round(Math.sin(t * 1.8 + p.tx * 0.7 + p.ty * 0.3) * 0.8);   // wind rolls across the field
         if (p.rustle) sway = Math.round(Math.sin(t * 34) * p.rustle * 1.6);
-        if (REAL === "future" && /tree|tfern/.test(p.kind)) { var tw = towers()[(hash(p.tx, p.ty) * 6) | 0]; ctx.drawImage(tw, bx - tw.width / 2, by - tw.height + 2); light(bx, by - tw.height * 0.6, 18, hash(p.ty, p.tx) < 0.5 ? "255,79,160" : "41,216,255", 0.5); return; }
+        if (REAL === "future" && /tree|tfern|e:(oak|birch|pine|ginkgo)/.test(p.kind)) { var tw = towers()[(hash(p.tx, p.ty) * 6) | 0]; ctx.drawImage(tw, bx - tw.width / 2, by - tw.height + 2); light(bx, by - tw.height * 0.6, 18, hash(p.ty, p.tx) < 0.5 ? "255,79,160" : "41,216,255", 0.5); return; }
         s = skin(s);
-        var behind = /tree|palm|tfern|mast|tank/.test(p.kind) && pi.y < by - 3 && pi.y > by - s.height + 6 && Math.abs(pi.x - bx) < s.width / 2 - 2;
+        var behind = /tree|palm|tfern|mast|tank|e:(oak|birch|pine|ginkgo)/.test(p.kind) && pi.y < by - 3 && pi.y > by - s.height + 6 && Math.abs(pi.x - bx) < s.width / 2 - 2;
         if (behind) ctx.globalAlpha = 0.42;                      // pi walks behind it: see through
         if (p.flip) { ctx.save(); ctx.translate(bx * 2, 0); ctx.scale(-1, 1); }
         ctx.drawImage(s, bx - s.width / 2 + sway, by - s.height + 2);
