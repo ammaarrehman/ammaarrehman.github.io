@@ -799,19 +799,34 @@
     back:  ["....W.....","..WWWWWW..",".WWWWWWWW.",".WWWWWWWW.",".WWWWWWWW.",".WWWWWWWW.","..GWWWWG..","..WW..WW..","..WW..WW..","..GG..GG.."]
   };
   var PIPAL = { W: "#f4f4f4", G: "#a9a9a9", K: "#141414" };
-  // middle path, as pi grows into it: a small grey kaiju, about pi's size, spikes down its back,
-  // a stubby tail and a big grin. side on, facing the camera, or walking away
+  // middle path, as pi grows into it: a small grey kaiju, about pi's size, from Ammaar's friends'
+  // drawing. it has pi's rounded head and round eyes, soft rounded bumps down its back (not
+  // plates or spikes), a small smile, and faint circuit lines on its tail that glow after dark.
+  // side on, facing the camera, or walking away
   var KJ = {
-    side: { w: 14, idle: ["........GGGG..", ".....DGGGGGGG.", ".....DGGGEGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", ".GGGGGGGLGG...", "...GGGGGGG....", "...FF...FF....", "...FF...FF...."], blink: ["........GGGG..", ".....DGGGGGGG.", ".....DGGGMGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", ".GGGGGGGLGG...", "...GGGGGGG....", "...FF...FF....", "...FF...FF...."], walk1: ["........GGGG..", ".....DGGGGGGG.", ".....DGGGEGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", ".GGGGGGGLGG...", "...GGGGGGG....", "..FF.....FF...", "..FF......FF.."], walk2: ["..............", "........GGGG..", ".....DGGGGGGG.", ".....DGGGEGGGG", "...DDDGGGGGGGG", "...DDGGGGGMMM.", ".DDDGGGGGGG...", "..DGGGGGLLGG..", "DDDGGGGLLLGGG.", "DGGGGGGLLLG...", "GGGGGGGLLLG...", "..GGGGGGGG....", "....FFFF......", "....FF.FF....."] },
-    front: { w: 12, idle: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGEGGGGEGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "...FF..FF...", "...FF..FF..."], blink: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGMGGGGMGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "...FF..FF...", "...FF..FF..."], walk1: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGEGGGGEGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "...FF...FF..", "...FF......."], walk2: ["....GGGG....", "..GGGGGGGG..", ".DGGGGGGGGD.", ".DGEGGGGEGD.", "DDGGGLLGGGDD", ".DGGMMMMGGD.", "..GGGGGGGG..", ".GGGLLLLGGG.", ".GGLLLLLLGG.", "..GLLLLLLG..", "..GGGGGGGGG.", "...GGGGGG.GG", "..FF...FF...", ".........FF."] },
-    back: { w: 12, idle: ["....GGGG....", "..GGGDDGGG..", ".DGGGDDGGGD.", ".DGGDDDDGGD.", "DDGGGDDGGGDD", ".DGGDDDDGGD.", "..GGGDDGGG..", ".GGGDDDDGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "...FFGGFF...", "...FF.GGFF.."], walk1: ["....GGGG....", "..GGGDDGGG..", ".DGGGDDGGGD.", ".DGGDDDDGGD.", "DDGGGDDGGGDD", ".DGGDDDDGGD.", "..GGGDDGGG..", ".GGGDDDDGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "...FFGG.FF..", "...FF..GG..."], walk2: ["....GGGG....", "..GGGDDGGG..", ".DGGGDDGGGD.", ".DGGDDDDGGD.", "DDGGGDDGGGDD", ".DGGDDDDGGD.", "..GGGDDGGG..", ".GGGDDDDGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "..FF.GGFF...", ".......GGFF."] }
+    side: { w: 16,
+      idle:  ["........GGGG....", ".....D.GGGGGG...", "....DDGGGGGGEGG.", "..D.DGGGGGGGGGGG", ".DDGGGGGGGGGGMG.", ".DGGGGGGGGGGG...", "DDGGGGGLLLGGG...", "DGGGGGGLLLLGG...", "GGGGGGGLLLLG....", "GCGCGGGLLLLG....", ".GGGGGGGLLGG....", "...GGGGGGGG.....", "....FF...FF.....", "....FF...FF....."],
+      blink: ["........GGGG....", ".....D.GGGGGG...", "....DDGGGGGGMGG.", "..D.DGGGGGGGGGGG", ".DDGGGGGGGGGGMG.", ".DGGGGGGGGGGG...", "DDGGGGGLLLGGG...", "DGGGGGGLLLLGG...", "GGGGGGGLLLLG....", "GCGCGGGLLLLG....", ".GGGGGGGLLGG....", "...GGGGGGGG.....", "....FF...FF.....", "....FF...FF....."],
+      walk1: ["........GGGG....", ".....D.GGGGGG...", "....DDGGGGGGEGG.", "..D.DGGGGGGGGGGG", ".DDGGGGGGGGGGMG.", ".DGGGGGGGGGGG...", "DDGGGGGLLLGGG...", "DGGGGGGLLLLGG...", "GGGGGGGLLLLG....", "GCGCGGGLLLLG....", ".GGGGGGGLLGG....", "...GGGGGGGG.....", "...FF.....FF....", "...FF......FF..."],
+      walk2: ["................", "........GGGG....", ".....D.GGGGGG...", "....DDGGGGGGEGG.", "..D.DGGGGGGGGGGG", ".DDGGGGGGGGGGMG.", ".DGGGGGGGGGGG...", "DDGGGGGLLLGGG...", "DGGGGGGLLLLGG...", "GGGGGGGLLLLG....", "GCGCGGGLLLLG....", "...GGGGGGGG.....", ".....FFFF.......", ".....FF.FF......"] },
+    front: { w: 12,
+      idle:  ["....GGGG....", "..GGGGGGGG..", ".GGGGGGGGGG.", ".GGEGGGGEGG.", "DGGGGGGGGGGD", ".GGGGMMGGGG.", "..GGGGGGGG..", ".GGGLLLLGGG.", "GGGLLLLLLGGG", ".GGLLLLLLGG.", "..GLLLLLLG..", "...GGGGGG.GC", "...FF..FF...", "...FF..FF..."],
+      blink: ["....GGGG....", "..GGGGGGGG..", ".GGGGGGGGGG.", ".GGMGGGGMGG.", "DGGGGGGGGGGD", ".GGGGMMGGGG.", "..GGGGGGGG..", ".GGGLLLLGGG.", "GGGLLLLLLGGG", ".GGLLLLLLGG.", "..GLLLLLLG..", "...GGGGGG.GC", "...FF..FF...", "...FF..FF..."],
+      walk1: ["....GGGG....", "..GGGGGGGG..", ".GGGGGGGGGG.", ".GGEGGGGEGG.", "DGGGGGGGGGGD", ".GGGGMMGGGG.", "..GGGGGGGG..", ".GGGLLLLGGG.", "GGGLLLLLLGGG", ".GGLLLLLLGG.", "..GLLLLLLG..", "...GGGGGG.GC", "...FF...FF..", "...FF......."],
+      walk2: ["....GGGG....", "..GGGGGGGG..", ".GGGGGGGGGG.", ".GGEGGGGEGG.", "DGGGGGGGGGGD", ".GGGGMMGGGG.", "..GGGGGGGG..", ".GGGLLLLGGG.", "GGGLLLLLLGGG", ".GGLLLLLLGG.", "..GLLLLLLG..", "...GGGGGG.GC", "..FF...FF...", ".........FF."] },
+    back: { w: 12,
+      idle:  ["....GGGG....", "..GGGGGGGG..", ".GGGGDDGGGG.", ".GGGGDDGGGG.", "DGGGGGGGGGGD", ".GGGGDDGGGG.", "..GGGDDGGG..", ".GGGGGGGGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "...FFCGFF...", "...FF.GCFF.."],
+      walk1: ["....GGGG....", "..GGGGGGGG..", ".GGGGDDGGGG.", ".GGGGDDGGGG.", "DGGGGGGGGGGD", ".GGGGDDGGGG.", "..GGGDDGGG..", ".GGGGGGGGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "...FFCG.FF..", "...FF..GC..."],
+      walk2: ["....GGGG....", "..GGGGGGGG..", ".GGGGDDGGGG.", ".GGGGDDGGGG.", "DGGGGGGGGGGD", ".GGGGDDGGGG.", "..GGGDDGGG..", ".GGGGGGGGGG.", ".GGGGDDGGGG.", "..GGGDDGGG..", "..GGGGGGGG..", "...GGGGGG...", "..FF.CGFF...", ".......GCFF."] }
   };
-  var KJPAL = { G: "#8b8f98", D: "#4a4d55", L: "#c4c7cd", E: "#141414", M: "#5a5d65", F: "#6a6e76" };
+  // the same grey as middle path's drawing; C is the circuit lines on the tail, which glow at night
+  var KJPAL = { G: "#8b8f98", D: "#4a4d55", L: "#c4c7cd", E: "#141414", M: "#5a5d65", F: "#6a6e76", C: "#6b7079" };
+  var KJPAL_N = { G: "#8b8f98", D: "#4a4d55", L: "#c4c7cd", E: "#141414", M: "#5a5d65", F: "#6a6e76", C: "#7fe3ff" };
   // pi's frame for a mode ("idle", "walk", "blink"), or middle path's once pi has evolved
   function piArt(mode, i, up, profile) {
     if (pi.kaiju) {
       var set = KJ[profile ? "side" : up ? "back" : pi.view === "down" ? "front" : "side"];
-      return frameCanvas(mode === "walk" ? (i % 2 ? set.walk1 : set.walk2) : mode === "blink" && set.blink ? set.blink : set.idle, KJPAL, set.w);
+      return frameCanvas(mode === "walk" ? (i % 2 ? set.walk1 : set.walk2) : mode === "blink" && set.blink ? set.blink : set.idle, sky.dark > 0.5 ? KJPAL_N : KJPAL, set.w);
     }
     var f = up ? (mode === "walk" && i % 2 ? FRAMES.walk1 : FRAMES.back) : mode === "walk" ? (i % 2 ? FRAMES.walk1 : FRAMES.walk2) : mode === "blink" ? FRAMES.blink : FRAMES.idle;
     return frameCanvas(f, PIPAL, 10);
@@ -1459,7 +1474,7 @@
   var SHEET = {"trex":{"w":79,"h":45,"f":[[0,0],[80,0],[160,0],[240,0],[320,0],[400,0],[480,0],[560,0],[640,0],[720,0],[800,0],[880,0],[960,0]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"raptor":{"w":33,"h":20,"f":[[0,46],[34,46],[68,46],[102,46],[136,46],[170,46],[204,46],[238,46],[272,46],[306,46],[340,46]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"brachio":{"w":84,"h":83,"f":[[0,67],[85,67],[170,67],[255,67],[340,67],[425,67],[510,67],[595,67],[680,67],[765,67],[850,67],[935,67],[1020,67]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"stego":{"w":59,"h":40,"f":[[0,151],[60,151],[120,151],[180,151],[240,151],[300,151],[360,151],[420,151],[480,151],[540,151],[600,151],[660,151],[720,151]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"trike":{"w":58,"h":36,"f":[[0,192],[59,192],[118,192],[177,192],[236,192],[295,192],[354,192],[413,192],[472,192],[531,192],[590,192],[649,192],[708,192]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"para":{"w":54,"h":42,"f":[[0,229],[55,229],[110,229],[165,229],[220,229],[275,229],[330,229],[385,229],[440,229],[495,229],[550,229],[605,229],[660,229]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"ankylo":{"w":46,"h":21,"f":[[0,272],[47,272],[94,272],[141,272],[188,272],[235,272],[282,272],[329,272],[376,272],[423,272],[470,272],[517,272],[564,272]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"graze":[11,12]}},"spino":{"w":90,"h":51,"f":[[0,294],[91,294],[182,294],[273,294],[364,294],[455,294],[546,294],[637,294],[728,294],[819,294],[910,294]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"dilo":{"w":41,"h":32,"f":[[0,346],[42,346],[84,346],[126,346],[168,346],[210,346],[252,346],[294,346],[336,346],[378,346],[420,346],[462,346],[504,346]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"pachy":{"w":31,"h":22,"f":[[0,379],[32,379],[64,379],[96,379],[128,379],[160,379],[192,379],[224,379],[256,379],[288,379],[320,379],[352,379],[384,379]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10],"roar":[11,12]}},"galli":{"w":38,"h":40,"f":[[0,402],[39,402],[78,402],[117,402],[156,402],[195,402],[234,402],[273,402],[312,402],[351,402],[390,402]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"compy":{"w":17,"h":10,"f":[[0,443],[18,443],[36,443],[54,443],[72,443],[90,443],[108,443],[126,443],[144,443],[162,443],[180,443]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby":{"w":21,"h":18,"f":[[0,454],[22,454],[44,454],[66,454],[88,454],[110,454],[132,454],[154,454],[176,454],[198,454],[220,454]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"baby2":{"w":21,"h":18,"f":[[0,473],[22,473],[44,473],[66,473],[88,473],[110,473],[132,473],[154,473],[176,473],[198,473],[220,473]],"m":{"walk":[0,1,2,3,4,5],"idle":[6,7,8,9],"blink":[10]}},"ptero":{"w":32,"h":45,"f":[[0,492],[33,492],[66,492],[99,492],[132,492],[165,492],[198,492],[231,492],[264,492],[297,492],[330,492],[363,492],[396,492],[429,492],[462,492],[495,492],[528,492]],"m":{"fly":[0,1,2,3,4,5,6,7,8,9,10,11],"glide":[12,13,14,15],"blink":[16]}}};
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261010";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261011";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
@@ -2377,7 +2392,7 @@
         KAIJU_ART.forEach(function (l) { print(l, "hi"); });
         print("pi evolved into MIDDLE PATH. (devolve to go back)", "ok"); foundSecret("evolve");
         pi.kaiju = true; save.evolved = true; writeSave();
-        sfx("grunt"); setTimeout(function () { sfx("squeak"); }, 260);             // a small roar, for a small kaiju
+        sfx("kgrowl");                                                         // its own growl: a warble, then a little chirp
       }, 1900);
     },
     devolve: function () { if (!pi.kaiju) { print("pi is as small as it gets."); return; } pi.kaiju = false; save.evolved = false; writeSave(); print("pi is pi again.", "ok"); },
@@ -3961,6 +3976,7 @@
       drawArt(piArt(moving ? "walk" : "idle", fr, pi.dir === "up" && pi.view !== "side"), pi.x, pi.y + bob + hopY, pi.face < 0);
       ctx.restore();
     } else drawArt(piArt(moving ? "walk" : blink ? "blink" : "idle", fr, pi.dir === "up" && pi.view !== "side"), pi.x, pi.y + bob + hopY, pi.face < 0);
+    if (pi.kaiju && sky.dark > 0.5) light(pi.x - pi.face * 6, pi.y - 4, 9, "127,227,255", 0.35 * sky.dark);   // the tail's circuit lines, after dark
     if (pi.boost > 0) { ctx.fillStyle = "#E879F9"; ctx.fillRect(Math.round(pi.x - 7 - pi.face * 3), Math.round(pi.y - 4), 2, 1); ctx.fillRect(Math.round(pi.x - 8 - pi.face * 5), Math.round(pi.y - 6), 2, 1); }
   }
 

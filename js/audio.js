@@ -156,6 +156,12 @@
     screech: function (o) { var v = o.vol || 1; tone("sawtooth", jit(1900), 700, 0.32, 0.05 * v, { pan: o.pan }); tone("square", jit(2400), 1300, 0.2, 0.025 * v, { pan: o.pan, when: 0.04 }); for (var i = 0; i < 3; i++) noise(0.02, 0.04 * v, "highpass", 3500, 3500, { pan: o.pan, when: 0.36 + i * 0.07 }); },
     snort: function (o) { var v = o.vol || 1; noise(0.14, 0.13 * v, "bandpass", 520, 300, { pan: o.pan, q: 2 }); noise(0.12, 0.1 * v, "bandpass", 480, 260, { pan: o.pan, q: 2, when: 0.2 }); },
     grunt: function (o) { var v = o.vol || 1; tone("sawtooth", jit(88), 70, 0.32, 0.1 * v, { pan: o.pan, attack: 0.03 }); noise(0.2, 0.04 * v, "lowpass", 400, 200, { pan: o.pan }); },
+    // middle path's growl: a warbling low square and triangle, a breathy band of noise, and a small
+    // rising chirp at the end. small and friendly on purpose, nothing like a film monster's roar
+    kgrowl: function (o) { var v = o.vol || 1;
+      tone("square", jit(118), 86, 0.3, 0.035 * v, { pan: o.pan, attack: 0.04 }); tone("triangle", jit(176), 128, 0.32, 0.06 * v, { pan: o.pan, attack: 0.03 });
+      tone("sine", 92, 96, 0.3, 0.05 * v, { pan: o.pan, attack: 0.05 }); noise(0.26, 0.025 * v, "bandpass", 520, 300, { pan: o.pan, q: 4, attack: 0.04 });
+      tone("sine", jit(460), 920, 0.13, 0.045 * v, { pan: o.pan, when: 0.32 }); },
     squeak: function (o) { tone("sine", jit(1500), 2300, 0.09, 0.05 * (o.vol || 1), { pan: o.pan }); tone("sine", jit(1700), 2500, 0.07, 0.04 * (o.vol || 1), { pan: o.pan, when: 0.12 }); },
     caw: function (o) { var v = o.vol || 1; tone("sawtooth", jit(1300), 620, 0.35, 0.04 * v, { pan: o.pan }); noise(0.3, 0.03 * v, "bandpass", 1600, 900, { pan: o.pan, q: 3 }); },
     flap: function (o) { var v = o.vol || 1; noise(0.16, 0.05 * v, "lowpass", 900, 300, { pan: o.pan, attack: 0.04 }); },
