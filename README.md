@@ -202,13 +202,31 @@ until hovered.
   the tunnel's public hostname for the apex at the Pi, and remove the Worker's custom domain.
   Not planned.
 
+## Art pipeline (the island)
+
+Nothing here runs on deploy; the baked images are committed.
+
+| What | Source | Tool | Output |
+|---|---|---|---|
+| Master palette | `art/palette.json` | read by the tools; the ground painter keeps a copy in `PAL` in `js/world.js` | |
+| Creatures | hand-drawn frames in `art/src/dinos-src.png` (+ `.json`) | `tools/animate.py` (cut-out rig: legs, tail, head sheared per frame; the Brachiosaurus from `tools/brachio.py`) | `assets/island/dinos.png` and the `var SHEET = ...;` line in `js/world.js` |
+| Trees, plants, rocks, reeds, lilies, the cave mouth | seeded generators | `tools/envart.py` | `img/atlas/env.png`, `img/atlas/env.json`, and the `var ENV = ...;` line in `js/world.js` |
+| Ground (grass, dirt, water edges, cliffs, decals) | code | `paintTest()` and `cliffTest()` in `js/world.js`, for the test area in `TEST` | baked into the ground canvas at load |
+
+Setup, once: `python3 -m venv tools/.venv && tools/.venv/bin/pip install -r tools/requirements.txt`. Then
+`tools/.venv/bin/python tools/envart.py` or `tools/animate.py` (add `preview` to only write a preview to
+`tools/out/`). Bump the cache version after rebaking.
+
+Tests for the island: `node tools/doors.mjs` (every door, worst frame under 16 ms) and `node tools/orbs.mjs`
+(the main-page orbs stay sharp after minimize/restore and tab switches).
+
 ## Debug flags
 
 All of them are URL parameters, off by default, and harmless to leave in the shipped code.
 
 | Flag | What it does | Read in |
 |---|---|---|
-| `?debug=1` | The island's overlay: frame time, particles, audio voices, canvases, state and the save. | `js/world.js` |
+| `?debug=1` | The island's overlay (frame time, particles, audio voices, canvases, state, the save) and a test API, `window.__island`: `teleport(x, y)` in world px, `getState()`, `frames(clear)` (each recent frame's work in ms). | `js/world.js` |
 | `?seed=n` | Seeds the island's random numbers, so the orb fight plays the same way every time. | `js/world.js` |
 | `?islandhour=21` | Previews the island at any hour (0 to 24, decimals allowed) instead of Eastern time. | `js/world.js` |
 | `#island`, `#island/<landmark>`, `#island/tour` | Opens straight into the island, at a landmark, or into the tour. Landmarks: rack, desk, uplink, tower, lighthouse, macbook, tablet, mailbox (and their section names). | `js/world.js` |

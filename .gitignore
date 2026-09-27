@@ -8,3 +8,4 @@ tools/node_modules/
 tools/out/
 .DS_Store
 __pycache__/
+tools/.venv/
