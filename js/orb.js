@@ -74,12 +74,20 @@
     var dust = [];
     for (var i = 0; i < (mini ? 60 : 180); i++) dust.push({ a: Math.random() * 6.283, r: 1.12 + Math.random() * 0.35, y: Math.random() * 2 - 1, s: 0.05 + Math.random() * 0.12, tw: Math.random() * 6.283 });
 
-    function size() {
-      var r = off ? { width: off.w, height: off.h } : canvas.getBoundingClientRect();
+    /* the backing store follows the canvas's layout size, never getBoundingClientRect(): that
+       includes transforms, and the windows minimize and restore by scaling to 5%, so measuring
+       mid-flight left a tiny canvas stretched blurry (and a transform never fires the observer).
+       a canvas folded to 0 x 0 keeps its last good size. w, h: css px; bw, bh: device px if known */
+    function size(w, h, bw, bh) {
+      if (off) { w = off.w; h = off.h; }
+      else if (w == null) { w = canvas.clientWidth; h = canvas.clientHeight; }
+      if (!w || !h) return false;
       dpr = Math.min(window.devicePixelRatio || 1, 2);
-      W = r.width; H = r.height;
-      canvas.width = Math.max(1, Math.round(W * dpr)); canvas.height = Math.max(1, Math.round(H * dpr));
+      if (!bw || (window.devicePixelRatio || 1) > 2) { bw = Math.round(w * dpr); bh = Math.round(h * dpr); }
+      if (W === w && H === h && canvas.width === bw && canvas.height === bh) return false;
+      W = w; H = h; canvas.width = Math.max(1, bw); canvas.height = Math.max(1, bh);
       R = Math.min(W, H) * 0.33; cx = W / 2; cy = H / 2;
+      return true;
     }
 
     // smooth, low-frequency waves: the surface swells and settles like liquid
@@ -163,7 +171,28 @@
     size();
     if (off) return { canvas: canvas, frame: draw, palette: palette, energy: function (e) { target = e; } };
     draw(4);
-    if ("ResizeObserver" in window) new ResizeObserver(function () { size(); draw(REDUCED ? 4 : (performance.now() - t0) / 1000); }).observe(canvas);
+    function redraw() { draw(REDUCED || paused ? 4 : (performance.now() - t0) / 1000); }
+    function remeasure() { if (size()) redraw(); }
+    if ("ResizeObserver" in window) {
+      var ro = new ResizeObserver(function (en) {
+        var e = en[0], c = e.contentBoxSize && e.contentBoxSize[0], d = e.devicePixelContentBoxSize && e.devicePixelContentBoxSize[0];
+        if (size(c ? c.inlineSize : e.contentRect.width, c ? c.blockSize : e.contentRect.height, d && d.inlineSize, d && d.blockSize)) redraw();
+      });
+      try { ro.observe(canvas, { box: "device-pixel-content-box" }); } catch (e) { ro.observe(canvas); }
+    }
+    // and whenever a window finishes moving, the tab comes back, the page returns from the
+    // back/forward cache, or the screen's pixel density changes (a window dragged to another display)
+    ["transitionend", "animationend"].forEach(function (ev) {
+      document.addEventListener(ev, function (e) { if (e.target && e.target.contains && e.target.contains(canvas)) remeasure(); }, true);
+    });
+    document.addEventListener("visibilitychange", function () { if (!document.hidden) remeasure(); });
+    window.addEventListener("pageshow", remeasure);
+    (function watchDpr() {
+      if (!window.matchMedia) return;
+      var mq = window.matchMedia("(resolution: " + (window.devicePixelRatio || 1) + "dppx)");
+      var on = function () { remeasure(); if (mq.removeEventListener) mq.removeEventListener("change", on); watchDpr(); };
+      if (mq.addEventListener) mq.addEventListener("change", on);
+    })();
     if ("IntersectionObserver" in window)
       new IntersectionObserver(function (en) { visible = en[0].isIntersecting; start(); }).observe(canvas);
     if (!mini && !REDUCED && window.matchMedia("(pointer: fine)").matches) {
