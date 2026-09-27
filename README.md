@@ -202,6 +202,56 @@ until hovered.
   the tunnel's public hostname for the apex at the Pi, and remove the Worker's custom domain.
   Not planned.
 
+## Debug flags
+
+All of them are URL parameters, off by default, and harmless to leave in the shipped code.
+
+| Flag | What it does | Read in |
+|---|---|---|
+| `?debug=1` | The island's overlay: frame time, particles, audio voices, canvases, state and the save. | `js/world.js` |
+| `?seed=n` | Seeds the island's random numbers, so the orb fight plays the same way every time. | `js/world.js` |
+| `?islandhour=21` | Previews the island at any hour (0 to 24, decimals allowed) instead of Eastern time. | `js/world.js` |
+| `#island`, `#island/<landmark>`, `#island/tour` | Opens straight into the island, at a landmark, or into the tour. Landmarks: rack, desk, uplink, tower, lighthouse, macbook, tablet, mailbox (and their section names). | `js/world.js` |
+
+## What the site keeps in the browser
+
+Nothing here identifies a visitor, and nothing is sent anywhere. Every read and write is wrapped in try/catch, so the site works with storage blocked.
+
+| Key | Where | Holds | Set by |
+|---|---|---|---|
+| `theme` | localStorage | `light` or `dark`, only after the visitor picks one | `js/site.js` |
+| `sound` | localStorage | `on` or `off` | `js/audio.js` |
+| `sound-mix` | localStorage | the four volume sliders, 0 to 1 | `js/audio.js` |
+| `island-save` | localStorage | the island save (v1): logs and secrets found, evolved, last position, settings, the orb winner, credits seen, hatched, shrine seal, hints. About 170 bytes new, well under 50 KB. | `js/world.js` |
+| `island-opts` | localStorage | older island settings, read once and folded into `island-save` | `js/world.js` (read only) |
+| `booted` | sessionStorage | the boot screen has played this session | `js/boot.js` |
+| `min-wins` | sessionStorage | which in-page windows are minimized | `js/windows.js` |
+| `deity-met` | sessionStorage | the shrine's first meeting happened this session | `js/world.js` |
+| `pi-found`, `pi-hatched`, `pi-kaiju`, `rift-done` | sessionStorage | older per-session keys, read once to seed a new save | `js/world.js` (read only) |
+
+## Where each config lives
+
+| Config | File |
+|---|---|
+| Site switches (`GITHUB_LINKS_ENABLED`) | `js/head.js` |
+| Cache version (`?v=`) | `index.html`, `js/site.js`, `js/world.js` (bump all together) |
+| Security headers and CSP | `_headers`, and the same CSP in the `<meta>` of `index.html` and `404.html` |
+| Cloudflare Worker (name, domain, 404 handling) | `wrangler.jsonc` |
+| What ships | the allowlist in `tools/deploy.mjs` |
+| Hosting steps, dashboard settings, undo | `docs/hosting.md` |
+| Audit tooling (versions, scripts) | `tools/package.json`; `tools/.htmlvalidate.json`; `tools/cspell.json` |
+| Security contact | `.well-known/security.txt` (Expires 2027-09-25) |
+| Island settings defaults | `OPT` in `js/world.js` |
+| Mixer defaults | `BASE` and `MIX` in `js/audio.js` |
+
+## Dead-file candidates (not deleted; Ammaar decides)
+
+| File | Why it looks dead |
+|---|---|
+| `assets/favicon.png` | Nothing references it; the pages use `favicon.svg` and `favicon-32.png`. `tools/marks.py favicon` still writes it. |
+| `tools/duotone.py` | A photo filter nothing calls. It may have made the headshot. |
+| `tools/resume.py` | Out of date against the résumé PDF (other job dates and titles), and the rules say the PDF isn't regenerated from it. |
+
 ## Regenerating the marks
 
 ```
