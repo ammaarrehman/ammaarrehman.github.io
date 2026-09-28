@@ -9,7 +9,7 @@
   "rock":    ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
   "moss":    ["#35553a", "#4f7a3c", "#79a24a"],
   "dirt":    ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
-  "sand":    ["#b99a6c", "#d6bb86", "#ecd9a6"],
+  "sand":    ["#8f7c6a", "#b99a6c", "#d6bb86", "#ecd9a6", "#f6ecc8"],
   "water":   ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"],
   "rim":     ["#b4e4e0", "#e2f6ee"],
   "flower":  ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"],
