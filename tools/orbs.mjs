@@ -7,7 +7,7 @@
    within 1 px), and a still frame of the orb must look like one from a fresh load: same sharpness
    and nearly the same pixels.
 
-     node orbs.mjs
+     node orbs.mjs        exits 1 on a failure, 2 if an engine couldn't launch
 */
 import { chromium, webkit } from "playwright";
 import { PNG } from "pngjs";
@@ -16,7 +16,7 @@ import { serve } from "./serve.mjs";
 const PORT = 8700 + Math.floor(Math.random() * 200);
 const server = await serve(PORT);
 const URL = `http://localhost:${PORT}/`;
-let failed = 0;
+let failed = 0, blocked = 0;
 
 // a still, repeatable frame: pause the orb and redraw it at t = 4
 const still = (page, i) => page.evaluate((i) => { const o = window.orbs[i]; o.pause(true); o.palette("eclipse"); }, i);
@@ -25,6 +25,17 @@ const sizes = (page) => page.evaluate(() => [...document.querySelectorAll("canva
 async function shot(page, i) {
   const el = (await page.$$("canvas.orb"))[i];
   await el.scrollIntoViewIfNeeded();
+  // scrolling a section in starts its reveal (0.9 s fade and rise, js/site.js .rv). a shot taken
+  // mid-fade is soft, and as the fresh baseline it made sharp restores look like a blur regression
+  // (audit 2026-09-28, R8). wait for the reveal, then for anything still moving the orb's ancestors
+  await el.evaluate(async (c) => {
+    const rv = c.closest(".rv");
+    for (let t = 0; t < 60 && rv && !rv.classList.contains("in"); t++) await new Promise((r) => setTimeout(r, 50));
+    await new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(r)));
+    await Promise.all(document.getAnimations()
+      .filter((a) => a.effect && a.effect.target && a.effect.target.contains(c) && a.effect.getComputedTiming().iterations !== Infinity)
+      .map((a) => a.finished.catch(() => {})));
+  });
   return PNG.sync.read(await el.screenshot());
 }
 // mean absolute difference per channel (0..255), and sharpness as the mean horizontal gradient
@@ -48,7 +59,9 @@ function check(label, before, after, fresh, now) {
 }
 
 for (const [name, type] of [["chromium", chromium], ["webkit", webkit]]) {
-  const browser = await type.launch();
+  let browser;
+  try { browser = await type.launch(); }
+  catch (e) { blocked++; console.log(`BLOCKED ${name}: could not launch (${e.message.split("\n")[0]})`); continue; }
   const ctx = await browser.newContext({ viewport: { width: 1366, height: 900 }, deviceScaleFactor: 2 });
   await ctx.addInitScript(() => { try { sessionStorage.setItem("booted", "1"); } catch (e) {} });
   const page = await ctx.newPage();
@@ -79,5 +92,5 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit]]) {
   await browser.close();
 }
 server.close();
-console.log(failed ? `\n${failed} failed` : "\nall orbs sharp");
-process.exit(failed ? 1 : 0);
+console.log(failed ? `\n${failed} failed` : blocked ? `\nno failures, but ${blocked} engine(s) couldn't run` : "\nall orbs sharp");
+process.exit(failed ? 1 : blocked ? 2 : 0);          // like audit.mjs: an engine that didn't run is not a pass
