@@ -16,8 +16,13 @@
      node audit.mjs                 everything
      node audit.mjs --only=a3,a9    some of it
      node audit.mjs --offline       skip the external link checks
+     node audit.mjs --engines=chromium,webkit   A7 in only these engines (the rest are skipped)
 
-   Writes tools/out/report.json. Exits 1 on any console error or axe violation. */
+   Every check ends as pass, fail, blocked (it couldn't run: a browser that won't launch, a
+   section that crashed, an external link that couldn't be reached) or skipped (left out on
+   purpose by a flag). Missing coverage is never a pass.
+   Writes tools/out/report.json (results[] holds every check). Exits 1 if anything failed,
+   2 if nothing failed but something was blocked, 0 only when everything asked for ran and passed. */
 import { chromium, firefox, webkit } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
@@ -30,14 +35,16 @@ const OUT = join(HERE, "out");
 mkdirSync(OUT, { recursive: true });
 const arg = (k) => (process.argv.find((a) => a.startsWith(`--${k}=`)) || "").split("=")[1];
 const ONLY = (arg("only") || "a2,a3,a6,a7,a9").split(",");
+const ENGINES_ASKED = (arg("engines") || "chromium,firefox,webkit").split(",");
 const OFFLINE = process.argv.includes("--offline");
 const PORT = 8000 + Math.floor(Math.random() * 900) + 100;
 const BASE = `http://localhost:${PORT}`;
 const SIZES = [[360, 800], [390, 844], [768, 1024], [1366, 768], [1920, 1080]];
 const ENGINES = { chromium, firefox, webkit };
 const AXE_TAGS = ["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"];
-const report = { when: new Date().toISOString(), base: BASE };
-let failed = false;
+const report = { when: new Date().toISOString(), base: BASE, results: [] };
+const result = (id, status, detail = "") => report.results.push({ id, status, detail });
+const gate = (id, ok, detail = "") => result(id, ok ? "pass" : "fail", ok ? "" : detail);
 
 const server = await serve(PORT);
 const browsers = {}, noLaunch = {};
@@ -45,6 +52,12 @@ async function browser(name) { return (browsers[name] ||= await ENGINES[name].la
 async function usable(name) {
   try { await browser(name); return true; }
   catch (e) { noLaunch[name] = e.message.split("\n").find((l) => /Could not|error|Error/.test(l)) || e.message.split("\n")[0]; return false; }
+}
+// run one part of the audit: blocked if it needs chromium and chromium won't start, and a crash
+// part way through is recorded as a failure rather than ending the run
+async function section(id, needsChromium, fn) {
+  if (needsChromium && !(await usable("chromium"))) return result(id.toUpperCase(), "blocked", "chromium could not launch: " + noLaunch.chromium);
+  try { await fn(); } catch (e) { result(id.toUpperCase(), "fail", "crashed: " + e.message.split("\n")[0]); }
 }
 
 // a context that skips the boot screen unless asked not to
@@ -66,10 +79,11 @@ function watch(page) {
 const settle = (page, ms = 2600) => page.waitForTimeout(ms);          // the hero types itself in over ~1.8 s
 
 // ---------- A7: engines x sizes ----------
-if (ONLY.includes("a7")) {
+if (ONLY.includes("a7")) await section("a7", false, async () => {
   report.a7 = [];
   for (const name of Object.keys(ENGINES)) {
-    if (!(await usable(name))) { report.a7.push({ engine: name, size: "all", launchFailed: noLaunch[name], errors: [], warnings: [], failed: [] }); continue; }
+    if (!ENGINES_ASKED.includes(name)) { result(`A7 ${name}`, "skipped", "not in --engines"); continue; }
+    if (!(await usable(name))) { result(`A7 ${name}`, "blocked", "could not launch: " + noLaunch[name]); report.a7.push({ engine: name, size: "all", launchFailed: noLaunch[name], errors: [], warnings: [], failed: [] }); continue; }
     for (const [w, h] of SIZES) {
       const ctx = await context(name, { viewport: { width: w, height: h } });
       const page = await ctx.newPage(); const log = watch(page);
@@ -88,11 +102,17 @@ if (ONLY.includes("a7")) {
     report.a7.push({ engine: name, size: "404 page", status: res.status(), ...seen });
     await ctx.close();
   }
-  for (const r of report.a7) if (r.errors.length) failed = true;
-}
+  for (const r of report.a7) if (!r.launchFailed) {
+    const id = `A7 ${r.engine} ${r.size}`;
+    gate(id + " console", !r.errors.length, r.errors.slice(0, 3).join(" | "));
+    gate(id + " requests", !r.failed.length, r.failed.slice(0, 3).join(" | "));
+    if (r.overflowPx !== undefined) gate(id + " overflow", !(r.overflowPx > 0), `${r.overflowPx}px wider than the viewport`);
+    if (r.status !== undefined) gate(id + " status", r.status === 404, `answered ${r.status}, not 404`);
+  }
+});
 
 // ---------- A2: the recruiter path ----------
-if (ONLY.includes("a2")) {
+if (ONLY.includes("a2")) await section("a2", true, async () => {
   report.a2 = [];
   const probe = () => {
     const seen = (el) => {
@@ -133,13 +153,14 @@ if (ONLY.includes("a2")) {
       });
       await page.screenshot({ path: join(OUT, `recruiter-${w}x${h}-${boot ? "first" : "repeat"}.png`) });
       report.a2.push({ size: `${w}x${h}`, visit: boot ? "first (boot screen)" : "repeat", allVisibleMs: all, missingAtEnd: all ? [] : Object.keys(last || {}).filter((k) => !last[k]), ...paint });
+      gate(`A2 ${w}x${h} ${boot ? "first" : "repeat"}`, all !== null, "not all on screen within 12 s; missing: " + report.a2.at(-1).missingAtEnd.join(", "));
       await ctx.close();
     }
   }
-}
+});
 
 // ---------- A3: accessibility ----------
-if (ONLY.includes("a3")) {
+if (ONLY.includes("a3")) await section("a3", true, async () => {
   report.a3 = {};
   const axe = async (page, include) => {
     let b = new AxeBuilder({ page }).withTags(AXE_TAGS);
@@ -203,8 +224,8 @@ if (ONLY.includes("a3")) {
   ctx = await context("chromium"); page = await ctx.newPage(); const log = watch(page);
   const island = {};
   await page.goto(BASE + "/#island/dns");
-  await page.waitForSelector("#world.show", { timeout: 15000 }).catch(() => {});
-  await page.waitForSelector(".w-dialog:not([hidden])", { timeout: 8000 }).catch(() => {});
+  const opened = await page.waitForSelector("#world.show", { timeout: 15000 }).then(() => true, () => false);
+  const carded = await page.waitForSelector(".w-dialog:not([hidden])", { timeout: 8000 }).then(() => true, () => false);
   island.card = await axe(page, "#world");
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
   await page.keyboard.press("p"); await page.waitForTimeout(400);
@@ -213,7 +234,7 @@ if (ONLY.includes("a3")) {
   await page.keyboard.press("m"); await page.waitForTimeout(500);
   island.map = await axe(page, "#world");
   await page.keyboard.press("Escape"); await page.waitForTimeout(300);
-  await page.click(".w-gear").catch(() => {}); await page.waitForTimeout(400);
+  const geared = await page.click(".w-gear").then(() => true, () => false); await page.waitForTimeout(400);
   island.settings = await axe(page, "#world");
   report.a3.island = island; report.a3.islandConsole = log;
   // ---------- A6: storage, read while the island is open ----------
@@ -222,14 +243,31 @@ if (ONLY.includes("a3")) {
     return { localStorage: dump(localStorage), sessionStorage: dump(sessionStorage) };
   });
   await ctx.close();
-  for (const v of [report.a3.axeMain, report.a3.axeMainDark, report.a3.axe404, ...Object.values(island)]) if (v.length) failed = true;
-}
+  const axeGate = (id, v) => gate("A3 axe " + id, !v.length, v.map((x) => `${x.id}(${x.nodes.length})`).join(" "));
+  axeGate("main (light)", report.a3.axeMain); axeGate("main (dark)", report.a3.axeMainDark); axeGate("404", report.a3.axe404);
+  // an island dialog that never opened was never checked: that's a failure, not a clean axe run
+  gate("A3 island opens from #island/dns", opened && carded, opened ? "the landmark card never showed" : "the island never showed");
+  gate("A3 island settings open", geared, "no .w-gear to click");
+  for (const [k, v] of Object.entries(island)) if ((k !== "settings" || geared) && opened && carded) axeGate("island " + k, v);
+  gate("A3 island console", !log.errors.length, log.errors.slice(0, 3).join(" | "));
+  gate("A3 lang is en", report.a3.lang === "en", `lang="${report.a3.lang}"`);
+  gate("A3 skip link is the first tab stop", report.a3.skipLinkFirst);
+  gate("A3 no keyboard trap", !report.a3.trap);
+  gate("A3 every tab stop shows focus", report.a3.tabStops.every((t) => !/no visible/.test(t)), report.a3.tabStops.filter((t) => /no visible/.test(t)).slice(0, 3).join(" | "));
+  gate("A3 headings in order", !report.a3.headingSkips.length, report.a3.headingSkips.join(" | "));
+  gate("A3 link text names its destination", !report.a3.vagueLinks.length, report.a3.vagueLinks.join(" | "));
+  if (report.a3.reducedMotion.orbMoves === null) result("A3 reduced motion: orb still", "blocked", "no canvas.orb on the page");
+  else gate("A3 reduced motion: orb still", !report.a3.reducedMotion.orbMoves);
+  gate("A3 reduced motion: nothing animating", !report.a3.reducedMotion.running.length, report.a3.reducedMotion.running.join(" | "));
+  // smallTargets stays a list to read, not a gate: the window lights' hit areas are pseudo-elements
+  // the probe can't see (docs/audit-2026-09-28.md)
+});
 
 // ---------- A9: links ----------
-if (ONLY.includes("a9")) {
+if (ONLY.includes("a9")) await section("a9", true, async () => {
   const ctx = await context("chromium"); const page = await ctx.newPage();
   await page.goto(BASE + "/"); await settle(page, 800);
-  const links = await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => ({ href: a.getAttribute("href"), text: (a.getAttribute("aria-label") || a.textContent).trim().replace(/\s+/g, " ").slice(0, 50), ghOff: a.classList.contains("gh-off"), hidden: !a.getClientRects().length })));
+  const links = await page.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => ({ href: a.getAttribute("href"), text: (a.getAttribute("aria-label") || a.textContent).trim().replace(/\s+/g, " ").slice(0, 50), hidden: !a.getClientRects().length })));
   const ids = await page.evaluate(() => [...document.querySelectorAll("[id]")].map((e) => e.id));
   const p404 = await ctx.newPage(); await p404.goto(BASE + "/nothing-here");
   const links404 = await p404.evaluate(() => [...document.querySelectorAll("a[href]")].map((a) => ({ href: a.getAttribute("href"), text: a.textContent.trim().slice(0, 40), page: "404" })));
@@ -258,10 +296,16 @@ if (ONLY.includes("a9")) {
       const r = await fetch(new URL(href, BASE + "/")).catch(() => null);
       status = r && r.status === 200 ? "ok (file)" : `MISSING FILE ${r?.status}`;
     }
-    out.push({ status, href, text: l.text, page: l.page, note: l.ghOff ? "shown as plain text (GitHub off)" : l.hidden ? "hidden" : "" });
+    out.push({ status, href, text: l.text, page: l.page, note: l.hidden ? "hidden" : "" });
+    const id = `A9 ${l.page} ${href}`;
+    if (status.startsWith("skipped")) continue;
+    else if (status.startsWith("ERROR")) result(id, "blocked", status);                       // couldn't reach it: unknown, not passed
+    else if (status.startsWith("999")) result(id, "blocked", "LinkedIn refuses scripts; check by hand");
+    else gate(id, !/MISSING|CHECK|^[45]/.test(status), status);
   }
+  if (OFFLINE) result("A9 external links", "skipped", "--offline");
   report.a9 = out;
-}
+});
 
 for (const b of Object.values(browsers)) await b.close();
 server.close();
@@ -277,5 +321,9 @@ if (report.a3) {
   console.log(`A3 reduced motion: orb moves=${report.a3.reducedMotion.orbMoves}, running: ${report.a3.reducedMotion.running.join("; ") || "none"}`);
 }
 if (report.a9) console.log(`A9 ${report.a9.length} links: ${report.a9.filter((l) => /MISSING|ERROR|CHECK|^[45]/.test(l.status)).length} need a look`);
-console.log(`\nfull report: tools/out/report.json${failed ? "\nFAILED: console errors or axe violations (see the report)" : ""}`);
-process.exit(failed ? 1 : 0);
+const count = (st) => report.results.filter((r) => r.status === st);
+const [pass, fail, blocked, skipped] = ["pass", "fail", "blocked", "skipped"].map(count);
+for (const r of [...fail, ...blocked]) console.log(`${r.status.toUpperCase().padEnd(7)} ${r.id}${r.detail ? ": " + r.detail : ""}`);
+console.log(`\n${pass.length} passed, ${fail.length} failed, ${blocked.length} blocked, ${skipped.length} skipped. full report: tools/out/report.json`);
+if (!report.results.length) console.log("nothing ran (check --only)");
+process.exit(fail.length || !report.results.length ? 1 : blocked.length ? 2 : 0);
