@@ -95,7 +95,9 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 
 ### Two dashboard items for Ammaar
 
-**1. Minimum TLS version.** Checked 2026-09-27: TLS 1.3 is on, but TLS 1.0 and 1.1 still connect (`openssl s_client -tls1` completes a handshake). Turning 1.3 on and setting the minimum are two different switches.
+**1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).
+
+Before: checked 2026-09-27, TLS 1.3 was on, but TLS 1.0 and 1.1 still connected (`openssl s_client -tls1` completed a handshake). Turning 1.3 on and setting the minimum are two different switches.
 
 1. Cloudflare dashboard, then the `ammaarrehman.com` zone.
 2. SSL/TLS, then Edge Certificates.

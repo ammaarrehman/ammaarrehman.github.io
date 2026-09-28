@@ -21,7 +21,7 @@ Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / n
 | A6-9 | low | Transcript | No transcript PDF is deployed. | None. | fixed (nothing to do) |
 | A6-10 | medium | Third-party origins | The main page loaded Google Fonts (fonts.googleapis.com, fonts.gstatic.com). | Fonts self-hosted; the main page now contacts no other origin. The CSP allows `https://lab.ammaarrehman.com` for the live status later. | fixed in `7b916f9` |
 | A6-11 | low | `.well-known/security.txt` | Has Contact, Expires (2027-09-25, within a year), Preferred-Languages and Canonical. Canonical pointed at github.io. | Canonical (and every other absolute URL) moved to ammaarrehman.com. | fixed in `bdd161a` |
-| A6-13 | high | Cloudflare edge TLS | SSL Labs B on all four edge addresses: TLS 1.0 and 1.1 are accepted (`openssl s_client -tls1` connects). | Cloudflare dashboard: SSL/TLS, Edge Certificates, Minimum TLS Version 1.2. Rechecked 2026-09-27: 1.3 is on, and 1.0 and 1.1 still complete a handshake, so the minimum is still 1.0. "TLS 1.3" and "Minimum TLS Version" are separate switches (click path in `docs/hosting.md`). | needs Ammaar |
+| A6-13 | high | Cloudflare edge TLS | SSL Labs B on all four edge addresses: TLS 1.0 and 1.1 are accepted (`openssl s_client -tls1` connects). | Cloudflare dashboard: SSL/TLS, Edge Certificates, Minimum TLS Version 1.2. Rechecked 2026-09-27: 1.3 is on, and 1.0 and 1.1 still complete a handshake, so the minimum is still 1.0. "TLS 1.3" and "Minimum TLS Version" are separate switches (click path in `docs/hosting.md`). Set to TLS 1.2 on 2026-09-28; verified by Ammaar: TLS 1.0 and 1.1 fail, 1.2 connects, SSL Labs recheck passed as expected (A was the expected grade). | fixed 2026-09-28 (Cloudflare dashboard) |
 | A6-14 | medium | Cloudflare Web Analytics | Cloudflare injects `static.cloudflareinsights.com/beacon.min.js`; the CSP blocks it, leaving two console errors on every load. | Identified 2026-09-27: Cloudflare Web Analytics (RUM) adds `<script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/...">` to pages served to browsers; `script-src 'self'` refuses it. Switch the injection off (click path in `docs/hosting.md`); don't widen the CSP. | needs Ammaar |
 | A6-15 | low | `_headers` | securityheaders.com A; X-Frame-Options not set (`frame-ancestors 'none'` covers modern browsers). | Added `X-Frame-Options: DENY`. The other warning, the 300 s HSTS, is deliberate for the first week. | fixed in `a0310c6` |
 | A6-16 | medium | `js/boot.js` (boot screen) | Printed `homelab-dns-01` and `homelab-dns-02`, the Pis' hostnames, on every first visit. A scan of everything in `.deploy/` for hostnames, private and Tailscale addresses, MACs and `user@host` found nothing else. | "DNS node A / B" with primary and backup. | fixed in `1ae268f` |
@@ -182,7 +182,7 @@ All 27 links checked: in-page anchors resolve, site files exist, the mailto is a
 
 ## Needs Ammaar
 
-1. Cloudflare: Minimum TLS Version 1.2 and the Web Analytics toggle (click paths in `docs/hosting.md`).
+1. Cloudflare: the Web Analytics toggle (click path in `docs/hosting.md`). Minimum TLS 1.2 is done (A6-13).
 2. The homelab audit settles P-11 and C-19.
 3. Decide on the dead-file candidates in the README.
 4. Optional: a tagged (accessible) export of the résumé PDF. The bullets are fine in the current file (A6-8).

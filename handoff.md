@@ -75,7 +75,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | 9 | Reserve name | **Mossgate Reserve** (not Cinderfern). |
 | 10 | Kaiju | Option A (done): his grey, pi's rounded head and eyes, soft back bumps, tail lines that glow at night. |
 | - | Copy batch P-1 to P-14 | Approved 2026-09-27. Applied: P-1 to P-7, P-10, P-12. P-8 and P-9 show once `CODE_HOST` is set. P-11 waits. P-13, P-14 unchanged. |
-| - | TLS | Ammaar says TLS is 1.3. It is enabled, but on 2026-09-27 TLS 1.0 and 1.1 still completed handshakes (`openssl s_client -tls1 -cipher 'DEFAULT@SECLEVEL=0'`), so the minimum is still 1.0 and SSL Labs gives B. The fix is the separate "Minimum TLS Version = 1.2" switch; the click path is in docs/hosting.md. Recheck and tell him politely with the evidence; don't argue. |
+| - | TLS | Done 2026-09-28 (R3): Minimum TLS Version is TLS 1.2, with TLS 1.3 still on. Ammaar verified TLS 1.0 and 1.1 fail, 1.2 connects, and the SSL Labs recheck passed as expected. Before that, 1.0 and 1.1 were still accepted and SSL Labs gave B. |
 | - | Web Analytics | Ammaar will look later. It's Cloudflare's injected beacon, blocked by the CSP (the 92 in Lighthouse best practices). Don't widen the CSP. |
 
 ## 4. Ground rules (from the handoffs; they bind every session)
@@ -241,7 +241,7 @@ The following historical implementation entries describe previously committed/pu
 ## 8. Waiting on Ammaar
 
 1. **Island visual quality reopened:** Ammaar says the conversion does not look good/fully reworked. Fresh assessment in `docs/audit-2026-09-28.md` agrees it needs a coherent art-direction/layout pass, not simply more props. Propose one cohesive slice for approval before expanding it. Park plaque still reads "PI'S ISLAND" rather than Mossgate; buildings/landmarks retain older art. Phase 12 map/layout approval still applies.
-2. Cloudflare: Minimum TLS 1.2 (rechecked 2026-09-28: TLS 1.0 and 1.1 still complete handshakes, so the minimum is still 1.0; "TLS 1.3" in the dashboard is a separate switch that enables 1.3, not the minimum); the Web Analytics toggle later; confirm HSTS after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
+2. Cloudflare: the Web Analytics toggle (Minimum TLS 1.2 is done, R3); confirm HSTS after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
 3. The homelab audit, which settles P-11.
 4. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
 5. GitLab: make each mirrored project public after the secrets scan (Phase 7). Check the weekly mirror doesn't reset visibility.
@@ -250,7 +250,7 @@ The following historical implementation entries describe previously committed/pu
 
 Follow handoff 3's build order. Where it stands:
 
-1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Deployed, and checked on the Mac in Chromium and WebKit. Left: R3 and R6 (Cloudflare dashboard, Ammaar).
+1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Deployed, and checked on the Mac in Chromium and WebKit. R3 (minimum TLS 1.2) is set and verified. Left: R6 (Cloudflare dashboard, Ammaar).
 2. **Art conversion:** terrain/asset implementation landed, visual quality NOT accepted. See section 8 and the new audit. Propose a coherent slice; do not mark the whole island finished. Buildings/landmarks, bridges and helipad remain candidates. The pi and "future" reality tower sprites are still built at runtime.
 3. **Phase 7 (portfolio upgrades):**
    - Current checkpoint: gitleaks installed; `tools/history-review.mjs` prepared, scan not run due approval-service usage limit. Retry with normal approval once available. Do not bypass the failed approval. Four diagram proposals and screenshot checklist are written; diagrams still require Ammaar's OK.
