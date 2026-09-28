@@ -149,7 +149,7 @@ Chromium and WebKit at 360 x 800, 390 x 844, 768 x 1024, 1366 x 768 and 1920 x 1
 |---|---|---|---|---|---|
 | A7-1 | medium | island opened from a link | 25 "AudioContext was not allowed to start" warnings | audio waits for the first gesture | fixed in `96c7c82` |
 | A7-2 | low | island sprites | Chrome's "multiple readback operations" warning | one pixel read per canvas, identical output | fixed in `b264b2a` |
-| A7-3 | medium | Firefox | Can't launch inside the Claude app (macOS blocks the folder Firefox needs). | Ammaar runs it in Terminal (below) and pastes the output. | needs Ammaar |
+| A7-3 | medium | Firefox | Can't launch inside the Claude app (macOS blocks the folder Firefox needs). | Ammaar runs it in Terminal (below). Run 2026-09-28 after the audit-fix deploy: works. | checked by Ammaar (2026-09-28) |
 
 Firefox, from Terminal:
 
@@ -169,7 +169,7 @@ cd ~/projects/"GITHUB REPO"/ammaarrehman.github.io/tools && npm install && npx p
 | ID | Severity | Where | Evidence | Fix | Status |
 |---|---|---|---|---|---|
 | A9-1 | high | Every github.com link | They 404 while the account is flagged. | `GITHUB_LINKS_ENABLED` in `js/head.js`, false for now: repo buttons and GitHub-only entries hide, other github links become plain text, island cards drop theirs. | fixed in `fd5cc1b` |
-| A9-2 | low | LinkedIn | Returns 999 to scripts (LinkedIn blocks them). | Checked by hand: the profile URL is right. | fixed (nothing to do) |
+| A9-2 | low | LinkedIn | Returns 999 to scripts (LinkedIn blocks them), so `audit.mjs` reports it as blocked. | Checked by hand: the profile URL is right (rechecked 2026-09-28). | fixed (nothing to do) |
 
 All 27 links checked: in-page anchors resolve, site files exist, the mailto is ammaarrehmanf@gmail.com, the tel link matches the résumé, the Loom demo returns 200, and the island's `#exit`-style links are actions the island handles.
 
@@ -183,7 +183,6 @@ All 27 links checked: in-page anchors resolve, site files exist, the mailto is a
 ## Needs Ammaar
 
 1. Cloudflare: Minimum TLS Version 1.2 and the Web Analytics toggle (click paths in `docs/hosting.md`).
-2. Run the Firefox audit command (A7) and paste the output.
-3. The homelab audit settles P-11 and C-19.
-4. Decide on the dead-file candidates in the README.
-5. Fix the résumé PDF bullets in your own export (A6-8).
+2. The homelab audit settles P-11 and C-19.
+3. Decide on the dead-file candidates in the README.
+4. Optional: a tagged (accessible) export of the résumé PDF. The bullets are fine in the current file (A6-8).

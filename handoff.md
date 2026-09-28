@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion and again after the audit fixes R1 to R8 (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy (`git log` for the exact state).
 
 ---
 
@@ -184,8 +184,10 @@ The code findings in `docs/audit-2026-09-28.md` are fixed and committed; its "Fi
 - R4 `624b157`: the markup has repo paths (`data-repo`) and no hrefs, and repo-only bits are hidden unless `head.js` adds `.code-host`. Safe with JS off. Test: `tools/codelinks.mjs`.
 - R7 `d4e0bf1`: `tools/audit.mjs` gives every check pass/fail/blocked/skipped, and the exit code follows.
 - R8 `103d83e`: no blur regression. The orb test's baseline was shot mid-reveal, and now waits for the reveal.
-- Cache version `20261016` (`4acef7f`). **Not deployed.** Deploy from the Mac with `node tools/deploy.mjs`, then run `node tools/deploy.mjs --check`.
-- The cloud session could not push (GitHub answered 403: Claude's GitHub access isn't connected for this repo there). Its commits are on branch `claude/gifted-gauss-1a74nm`. Check with `git log origin/claude/gifted-gauss-1a74nm` whether they reached GitHub. If not, they exist only in that cloud session.
+- Cache version `20261016` (`4acef7f`).
+- On GitHub `main` (`b6cdf53`). The cloud session's push was refused (403), so Ammaar brought the commits to the Mac as a git bundle and pushed from there.
+- **Deployed** 2026-09-28 by Ammaar with `node tools/deploy.mjs`: Cloudflare version `a31ba8b4-4ef8-448f-8317-a39dadbe2078`, `ammaarrehman.com` live, `--check` passed (deploy log in `docs/hosting.md`).
+- Mac results: `focus.mjs` and `orbs.mjs` pass in Chromium and WebKit. `audit.mjs` gave 79 passed, 0 failed, 2 blocked (Firefox inside the Claude app, LinkedIn's 999). The Firefox audit from Ammaar's Terminal works, and LinkedIn works by hand.
 
 ### Codex audit checkpoint, 2026-09-28
 
@@ -240,16 +242,15 @@ The following historical implementation entries describe previously committed/pu
 
 1. **Island visual quality reopened:** Ammaar says the conversion does not look good/fully reworked. Fresh assessment in `docs/audit-2026-09-28.md` agrees it needs a coherent art-direction/layout pass, not simply more props. Propose one cohesive slice for approval before expanding it. Park plaque still reads "PI'S ISLAND" rather than Mossgate; buildings/landmarks retain older art. Phase 12 map/layout approval still applies.
 2. Cloudflare: Minimum TLS 1.2 (rechecked 2026-09-28: TLS 1.0 and 1.1 still complete handshakes, so the minimum is still 1.0; "TLS 1.3" in the dashboard is a separate switch that enables 1.3, not the minimum); the Web Analytics toggle later; confirm HSTS after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
-3. Run the Firefox audit command above and paste the output (fold it into AUDIT.md A7).
-4. The homelab audit, which settles P-11.
-5. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
-6. GitLab: make each mirrored project public after the secrets scan (Phase 7). Check the weekly mirror doesn't reset visibility.
+3. The homelab audit, which settles P-11.
+4. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
+5. GitLab: make each mirrored project public after the secrets scan (Phase 7). Check the weekly mirror doesn't reset visibility.
 
 ## 9. Next steps, in order
 
 Follow handoff 3's build order. Where it stands:
 
-1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Left: R3 and R6 (Cloudflare dashboard, Ammaar), a WebKit run of `focus.mjs` and `orbs.mjs` on the Mac, and a deploy of the fixes.
+1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Deployed, and checked on the Mac in Chromium and WebKit. Left: R3 and R6 (Cloudflare dashboard, Ammaar).
 2. **Art conversion:** terrain/asset implementation landed, visual quality NOT accepted. See section 8 and the new audit. Propose a coherent slice; do not mark the whole island finished. Buildings/landmarks, bridges and helipad remain candidates. The pi and "future" reality tower sprites are still built at runtime.
 3. **Phase 7 (portfolio upgrades):**
    - Current checkpoint: gitleaks installed; `tools/history-review.mjs` prepared, scan not run due approval-service usage limit. Retry with normal approval once available. Do not bypass the failed approval. Four diagram proposals and screenshot checklist are written; diagrams still require Ammaar's OK.
@@ -284,8 +285,8 @@ Follow handoff 3's build order. Where it stands:
 ## 10. Known gaps and notes
 
 - The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).
-- Firefox launch remains blocked inside the Claude app on the Mac. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
-- Cloud sessions (claude.ai/code): the container has Chromium only, and it is an older build than the pinned Playwright 1.63 expects. Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory whose `chromium_headless_shell-1243/chrome-headless-shell-linux64/` links to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/*`, with `chrome-headless-shell` linked to `headless_shell`. Don't run `playwright install`. There is no WebKit or Firefox, no `~/.agent-handoff`, and no `tools/.venv`.
+- Firefox can't launch inside the Claude app on the Mac, so `audit.mjs` reports it as blocked (exit 2) there. Run the Firefox audit from Ammaar's own Terminal (section 5), which works. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
+- Cloud sessions (claude.ai/code): the container has Chromium only, and it is an older build than the pinned Playwright 1.63 expects. Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory whose `chromium_headless_shell-1243/chrome-headless-shell-linux64/` links to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/*`, with `chrome-headless-shell` linked to `headless_shell`. Don't run `playwright install`. There is no WebKit or Firefox, no `~/.agent-handoff`, and no `tools/.venv`. The network policy also blocks `ammaarrehman.com` and SSL Labs, so live checks can't run there. GitHub push may be refused (403) if Claude's GitHub access isn't connected; then hand the commits over as a git bundle (`git bundle create <file> origin/main..HEAD`) and push from the Mac.
 - `doors.mjs` misses its 16 ms budget on some frames in the cloud container (software rendering). The commit before the audit fixes misses it the same way, and worse, so it isn't a regression. Judge door timing on the Mac.
 
 - The ground painter's pixel edges can sit up to about half a tile off the collision tiles (the waterline is biased out to sea so walkable sand never looks wet). Road pixels can cross a solid cliff-rim tile at a stair edge.

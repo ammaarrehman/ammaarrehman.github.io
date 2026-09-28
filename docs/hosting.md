@@ -87,6 +87,12 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 
 - TLS rechecked with `openssl s_client -tls1` / `-tls1_1` (`-cipher 'DEFAULT@SECLEVEL=0'`): both still complete handshakes (ECDHE-RSA-AES128-SHA). TLS 1.3 is on, but the minimum is still 1.0, so the Minimum TLS Version 1.2 switch below is still needed.
 
+**2026-09-28, the audit fixes** (version `a31ba8b4-4ef8-448f-8317-a39dadbe2078`, cache `20261016`, commit `b6cdf53`). Deployed by Ammaar from the Mac with `node tools/deploy.mjs` after the six fix commits reached GitHub `main`. Cloudflare reported the custom domain `ammaarrehman.com` live. Checked by Ammaar:
+
+- `node tools/deploy.mjs --check` passed, and the live `index.html` carries `v=20261016`.
+- `node tools/audit.mjs` (local server): 79 passed, 0 failed, 2 blocked. The two blocked were Firefox (its profile can't be created inside the Claude app) and LinkedIn (999 to scripts). Both were then checked another way: the Firefox audit run from Ammaar's own Terminal works, and the LinkedIn link works when opened by hand.
+- `tools/focus.mjs` and `tools/orbs.mjs` pass in Chromium and WebKit.
+
 ### Two dashboard items for Ammaar
 
 **1. Minimum TLS version.** Checked 2026-09-27: TLS 1.3 is on, but TLS 1.0 and 1.1 still connect (`openssl s_client -tls1` completes a handshake). Turning 1.3 on and setting the minimum are two different switches.
