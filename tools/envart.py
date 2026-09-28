@@ -11,6 +11,7 @@ master palette in art/palette.json:
   shrubs     a round bush, a fern clump, the magnolia
   rocks      5 variants in each of 3 sizes: faceted, cracked, moss on top, grass at the base
   water      reeds and lily pads, in clusters
+  ground     tall grass clumps, pebbles, a twig nest
 The shadows aren't baked in: the game draws one soft cool ellipse per size under each sprite.
 
   python3 tools/envart.py            writes the atlas
@@ -383,6 +384,43 @@ def rock(size, seed):
     return sp, (sp.w // 2, base + 1)
 
 
+def tallgrass(seed):
+    """a clump of tall grass: separate blades with gaps, each curving a little, dark at the root
+    and lit at the tip, a few seed heads. pi can hide in it later (stealth)"""
+    rng = random.Random(seed); sp = Sprite(18, 16)
+    for i in range(9):
+        bx = 1.5 + i * 1.7 + rng.uniform(-0.5, 0.5); hgt = 6 + rng.randint(0, 7); lean = rng.uniform(-2, 2)
+        for j in range(hgt):
+            q = j / hgt
+            sp.put(int(round(bx + lean * q * q)), 15 - j, R["grass"][4 if q > 0.7 else 3 if q > 0.35 else 2], "grass")
+        if i % 3 == seed % 3:
+            x = int(round(bx + lean)); sp.put(x, 15 - hgt, R["dry"][4], "dry"); sp.put(x, 14 - hgt, R["dry"][3], "dry")
+    sp.outline(skip=("dry",)); return sp, (9, 15)
+
+
+def pebbles(seed):
+    """a few flat stones, lit on top, for paths and slopes"""
+    rng = random.Random(seed); sp = Sprite(16, 8)
+    for i in range(3 + seed % 2):
+        cx, cy, rx, ry = rng.uniform(3, 13), rng.uniform(3, 5), rng.uniform(1.6, 2.6), rng.uniform(1.2, 1.7)
+        rockblob(sp, cx, cy, rx, ry, rng, moss=False)
+    sp.outline(); return sp, (8, 7)
+
+
+def nest(seed):
+    """a ring of woven twigs; the game lays the eggs in it"""
+    rng = random.Random(seed); sp = Sprite(20, 11)
+    for y in range(11):
+        for x in range(20):
+            u, v = (x + 0.5 - 10) / 9.5, (y + 0.5 - 5.5) / 5
+            d = u * u + v * v
+            if d > 1: continue
+            if d < 0.35: sp.put(x, y, R["wood"][0], "wood"); continue           # the hollow
+            k = (x * 3 + y * 5 + int(rng.random() * 3)) % 4
+            sp.put(x, y, R["wood"][[4, 3, 2, 1][k] if v < 0.2 else [2, 1, 1, 0][k]], "wood")
+    sp.outline(); return sp, (10, 10)
+
+
 def reeds(seed):
     rng = random.Random(seed); sp = Sprite(12, 16)
     for s in range(6):
@@ -495,6 +533,9 @@ def all_sprites():
     for size in range(3):
         for v in range(5): s["rock%d_%d" % (size, v)] = rock(size, v)
     for i in range(3): s["reeds%d" % i] = reeds(120 + i)
+    for i in range(3): s["tallgrass%d" % i] = tallgrass(200 + i)
+    for i in range(2): s["pebbles%d" % i] = pebbles(210 + i)
+    s["nest0"] = nest(220)
     for i in range(3): s["lilies%d" % i] = lilies(130 + i)
     s["cavemouth"] = cavemouth(140)
     for i in range(2): s["baretree%d" % i] = baretree(150 + i)

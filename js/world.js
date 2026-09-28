@@ -78,12 +78,9 @@
   function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : map[y][x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
-  /* the art test area (handoff 3, D3): the west meadow where the river falls off the highland,
-     and the koi garden, drawn in the new style (art/palette.json, img/atlas/env.png from
-     tools/envart.py). the rest of the island converts once Ammaar approves the look */
-  var TEST = [[13, 18, 41, 47], [57, 39, 81, 57]];
-  function inTest(x, y) { for (var i = 0; i < TEST.length; i++) { var r = TEST[i]; if (x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true; } return false; }
-  var ENV = {"mpuzzle0":[0,0,44,66,22,64],"mpuzzle1":[45,0,44,66,22,64],"mpuzzle2":[90,0,44,66,22,64],"fig0":[135,0,50,60,25,57],"fig1":[186,0,50,60,25,57],"redwood0":[237,0,28,56,14,54],"redwood1":[266,0,28,56,14,54],"palm0":[0,67,42,56,21,54],"palm1":[43,67,42,56,21,54],"palm2":[86,67,42,56,21,54],"tallfern0":[129,67,40,50,20,48],"tallfern1":[170,67,40,50,20,48],"birch0":[211,67,26,46,13,44],"birch1":[238,67,26,46,13,44],"cavemouth":[0,124,60,46,30,45],"oak0":[61,124,34,42,17,40],"oak1":[96,124,34,42,17,40],"oak2":[131,124,34,42,17,40],"ginkgo0":[166,124,30,40,15,38],"ginkgo1":[197,124,30,40,15,38],"baretree0":[228,124,30,36,15,35],"baretree1":[259,124,30,36,15,35],"tfern0":[0,171,34,34,17,32],"tfern1":[35,171,34,34,17,32],"cycad0":[70,171,24,22,12,20],"cycad1":[95,171,24,22,12,20],"rock2_0":[120,171,28,22,14,20],"rock2_1":[149,171,28,22,14,20],"rock2_2":[178,171,28,22,14,20],"rock2_3":[207,171,28,22,14,20],"rock2_4":[236,171,28,22,14,20],"horsetail0":[265,171,14,18,7,17],"magnolia0":[280,171,22,16,11,15],"rock1_0":[0,206,20,16,10,14],"rock1_1":[21,206,20,16,10,14],"rock1_2":[42,206,20,16,10,14],"rock1_3":[63,206,20,16,10,14],"rock1_4":[84,206,20,16,10,14],"reeds0":[105,206,12,16,6,15],"reeds1":[118,206,12,16,6,15],"reeds2":[131,206,12,16,6,15],"bush0":[144,206,18,14,9,13],"bush1":[163,206,18,14,9,13],"fern0":[182,206,20,14,10,13],"fern1":[203,206,20,14,10,13],"rock0_0":[224,206,14,12,7,10],"rock0_1":[239,206,14,12,7,10],"rock0_2":[254,206,14,12,7,10],"rock0_3":[269,206,14,12,7,10],"rock0_4":[284,206,14,12,7,10],"lilies0":[299,206,16,10,8,9],"lilies1":[0,223,16,10,8,9],"lilies2":[17,223,16,10,8,9]};
+  /* the art (handoff 3, D1): the master palette is art/palette.json (PAL below copies it); the
+     environment sprites are baked by tools/envart.py into img/atlas/env.png, their frames in ENV */
+  var ENV = {"mpuzzle0":[0,0,44,66,22,64],"mpuzzle1":[45,0,44,66,22,64],"mpuzzle2":[90,0,44,66,22,64],"fig0":[135,0,50,60,25,57],"fig1":[186,0,50,60,25,57],"redwood0":[237,0,28,56,14,54],"redwood1":[266,0,28,56,14,54],"palm0":[0,67,42,56,21,54],"palm1":[43,67,42,56,21,54],"palm2":[86,67,42,56,21,54],"tallfern0":[129,67,40,50,20,48],"tallfern1":[170,67,40,50,20,48],"birch0":[211,67,26,46,13,44],"birch1":[238,67,26,46,13,44],"cavemouth":[0,124,60,46,30,45],"oak0":[61,124,34,42,17,40],"oak1":[96,124,34,42,17,40],"oak2":[131,124,34,42,17,40],"ginkgo0":[166,124,30,40,15,38],"ginkgo1":[197,124,30,40,15,38],"baretree0":[228,124,30,36,15,35],"baretree1":[259,124,30,36,15,35],"tfern0":[0,171,34,34,17,32],"tfern1":[35,171,34,34,17,32],"cycad0":[70,171,24,22,12,20],"cycad1":[95,171,24,22,12,20],"rock2_0":[120,171,28,22,14,20],"rock2_1":[149,171,28,22,14,20],"rock2_2":[178,171,28,22,14,20],"rock2_3":[207,171,28,22,14,20],"rock2_4":[236,171,28,22,14,20],"horsetail0":[265,171,14,18,7,17],"magnolia0":[280,171,22,16,11,15],"rock1_0":[0,206,20,16,10,14],"rock1_1":[21,206,20,16,10,14],"rock1_2":[42,206,20,16,10,14],"rock1_3":[63,206,20,16,10,14],"rock1_4":[84,206,20,16,10,14],"reeds0":[105,206,12,16,6,15],"reeds1":[118,206,12,16,6,15],"reeds2":[131,206,12,16,6,15],"tallgrass0":[144,206,18,16,9,15],"tallgrass1":[163,206,18,16,9,15],"tallgrass2":[182,206,18,16,9,15],"bush0":[201,206,18,14,9,13],"bush1":[220,206,18,14,9,13],"fern0":[239,206,20,14,10,13],"fern1":[260,206,20,14,10,13],"rock0_0":[281,206,14,12,7,10],"rock0_1":[296,206,14,12,7,10],"rock0_2":[0,223,14,12,7,10],"rock0_3":[15,223,14,12,7,10],"rock0_4":[30,223,14,12,7,10],"nest0":[45,223,20,11,10,10],"lilies0":[66,223,16,10,8,9],"lilies1":[83,223,16,10,8,9],"lilies2":[100,223,16,10,8,9],"pebbles0":[117,223,16,8,8,7],"pebbles1":[134,223,16,8,8,7]};
   var PAL = { grass: ["#24463f", "#2e5d44", "#3d7a47", "#55944a", "#73ad51", "#98c65c"], dirt: ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
               water: ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"], rim: ["#b4e4e0", "#e2f6ee"], rock: ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
               moss: ["#35553a", "#4f7a3c", "#79a24a"], wood: ["#2e2433", "#4a3635", "#6b4d3c", "#8e6a48", "#b08a5c"], flower: ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"],
@@ -297,14 +294,17 @@
   }
   // under the trees and along the edges: tree ferns, cycads, bushes, magnolia, fern clumps; horsetails
   // and reeds by the water; boulders at the foot of the cliffs and pebbles by the paths
-  function testUnder(x, y, edge, inF, h2) {
-    var wetNear = nearWater(x, y, 1), p = { tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: jit(x, y, 7) / 3 };
+  function plantUnder(x, y, edge, inF, h2) {
+    var wetNear = nearWater(x, y, 1), tr = tier(x + 0.5, y + 0.5), p = { tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: jit(x, y, 7) / 3 };
     var drift = fbm(x * 1.1 + 70, y * 1.1 + 20);                    // plants gather in drifts, not a scatter
-    if (lvl(x, y - 1) > lvl(x, y) && h2 < 0.45) { p.kind = epick("rock2_", 5, h2); p.oy = 2; solid[k(x, y)] = 1; }       // boulders under the cliffs
+    if (lvl(x, y - 2) > lvl(x, y) && lvl(x, y - 1) === lvl(x, y) && h2 < 0.22) { p.kind = epick("rock2_", 5, h2); solid[k(x, y)] = 1; }   // boulders at the foot of the cliffs
     else if (wetNear && h2 < 0.2) p.kind = drift > 0.12 ? epick("reeds", 3, h2) : h2 < 0.1 ? "e:horsetail0" : undefined;
-    else if ((edge || inF) && h2 < 0.34) p.kind = h2 < 0.08 ? epick("tfern", 2, h2) : h2 < 0.14 ? epick("cycad", 2, h2) : h2 < 0.2 ? "e:magnolia0" : h2 < 0.27 ? epick("bush", 2, h2) : epick("fern", 2, h2);
+    else if ((edge || inF) && h2 < 0.34) p.kind = tr === 2 ? (h2 < 0.1 ? epick("cycad", 2, h2) : h2 < 0.18 ? "e:horsetail0" : epick("fern", 2, h2))    // the highland: cooler, no flowers
+      : h2 < 0.08 ? epick("tfern", 2, h2) : h2 < 0.14 ? epick("cycad", 2, h2) : h2 < 0.2 && tr === 1 ? "e:magnolia0" : h2 < 0.27 ? epick("bush", 2, h2) : epick("fern", 2, h2);
+    else if (!inF && tr < 2 && fbm(x * 2.3 + 40, y * 2.3) > 0.25 && h2 < 0.36) { p.kind = epick("tallgrass", 3, h2); p.oy = jit(x, y, 6) / 2; }   // tall grass in drifts across the open ground
     else if (drift > 0.3 && h2 < 0.3) p.kind = epick("fern", 2, h2);
-    else if (near(x, y, 1, function (a2, b2) { return at(a2, b2) === PATH; }) && h2 < 0.12) p.kind = epick("rock0_", 5, h2);
+    else if (near(x, y, 1, function (a2, b2) { return at(a2, b2) === PATH; }) && h2 < 0.12) p.kind = h2 < 0.06 ? epick("pebbles", 2, h2) : epick("rock0_", 5, h2);
+    else if (rim(x, y + 1) && h2 < 0.2) { p.kind = epick("pebbles", 2, h2); p.oy = 0; }
     else if (h2 < 0.05) p.kind = epick("rock1_", 5, h2);
     if (p.kind) props.push(p);
   }
@@ -314,7 +314,7 @@
   for (y = 1; y < MH - 1; y++) for (x = 1; x < MW - 1; x++) {
     var t = map[y][x], h = hash(x, y);
     if (volcD(x * T + 8, y * T + 8) < VOLC.R + 6) {       // boulders ring the volcano's foot
-      if (t === GRASS && volcD(x * T + 8, y * T + 8) > VOLC.R * 0.93 && h < 0.28 && !busy(x, y) && !solid[k(x, y)]) props.push({ kind: h < 0.12 ? "boulder" : "stones", tx: x, ty: y, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 });
+      if (t === GRASS && volcD(x * T + 8, y * T + 8) > VOLC.R * 0.93 && h < 0.28 && !busy(x, y) && !solid[k(x, y)]) props.push({ kind: h < 0.06 ? epick("rock2_", 5, h) : h < 0.14 ? epick("rock1_", 5, h) : epick("pebbles", 2, h), tx: x, ty: y, flip: h < 0.1, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 });
       continue;
     }
     if (t === GRASS && !solid[k(x, y)]) {
@@ -328,15 +328,12 @@
       }
       var h2 = hash(x * 7, y * 13);
       if (busy(x, y)) continue;
-      if (inTest(x, y)) { testUnder(x, y, edge, inF, h2); continue; }
-      if ((edge || nearWater(x, y, 1)) && h2 < 0.3) props.push({ kind: h2 < 0.2 ? "fern" : "cycad", tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: 0 });   // pi walks behind these
-      else if (!inF && fbm(x * 2.3 + 40, y * 2.3) > 0.25 && h2 < 0.36) props.push({ kind: "tallgrass", tx: x, ty: y, flip: h2 < 0.18, ox: jit(x, y, 4), oy: jit(x, y, 6) / 2 });
-      else if (rim(x, y + 1) && h2 < 0.25) props.push({ kind: "stones", tx: x, ty: y, ox: jit(x, y, 5), oy: 0 });
+      plantUnder(x, y, edge, inF, h2);
     } else if (t === SAND && h < 0.11 && !solid[k(x, y)]) {
       if (near(x, y, 1, function (a2, b2) { return busy(a2, b2) || solid[k(a2, b2)]; })) continue;
       props.push({ kind: epick("palm", 3, h), tx: x, ty: y, flip: h < 0.055, ox: jit(x, y, 1), oy: 0 }); solid[k(x, y)] = 1;
     } else if (t === SHAL && h < 0.02 && Math.abs(x - DOCKX) > 3) {
-      props.push({ kind: "rock", tx: x, ty: y });
+      props.push({ kind: epick("rock1_", 5, h * 50), tx: x, ty: y, flip: h < 0.01, sea: true });      // rocks in the shallows, the surf round them
     }
   }
   // the cave's surroundings (ref-6): the hillside is solid, two bare trees and some stones beside it
@@ -348,15 +345,15 @@
       if (walkable0(q[1], q[2])) { props.push({ kind: q[0], tx: q[1], ty: q[2], flip: hash(q[1], q[2]) < 0.5, ox: 0, oy: 0 }); if (/tree/.test(q[0])) solid[k(q[1], q[2])] = 1; }
     });
   })();
-  // lily pads on the test area's water: a few clusters on the pond, clear of the middle
+  // lily pads: a few clusters on the pond, clear of the middle
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
-    if (!inTest(x, y) || map[y][x] !== POND) continue;
+    if (map[y][x] !== POND) continue;
     var pf0 = pondF(x + 0.5, y + 0.5);
     if (pf0 > 0.35 && pf0 < 0.85 && fbm(x * 1.7 + 11, y * 1.7) > 0.05 && hash(x * 5, y * 11) < 0.5) props.push({ kind: epick("lilies", 3, hash(y, x)), tx: x, ty: y, flip: hash(x, y) < 0.5, ox: jit(x, y, 2), oy: 0, flat: true });
   }
   // nests in the meadow, each with a clutch of speckled eggs
   var nests = [[57, 55], [63, 57], [66, 54], [15, 39]].filter(function (n) { return walkable0(n[0], n[1]); }).map(function (n) {
-    solid[k(n[0], n[1])] = 1; var p = { kind: "nest", tx: n[0], ty: n[1], eggs: 2 + ((hash(n[0], n[1]) * 3) | 0) }; props.push(p); return p;
+    solid[k(n[0], n[1])] = 1; var p = { kind: "e:nest0", tx: n[0], ty: n[1], eggs: 2 + ((hash(n[0], n[1]) * 3) | 0) }; props.push(p); return p;
   });
   function walkable0(x, y) { return land(at(x, y)) && at(x, y) !== PATH && !solid[k(x, y)]; }
   [[43, 59], [50, 60], [43, 62], [50, 63], [46, 33], [51, 33], [53, 62], [26, 40]].forEach(function (l) {
@@ -379,7 +376,6 @@
 
   /* ════════ sprites (drawn once into little canvases) ════════ */
   function sprite(w, h, fn) { var c = mkCanvas(); c.width = w; c.height = h; var g = c.getContext("2d"); fn(function (x, y, w, h, col) { g.fillStyle = col; g.fillRect(x, y, w, h); }, g); return c; }
-  function blob(r, cx, cy, rad, col) { for (var j = -rad; j <= rad; j++) { var w = Math.round(Math.sqrt(rad * rad - j * j)); r(cx - w, cy + j, w * 2, 1, col); } }
   var BAYER = [0, 8, 2, 10, 12, 4, 14, 6, 3, 11, 1, 9, 15, 7, 13, 5];
   // pick one of a few tones for a shade in [0,1], ordered-dithered so the bands blend like 16-bit art
   function tone(v, tones, x, y) {
@@ -387,46 +383,6 @@
     return (f - i) > (BAYER[(y & 3) * 4 + (x & 3)] + 0.5) / 16 ? tones[Math.min(tones.length - 1, i + 1)] : tones[i];
   }
   var BARK = ["#3a2616", "#553820", "#6e4a2a", "#8a6038"];
-  function trunk(g, x, y, w, h, flare) {
-    for (var yy = 0; yy < h; yy++) {
-      var ww = w + Math.max(0, yy - h + flare) * 1.3;
-      for (var xx = -ww / 2; xx < ww / 2; xx++) {
-        var v = 0.62 - (xx / ww) * 0.8 + (hash(Math.round(xx) + 90, (yy / 2) | 0) - 0.5) * 0.3;
-        g.fillStyle = tone(v, BARK, Math.round(x + xx), y + yy); g.fillRect(Math.round(x + xx), y + yy, 1, 1);
-      }
-    }
-  }
-  // a canopy is a union of circles; each pixel is lit from the upper left by its own blob's normal
-  function canopy(g, blobs, tones) {
-    var W = 64, H = 64;
-    for (var y = 0; y < H; y++) for (var x = 0; x < W; x++) {
-      var best = null, depth = 0;
-      blobs.forEach(function (b) { var d = b[2] - Math.hypot(x + 0.5 - b[0], y + 0.5 - b[1]); if (d > depth) { depth = d; best = b; } });
-      if (!best) continue;
-      var nx = (x - best[0]) / best[2], ny = (y - best[1]) / best[2];
-      var v = 0.62 - (nx * 0.55 + ny * 0.75) * 0.42 + (hash(x * 3, y * 5) - 0.5) * 0.22 - (depth < 1.5 ? 0.12 : 0);
-      // leafy clumps: every few pixels a darker notch so it doesn't read as a smooth ball
-      if (hash((x / 3) | 0, (y / 3) | 0) < 0.18 && depth > 2) v -= 0.18;
-      g.fillStyle = tone(v, tones, x, y); g.fillRect(x, y, 1, 1);
-    }
-  }
-  // a frond: a curved stem with leaflets hanging off both sides, for palms, tree ferns and ferns
-  function frond(g, x0, y0, ang, len, droop, tones, leaf) {
-    var px = x0, py = y0, dx = Math.cos(ang), dy = Math.sin(ang);
-    for (var i = 0; i < len; i++) {
-      var u = i / len;
-      px += dx; py += dy + droop * u * 1.6;
-      var sh = 0.8 - u * 0.45;
-      g.fillStyle = tone(sh, tones, px | 0, py | 0); g.fillRect(Math.round(px), Math.round(py), 1, 1);
-      if (!leaf || i < 1) continue;
-      var ll = Math.round(leaf * Math.sin(Math.min(1, u * 1.3) * Math.PI) + 0.6);
-      for (var j = 1; j <= ll; j++) {
-        g.fillStyle = tone(sh - 0.08 * j, tones, (px | 0) + j, (py | 0) + j);
-        g.fillRect(Math.round(px - dy * j * 0.7 - 0.3 * j * Math.sign(dx)), Math.round(py + j * 0.8), 1, 1);
-        g.fillRect(Math.round(px + dy * j * 0.7 + 0.2 * j * Math.sign(dx)), Math.round(py + j * 0.55), 1, 1);
-      }
-    }
-  }
   // a 1px outline around everything opaque: the single biggest readability win in pixel art
   function outline(src, col) {
     var w0 = src.width, h0 = src.height, c = mkCanvas(); c.width = w0 + 2; c.height = h0 + 2;
@@ -439,10 +395,6 @@
     g.globalCompositeOperation = "source-over";
     return c;
   }
-  var LEAF = ["#0f2f1a", "#1a4a24", "#28662e", "#3f8a3a", "#62ad50"];
-  var LEAF2 = ["#12301f", "#1d4a2c", "#2d6a38", "#468c46", "#6aae5c"];
-  var FROND = ["#16452a", "#23663a", "#3a8a44", "#63b056", "#8fd06a"];
-  var FERN = ["#12382e", "#1d5440", "#2c7250", "#4a9464", "#74b882"];
   // 3x5 pixel letters for signs
   var GLYPH = { P: ["111", "101", "111", "100", "100"], I: ["111", "010", "010", "010", "111"], S: ["111", "100", "111", "001", "111"], L: ["100", "100", "100", "100", "111"],
                 A: ["010", "101", "111", "101", "101"], N: ["110", "101", "101", "101", "101"], D: ["110", "101", "101", "101", "110"], "'": ["1", "1", "0", "0", "0"], " ": ["00", "00", "00", "00", "00"] };
@@ -450,68 +402,7 @@
   function textW(str) { return str.split("").reduce(function (s, ch) { return s + GLYPH[ch][0].length + 1; }, -1); }
 
   var SPR = {
-    // a giant buttressed jungle tree, hung with vines
-    jtree: sprite(50, 62, function (r, g) {
-      trunk(g, 25, 30, 9, 31, 8);
-      canopy(g, [[25, 22, 16], [11, 26, 10], [39, 26, 10], [17, 12, 11], [33, 11, 11], [25, 32, 9]], LEAF);
-      [[9, 31, 16], [16, 35, 12], [34, 34, 14], [41, 31, 10], [27, 37, 8]].forEach(function (v) {
-        for (var i = 0; i < v[2]; i++) { r(v[0] + Math.round(Math.sin(i * 0.45) * 0.8), v[1] + i, 1, 1, "#2a5e26"); if (i % 3 === 1) r(v[0] + 1, v[1] + i, 1, 1, "#5aa04a"); }
-        r(v[0] - 1, v[1] + v[2], 3, 1, "#3f8a3a");
-      });
-    }),
-    tree: sprite(34, 44, function (r, g) {
-      trunk(g, 17, 26, 5, 17, 4);
-      canopy(g, [[17, 17, 13], [10, 13, 8], [24, 12, 8], [17, 8, 8]], LEAF);
-    }),
-    tree2: sprite(34, 46, function (r, g) {
-      trunk(g, 17, 28, 5, 17, 4);
-      canopy(g, [[17, 22, 11], [17, 12, 11], [9, 17, 7], [25, 17, 7]], LEAF2);
-      [[21, 25], [10, 19], [23, 13], [14, 9], [18, 29]].forEach(function (p) { r(p[0], p[1], 2, 2, "#e0782f"); r(p[0], p[1], 1, 1, "#ffb060"); });   // fruit
-    }),
-    // a tree fern: a thin shaggy trunk and a crown of arching fronds
-    tfern: sprite(40, 44, function (r, g) {
-      for (var yy = 14; yy < 43; yy++) { var cx = 20 + Math.round(Math.sin(yy / 9) * 1.2); r(cx - 1, yy, 3, 1, yy % 3 ? "#5a3a1e" : "#7a5230"); if (yy % 4 === 0) r(cx - 2 + (yy % 8 ? 0 : 4), yy, 1, 1, "#3f2a14"); }
-      [[-2.9, 16, 0.9], [-2.4, 15, 0.8], [-1.9, 12, 0.5], [-1.3, 12, 0.5], [-0.7, 15, 0.8], [-0.25, 16, 0.9], [-1.6, 9, 0.2]].forEach(function (f) { frond(g, 20, 14, f[0], f[1], f[2], FROND, 3); });
-    }),
-    palm: sprite(40, 50, function (r, g) {
-      for (var i = 0; i < 32; i++) {                               // a curved, ringed trunk
-        var px = 18 + Math.round(Math.sin(i / 11) * 5), band = (i >> 1) % 2;
-        r(px, 48 - i, 4, 1, band ? "#8a5a33" : "#a8744a"); r(px + 3, 48 - i, 1, 1, "#6b4424"); if (!band) r(px, 48 - i, 1, 1, "#c09062");
-      }
-      var tx = 18 + Math.round(Math.sin(31 / 11) * 5) + 2, ty = 17;
-      [[-3.0, 17, 1.0], [-2.5, 15, 0.9], [-1.9, 11, 0.5], [-1.2, 11, 0.5], [-0.6, 15, 0.9], [-0.1, 17, 1.0], [-1.57, 8, 0.1]].forEach(function (f) { frond(g, tx, ty, f[0], f[1], f[2], FROND, 3); });
-      r(tx - 2, ty, 3, 3, "#5a3a1e"); r(tx + 1, ty + 1, 3, 3, "#6b4424"); r(tx - 1, ty + 2, 1, 1, "#8a6038");      // coconuts
-    }),
-    fern: sprite(20, 14, function (r, g) {
-      [[-2.7, 8, 0.7], [-2.2, 9, 0.5], [-1.57, 8, 0.2], [-0.95, 9, 0.5], [-0.45, 8, 0.7]].forEach(function (f) { frond(g, 10, 12, f[0], f[1], f[2], FERN, 2); });
-    }),
-    cycad: sprite(22, 18, function (r, g) {
-      r(9, 12, 4, 6, "#6b4a2a"); r(9, 12, 1, 6, "#8a6038"); r(10, 13, 1, 1, "#3f2a14"); r(11, 15, 1, 1, "#3f2a14");
-      [[-2.9, 9, 0.2], [-2.4, 10, 0.1], [-1.9, 9, 0], [-1.25, 9, 0], [-0.75, 10, 0.1], [-0.25, 9, 0.2]].forEach(function (f) { frond(g, 11, 12, f[0], f[1], f[2], LEAF2, 1); });
-      r(10, 10, 3, 3, "#d9832f"); r(11, 10, 1, 1, "#f0b060");
-    }),
     lamp: sprite(7, 18, function (r) { r(3, 5, 1, 13, "#2b2b2b"); r(2, 16, 3, 2, "#2b2b2b"); r(1, 1, 5, 4, "#3a3a3a"); r(2, 2, 3, 2, "#ffe9b0"); r(3, 0, 1, 1, "#3a3a3a"); }),
-    nest: sprite(18, 9, function (r) {
-      for (var i = 0; i < 40; i++) { var a = i / 40 * 6.283, rr = 7 + (i % 3) * 0.6; r(Math.round(9 + Math.cos(a) * rr), Math.round(5 + Math.sin(a) * rr * 0.45), 2, 1, ["#6e4a2a", "#8a6038", "#a8804e"][i % 3]); }
-      r(4, 5, 10, 2, "#4a3018");
-    }),
-    rock: sprite(16, 12, function (r) { blob(r, 8, 7, 5, "#7c858c"); blob(r, 7, 6, 3, "#9aa3aa"); r(5, 4, 2, 1, "#c3cad0"); }),
-    // a mossy boulder: rock lit from the upper left, moss on its crown
-    boulder: sprite(22, 16, function (r, g) {
-      canopy(g, [[11, 9, 7], [6, 10, 5], [16, 11, 5]], ["#3e434a", "#595f68", "#767d86", "#979ea6", "#b6bcc2"]);
-      var px = g.getImageData(0, 2, 22, 8).data;                       // one read, not one per pixel
-      for (var i = 0; i < 22; i++) for (var j = 0; j < 8; j++) if (hash(i, j + 40) < 0.55 - j * 0.07) { if (px[(j * 22 + i) * 4 + 3] > 0 && j < 5) { g.fillStyle = tone(0.6 - j * 0.1, ["#2c5a2a", "#3f7a36", "#5a9a44"], i, j); g.fillRect(i, j + 2, 1, 1); } }
-    }),
-    stones: sprite(14, 7, function (r) { [[2, 3, "#6d737a"], [7, 2, "#858b92"], [10, 4, "#6d737a"], [5, 5, "#9aa0a6"]].forEach(function (q) { r(q[0], q[1], 3, 2, q[2]); r(q[0], q[1], 2, 1, "#b0b6bc"); r(q[0], q[1] + 2, 3, 1, "#3e434a"); }); }),
-    // a clump of tall grass: blades of three greens, a few seed heads
-    tallgrass: sprite(16, 14, function (r) {
-      // separate blades with gaps between them, each curving a little, darker at the root
-      for (var i = 0; i < 9; i++) {
-        var bx = 1.5 + i * 1.6 + (hash(i, 3) - 0.5), hgt = 5 + ((hash(i, 7) * 7) | 0), lean = (hash(i, 9) - 0.5) * 4;
-        for (var j = 0; j < hgt; j++) { var q = j / hgt; r(Math.round(bx + lean * q * q), 13 - j, 1, 1, q > 0.75 ? "#9ad874" : q > 0.4 ? "#5fae4a" : "#2f6a2a"); }
-        if (i % 3 === 1) { r(Math.round(bx + lean), 13 - hgt - 1, 1, 2, "#e0cc86"); r(Math.round(bx + lean), 13 - hgt - 1, 1, 1, "#f4e6a8"); }
-      }
-    }),
     crates: sprite(15, 16, function (r) {
       function crate(x, y) { r(x, y, 10, 8, "#a0703e"); r(x, y, 10, 1, "#c89458"); r(x, y + 7, 10, 1, "#5a3a1e"); r(x, y, 1, 8, "#7a5230"); r(x + 9, y, 1, 8, "#5a3a1e"); r(x + 1, y + 3, 8, 1, "#7a5230"); r(x + 4, y + 1, 1, 6, "#7a5230"); }
       crate(0, 8); crate(5, 1);
@@ -630,7 +521,7 @@
   };
 
   Object.keys(SPR).forEach(function (k) {
-    SPR[k] = outline(SPR[k], /tree|fern|palm|cycad/.test(k) ? "rgba(10,28,16,.9)" : k === "cave" || k === "tallgrass" ? "rgba(0,0,0,0)" : "rgba(18,18,20,.88)");
+    SPR[k] = outline(SPR[k], k === "cave" ? "rgba(0,0,0,0)" : "rgba(18,18,20,.88)");
   });
 
   /* ════════ ground, drawn once (handoff 3, D1) ════════
@@ -1004,16 +895,14 @@
       if (fhc >= 4) face(px, py + 1, fhc, 41);
     }
 
-    // shadows, baked into the ground: the old trees cast soft dithered shadows down and to the right
+    // the buildings' shadows, baked into the ground: soft and dithered, down and to the right
     // (the light comes from the upper left, like the sprites)
-    var SH = { jtree: [22, 9, 10, 4], tree: [15, 7, 6, 3], tree2: [15, 7, 6, 3], tfern: [11, 5, 5, 2], palm: [12, 5, 7, 2], boulder: [10, 5, 3, 2] };
     function castShadow(cx, cy, rx, ry, a) {
       for (var yy3 = -ry; yy3 <= ry; yy3++) for (var xx3 = -rx; xx3 <= rx; xx3++) {
         var d3 = (xx3 * xx3) / (rx * rx) + (yy3 * yy3) / (ry * ry);
         if (d3 <= 1 && (BAYER[((cy + yy3) & 3) * 4 + ((cx + xx3) & 3)] + 0.5) / 16 < (1 - d3) * 1.8) { g.fillStyle = "rgba(26,20,58," + a + ")"; g.fillRect(cx + xx3, cy + yy3, 1, 1); }
       }
     }
-    props.forEach(function (p2) { var sh = SH[p2.kind]; if (sh) castShadow(p2.tx * T + 8 + (p2.ox || 0) + sh[2], p2.ty * T + 13 + (p2.oy || 0) + sh[3], sh[0], sh[1], 0.3); });
     BUILDINGS.forEach(function (bd) { castShadow(Math.round((bd.x0 + bd.w / 2) * T + 10), (bd.y0 + bd.h) * T + 2, bd.w * 9, 6, 0.32); });
   })();
   groundMs = performance.now() - groundMs;
@@ -2036,7 +1925,7 @@
         if (stepBot(b, dt, 14)) { b.wait = 8 + Math.random() * 6; b.work = b.wait; b.face = 1; }
       } else if (b.kind === "gardener") {
         if (!b.path) {
-          var near2 = props.filter(function (p2) { return (p2.kind === "fern" || p2.kind === "cycad" || p2.kind === "tallgrass") && Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8; });
+          var near2 = props.filter(function (p2) { return /^e:(fern|cycad|bush|magnolia|tallgrass)/.test(p2.kind) && Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8; });
           var pick = near2[(Math.random() * near2.length) | 0];
           if (pick) botGo(b, [pick.tx, pick.ty + 1]);
           if (!b.path) { b.wait = 2; return; }
@@ -3839,7 +3728,7 @@
 
   /* ════════ footfalls: a sound per step, dust on dry ground, prints in the sand, ferns that rustle ════════ */
   var puffs = [], prints = [], rustling = [];
-  var ferns = {}; props.forEach(function (p) { if (p.kind === "fern" || p.kind === "cycad" || p.kind === "tallgrass" || /^e:(fern|cycad|horsetail|bush|magnolia|reeds)/.test(p.kind)) ferns[k(p.tx, p.ty)] = p; });
+  var ferns = {}; props.forEach(function (p) { if (/^e:(fern|cycad|horsetail|bush|magnolia|reeds|tallgrass)/.test(p.kind)) ferns[k(p.tx, p.ty)] = p; });
 
   /* ════════ buildings and the waterfall ════════ */
   function drawBuilding(bd) {
@@ -4083,25 +3972,31 @@
         if (envK) {
           bx += p.ox || 0; by += p.oy || 0;
           if (p.flat) { ctx.drawImage(s, Math.round(bx - s.width / 2), Math.round(by - s.height + 4 + (REDUCED ? 0 : Math.sin(t * 1.3 + p.tx) * 0.5))); return; }
-          softShadow(bx + 1, by + 2, Math.max(8, s.width * (TALL.test(p.kind) ? (/palm|mpuzzle/.test(p.kind) ? 0.45 : 0.72) : 0.85)));
-        }
-        if (p.kind === "nest") {
-          ctx.drawImage(s, bx - 10, by - 10);
-          for (var e = 0; e < p.eggs; e++) {                 // speckled teal eggs; one of them wobbles
-            var ex = bx - 5 + e * 4, wob = e === 1 && Math.sin(t * 9) > 0.6 ? 1 : 0;
-            ctx.fillStyle = "#1a2a26"; ctx.fillRect(ex - 1 + wob, by - 11, 5, 6); ctx.fillStyle = "#7cc4b2"; ctx.fillRect(ex + wob, by - 10, 3, 5); ctx.fillStyle = "#b4e6d8"; ctx.fillRect(ex + wob, by - 10, 1, 2); ctx.fillStyle = "#3f7a6c"; ctx.fillRect(ex + 2 + wob, by - 8, 1, 1); ctx.fillRect(ex + 1 + wob, by - 7, 1, 1);
+          if (p.sea) {                                            // a rock in the shallows: it seems to bob as the surf rings it
+            var bob = REDUCED ? 0 : Math.round(Math.sin(t + p.tx) * 0.5), rw = s.width / 2 + 1;
+            ctx.drawImage(s, Math.round(bx - s.width / 2), by - s.height + 4 + bob);
+            ctx.fillStyle = "rgba(226,246,238,.7)";
+            for (var fa = 0; fa < 10; fa++) { var an = fa / 10 * 6.283 + (REDUCED ? 0 : t * 0.6); ctx.fillRect(Math.round(bx + Math.cos(an) * rw), Math.round(by + 2 + Math.sin(an) * 2.5), 2, 1); }
+            return;
           }
-          return;
+          if (p.eggs !== undefined) {                             // the nest, with its clutch of speckled teal eggs; one of them wobbles
+            softShadow(bx + 1, by + 1, 18); ctx.drawImage(s, bx - 10, by - 10);
+            for (var e = 0; e < p.eggs; e++) {
+              var ex = bx - 5 + e * 4, wob = e === 1 && !REDUCED && Math.sin(t * 9) > 0.6 ? 1 : 0;
+              ctx.fillStyle = "#1a2a26"; ctx.fillRect(ex - 1 + wob, by - 11, 5, 6); ctx.fillStyle = "#7cc4b2"; ctx.fillRect(ex + wob, by - 10, 3, 5); ctx.fillStyle = "#b4e6d8"; ctx.fillRect(ex + wob, by - 10, 1, 2); ctx.fillStyle = "#3f7a6c"; ctx.fillRect(ex + 2 + wob, by - 8, 1, 1); ctx.fillRect(ex + 1 + wob, by - 7, 1, 1);
+            }
+            return;
+          }
+          softShadow(bx + 1, by + 2, Math.max(8, s.width * (TALL.test(p.kind) ? (/palm|mpuzzle/.test(p.kind) ? 0.45 : 0.72) : 0.85)));
         }
         bx += p.ox || 0; by += p.oy || 0;
         if (p.kind === "lamp" || p.kind === "crates") shadow(bx, by, p.kind === "lamp" ? 6 : 14);
-        if (p.kind === "rock") { ctx.drawImage(s, bx - 9, by - 11 + Math.round(Math.sin(t + p.tx) * 0.5)); return; }
-        var sway = /^(palm|tfern)$|^e:(palm|tallfern)/.test(p.kind) && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
-        if ((p.kind === "tallgrass" || /^e:(fern|reeds|horsetail|tfern|bush)/.test(p.kind)) && !REDUCED) sway = Math.round(Math.sin(t * 1.8 + p.tx * 0.7 + p.ty * 0.3) * 0.8);   // wind rolls across the field
+        var sway = /^e:(palm|tallfern)/.test(p.kind) && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
+        if (/^e:(fern|reeds|horsetail|tfern|bush|tallgrass)/.test(p.kind) && !REDUCED) sway = Math.round(Math.sin(t * 1.8 + p.tx * 0.7 + p.ty * 0.3) * 0.8);   // wind rolls across the field
         if (p.rustle) sway = Math.round(Math.sin(t * 34) * p.rustle * 1.6);
-        if (REAL === "future" && (TALL.test(p.kind) || /^(tree|tree2|jtree|tfern|palm)$/.test(p.kind))) { var tw = towers()[(hash(p.tx, p.ty) * 6) | 0]; ctx.drawImage(tw, bx - tw.width / 2, by - tw.height + 2); light(bx, by - tw.height * 0.6, 18, hash(p.ty, p.tx) < 0.5 ? "255,79,160" : "41,216,255", 0.5); return; }
+        if (REAL === "future" && TALL.test(p.kind)) { var tw = towers()[(hash(p.tx, p.ty) * 6) | 0]; ctx.drawImage(tw, bx - tw.width / 2, by - tw.height + 2); light(bx, by - tw.height * 0.6, 18, hash(p.ty, p.tx) < 0.5 ? "255,79,160" : "41,216,255", 0.5); return; }
         s = skin(s);
-        var behind = (TALL.test(p.kind) || /^(tree|tree2|jtree|tfern|palm|mast|tank)$/.test(p.kind)) && pi.y < by - 3 && pi.y > by - s.height + 6 && Math.abs(pi.x - bx) < s.width / 2 - 2;
+        var behind = (TALL.test(p.kind) || p.kind === "mast" || p.kind === "tank") && pi.y < by - 3 && pi.y > by - s.height + 6 && Math.abs(pi.x - bx) < s.width / 2 - 2;
         if (behind) ctx.globalAlpha = 0.42;                      // pi walks behind it: see through
         if (p.flip) { ctx.save(); ctx.translate(bx * 2, 0); ctx.scale(-1, 1); }
         ctx.drawImage(s, bx - s.width / 2 + sway, by - s.height + 2);
