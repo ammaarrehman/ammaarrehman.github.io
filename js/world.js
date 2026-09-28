@@ -87,7 +87,8 @@
   var PAL = { grass: ["#24463f", "#2e5d44", "#3d7a47", "#55944a", "#73ad51", "#98c65c"], dirt: ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
               water: ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"], rim: ["#b4e4e0", "#e2f6ee"], rock: ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
               moss: ["#35553a", "#4f7a3c", "#79a24a"], wood: ["#2e2433", "#4a3635", "#6b4d3c", "#8e6a48", "#b08a5c"], flower: ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"],
-              sand: ["#8f7c6a", "#b99a6c", "#d6bb86", "#ecd9a6", "#f6ecc8"], blossom: ["#e7a9bf", "#f6dde4"] };   // from art/palette.json
+              sand: ["#8f7c6a", "#b99a6c", "#d6bb86", "#ecd9a6", "#f6ecc8"], blossom: ["#e7a9bf", "#f6dde4"],
+              leaf2: ["#2c4a3a", "#3f6a42", "#5c8c49", "#86ad55", "#b6cf6b"], dry: ["#4a5236", "#6b7440", "#8f944c", "#b6b060", "#d8cd80"] };   // from art/palette.json
   // the koi pond: a wobbly blob (tile units). < 1 is water
   var KP = { x: 69, y: 48.5, rx: 5.2, ry: 2.4 };
   function pondF(fx, fy) {
@@ -692,6 +693,26 @@
     return (C32[hex] = ((255 << 24) | ((n & 255) << 16) | (n & 0xff00) | (n >> 16)) >>> 0);
   }
   var P32 = {}; Object.keys(PAL).forEach(function (k2) { P32[k2] = PAL[k2].map(c32); });
+  /* grass comes in four kinds per terrace (D1 rule 6). the kinds: short, lush, dry, a fern floor,
+     moss, heath, and sandy scrub. each terrace has a base kind, one for the low spots of a slow
+     noise, one for the high spots, and one for the ground round the woods; the lowland's sandy
+     scrub grows just behind the beach. kinds meet in a dither, not a line */
+  var GSHORT = 0, GLUSH = 1, GDRY = 2, GFERN = 3, GMOSS = 4, GHEATH = 5, GSANDY = 6;
+  var GRAMP = [
+    { ramp: P32.grass, lift: 0 }, { ramp: P32.grass, lift: -0.13 }, { ramp: P32.dry, lift: 0.02 }, { ramp: P32.leaf2, lift: 0.04 },
+    { ramp: [PAL.grass[0], PAL.moss[0], PAL.moss[1], PAL.grass[3], PAL.moss[2], PAL.grass[5]].map(c32), lift: 0.02 }, { ramp: P32.dry, lift: -0.14 }, { ramp: P32.grass, lift: 0.06 }
+  ];
+  var BIOME = [                                                  // by terrace: the lowland, the meadows, the highland
+    { lift: 0.03, base: GSHORT, lo: GLUSH, hi: GDRY, woods: GLUSH },
+    { lift: 0, base: GSHORT, lo: GLUSH, hi: GDRY, woods: GFERN },
+    { lift: -0.02, base: GMOSS, lo: GSHORT, hi: GHEATH, woods: GFERN }
+  ];
+  function grassKind(fx, fy, fo, vn, tr, cv) {                    // tr, cv: the terrace and coast() there, if already known
+    var B = BIOME[tr === undefined ? tier(fx, fy) : tr];
+    if (fo > 0.2 + vn * 0.1) return B.woods;
+    if (B === BIOME[0] && (cv === undefined ? coast(fx, fy) : cv) > 0.84 + vn * 0.03) return GSANDY;
+    return vn < -0.18 ? B.lo : vn > 0.22 ? B.hi : B.base;
+  }
 
   var COL = { deep: PAL.water[1], dock: "#8b5e34", dock2: "#6e4826" };
   var ground = mkCanvas(); ground.width = PW; ground.height = PH;
@@ -718,6 +739,9 @@
     NK = new Float32Array((PW >> 1) * (PH >> 1)).fill(NaN);
     var NG = new Float32Array(NK.length).fill(NaN), ND = new Float32Array(NK.length).fill(NaN), NS = new Float32Array(NK.length).fill(NaN), NR = new Float32Array(NK.length).fill(NaN);
     function patchN(fx, fy) { return fbm(fx * 1.6 + 7, fy * 1.6); }
+    var NV = new Float32Array(NK.length).fill(NaN);
+    function kindN(fx, fy) { return fbm(fx * 0.45 + 31, fy * 0.45 + 17); }
+    var NT = new Float32Array(NK.length).fill(NaN), NC = new Float32Array(NK.length).fill(NaN), NF = new Float32Array(NK.length).fill(NaN);
     function dirtN(fx, fy) { return fbm(fx * 4 + 30, fy * 4); }
     function sandN(fx, fy) { return fbm(fx * 3 + 60, fy * 3); }
     function ribN(fx, fy) { return fbm(fx, fy) * 6; }
@@ -759,12 +783,13 @@
       var kd = GK[i], fx = (px + 0.5) / T, fy = (py + 0.5) / T, c;
       tx = px >> 4; ty = py >> 4;
       if (kd === KG) {
-        var fo = foAt(fx, fy), patch = blockNoise(NG, px, py, patchN);
-        var gv = 0.71 + patch * 0.28 - Math.max(0, Math.min(1, (fo - 0.1) * 4)) * 0.2 + ELEV[ty][tx] * 0.05;
+        var fo = blockNoise(NF, px, py, foAt), patch = blockNoise(NG, px, py, patchN), tr = blockNoise(NT, px, py, tier);
+        var gk = grassKind(fx, fy, fo, blockNoise(NV, px, py, kindN) + ((BAY2[(py & 3) * 4 + (px & 3)] + 0.5) / 16 - 0.5) * 0.12, tr, tr ? 0 : blockNoise(NC, px, py, coast)), GR = GRAMP[gk];
+        var gv = 0.71 + patch * 0.28 - Math.max(0, Math.min(1, (fo - 0.1) * 4)) * 0.2 + BIOME[tr].lift + GR.lift;
         var below = kAt(px, py + 1);
         if (below !== KG) gv = 0.98;                                           // the lit lip where grass overhangs
         else if (kAt(px, py + 2) === KD || kAt(px, py + 2) === KS) gv = Math.max(gv, 0.8);
-        c = soft(gv, P32.grass, px, py, 0.2);
+        c = gk === GSANDY && below === KG && hash(px, py * 7) < 0.2 ? soft(0.55 + patch * 0.3, P32.sand, px, py) : soft(gv, GR.ramp, px, py, 0.2);
       } else if (kd === KD) {
         var dv = 0.58 + (hash(px >> 1, py >> 1) - 0.5) * 0.28 + blockNoise(ND, px, py, dirtN) * 0.2;
         if (kAt(px, py - 1) === KG || kAt(px, py - 2) === KG) dv = 0.12;       // grass is a step higher: its cool shadow on the dirt
@@ -815,13 +840,26 @@
         continue;
       }
       if (tl !== GRASS) continue;
-      var fl = fbm(tx * 0.8 + 500, ty * 0.8 + 77), fo2 = FO[ty * MW + tx];
+      var fl = fbm(tx * 0.8 + 500, ty * 0.8 + 77), fo2 = FO[ty * MW + tx], gk2 = grassKind(tx + 0.5, ty + 0.5, fo2, kindN(tx + 0.5, ty + 0.5)), GR2 = GRAMP[gk2].ramp;
       for (var tf = 0; tf < 4; tf++) {
         var bxt = X + 1 + Math.floor(hash(tx * 5 + tf, ty * 9) * 13), byt = Y + 2 + Math.floor(hash(ty * 7 + tf, tx * 2) * 12);
         if (kAt(bxt, byt) !== KG || kAt(bxt, byt + 2) !== KG) continue;
-        put(bxt, byt, P32.grass[2]); put(bxt, byt + 1, P32.grass[2]); put(bxt - 1, byt - 1, P32.grass[2]); put(bxt + 1, byt - 1, P32.grass[5]);
+        if (gk2 === GFERN) {                                    // a little frond, leaning down to the right
+          for (var fr = 0; fr < 4; fr++) { put(bxt + fr, byt + (fr >> 1), GR2[fr < 2 ? 3 : 2]); if (fr % 2) put(bxt + fr, byt + (fr >> 1) - 1, GR2[4]); }
+        } else if (gk2 === GMOSS && tf % 2) {                   // cushions of moss
+          put(bxt, byt, GR2[4]); put(bxt + 1, byt, GR2[4]); put(bxt, byt + 1, GR2[2]); put(bxt + 1, byt + 1, GR2[2]); put(bxt + 2, byt + 1, GR2[3]);
+        } else {                                                // a tuft; dry grass and heath carry seed heads
+          var tip = gk2 === GDRY || gk2 === GHEATH ? P32.dry[4] : GR2[GR2.length - 1];
+          put(bxt, byt, GR2[2]); put(bxt, byt + 1, GR2[2]); put(bxt - 1, byt - 1, GR2[2]); put(bxt + 1, byt - 1, tip);
+          if (gk2 === GDRY && tf === 1) put(bxt + 1, byt - 2, P32.dry[3]);
+        }
       }
-      if (fl > 0.22 && fo2 < 0.2 && hh < 0.75) {
+      if (gk2 === GHEATH && hh < 0.7) for (var ht = 0; ht < 3 + Math.floor(hh * 4); ht++) {   // heather: small purple sprays
+        var hx2 = X + 2 + Math.floor(hash(tx * 9 + ht, ty) * 12), hy2 = Y + 2 + Math.floor(hash(tx, ty * 9 + ht) * 12);
+        if (kAt(hx2, hy2) === KG) { put(hx2, hy2, P32.flower[3]); put(hx2 + 1, hy2 + 1, P32.flower[3]); put(hx2, hy2 + 1, P32.dry[1]); }
+      }
+      if (gk2 === GSANDY && hh < 0.5) { var sp2 = X + 3 + Math.floor(hh * 18), sq2 = Y + 5 + Math.floor(hash(ty, tx * 3) * 8); if (kAt(sp2, sq2) === KG) { put(sp2, sq2, P32.rock[4]); put(sp2 + 1, sq2, P32.sand[3]); put(sp2, sq2 + 1, P32.rock[2]); } }
+      if (fl > 0.22 && fo2 < 0.2 && hh < 0.75 && gk2 !== GMOSS && gk2 !== GHEATH) {
         var fc = P32.flower[Math.floor(hash(tx >> 2, ty >> 2) * 4)];
         for (var f2 = 0; f2 < 2 + Math.floor(hh * 4); f2++) {
           var fx2 = X + 2 + Math.floor(hash(tx * 3 + f2, ty) * 12), fy2 = Y + 2 + Math.floor(hash(tx, ty * 3 + f2) * 12);
@@ -829,7 +867,7 @@
           put(fx2, fy2, fc); put(fx2 - 1, fy2 + 1, fc); put(fx2 + 1, fy2 + 1, fc); put(fx2, fy2 + 2, fc);
           put(fx2, fy2 + 1, fc === P32.flower[1] ? c32("#c8762e") : P32.flower[1]);
         }
-      } else if (fbm(tx * 1.3 + 900, ty * 1.3) > 0.3 && hh < 0.6) {
+      } else if ((gk2 === GLUSH ? fbm(tx * 1.3 + 900, ty * 1.3) > 0 : fbm(tx * 1.3 + 900, ty * 1.3) > 0.3) && hh < 0.6 && gk2 !== GSANDY) {
         for (var c2 = 0; c2 < 3; c2++) {
           var cx3 = X + 3 + Math.floor(hash(tx + c2, ty * 5) * 10), cy3 = Y + 3 + Math.floor(hash(tx * 5, ty + c2) * 10);
           if (kAt(cx3, cy3) !== KG) continue;
@@ -948,7 +986,7 @@
     for (px = 0; px < PW; px++) for (py = 1; py < PH - 1; py++) {
       i = py * PW + px;
       if ((GK[i] !== KG && GK[i] !== KD) || GK[i + PW] !== KS) continue;
-      var Lc = ELEV[py >> 4][px >> 4]; if (!Lc) continue;
+      var Lc = tier((px + 0.5) / T, (py + 0.5) / T); if (!Lc) continue;
       var run = 0; while (run < 30 && kAt(px, py + 1 + run) === KS) run++;
       var fhc = Math.min(8 + 5 * Lc, run - 3);
       if (fhc >= 4) face(px, py + 1, fhc, 41);
