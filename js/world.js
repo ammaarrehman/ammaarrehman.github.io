@@ -83,7 +83,7 @@
      tools/envart.py). the rest of the island converts once Ammaar approves the look */
   var TEST = [[13, 18, 41, 47], [57, 39, 81, 57]];
   function inTest(x, y) { for (var i = 0; i < TEST.length; i++) { var r = TEST[i]; if (x >= r[0] && x <= r[2] && y >= r[1] && y <= r[3]) return true; } return false; }
-  var ENV = {"pine0":[0,0,28,50,14,48],"pine1":[29,0,28,50,14,48],"birch0":[58,0,26,46,13,44],"birch1":[85,0,26,46,13,44],"cavemouth":[112,0,60,46,30,45],"oak0":[173,0,34,42,17,40],"oak1":[208,0,34,42,17,40],"oak2":[243,0,34,42,17,40],"ginkgo0":[278,0,30,40,15,38],"ginkgo1":[0,51,30,40,15,38],"baretree0":[31,51,30,36,15,35],"baretree1":[62,51,30,36,15,35],"tfern0":[93,51,34,34,17,32],"tfern1":[128,51,34,34,17,32],"cycad0":[163,51,24,22,12,20],"cycad1":[188,51,24,22,12,20],"rock2_0":[213,51,28,22,14,20],"rock2_1":[242,51,28,22,14,20],"rock2_2":[271,51,28,22,14,20],"rock2_3":[0,92,28,22,14,20],"rock2_4":[29,92,28,22,14,20],"horsetail0":[58,92,14,18,7,17],"magnolia0":[73,92,22,16,11,15],"rock1_0":[96,92,20,16,10,14],"rock1_1":[117,92,20,16,10,14],"rock1_2":[138,92,20,16,10,14],"rock1_3":[159,92,20,16,10,14],"rock1_4":[180,92,20,16,10,14],"reeds0":[201,92,12,16,6,15],"reeds1":[214,92,12,16,6,15],"reeds2":[227,92,12,16,6,15],"bush0":[240,92,18,14,9,13],"bush1":[259,92,18,14,9,13],"fern0":[278,92,20,14,10,13],"fern1":[299,92,20,14,10,13],"rock0_0":[0,115,14,12,7,10],"rock0_1":[15,115,14,12,7,10],"rock0_2":[30,115,14,12,7,10],"rock0_3":[45,115,14,12,7,10],"rock0_4":[60,115,14,12,7,10],"lilies0":[75,115,16,10,8,9],"lilies1":[92,115,16,10,8,9],"lilies2":[109,115,16,10,8,9]};
+  var ENV = {"mpuzzle0":[0,0,44,66,22,64],"mpuzzle1":[45,0,44,66,22,64],"mpuzzle2":[90,0,44,66,22,64],"fig0":[135,0,50,60,25,57],"fig1":[186,0,50,60,25,57],"redwood0":[237,0,28,56,14,54],"redwood1":[266,0,28,56,14,54],"palm0":[0,67,42,56,21,54],"palm1":[43,67,42,56,21,54],"palm2":[86,67,42,56,21,54],"tallfern0":[129,67,40,50,20,48],"tallfern1":[170,67,40,50,20,48],"birch0":[211,67,26,46,13,44],"birch1":[238,67,26,46,13,44],"cavemouth":[0,124,60,46,30,45],"oak0":[61,124,34,42,17,40],"oak1":[96,124,34,42,17,40],"oak2":[131,124,34,42,17,40],"ginkgo0":[166,124,30,40,15,38],"ginkgo1":[197,124,30,40,15,38],"baretree0":[228,124,30,36,15,35],"baretree1":[259,124,30,36,15,35],"tfern0":[0,171,34,34,17,32],"tfern1":[35,171,34,34,17,32],"cycad0":[70,171,24,22,12,20],"cycad1":[95,171,24,22,12,20],"rock2_0":[120,171,28,22,14,20],"rock2_1":[149,171,28,22,14,20],"rock2_2":[178,171,28,22,14,20],"rock2_3":[207,171,28,22,14,20],"rock2_4":[236,171,28,22,14,20],"horsetail0":[265,171,14,18,7,17],"magnolia0":[280,171,22,16,11,15],"rock1_0":[0,206,20,16,10,14],"rock1_1":[21,206,20,16,10,14],"rock1_2":[42,206,20,16,10,14],"rock1_3":[63,206,20,16,10,14],"rock1_4":[84,206,20,16,10,14],"reeds0":[105,206,12,16,6,15],"reeds1":[118,206,12,16,6,15],"reeds2":[131,206,12,16,6,15],"bush0":[144,206,18,14,9,13],"bush1":[163,206,18,14,9,13],"fern0":[182,206,20,14,10,13],"fern1":[203,206,20,14,10,13],"rock0_0":[224,206,14,12,7,10],"rock0_1":[239,206,14,12,7,10],"rock0_2":[254,206,14,12,7,10],"rock0_3":[269,206,14,12,7,10],"rock0_4":[284,206,14,12,7,10],"lilies0":[299,206,16,10,8,9],"lilies1":[0,223,16,10,8,9],"lilies2":[17,223,16,10,8,9]};
   var PAL = { grass: ["#24463f", "#2e5d44", "#3d7a47", "#55944a", "#73ad51", "#98c65c"], dirt: ["#4a3634", "#6b4c3b", "#8e6a4a", "#b08c5e", "#cdaa74"],
               water: ["#1e3a66", "#23507c", "#2a6892", "#3582a8", "#48a0bc", "#6cbcca"], rim: ["#b4e4e0", "#e2f6ee"], rock: ["#2f2f44", "#4a4a5a", "#6a6a72", "#8e8c8c", "#b5b0a6", "#d6cfbd"],
               moss: ["#35553a", "#4f7a3c", "#79a24a"], wood: ["#2e2433", "#4a3635", "#6b4d3c", "#8e6a48", "#b08a5c"], flower: ["#f2e9e4", "#f5c84b", "#d98bb3", "#9d7ad2"],
@@ -273,16 +273,30 @@
   function inCompound(x, y) { return x >= COMPOUND.x0 && x <= COMPOUND.x1 && y >= COMPOUND.y0 - 1 && y <= COMPOUND.y1; }
   function clearing(x, y) { return inCompound(x, y) || Math.hypot(x - 21, y - 21.5) < 1.7 || CLEAR.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2]; }); }
   var props = [];     // trees, palms, ferns, rocks, nests: static, y-sorted with everything else
-  // the test area's planting. species grow in stands (a slow noise picks the stand), variants by hash;
+  /* trees by terrace (D1 rule 6). species grow in stands (a slow noise picks the stand), variants
+     by hash. the lowland: palms, buttressed figs, tall tree ferns. the meadows: oak, birch, ginkgo
+     and the odd monkey-puzzle. the highland: monkey-puzzle, dawn redwood, ginkgo. birches by the
+     water above the beach. TALL is every tree pi can walk behind */
+  var TALL = /^e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern)/;
+  function epick(base, n, h) { return "e:" + base + Math.min(n - 1, Math.floor(h * 97 % n)); }
+  var VARIANTS = { oak: 3, birch: 2, ginkgo: 2, mpuzzle: 3, redwood: 2, palm: 3, fig: 2, tallfern: 2 };
+  function stand(x, y, list) {                                   // each stand is a wobbly cell about 5 tiles across; a quarter of its trees are the next species
+    var cx = Math.floor((x + fbm(x * 0.3, y * 0.3) * 3) / 5), cy = Math.floor((y + fbm(y * 0.3 + 9, x * 0.3) * 3) / 5);
+    var i = Math.floor(hash(cx * 17 + 3, cy * 31 + 7) * list.length);
+    return list[hash(x * 3 + 1, y * 5 + 2) < 0.25 ? (i + 1) % list.length : i];
+  }
+  function treeFor(x, y, inF, h) {
+    var b = tier(x + 0.5, y + 0.5), sp;
+    if (b === 0) {
+      sp = at(x, y) === SAND || coast(x + 0.5, y + 0.5) > 0.88 ? "palm" : stand(x, y, inF ? ["fig", "tallfern", "palm"] : ["fig", "palm", "tallfern"]);
+      if (sp === "fig" && near(x, y, 1, function (a2, b2) { return solid[k(a2, b2)]; })) sp = "tallfern";      // the figs need room
+    } else if (nearWater(x, y, 2)) sp = "birch";
+    else if (b === 2) sp = stand(x, y, inF ? ["mpuzzle", "redwood", "ginkgo"] : ["mpuzzle", "ginkgo"]);
+    else sp = stand(x, y, inF ? ["oak", "birch", "oak", "ginkgo", "mpuzzle"] : ["oak", "ginkgo"]);
+    return epick(sp, VARIANTS[sp], h);
+  }
   // under the trees and along the edges: tree ferns, cycads, bushes, magnolia, fern clumps; horsetails
   // and reeds by the water; boulders at the foot of the cliffs and pebbles by the paths
-  function epick(base, n, h) { return "e:" + base + Math.min(n - 1, Math.floor(h * 97 % n)); }
-  function testTree(x, y, inF, h) {
-    var st = fbm(x * 0.45 + 300, y * 0.45 + 120);
-    if (nearWater(x, y, 2)) return epick("birch", 2, h);
-    if (!inF) return st > 0.15 ? epick("ginkgo", 2, h) : epick("oak", 3, h);
-    return st < -0.2 ? epick("pine", 2, h) : st < 0.12 ? epick("oak", 3, h) : st < 0.3 ? epick("birch", 2, h) : epick("ginkgo", 2, h);
-  }
   function testUnder(x, y, edge, inF, h2) {
     var wetNear = nearWater(x, y, 1), p = { tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: jit(x, y, 7) / 3 };
     var drift = fbm(x * 1.1 + 70, y * 1.1 + 20);                    // plants gather in drifts, not a scatter
@@ -308,9 +322,7 @@
       var dense = inF ? 0.82 : edge ? 0.18 : 0.025;
       if (inPaddock(x, y)) dense *= 0.3;
       if (!clearing(x, y) && h < dense && !near(x, y, 1, busy)) {
-        var kind = inF ? (h < dense * 0.18 ? "jtree" : h < dense * 0.55 ? "tree" : h < dense * 0.8 ? "tree2" : "tfern") : (h < dense * 0.5 ? "tree2" : "palm");
-        if (kind === "jtree" && near(x, y, 1, function (a2, b2) { return solid[k(a2, b2)]; })) kind = "tree";
-        if (inTest(x, y)) kind = testTree(x, y, inF, h);
+        var kind = treeFor(x, y, inF, h);
         props.push({ kind: kind, tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 }); solid[k(x, y)] = 1;
         continue;
       }
@@ -322,7 +334,7 @@
       else if (rim(x, y + 1) && h2 < 0.25) props.push({ kind: "stones", tx: x, ty: y, ox: jit(x, y, 5), oy: 0 });
     } else if (t === SAND && h < 0.11 && !solid[k(x, y)]) {
       if (near(x, y, 1, function (a2, b2) { return busy(a2, b2) || solid[k(a2, b2)]; })) continue;
-      props.push({ kind: "palm", tx: x, ty: y, flip: h < 0.055, ox: jit(x, y, 1), oy: 0 }); solid[k(x, y)] = 1;
+      props.push({ kind: epick("palm", 3, h), tx: x, ty: y, flip: h < 0.055, ox: jit(x, y, 1), oy: 0 }); solid[k(x, y)] = 1;
     } else if (t === SHAL && h < 0.02 && Math.abs(x - DOCKX) > 3) {
       props.push({ kind: "rock", tx: x, ty: y });
     }
@@ -2087,8 +2099,8 @@
   (function () {
     function top(id) { var s = STATIONS.filter(function (q) { return q.id === id; })[0]; return { x: s.x * T + 8, y: s.y * T + 17 - SPR[id].height, gy: s.y * T + 16 }; }
     ["sign", "mailbox", "tablet", "uplink"].forEach(function (id) { perches.push(top(id)); });
-    props.filter(function (p) { return /tree/.test(p.kind) && Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8; }).slice(0, 6).forEach(function (p) {
-      if (SPR[p.kind]) perches.push({ x: p.tx * T + 8, y: p.ty * T + 16 - SPR[p.kind].height + 4, gy: p.ty * T + 15 });
+    props.filter(function (p) { return /^e:(oak|birch|ginkgo)/.test(p.kind) && Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8; }).slice(0, 6).forEach(function (p) {
+      perches.push({ x: p.tx * T + 8 + (p.ox || 0), y: p.ty * T + 16 - ENV[p.kind.slice(2)][3] + 4, gy: p.ty * T + 15 });
     });
   })();
   var birds = [0, 1].map(function (i) { var p = perches[i]; return { i: i, x: p.x + i * 4, y: p.y, gy: p.gy, z: 0, perch: i, fly: null, face: i ? -1 : 1, rest: 3 + i * 2 }; });
@@ -4071,7 +4083,7 @@
         if (envK) {
           bx += p.ox || 0; by += p.oy || 0;
           if (p.flat) { ctx.drawImage(s, Math.round(bx - s.width / 2), Math.round(by - s.height + 4 + (REDUCED ? 0 : Math.sin(t * 1.3 + p.tx) * 0.5))); return; }
-          softShadow(bx + 1, by + 2, Math.max(8, s.width * (/oak|ginkgo|pine|birch/.test(p.kind) ? 0.75 : 0.85)));
+          softShadow(bx + 1, by + 2, Math.max(8, s.width * (TALL.test(p.kind) ? (/palm|mpuzzle/.test(p.kind) ? 0.45 : 0.72) : 0.85)));
         }
         if (p.kind === "nest") {
           ctx.drawImage(s, bx - 10, by - 10);
@@ -4084,12 +4096,12 @@
         bx += p.ox || 0; by += p.oy || 0;
         if (p.kind === "lamp" || p.kind === "crates") shadow(bx, by, p.kind === "lamp" ? 6 : 14);
         if (p.kind === "rock") { ctx.drawImage(s, bx - 9, by - 11 + Math.round(Math.sin(t + p.tx) * 0.5)); return; }
-        var sway = (p.kind === "palm" || p.kind === "tfern") && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
+        var sway = /^(palm|tfern)$|^e:(palm|tallfern)/.test(p.kind) && !REDUCED ? Math.round(Math.sin(t * 1.2 + p.tx) * 0.6) : 0;
         if ((p.kind === "tallgrass" || /^e:(fern|reeds|horsetail|tfern|bush)/.test(p.kind)) && !REDUCED) sway = Math.round(Math.sin(t * 1.8 + p.tx * 0.7 + p.ty * 0.3) * 0.8);   // wind rolls across the field
         if (p.rustle) sway = Math.round(Math.sin(t * 34) * p.rustle * 1.6);
-        if (REAL === "future" && /tree|tfern|e:(oak|birch|pine|ginkgo)/.test(p.kind)) { var tw = towers()[(hash(p.tx, p.ty) * 6) | 0]; ctx.drawImage(tw, bx - tw.width / 2, by - tw.height + 2); light(bx, by - tw.height * 0.6, 18, hash(p.ty, p.tx) < 0.5 ? "255,79,160" : "41,216,255", 0.5); return; }
+        if (REAL === "future" && (TALL.test(p.kind) || /^(tree|tree2|jtree|tfern|palm)$/.test(p.kind))) { var tw = towers()[(hash(p.tx, p.ty) * 6) | 0]; ctx.drawImage(tw, bx - tw.width / 2, by - tw.height + 2); light(bx, by - tw.height * 0.6, 18, hash(p.ty, p.tx) < 0.5 ? "255,79,160" : "41,216,255", 0.5); return; }
         s = skin(s);
-        var behind = /tree|palm|tfern|mast|tank|e:(oak|birch|pine|ginkgo)/.test(p.kind) && pi.y < by - 3 && pi.y > by - s.height + 6 && Math.abs(pi.x - bx) < s.width / 2 - 2;
+        var behind = (TALL.test(p.kind) || /^(tree|tree2|jtree|tfern|palm|mast|tank)$/.test(p.kind)) && pi.y < by - 3 && pi.y > by - s.height + 6 && Math.abs(pi.x - bx) < s.width / 2 - 2;
         if (behind) ctx.globalAlpha = 0.42;                      // pi walks behind it: see through
         if (p.flip) { ctx.save(); ctx.translate(bx * 2, 0); ctx.scale(-1, 1); }
         ctx.drawImage(s, bx - s.width / 2 + sway, by - s.height + 2);
@@ -4457,7 +4469,8 @@
     teleport: function (x, y) { pi.x = x; pi.y = y; pi.vx = pi.vy = 0; pi.path = null; camF.x = null; },
     getState: function () { return { open: open, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
-    ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; }       // the whole painted ground, for art reviews
+    ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
+    props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); }
   };
   /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
      carries on by itself */

@@ -4,8 +4,9 @@
 
 What it draws, all lit from the top left, outlined in each material's own darkest tone, from the
 master palette in art/palette.json:
-  trees      broadleaf (canopy built from clustered blobs), birch, monkey-puzzle conifer, ginkgo;
-             two or three variants each
+  trees      broadleaf oak (canopy built from clustered blobs), birch, ginkgo for the meadows;
+             monkey-puzzle and dawn redwood for the highland; palm, buttressed fig and a tall tree
+             fern for the lowland; two or three variants each
   cretaceous tree ferns (tfern), cycads, horsetails, a magnolia shrub (flowering plants did exist then)
   shrubs     a round bush, a fern clump, the magnolia
   rocks      5 variants in each of 3 sizes: faceted, cracked, moss on top, grass at the base
@@ -132,18 +133,118 @@ def birch(seed):
     sp.outline(); return sp, (13, 44)
 
 
-def conifer(seed):
-    """a monkey-puzzle: a tall bare trunk and tiers of drooping branch clumps"""
-    rng = random.Random(seed); sp = Sprite(28, 50)
-    trunk(sp, 14, 6, 48, 2, 3, R["wood"], flare=2)
-    for i in range(6):
-        y = 8 + i * 6; hw = 4 + i * 1.8
-        for side in (-1, 1):
-            for j in range(3):
-                bx = 14 + side * (hw * (0.4 + j * 0.3)); by = y + j * 1.2
-                blob(sp, bx, by, 2.6 - j * 0.3, "leaf", R["leaf"], lambda x, y2, i=i: 0.75 - i * 0.08, rng, 0.2, lift=-0.05)
-    blob(sp, 14, 5, 3, "leaf", R["leaf"], lambda x, y: 0.8, rng, 0.2)
-    sp.outline(); return sp, (14, 48)
+def line(sp, x0, y0, x1, y1, col, mat):
+    n = int(max(abs(x1 - x0), abs(y1 - y0))) + 1
+    for i in range(n + 1):
+        u = i / max(1, n)
+        sp.put(int(round(x0 + (x1 - x0) * u)), int(round(y0 + (y1 - y0) * u)), col, mat)
+
+
+def monkeypuzzle(seed):
+    """a monkey-puzzle: a tall, bare, straight trunk and, only at the top, a flat dome of
+    rope-like branches in whorls, leafy along their whole length, drooping out from the trunk
+    and curving up at the tips. the back of the dome goes down first and darker"""
+    rng = random.Random(seed); W, H = 44, 66; sp = Sprite(W, H)
+    cx, top = 22, 9 + rng.randint(0, 3)
+    trunk(sp, cx, top, H - 2, 2, 3.5, R["wood"], marks=lambda x, y: (y * 5 + x) % 9 == 0, flare=2)
+    ropes = []
+    whorls = 4
+    for w in range(whorls):
+        y = top + 2 + w * 3.4
+        ln = 7 + w * 3.6 + rng.uniform(-0.6, 0.6)
+        n = 5 + (w > 1)
+        for b in range(n):
+            th = (b / n) * 2 * math.pi + w * 0.55 + rng.uniform(-0.15, 0.15)
+            ropes.append((math.sin(th), th, y, ln, w))
+    ropes.sort(key=lambda r: r[0])
+    for (depth, th, y, ln, w) in ropes:
+        back = depth < -0.25
+        pts = []
+        for i in range(int(ln * 1.6) + 1):
+            u = i / (ln * 1.6)
+            r = ln * u
+            dy = 3.2 * math.sin(u * math.pi * 0.8) - 5.5 * max(0, u - 0.72) ** 1.4 * 3   # droops, then the tip turns up
+            pts.append((cx + math.cos(th) * r, y + math.sin(th) * r * 0.4 + dy, u))
+        for (x, yy, u) in pts:
+            if u < 0.18: continue                                   # bare where it leaves the trunk
+            glob = lambda gx, gy, u=u: max(0.0, min(1.0, 0.95 - 0.35 * (0.5 + 0.5 * math.sin(th)) - 0.1 * w + 0.15 * (1 - u)))
+            blob(sp, x + 0.7, yy + 1.0, 1.2 + 0.4 * u, "leaf", R["leaf"], lambda gx, gy: 0.05, rng, 0.3, lift=-0.2 if back else 0.0)   # its shaded underside
+            blob(sp, x, yy, 1.2 + 0.4 * u, "leaf", R["leaf"], glob, rng, 0.45, lift=-0.2 if back else 0.0)
+    blob(sp, cx, top - 1, 2.4, "leaf", R["leaf"], lambda x, y: 0.95, rng, 0.4)
+    sp.outline(); return sp, (cx, H - 2)
+
+
+def redwood(seed):
+    """a dawn redwood: a narrow cone of soft, feathery foliage in tiers over a reddish trunk"""
+    rng = random.Random(seed); W, H = 28, 56; sp = Sprite(W, H)
+    cx = 14
+    trunk(sp, cx, 30, H - 2, 2, 3.5, R["bark2"], mat="bark2", marks=lambda x, y: (y * 3 + x * 7) % 8 == 0, flare=2)
+    tiers = 9
+    for i in range(tiers):                                        # the cone, back to front, top down
+        y = 4 + i * 4.2; hw = 2.5 + i * 1.25
+        for j in range(3 + i // 2):
+            u = -1 + 2 * (j + 0.5) / (3 + i // 2)
+            bx = cx + u * hw; by = y + abs(u) * 1.6
+            glob = lambda x, yy, i=i, u=u: max(0.0, min(1.0, 0.8 - 0.3 * u - i * 0.03))
+            blob(sp, bx, by, 2.2 + i * 0.08, "leaf2", R["leaf2"], glob, rng, 0.3)
+    sp.outline(); return sp, (cx, H - 2)
+
+
+def palm(seed):
+    """a palm: a curved, ringed trunk and a crown of long arching fronds, a few nuts under them"""
+    rng = random.Random(seed); W, H = 42, 56; sp = Sprite(W, H)
+    lean = rng.choice([-1, 1]) * rng.uniform(3, 6); n = 36 + rng.randint(-3, 3)
+    tx = ty = 0
+    for i in range(n):
+        u = i / n
+        x = 21 + lean * math.sin(u * 1.6) - lean * 0.2; y = H - 2 - i
+        for k in range(-1, 3):
+            col = R["wood"][4 if k < 0 else 3 if k == 0 else 2 if k == 1 else 1]
+            if (i >> 1) % 2 == 0 and 0 <= k <= 1: col = R["wood"][2 if k == 0 else 1]   # the rings
+            sp.put(int(round(x)) + k, y, col, "wood")
+        tx, ty = x + 1, y
+    for i in range(8):
+        a = -math.pi + (i + 0.5) * (math.pi / 8) + rng.uniform(-0.12, 0.12)
+        if i in (3, 4): a -= 0.0
+        droop = 1.4 if abs(a + math.pi / 2) > 0.9 else 0.8
+        frond(sp, tx, ty, a, 18 + rng.uniform(-2, 3) - (5 if i in (3, 4) else 0), droop * (1 if a > -math.pi / 2 else -1), R["leaf"], "leaf")
+    for i in range(2 + rng.randint(0, 1)):                        # nuts
+        blob(sp, tx - 1 + i * 2.2, ty + 2 + (i % 2), 1.4, "wood", R["wood"], lambda x, y: 0.4, rng)
+    sp.outline(); return sp, (21, H - 2)
+
+
+def fig(seed):
+    """a buttressed lowland fig: a wide root-flared trunk, a broad canopy of clumps, vines hanging"""
+    rng = random.Random(seed); W, H = 50, 60; sp = Sprite(W, H)
+    cx = 25
+    trunk(sp, cx, 30, H - 3, 5, 7, R["wood"], marks=lambda x, y: (x * 7 + y) % 13 == 0, flare=0)
+    for side in (-1, 1):                                          # buttress roots: ridges running down and out from the trunk
+        for r in range(2):
+            x0, y0 = cx + side * (2 + r), H - 12 + r * 3
+            x1, y1 = cx + side * (9 + r * 4), H - 2
+            for i in range(12):
+                u = i / 11; x = x0 + (x1 - x0) * u; y = y0 + (y1 - y0) * u * u
+                sp.put(int(round(x)), int(round(y)), R["wood"][4 if side < 0 else 2], "wood")
+                sp.put(int(round(x)), int(round(y)) + 1, R["wood"][2 if side < 0 else 1], "wood")
+    canopy(sp, cx, 20, 46, 32, R["leaf"], rng, n=30, rmin=4, rmax=7.5)
+    for v in range(5 + rng.randint(0, 2)):                        # vines
+        x = int(cx + rng.uniform(-18, 18)); y0 = None
+        for y in range(H):
+            if sp.mat[y, x] == "leaf": y0 = y
+        if y0 is None: continue
+        for k in range(1, 5 + rng.randint(0, 7)):
+            if y0 + k < H - 4 and sp.px[y0 + k, x, 3] == 0: sp.put(x + (1 if k > 5 else 0), y0 + k, R["leaf2"][2 if k % 2 else 3], "leaf2")
+    sp.outline(); return sp, (cx, H - 3)
+
+
+def tallfern(seed):
+    """a tall tree fern for the lowland woods: a shaggy trunk twice a man's height, a big crown"""
+    rng = random.Random(seed); sp = Sprite(40, 50)
+    trunk(sp, 20, 14, 48, 3, 4, R["wood"], marks=lambda x, y: (y % 3 == 0 and x % 2 == 0) or (y % 5 == 1 and x % 3 == 1), flare=1)
+    for i in range(11):
+        a = -math.pi / 2 + (i - 5) * 0.36 + rng.uniform(-0.08, 0.08)
+        frond(sp, 20, 14, a, 16 + rng.uniform(-2, 2), 1.0 * (1 if a > -math.pi / 2 else -1), R["leaf"], "leaf")
+    sp.outline(); return sp, (20, 48)
 
 
 def ginkgo(seed):
@@ -379,7 +480,11 @@ def all_sprites():
     s = {}
     for i in range(3): s["oak%d" % i] = broadleaf(10 + i)
     for i in range(2): s["birch%d" % i] = birch(20 + i)
-    for i in range(2): s["pine%d" % i] = conifer(30 + i)
+    for i in range(3): s["mpuzzle%d" % i] = monkeypuzzle(30 + i)
+    for i in range(2): s["redwood%d" % i] = redwood(160 + i)
+    for i in range(3): s["palm%d" % i] = palm(170 + i)
+    for i in range(2): s["fig%d" % i] = fig(180 + i)
+    for i in range(2): s["tallfern%d" % i] = tallfern(190 + i)
     for i in range(2): s["ginkgo%d" % i] = ginkgo(40 + i)
     for i in range(2): s["tfern%d" % i] = treefern(50 + i)
     for i in range(2): s["cycad%d" % i] = cycad(60 + i)
