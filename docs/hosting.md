@@ -83,6 +83,10 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - SSL Labs: **B** on all four edge addresses. The certificate chain has no issues; the cap is because TLS 1.0 and 1.1 are still accepted, so "Minimum TLS Version 1.2" isn't in effect yet (Cloudflare dashboard: SSL/TLS, Edge Certificates). Expected A once it is; A+ also needs a long HSTS.
 - Cloudflare Web Analytics is injecting `static.cloudflareinsights.com/beacon.min.js` into the page. The CSP blocks it (two console errors), which is right: the site loads nothing from other origins. Turn the injection off (Analytics and Logs, Web Analytics, the site, "Disable" or remove automatic setup) rather than widening the CSP.
 
+**2026-09-28, the whole-island art conversion** (version `3df869e0`, cache `20261015`). 7 files changed (world.js, site.js, index.html, both atlases). Live checks passed.
+
+- TLS rechecked with `openssl s_client -tls1` / `-tls1_1` (`-cipher 'DEFAULT@SECLEVEL=0'`): both still complete handshakes (ECDHE-RSA-AES128-SHA). TLS 1.3 is on, but the minimum is still 1.0, so the Minimum TLS Version 1.2 switch below is still needed.
+
 ### Two dashboard items for Ammaar
 
 **1. Minimum TLS version.** Checked 2026-09-27: TLS 1.3 is on, but TLS 1.0 and 1.1 still connect (`openssl s_client -tls1` completes a handshake). Turning 1.3 on and setting the minimum are two different switches.
