@@ -1,5 +1,7 @@
 # Site audit
 
+Latest review: [2026-09-28 full site and island audit](docs/audit-2026-09-28.md). It records new keyboard/terrain findings, current live checks, visual recommendations and explicit coverage gaps. The older completed checklist below is not a clean bill of health for the current island.
+
 Not deployed (the deploy allowlist skips `*.md`). The site went live on ammaarrehman.com on 2026-09-26. Phase 5 covered the go-live blockers; Phase 6 (2026-09-26 and 27) covers the rest. Re-run the automated parts with `cd tools && node audit.mjs`, `node lighthouse.mjs`, `npm run html` and `npm run spell`.
 
 Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / needs Ammaar.
@@ -14,8 +16,8 @@ Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / n
 | A6-4 | low | `assets/work/triage.webp` | The prompt shows the Mac's user and host name. | Cropped below the prompt line. | fixed in `4c349a9` |
 | A6-5 | low | `assets/work/trading-lab.webp` | Clean. | None. | fixed (nothing to do) |
 | A6-6 | low | Every image in `assets/` | No EXIF, GPS or XMP metadata in any of the 11 images. | None. | fixed (nothing to do) |
-| A6-7 | low | `assets/resume/Ammaar_Rehman_Resume.pdf` | Metadata: Author "Ammaar Rehman", Title "Ammaar Rehman Resume", Producer "ReportLab PDF Library", Creator "(unspecified)", created 2026-09-25. No other personal fields. | None required. | fixed (nothing to do) |
-| A6-8 | high | `assets/resume/Ammaar_Rehman_Resume.pdf` | The 14 bullets are byte 0x7F in Times-Roman with WinAnsi encoding, which has no glyph there, so they show as boxes or blanks. | In your own export: make the bullet • (U+2022). The PDF is not regenerated here. | needs Ammaar |
+| A6-7 | low | `assets/resume/Ammaar_Rehman_Resume.pdf` | Rechecked 2026-09-28: current PDF has no Title/Author/Producer fields; the earlier metadata description was stale. | None required. | rechecked, no change |
+| A6-8 | low | `assets/resume/Ammaar_Rehman_Resume.pdf` | Rechecked 2026-09-28 by rendering and text extraction: bullets display normally and extract as U+2022. Earlier missing-glyph finding does not apply to the current file. PDF is untagged. | No bullet repair needed. Consider an accessible tagged export separately; do not regenerate here. | closed for current asset |
 | A6-9 | low | Transcript | No transcript PDF is deployed. | None. | fixed (nothing to do) |
 | A6-10 | medium | Third-party origins | The main page loaded Google Fonts (fonts.googleapis.com, fonts.gstatic.com). | Fonts self-hosted; the main page now contacts no other origin. The CSP allows `https://lab.ammaarrehman.com` for the live status later. | fixed in `7b916f9` |
 | A6-11 | low | `.well-known/security.txt` | Has Contact, Expires (2027-09-25, within a year), Preferred-Languages and Canonical. Canonical pointed at github.io. | Canonical (and every other absolute URL) moved to ammaarrehman.com. | fixed in `bdd161a` |

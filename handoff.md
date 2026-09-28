@@ -171,7 +171,13 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | `docs/` | `hosting.md`, `dns-claim.md`, `game-design.md`. |
 | Local branch `gh-pages` (not pushed) | A redirect page for github.io, for when the GitHub flag clears (docs/hosting.md). |
 
-## 7. What's done (all committed, pushed and live)
+## 7. What's done
+
+### Codex audit checkpoint, 2026-09-28
+
+User requested a full audit first, then phase-by-phase next steps with progress updates, and approved installing gitleaks. They then requested a handoff to Claude. Read `docs/audit-2026-09-28.md` first. It records completed checks, fresh visual critique, new bugs and explicit limits. No production code/copy/art changed or deployed in this checkpoint. Added supplemental read-only audit collectors and Phase 7 proposal/checklist docs. Gitleaks 8.30.1 installed, but full-history scans did NOT execute: the approval service hit an account usage limit. Scan script is prepared, not validated by a completed scan. No repository cleared for publication. See `docs/phase-7-proposals.md` and `docs/screenshots.md`.
+
+The following historical implementation entries describe previously committed/pushed/live work, not approval of its current visual quality:
 
 - **Phase 5 (go live):**
   - Fonts self-hosted.
@@ -218,20 +224,21 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 8. Waiting on Ammaar
 
-1. **Look over the whole-island conversion** (`tools/out/island-ba/`). Open questions for him: the park gate's plaque still reads "PI'S ISLAND" (the reserve is Mossgate); the buildings and landmarks keep their older drawn look (only outlines recoloured). Redrawing them in the new style could come with Phase 12's home island layout.
+1. **Island visual quality reopened:** Ammaar says the conversion does not look good/fully reworked. Fresh assessment in `docs/audit-2026-09-28.md` agrees it needs a coherent art-direction/layout pass, not simply more props. Propose one cohesive slice for approval before expanding it. Park plaque still reads "PI'S ISLAND" rather than Mossgate; buildings/landmarks retain older art. Phase 12 map/layout approval still applies.
 2. Cloudflare: Minimum TLS 1.2 (rechecked 2026-09-28: TLS 1.0 and 1.1 still complete handshakes, so the minimum is still 1.0; "TLS 1.3" in the dashboard is a separate switch that enables 1.3, not the minimum); the Web Analytics toggle later; confirm HSTS after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
 3. Run the Firefox audit command above and paste the output (fold it into AUDIT.md A7).
 4. The homelab audit, which settles P-11.
-5. Dead-file candidates (README); the résumé PDF bullets (his export).
+5. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
 6. GitLab: make each mirrored project public after the secrets scan (Phase 7). Check the weekly mirror doesn't reset visibility.
 
 ## 9. Next steps, in order
 
 Follow handoff 3's build order. Where it stands:
 
-1. **Phase 6:** done. The copy batch was approved and applied.
-2. **Art conversion:** done 2026-09-28 (section 7). Left over, if Ammaar wants them: redraw the buildings and landmarks in the new style (tools/props-src.js), a ref-4 stone bridge in place of the plank bridges, and the helipad's square dirt pad. The pi and "future" reality tower sprites are still built at runtime (small, on demand).
+1. **Phase 6:** original copy batch approved/applied; fresh audit complete, new findings remain open. Prioritize DEEP terrain/route variable collision and background keyboard focus, then no-JS code-link fallback, shore/collision consistency and test gates. See the new report before coding.
+2. **Art conversion:** terrain/asset implementation landed, visual quality NOT accepted. See section 8 and the new audit. Propose a coherent slice; do not mark the whole island finished. Buildings/landmarks, bridges and helipad remain candidates. The pi and "future" reality tower sprites are still built at runtime.
 3. **Phase 7 (portfolio upgrades):**
+   - Current checkpoint: gitleaks installed; `tools/history-review.mjs` prepared, scan not run due approval-service usage limit. Retry with normal approval once available. Do not bypass the failed approval. Four diagram proposals and screenshot checklist are written; diagrams still require Ammaar's OK.
    - **C2 pre-flight** on every repo the site links to:
      - `gitleaks detect` on the full history (install it with Homebrew; ask first).
      - Grep for private IP ranges, hostnames and MACs.
@@ -260,6 +267,9 @@ Follow handoff 3's build order. Where it stands:
 11. **Phases 15 to 19:** NPCs and quests (H); regions and species (Styracosaurus from ref-9, etc.) with the camera and Field Guide; the containment breach (handoff 2 E2); Server Key, the reef and live status (needs the lab on the Pi); the standalone game (handoff 2 Part F).
 
 ## 10. Known gaps and notes
+
+- New confirmed bugs: duplicate `DEEP` variable overwrites the numeric sea code with the deep-link object; island keyboard focus escapes to the hidden portfolio. Fresh geometry probe also found three walkable centers painted water. No production fixes yet.
+- Firefox launch remains blocked in this environment. Chromium contact-orb image comparisons failed, but backing resolution/WebKit passed; investigate baseline reveal timing before claiming a blur regression. Supplemental collectors are evidence gathering, not automatic passing gates.
 
 - The ground painter's pixel edges can sit up to about half a tile off the collision tiles (the waterline is biased out to sea so walkable sand never looks wet). Road pixels can cross a solid cliff-rim tile at a stair edge.
 - The lowland is a narrow strip of clearings, so it has few inland trees; adding woods there is a layout change for Phase 12.
