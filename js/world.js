@@ -4378,6 +4378,26 @@
                lighthouse: "lighthouse", experience: "lighthouse", macbook: "macbook", site: "macbook", tablet: "tablet", education: "tablet", mailbox: "mailbox", contact: "mailbox" };
   window.addEventListener("hashchange", function () { if (!open && location.hash.indexOf("#island") === 0) enter(); });
   var lastFocus = null;
+  /* while the island is open it is the whole page: everything else in the body is inert (no
+     focus, no clicks, hidden from screen readers), and Tab wraps inside the topmost layer. the
+     terminal, credits, map, settings and menu hold focus; otherwise Tab cycles the HUD, the canvas
+     and an open landmark card, which pi can walk away from */
+  var inerted = [];
+  function setBackground(off) {
+    if (off) [].forEach.call(document.body.children, function (el) { if (el !== root && el.tagName !== "SCRIPT" && !el.inert) { el.inert = true; inerted.push(el); } });
+    else { inerted.forEach(function (el) { el.inert = false; }); inerted = []; }
+  }
+  function topLayer() { return [term, credEl, mapEl, setEl, pauseEl].filter(function (el) { return el && !el.hidden; })[0] || root; }
+  var TABBABLE = "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
+  root.addEventListener("keydown", function (e) {
+    if (e.key !== "Tab" || !open || e.defaultPrevented) return;          // the terminal's Tab completes words instead
+    var items = [].filter.call(topLayer().querySelectorAll(TABBABLE), function (el) { return el.getClientRects().length > 0 && !el.closest("[hidden]"); });
+    if (!items.length) { e.preventDefault(); return; }
+    // every Tab is moved by hand: safari's own order skips buttons and links, and would walk out
+    var i = items.indexOf(document.activeElement), n = items.length;
+    e.preventDefault();
+    items[i < 0 ? (e.shiftKey ? n - 1 : 0) : (i + (e.shiftKey ? n - 1 : 1)) % n].focus();
+  });
   var entering = false;
   function enter() {
     if (open || entering) return;
@@ -4388,7 +4408,7 @@
     warpRun(1, function () {
       entering = false;
       if (open) return;
-      open = true; size(); bindSession();
+      open = true; size(); bindSession(); setBackground(true);
       document.documentElement.classList.add("in-world");
       root.hidden = false; root.classList.add("show");
       var first = false;
@@ -4429,7 +4449,7 @@
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
       paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour(); if (credEl) credEl.hidden = true; if (mapEl) mapEl.hidden = true;
-      open = false; exiting = false; stopLoop(); unbindSession();
+      open = false; exiting = false; stopLoop(); unbindSession(); setBackground(false);
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");
       if (window.orbs) window.orbs.forEach(function (o) { o.pause(false); o.calm(); });
