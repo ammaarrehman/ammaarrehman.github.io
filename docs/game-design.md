@@ -142,8 +142,15 @@ scatter. Edges wander off the tile grid. Water: lighter shallows, a light rim, c
 pads, stones under the surface, subtle sparkles, foam under falls. Cliffs: vertical stone slabs darkening
 toward the foot, grass hanging over the lip. Tiles are 16 px.
 
-Status: the test area (the west meadow falls and the koi garden, `TEST` in `js/world.js`) and the cave
-entrance are built and live. The rest of the island converts after Ammaar approves the test area.
+Status: Ammaar approved the test area on 2026-09-28 and the whole home island is converted. One ground
+painter for the map: the coast follows `coast()`, the river and roads their curves, the cliffs the
+terraces' smooth edges (`hiEdge`, `midEdge`) and the coast where raised ground meets the beach. Grass
+has four kinds per terrace (lowland: short, lush, dry, sandy scrub; meadows: short, lush, dry, fern
+floor; highland: moss, short, heath, fern floor). Trees per terrace: lowland palm, buttressed fig,
+tall tree fern; meadows oak, birch, ginkgo, the odd monkey-puzzle; highland monkey-puzzle, dawn
+redwood, ginkgo. Undergrowth, tall grass, rocks and nests come from `img/atlas/env.png`; buildings,
+landmarks and man-made props from `img/atlas/props.png` (`tools/atlas.mjs`), still in their older
+drawn look apart from recoloured outlines. The cave entrance is built; its tunnel and chamber are not.
 
 ## Technical
 

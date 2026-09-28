@@ -161,8 +161,8 @@
       if (island) return;
       island = 1;
       var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
-      script("js/audio.js?v=20261014", function () {
-        script("js/world.js?v=20261014", function () {
+      script("js/audio.js?v=20261015", function () {
+        script("js/world.js?v=20261015", function () {
           island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
           if (go && window.islandEnter) window.islandEnter();
         }, failed);

@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27; the repo was at the commit that added this file (`git log -1`).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion (`git log` for the exact state).
 
 ---
 
@@ -118,12 +118,13 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - **Deploy:**
   - `node tools/deploy.mjs --dry-run` builds `.deploy/` from the allowlist and checks it. `node tools/deploy.mjs` builds, checks, deploys with wrangler (already logged in via `npx wrangler login`) and smoke-tests the live site. `node tools/deploy.mjs --check` runs only the live checks.
   - If the live checks fail with `ENOTFOUND`, this Mac's DNS cache is stale; check with `dig ammaarrehman.com @1.1.1.1`, or use `curl --resolve ammaarrehman.com:443:104.21.52.117`.
-- **Cache version:** every script and CSS reference carries `?v=`. It's currently `20261014`. Bump it everywhere together (`index.html`, `js/site.js`, `js/world.js`) whenever a script, the CSS or a baked image changes. Nine places in `index.html`.
+- **Cache version:** every script and CSS reference carries `?v=`. It's currently `20261015`. Bump it everywhere together (`index.html`, `js/site.js`, `js/world.js`) whenever a script, the CSS or a baked image changes. Nine places in `index.html`.
 - **Audit and tests** (in `tools/`; run `npm install` and `npx playwright install` once):
   - `node audit.mjs` covers A2, A3, A6, A7 and A9 across Chromium, WebKit and Firefox, five sizes, axe, keyboard, reduced motion and links. Add `--only=a3,a9` or `--offline` to narrow it.
   - `node lighthouse.mjs`: add `--local`, or `--resolve=104.21.52.117` when the DNS cache is stale.
   - `npm run html` (html-validate) and `npm run spell` (cspell; add real words to `tools/cspell.json`).
-  - `node doors.mjs` (every door, worst frame under 16 ms), `node orbs.mjs` (main-page orbs stay sharp) and `node shots.mjs <tag>` (island screenshots at named places into `tools/out/shots/`).
+  - `node doors.mjs` (every door, worst frame under 16 ms), `node orbs.mjs` (main-page orbs stay sharp) and `node shots.mjs <tag> name=x,y ...` (island screenshots at named places, in tiles, into `tools/out/shots/`).
+  - `node atlas.mjs` bakes the man-made sprites (`tools/props-src.js`) into `img/atlas/props.png`; `tools/.venv/bin/python envart.py` bakes the environment atlas. Both rewrite their frame table line in `js/world.js` (`var PROPS`, `var ENV`).
 - **Environment quirks:**
   - Playwright browsers must run **outside the command sandbox** (`dangerouslyDisableSandbox: true`); WebKit and Chromium then work.
   - **Firefox can't launch inside the Claude app at all.** macOS won't let the app create `~/Library/Application Support/Firefox`. Ammaar runs the Firefox audit in his own Terminal:
@@ -134,17 +135,17 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
   - WebKit's screenshots inject a style tag that the CSP refuses. The audit reads the console *before* taking screenshots; keep it that way.
   - The in-app browser pane throttles `requestAnimationFrame` when hidden. Drive the island with Playwright and `?debug=1` instead.
-  - `?debug=1` exposes `window.__island`: `teleport(x, y)` in world px (tiles × 16 + 8), `getState()` and `frames(clear)`. Handoff 2 C5 grows this into the full test API.
+  - `?debug=1` exposes `window.__island`: `teleport(x, y)` in world px (tiles × 16 + 8), `getState()`, `frames(clear)`, `ground()` (the painted map as a PNG, and its paint time) and `props()`. Handoff 2 C5 grows this into the full test API.
 - **Python art tools:** use `tools/.venv/bin/python` (pillow, numpy). Recreate the environment with `python3 -m venv tools/.venv && tools/.venv/bin/pip install -r tools/requirements.txt`.
-- **Private artifacts:** the deploy scrubs `.deploy/`. The screenshots and audit output live in `tools/out/` (gitignored). The art test area's before and after images are in `tools/out/test-area/`.
+- **Private artifacts:** the deploy scrubs `.deploy/`. The screenshots and audit output live in `tools/out/` (gitignored). The art test area's before and after images are in `tools/out/test-area/`; the whole island's, per area, in `tools/out/island-ba/` (`overview-1.png`, `overview-2.png`, and `ba-<area>-1x/2x.png`).
 - **The island's code** is one IIFE, `js/world.js`, about 4,700 lines. Sections are marked `/* ════════ name ════════ */`. Key pieces:
 
   | Area | Where |
   |---|---|
-  | Map generation | `coast`, `hiEdge`, `midEdge`, `RIVER_PTS`, `road(...)` |
-  | Planting | the `props` loop, `forest()`, `testTree`, `testUnder` |
-  | Ground paint | `paint()`; the test area's `paintTest`, `cliffTest` |
-  | Sprites | `SPR`, `sprite()`, `outline()` |
+  | Map generation | `coast`, `hiEdge`, `midEdge`, `tier`, `RIVER_PTS`, `road(...)`, `CURVES` |
+  | Planting | the `props` loop, `forest()`, `treeFor` + `stand` (species by terrace), `plantUnder`, `TALL` |
+  | Ground paint | `kindAt` (grass, dirt, sand, water per pixel), `paint()` (colour, decals, dock, bridges, cliffs via `face`/`stairs`), `grassKind` + `BIOME`, `FOAM` (the surf) |
+  | Sprites | `SPR` (filled from `PROPS` and `ENV` atlases), `sprite()`, `outline()` (still used by rooms and realities) |
   | Creatures | `DINOS`, `SHEET`, `drawCritter`, `softShadow` |
   | Rooms | `ROOMS`, `enterRoom`, `roomBgStep`, `renderRoom` |
   | Transitions | `irisTo`, `drawIris`, `DOOR_CLOSE`, `DOOR_OPEN`, `xfade`, `doorAnim` |
@@ -201,18 +202,24 @@ ship them, never commit them, and never name their sources anywhere in the site 
   - All creatures animated smoothly by `tools/animate.py`: 12-frame walks and idles, 8 graze, 6 call, playing at 8 to 22 fps.
   - Utahraptors feathered.
   - Soft cool shadows.
-- **D3 art test area (live, awaiting approval):**
-  - It covers the west meadow falls and the koi garden (`TEST` in world.js).
+- **D3 art test area:** approved by Ammaar on 2026-09-28, then converted island-wide (below).
+  - It covered the west meadow falls and the koi garden.
   - New palette and environment atlas.
   - Irregular edges; water with rims and underwater stones; decals in drifts.
   - Cliffs as vertical stone slabs; foam at every waterfall.
+- **Whole-island art conversion (2026-09-28, commits `8d7dddf` to the undergrowth thinning):**
+  - One ground painter for the whole map; edges wander off the grid; the coast, river, roads and cliffs follow their smooth curves (no tile stairsteps); stairs where paths climb; waterfalls hang off the smooth edge.
+  - The surf follows the real waterline; glints and streaks stay on water.
+  - Four grass kinds per terrace; three tree species per terrace with 2 to 3 variants; the conifer is now a real monkey-puzzle.
+  - All plant, rock and nest props from the env atlas; man-made sprites from the new props atlas (D2), outlines recoloured per D1 rule 4.
+  - Paint about 370 ms (desktop Chromium; open time unchanged); canvas memory about 18.6 MB desktop, 16.7 MB phone.
 - **E3 entrance:** ref-6-style cave mouth with the terminal glowing inside, a puddle and bare trees. The tunnel and chamber aren't built yet.
 - **Docs:** `docs/game-design.md` written.
 
 ## 8. Waiting on Ammaar
 
-1. **Approve the art test area.** Show him `tools/out/test-area/ba-*.png`, or re-shoot with `node tools/shots.mjs`. Handoff 3 D3 says convert nothing else until he approves.
-2. Cloudflare: Minimum TLS 1.2; the Web Analytics toggle later; confirm HSTS after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
+1. **Look over the whole-island conversion** (`tools/out/island-ba/`). Open questions for him: the park gate's plaque still reads "PI'S ISLAND" (the reserve is Mossgate); the buildings and landmarks keep their older drawn look (only outlines recoloured). Redrawing them in the new style could come with Phase 12's home island layout.
+2. Cloudflare: Minimum TLS 1.2 (rechecked 2026-09-28: TLS 1.0 and 1.1 still complete handshakes, so the minimum is still 1.0; "TLS 1.3" in the dashboard is a separate switch that enables 1.3, not the minimum); the Web Analytics toggle later; confirm HSTS after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
 3. Run the Firefox audit command above and paste the output (fold it into AUDIT.md A7).
 4. The homelab audit, which settles P-11.
 5. Dead-file candidates (README); the résumé PDF bullets (his export).
@@ -223,14 +230,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 Follow handoff 3's build order. Where it stands:
 
 1. **Phase 6:** done. The copy batch was approved and applied.
-2. **Art conversion (D3 then the rest)**, as soon as Ammaar approves the test area:
-   - Make the new ground painter the default for the whole map (replace `paint()`'s per-tile code, not just `TEST`). Keep the feathered edge only while both styles coexist.
-   - Autotile the sand, shore and deep-water edges the same way.
-   - Four grass variants per biome.
-   - Tree species per biome (D1 rule 6: at least 3 species with 2 to 3 variants each). Turn the conifer into a real monkey-puzzle: a tall bare trunk with spiralling clumps at the tips.
-   - Replace every old prop sprite with atlas sprites.
-   - Move the remaining runtime sprites into atlases (D2), and keep canvas memory within budget (48 MB desktop, 32 MB coarse).
-   - Before and after shots for Ammaar, per area.
+2. **Art conversion:** done 2026-09-28 (section 7). Left over, if Ammaar wants them: redraw the buildings and landmarks in the new style (tools/props-src.js), a ref-4 stone bridge in place of the plank bridges, and the helipad's square dirt pad. The pi and "future" reality tower sprites are still built at runtime (small, on demand).
 3. **Phase 7 (portfolio upgrades):**
    - **C2 pre-flight** on every repo the site links to:
      - `gitleaks detect` on the full history (install it with Homebrew; ask first).
@@ -261,7 +261,8 @@ Follow handoff 3's build order. Where it stands:
 
 ## 10. Known gaps and notes
 
-- The test area's edge fades into the old ground with a dithered band. It goes away when the whole island converts.
+- The ground painter's pixel edges can sit up to about half a tile off the collision tiles (the waterline is biased out to sea so walkable sand never looks wet). Road pixels can cross a solid cliff-rim tile at a stair edge.
+- The lowland is a narrow strip of clearings, so it has few inland trees; adding woods there is a layout change for Phase 12.
 - The Utahraptor's feathers are subtle at 33 px wide; consider a bigger sprite when the creatures get their full art pass.
 - The far legs in `animate.py` are darkened copies of the near legs. That's fine at game scale; the Brachiosaurus uses a real rig.
 - The pterosaur is the original sprite, kept as drawn. The internal creature key is still `raptor`; only the text says Utahraptor.
