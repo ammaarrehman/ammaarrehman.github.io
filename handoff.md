@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion and again after the audit fixes R1 to R8 (`git log` for the exact state).
 
 ---
 
@@ -124,6 +124,8 @@ ship them, never commit them, and never name their sources anywhere in the site 
   - `node lighthouse.mjs`: add `--local`, or `--resolve=104.21.52.117` when the DNS cache is stale.
   - `npm run html` (html-validate) and `npm run spell` (cspell; add real words to `tools/cspell.json`).
   - `node doors.mjs` (every door, worst frame under 16 ms), `node orbs.mjs` (main-page orbs stay sharp) and `node shots.mjs <tag> name=x,y ...` (island screenshots at named places, in tiles, into `tools/out/shots/`).
+  - `node focus.mjs` (island keyboard focus, R2) and `node codelinks.mjs` (repo links with js off, no host and a GitLab host, R4).
+  - Exit codes: `audit.mjs` and `orbs.mjs` exit 1 on a failure and 2 when nothing failed but something couldn't run (a browser that won't launch). A 2 is not a pass. `audit.mjs --engines=chromium,webkit` leaves Firefox out on purpose (reported as skipped).
   - `node atlas.mjs` bakes the man-made sprites (`tools/props-src.js`) into `img/atlas/props.png`; `tools/.venv/bin/python envart.py` bakes the environment atlas. Both rewrite their frame table line in `js/world.js` (`var PROPS`, `var ENV`).
 - **Environment quirks:**
   - Playwright browsers must run **outside the command sandbox** (`dangerouslyDisableSandbox: true`); WebKit and Chromium then work.
@@ -172,6 +174,18 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | Local branch `gh-pages` (not pushed) | A redirect page for github.io, for when the GitHub flag clears (docs/hosting.md). |
 
 ## 7. What's done
+
+### Audit fixes, 2026-09-28 (Claude, local session then a cloud session)
+
+The code findings in `docs/audit-2026-09-28.md` are fixed and committed; its "Fix status" table has each commit and how it was checked.
+- R1 `4dccee8`: the deep-link table is `ROUTES`, so `DEEP` stays the deep-sea tile code.
+- R2 `0103c08` (+ `bc5d241`, a spelling rename): the portfolio is inert while the island is open, and Tab is kept inside the top layer. Test: `tools/focus.mjs`.
+- R5 `b7f4e72`: painted water blocks movement, and walkable tiles with water at their centre are solid.
+- R4 `624b157`: the markup has repo paths (`data-repo`) and no hrefs, and repo-only bits are hidden unless `head.js` adds `.code-host`. Safe with JS off. Test: `tools/codelinks.mjs`.
+- R7 `d4e0bf1`: `tools/audit.mjs` gives every check pass/fail/blocked/skipped, and the exit code follows.
+- R8 `103d83e`: no blur regression. The orb test's baseline was shot mid-reveal, and now waits for the reveal.
+- Cache version `20261016` (`4acef7f`). **Not deployed.** Deploy from the Mac with `node tools/deploy.mjs`, then run `node tools/deploy.mjs --check`.
+- The cloud session could not push (GitHub answered 403: Claude's GitHub access isn't connected for this repo there). Its commits are on branch `claude/gifted-gauss-1a74nm`. Check with `git log origin/claude/gifted-gauss-1a74nm` whether they reached GitHub. If not, they exist only in that cloud session.
 
 ### Codex audit checkpoint, 2026-09-28
 
@@ -235,7 +249,7 @@ The following historical implementation entries describe previously committed/pu
 
 Follow handoff 3's build order. Where it stands:
 
-1. **Phase 6:** original copy batch approved/applied; fresh audit complete, new findings remain open. Prioritize DEEP terrain/route variable collision and background keyboard focus, then no-JS code-link fallback, shore/collision consistency and test gates. See the new report before coding.
+1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Left: R3 and R6 (Cloudflare dashboard, Ammaar), a WebKit run of `focus.mjs` and `orbs.mjs` on the Mac, and a deploy of the fixes.
 2. **Art conversion:** terrain/asset implementation landed, visual quality NOT accepted. See section 8 and the new audit. Propose a coherent slice; do not mark the whole island finished. Buildings/landmarks, bridges and helipad remain candidates. The pi and "future" reality tower sprites are still built at runtime.
 3. **Phase 7 (portfolio upgrades):**
    - Current checkpoint: gitleaks installed; `tools/history-review.mjs` prepared, scan not run due approval-service usage limit. Retry with normal approval once available. Do not bypass the failed approval. Four diagram proposals and screenshot checklist are written; diagrams still require Ammaar's OK.
@@ -243,6 +257,7 @@ Follow handoff 3's build order. Where it stands:
      - `gitleaks detect` on the full history (install it with Homebrew; ask first).
      - Grep for private IP ranges, hostnames and MACs.
      - Report every hit, masked. Don't rewrite history.
+   - Before `CODE_HOST` goes on, two visible labels still say "github": the hero's `github` command link and the contact list's `github` row (`github.com/ammaarrehman`). With a GitLab host they'd link to GitLab under the wrong name. Give them `data-host-name` or new wording (UI text, not a claim), and extend `tools/codelinks.mjs` to check it.
    - Then Ammaar flips the GitLab projects public and you set `CODE_HOST` to `{ name: "GitLab", base: "https://gitlab.com/ammaarrehman" }` in `js/head.js`. Verify every GitLab link returns 200 (`node audit.mjs --only=a9`).
    - Add GitLab to the JSON-LD `sameAs` and a `rel="me"` link.
    - **K (project diagrams):**
@@ -268,8 +283,10 @@ Follow handoff 3's build order. Where it stands:
 
 ## 10. Known gaps and notes
 
-- New confirmed bugs: duplicate `DEEP` variable overwrites the numeric sea code with the deep-link object; island keyboard focus escapes to the hidden portfolio. Fresh geometry probe also found three walkable centers painted water. No production fixes yet.
-- Firefox launch remains blocked in this environment. Chromium contact-orb image comparisons failed, but backing resolution/WebKit passed; investigate baseline reveal timing before claiming a blur regression. Supplemental collectors are evidence gathering, not automatic passing gates.
+- The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).
+- Firefox launch remains blocked inside the Claude app on the Mac. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
+- Cloud sessions (claude.ai/code): the container has Chromium only, and it is an older build than the pinned Playwright 1.63 expects. Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory whose `chromium_headless_shell-1243/chrome-headless-shell-linux64/` links to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/*`, with `chrome-headless-shell` linked to `headless_shell`. Don't run `playwright install`. There is no WebKit or Firefox, no `~/.agent-handoff`, and no `tools/.venv`.
+- `doors.mjs` misses its 16 ms budget on some frames in the cloud container (software rendering). The commit before the audit fixes misses it the same way, and worse, so it isn't a regression. Judge door timing on the Mac.
 
 - The ground painter's pixel edges can sit up to about half a tile off the collision tiles (the waterline is biased out to sea so walkable sand never looks wet). Road pixels can cross a solid cliff-rim tile at a stair edge.
 - The lowland is a narrow strip of clearings, so it has few inland trees; adding woods there is a layout change for Phase 12.

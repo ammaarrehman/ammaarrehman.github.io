@@ -1,8 +1,8 @@
 # Site audit
 
-Latest review: [2026-09-28 full site and island audit](docs/audit-2026-09-28.md). It records new keyboard/terrain findings, current live checks, visual recommendations and explicit coverage gaps. The older completed checklist below is not a clean bill of health for the current island.
+Latest review: [2026-09-28 full site and island audit](docs/audit-2026-09-28.md). It records new keyboard/terrain findings, current live checks, visual recommendations and explicit coverage gaps. Its code findings (R1, R2, R4, R5, R7, R8) are fixed; its "Fix status" table has the commits. The older completed checklist below is not a clean bill of health for the current island.
 
-Not deployed (the deploy allowlist skips `*.md`). The site went live on ammaarrehman.com on 2026-09-26. Phase 5 covered the go-live blockers; Phase 6 (2026-09-26 and 27) covers the rest. Re-run the automated parts with `cd tools && node audit.mjs`, `node lighthouse.mjs`, `npm run html` and `npm run spell`.
+Not deployed (the deploy allowlist skips `*.md`). The site went live on ammaarrehman.com on 2026-09-26. Phase 5 covered the go-live blockers; Phase 6 (2026-09-26 and 27) covers the rest. Re-run the automated parts with `cd tools && node audit.mjs`, `node lighthouse.mjs`, `npm run html` and `npm run spell`. `audit.mjs` exits 1 if a check failed and 2 if one couldn't run (for example Firefox inside the Claude app); pass `--engines=chromium,webkit` to leave an engine out on purpose.
 
 Severity: blocker / high / medium / low. Status: fixed in `<sha>` / proposed / needs Ammaar.
 
