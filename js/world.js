@@ -299,13 +299,14 @@
     var drift = fbm(x * 1.1 + 70, y * 1.1 + 20);                    // plants gather in drifts, not a scatter
     if (lvl(x, y - 2) > lvl(x, y) && lvl(x, y - 1) === lvl(x, y) && h2 < 0.22) { p.kind = epick("rock2_", 5, h2); solid[k(x, y)] = 1; }   // boulders at the foot of the cliffs
     else if (wetNear && h2 < 0.2) p.kind = drift > 0.12 ? epick("reeds", 3, h2) : h2 < 0.1 ? "e:horsetail0" : undefined;
-    else if ((edge || inF) && h2 < 0.34) p.kind = tr === 2 ? (h2 < 0.1 ? epick("cycad", 2, h2) : h2 < 0.18 ? "e:horsetail0" : epick("fern", 2, h2))    // the highland: cooler, no flowers
+    // the woods and their edges (clearings and paddocks stay open)
+    else if ((inF ? h2 < 0.34 : edge && h2 < 0.17) && !clearing(x, y) && !(inPaddock(x, y) && h2 > 0.08)) p.kind = tr === 2 ? (h2 < 0.1 ? epick("cycad", 2, h2) : h2 < 0.18 ? "e:horsetail0" : epick("fern", 2, h2))    // the highland: cooler, no flowers
       : h2 < 0.08 ? epick("tfern", 2, h2) : h2 < 0.14 ? epick("cycad", 2, h2) : h2 < 0.2 && tr === 1 ? "e:magnolia0" : h2 < 0.27 ? epick("bush", 2, h2) : epick("fern", 2, h2);
     else if (!inF && tr < 2 && fbm(x * 2.3 + 40, y * 2.3) > 0.25 && h2 < 0.36) { p.kind = epick("tallgrass", 3, h2); p.oy = jit(x, y, 6) / 2; }   // tall grass in drifts across the open ground
-    else if (drift > 0.3 && h2 < 0.3) p.kind = epick("fern", 2, h2);
+    else if (drift > 0.35 && h2 < 0.14 && !clearing(x, y)) p.kind = epick("fern", 2, h2);   // a few fern drifts out in the open
     else if (near(x, y, 1, function (a2, b2) { return at(a2, b2) === PATH; }) && h2 < 0.12) p.kind = h2 < 0.06 ? epick("pebbles", 2, h2) : epick("rock0_", 5, h2);
-    else if (rim(x, y + 1) && h2 < 0.2) { p.kind = epick("pebbles", 2, h2); p.oy = 0; }
-    else if (h2 < 0.05) p.kind = epick("rock1_", 5, h2);
+    else if (rim(x, y + 1) && h2 < 0.1) { p.kind = epick("pebbles", 2, h2); p.oy = 0; }
+    else if (h2 < 0.025) p.kind = epick("rock1_", 5, h2);
     if (p.kind) props.push(p);
   }
   function busy(a, b) { var q = at(a, b); return q === PATH || q === POND || q === PAD || q === DOCK || q === LAVA || q === RIVER || q === BRIDGE || fence[k(a, b)] || nearStation(a, b) || inBuilding(a, b) || Math.abs(a - GATE.x) <= 3 && Math.abs(b - GATE.y) <= 1; }
@@ -409,7 +410,7 @@
     Object.keys(PROPS).forEach(function (n) { var e = PROPS[n]; SPR[n].getContext("2d").drawImage(PROPS_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); });
     if (skinCache) { skinCache.forEach(function (e) { Object.keys(e).forEach(function (k2) { freeCanvas(e[k2]); }); }); skinCache.clear(); }   // nothing reskinned from the empty canvases
   };
-  PROPS_IMG.src = "img/atlas/props.png?v=20261014";
+  PROPS_IMG.src = "img/atlas/props.png?v=20261015";
 
   /* ════════ ground, drawn once (handoff 3, D1) ════════
      pixel by pixel, into one buffer. every pixel is grass, dirt, sand or water, decided from a
@@ -1536,10 +1537,10 @@
       c.getContext("2d").drawImage(ENV_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); SPR["e:" + n] = c;
     });
   };
-  ENV_IMG.src = "img/atlas/env.png?v=20261014";
+  ENV_IMG.src = "img/atlas/env.png?v=20261015";
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261014";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261015";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
