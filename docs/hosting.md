@@ -93,7 +93,7 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - `node tools/audit.mjs` (local server): 79 passed, 0 failed, 2 blocked. The two blocked were Firefox (its profile can't be created inside the Claude app) and LinkedIn (999 to scripts). Both were then checked another way: the Firefox audit run from Ammaar's own Terminal works, and the LinkedIn link works when opened by hand.
 - `tools/focus.mjs` and `tools/orbs.mjs` pass in Chromium and WebKit.
 
-### Two dashboard items for Ammaar
+### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).
 
@@ -105,7 +105,9 @@ Before: checked 2026-09-27, TLS 1.3 was on, but TLS 1.0 and 1.1 still connected 
 4. Check it took: `openssl s_client -connect ammaarrehman.com:443 -tls1_1 </dev/null` should now fail with an alert, and `-tls1_2` should still connect.
 5. Re-run SSL Labs (https://www.ssllabs.com/ssltest/analyze.html?d=ammaarrehman.com&latest). Expected: A. Record it in the deploy log.
 
-**2. The console error behind Lighthouse's 92.** Cloudflare's Web Analytics adds this to every page it serves to a browser (curl without browser headers doesn't get it):
+**2. The console error behind Lighthouse's 92. Done 2026-09-28.** Ammaar switched the automatic injection off and verified it: the live page fetched with browser headers has no `cloudflareinsights`, Chrome DevTools shows no CSP errors, and the Lighthouse recheck passed as expected (best practices 100 was the expected score). The CSP is unchanged. The steps stay here for reference (undo: turn automatic setup back on in the same place).
+
+Before: Cloudflare's Web Analytics added this to every page it serves to a browser (curl without browser headers doesn't get it):
 
 ```html
 <script type="module" src="https://static.cloudflareinsights.com/beacon.min.js/..." data-cf-beacon='{"token": ...}'>
