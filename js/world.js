@@ -4394,10 +4394,10 @@
      focus, no clicks, hidden from screen readers), and Tab wraps inside the topmost layer. the
      terminal, credits, map, settings and menu hold focus; otherwise Tab cycles the HUD, the canvas
      and an open landmark card, which pi can walk away from */
-  var inerted = [];
+  var madeInert = [];
   function setBackground(off) {
-    if (off) [].forEach.call(document.body.children, function (el) { if (el !== root && el.tagName !== "SCRIPT" && !el.inert) { el.inert = true; inerted.push(el); } });
-    else { inerted.forEach(function (el) { el.inert = false; }); inerted = []; }
+    if (off) [].forEach.call(document.body.children, function (el) { if (el !== root && el.tagName !== "SCRIPT" && !el.inert) { el.inert = true; madeInert.push(el); } });
+    else { madeInert.forEach(function (el) { el.inert = false; }); madeInert = []; }
   }
   function topLayer() { return [term, credEl, mapEl, setEl, pauseEl].filter(function (el) { return el && !el.hidden; })[0] || root; }
   var TABBABLE = "a[href], button:not([disabled]), input:not([disabled]), [tabindex]:not([tabindex='-1'])";
