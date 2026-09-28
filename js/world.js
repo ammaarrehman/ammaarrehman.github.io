@@ -373,7 +373,12 @@
   // crates stacked by the depot and on the dock
   [[56, 60], [56, 59], [52, 60], [DOCKX - 1, dockY]].forEach(function (c2) { if (walkable0(c2[0], c2[1])) { props.push({ kind: "crates", tx: c2[0], ty: c2[1] }); solid[k(c2[0], c2[1])] = 1; } });
   function walkable(x, y) { var t = at(x, y); return (land(t) || t === DOCK) && !solid[k(x, y)]; }
-  function solidPx(px, py) { return !walkable(Math.floor(px / T), Math.floor(py / T)); }
+  // feet stop at painted water too: the ground's edges wander off the tiles, so a walkable tile can
+  // hold a few pixels of river (the ground painter's GK, below; bridges and the dock are always dry)
+  function solidPx(px, py) {
+    var tx = Math.floor(px / T), ty = Math.floor(py / T), tt = at(tx, ty);
+    return !walkable(tx, ty) || (GK && tt !== BRIDGE && tt !== DOCK && kAt(Math.floor(px), Math.floor(py)) === KW);
+  }
 
   /* ════════ sprites (drawn once into little canvases) ════════ */
   function sprite(w, h, fn) { var c = mkCanvas(); c.width = w; c.height = h; var g = c.getContext("2d"); fn(function (x, y, w, h, col) { g.fillStyle = col; g.fillRect(x, y, w, h); }, g); return c; }
@@ -806,6 +811,11 @@
       (FOAM[ti] = FOAM[ti] || []).push(px, py, Math.sign(WD[i + 1] - WD[i - 1]), Math.sign(WD[i + PW] - WD[i - PW]));
     }
     WD = null;                                                   // 4 MB we don't need any more
+    // a walkable tile painted as water where it matters, in the middle, is water: route round it
+    for (var ty = 0; ty < MH; ty++) for (var tx = 0; tx < MW; tx++) {
+      var tt = map[ty][tx];
+      if (tt !== BRIDGE && tt !== DOCK && walkable(tx, ty) && GK[(ty * T + 8) * PW + tx * T + 8] === KW) solid[k(tx, ty)] = 1;
+    }
   })();
 
   /* ════════ actors ════════ */
@@ -4253,7 +4263,9 @@
     getState: function () { return { open: open, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
-    props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); }
+    props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
+    tile: function (x, y) { return { type: at(x, y), walkable: walkable(x, y) }; },                  // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
+    kind: function (px, py) { return ["", "grass", "dirt", "sand", "water"][kAt(Math.floor(px), Math.floor(py))]; }
   };
   /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
      carries on by itself */
