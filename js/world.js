@@ -4374,7 +4374,7 @@
     if (b.getAttribute("data-a") === "tour") startTour();
   });
   // what a deep link can name: a landmark, or the section it holds
-  var DEEP = { rack: "rack", homelab: "rack", dns: "rack", desk: "desk", triage: "desk", uplink: "uplink", aws: "uplink", terraform: "uplink", tower: "tower", monitoring: "tower",
+  var ROUTES = { rack: "rack", homelab: "rack", dns: "rack", desk: "desk", triage: "desk", uplink: "uplink", aws: "uplink", terraform: "uplink", tower: "tower", monitoring: "tower",
                lighthouse: "lighthouse", experience: "lighthouse", macbook: "macbook", site: "macbook", tablet: "tablet", education: "tablet", mailbox: "mailbox", contact: "mailbox" };
   window.addEventListener("hashchange", function () { if (!open && location.hash.indexOf("#island") === 0) enter(); });
   var lastFocus = null;
@@ -4407,7 +4407,7 @@
       else if (!ruler && !rift && Object.keys(found).length === TOTAL) later(first ? 3 : 1.2, function () { if (!rift && dlg.hidden) askRift(); });
       startLoop();
       cv.focus({ preventScroll: true });
-      var deep = (location.hash.match(/^#island\/([a-z-]+)/) || [])[1], lmk = deep && DEEP[deep];
+      var deep = (location.hash.match(/^#island\/([a-z-]+)/) || [])[1], lmk = deep && ROUTES[deep];
       showCard(!deep && TOUCH); irisOpen();
       if (deep === "tour") later(0.2, startTour);
       else if (lmk) { egg = null; later(0.2, function () { visitLandmark(lmk); }); }
