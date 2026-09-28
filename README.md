@@ -189,7 +189,10 @@ until hovered.
 - Run locally: `python3 -m http.server 8000` in the repo, then open http://localhost:8000.
 - `js/head.js` holds the site switches. `CODE_HOST` is where the project repos live: `null` hides
   every repo link and the "code is on ..." sentences; `{ name: "GitLab", base: "https://gitlab.com/ammaarrehman" }`
-  brings them back, rewritten from the github.com paths in the markup (GitLab's tree paths get their `/-/`).
+  brings them back, built from the repo paths in the markup (GitLab's tree paths get their `/-/`). The markup
+  holds only those paths (`data-repo`, no `href`), and the repo-only bits (`data-gh="hide"`) stay hidden until
+  `head.js` marks the page `.code-host`, so with JavaScript off nothing links to a repo either.
+  `node tools/codelinks.mjs` checks all three cases (js off, no host, a GitLab host).
 - Scripts and the stylesheet carry `?v=YYYYMMDD` in `index.html` (and the island's own paths in
   `js/site.js` and `js/world.js`). Bump it everywhere together whenever a script or the CSS
   changes, so returning visitors get the new files.

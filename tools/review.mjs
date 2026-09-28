@@ -104,7 +104,7 @@ try {
       islandVisible: document.querySelector('#world').classList.contains('show'),
       mainVisible: getComputedStyle(document.querySelector('h1')).visibility,
       overflow: document.documentElement.scrollWidth - innerWidth,
-      repoLinksVisible: [...document.querySelectorAll('a[href*="github.com/ammaarrehman"]')].filter(e => e.getClientRects().length > 0).length
+      repoLinksVisible: [...document.querySelectorAll('a[href*="github.com/ammaarrehman"], a[data-repo][href]')].filter(e => e.getClientRects().length > 0).length
     })) });
     await page.screenshot({ path: out + scenario + '.png' }); await context.close();
   }

@@ -168,7 +168,7 @@
               <section class="t-box t-in" data-d="1.44s" aria-label="homelab">
                 <h2 class="t-box-title">Homelab</h2>
                 <dl>
-                  <div><dt>DNS</dt><dd><a href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener noreferrer">HA pair, keepalived VIP ↗</a> <span class="t-ok">live</span></dd></div>
+                  <div><dt>DNS</dt><dd><a data-repo="homelab/tree/main/ha-dns">HA pair, keepalived VIP ↗</a> <span class="t-ok">live</span></dd></div>
                   <div><dt>OBS</dt><dd>Prometheus · Grafana · Uptime Kuma</dd></div>
                 </dl>
               </section>
@@ -181,7 +181,7 @@
           <p class="t-line t-cmds t-in" data-d="1.75s">
             <span class="t-prompt">ammaar@portfolio ~ %</span>
             <a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener noreferrer">open resume.pdf</a>
-            <a data-gh="hide" href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer">github</a>
+            <a data-gh="hide" data-repo="">github</a>
             <a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener noreferrer">linkedin</a>
             <a href="mailto:ammaarrehmanf@gmail.com">mail</a>
             <span class="cursor" aria-hidden="true"></span>
@@ -233,7 +233,7 @@
               with failover tested in both directions. In <b>trading-lab</b> I wrote
               the pass/fail rules for seven trading strategies before touching any
               data, and rejected every one before a dollar moved.<span data-host-only hidden> The code is
-              <a data-gh="hide" href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer"><b>public</b></a>, this site included.</span>
+              <a data-gh="hide" data-repo=""><b>public</b></a>, this site included.</span>
             </p>
             <dl class="tree">
               <div><dt>certs</dt><dd>AWS Cloud Practitioner (CLF-C02) · CompTIA Tech+</dd></div>
@@ -333,7 +333,7 @@
               <h3 class="work-title">High-availability DNS</h3>
               <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. keepalived moves the floating IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes.</p>
               <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
-              <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/homelab/tree/main/ha-dns" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
+              <div class="work-links"><a data-gh="hide" data-repo="homelab/tree/main/ha-dns">repo ↗</a></div>
             </div>
           </article>
 
@@ -345,7 +345,7 @@
               <h3 class="work-title">trading-lab</h3>
               <p class="work-desc">Do popular trading strategies actually have an edge? Seven experiments: stock mean reversion, a crypto trend filter, Kalshi 15-minute markets, dual momentum, copying Congress, a holiday effect, and a Kalshi model search. Pass/fail rules committed to git before any data, backtests built to catch their own bugs, each run once. All seven rejected, $0 lost.</p>
               <div class="work-stack"><span>Python</span><span>pre-registration</span><span>backtesting</span><span>CI self-tests</span></div>
-              <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/trading-lab" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
+              <div class="work-links"><a data-gh="hide" data-repo="trading-lab">repo ↗</a></div>
             </div>
           </article>
 
@@ -357,7 +357,7 @@
               <h3 class="work-title">Claude intake triage assistant</h3>
               <p class="work-desc">Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.</p>
               <div class="work-stack"><span>Claude API</span><span>Apps Script</span><span>Google Sheets</span><span>Python evals</span></div>
-              <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/claude-intake-triage" target="_blank" rel="noopener noreferrer">repo ↗</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener noreferrer">demo ↗</a></div>
+              <div class="work-links"><a data-gh="hide" data-repo="claude-intake-triage">repo ↗</a><a href="https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5" target="_blank" rel="noopener noreferrer">demo ↗</a></div>
             </div>
           </article>
 
@@ -369,7 +369,7 @@
               <h3 class="work-title">AWS static site with Terraform</h3>
               <p class="work-desc">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.</p>
               <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>OAC</span></div>
-              <div class="work-links"><a data-gh="hide" href="https://github.com/ammaarrehman/homelab/tree/main/terraform-aws-static-site" target="_blank" rel="noopener noreferrer">repo ↗</a></div>
+              <div class="work-links"><a data-gh="hide" data-repo="homelab/tree/main/terraform-aws-static-site">repo ↗</a></div>
             </div>
           </article>
 
@@ -377,31 +377,31 @@
 
         <p class="stack-cmd rack-head" aria-hidden="true"><span class="t-prompt">ammaar@portfolio ~ %</span> ls -la ~/projects/more</p>
         <div class="rack">
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/dns-filtering" target="_blank" rel="noopener noreferrer">
+          <a class="rack-row" data-repo="homelab/tree/main/dns-filtering">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">dns-filtering/</span>
             <span class="rack-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/monitoring-stack" target="_blank" rel="noopener noreferrer">
+          <a class="rack-row" data-repo="homelab/tree/main/monitoring-stack">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">monitoring-stack/</span>
             <span class="rack-desc">Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/uptime-monitoring" target="_blank" rel="noopener noreferrer">
+          <a class="rack-row" data-repo="homelab/tree/main/uptime-monitoring">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">uptime-monitoring/</span>
             <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for the homelab's services.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/homelab/tree/main/remote-access" target="_blank" rel="noopener noreferrer">
+          <a class="rack-row" data-repo="homelab/tree/main/remote-access">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">remote-access/</span>
             <span class="rack-desc">Tailscale mesh VPN (WireGuard underneath) for SSH and admin access from anywhere, with no router ports opened.</span>
             <span class="status status-live">LIVE</span>
           </a>
-          <a class="rack-row" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener noreferrer">
+          <a class="rack-row" data-repo="ammaarrehman.github.io">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">ammaarrehman.github.io/</span>
             <span class="rack-desc">This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas.</span>
@@ -475,7 +475,7 @@
         </p>
         <dl class="tree contact-rows">
           <div><dt>linkedin</dt><dd><a href="https://www.linkedin.com/in/ammaarrehman/" target="_blank" rel="noopener noreferrer">linkedin.com/in/ammaarrehman</a></dd></div>
-          <div data-gh="hide"><dt>github</dt><dd><a href="https://github.com/ammaarrehman" target="_blank" rel="noopener noreferrer">github.com/ammaarrehman</a></dd></div>
+          <div data-gh="hide"><dt>github</dt><dd><a data-repo="">github.com/ammaarrehman</a></dd></div>
           <div><dt>phone</dt><dd><a href="tel:3017685445">(301)&nbsp;768&#8209;5445</a></dd></div>
           <div><dt>resume</dt><dd><a href="assets/resume/Ammaar_Rehman_Resume.pdf" target="_blank" rel="noopener noreferrer">Ammaar_Rehman_Resume.pdf ↗</a></dd></div>
         </dl>
@@ -490,7 +490,7 @@
     <div class="container footer-inner">
       <span><b>AMMAAR REHMAN</b> © 2026 · Ellicott City, MD · updated Sep 2026</span>
       <button class="reboot-btn" type="button">↻ reboot</button>
-      <span>HTML / CSS / JS / Python<span data-host-only hidden> · <a data-gh="hide" href="https://github.com/ammaarrehman/ammaarrehman.github.io" target="_blank" rel="noopener noreferrer">source on <span data-host-name>GitLab</span></a></span> · pi lives on the island</span>
+      <span>HTML / CSS / JS / Python<span data-host-only hidden> · <a data-gh="hide" data-repo="ammaarrehman.github.io">source on <span data-host-name>GitLab</span></a></span> · pi lives on the island</span>
     </div>
   </footer>
 

@@ -4,15 +4,15 @@
    everything here is progressive: with js off the page renders as-is. */
 (function () {
   var root = document.documentElement;
-  // repo links follow SITE.CODE_HOST (js/head.js). the markup names github.com paths; with a host set
-  // they're rewritten to it (GitLab's tree paths carry a /-/), and the "on <host>" sentences show.
-  // with none: the repo buttons go (css hides [data-gh=hide]) and any other repo link stays as plain text
+  // repo links follow SITE.CODE_HOST (js/head.js). the markup names repo paths in data-repo and has no
+  // href, so with no host (or no js) they're plain text and the repo buttons stay hidden (css hides
+  // [data-gh=hide] until head.js marks .code-host). with a host they become links to it (GitLab's
+  // tree paths carry a /-/), and the "on <host>" sentences show
   var HOST = window.SITE && window.SITE.CODE_HOST;
-  Array.prototype.forEach.call(document.querySelectorAll('a[href*="github.com/ammaarrehman"]'), function (a) {
-    if (HOST) a.href = window.SITE.hostUrl(a.getAttribute("href"));
-    else if (!a.hasAttribute("data-gh")) { a.removeAttribute("href"); a.removeAttribute("target"); a.removeAttribute("rel"); a.classList.add("gh-off"); }
-  });
   if (HOST) {
+    Array.prototype.forEach.call(document.querySelectorAll("a[data-repo]"), function (a) {
+      a.href = window.SITE.hostUrl(a.getAttribute("data-repo")); a.target = "_blank"; a.rel = "noopener noreferrer";
+    });
     Array.prototype.forEach.call(document.querySelectorAll("[data-host-only]"), function (e) { e.hidden = false; });
     Array.prototype.forEach.call(document.querySelectorAll("[data-host-name]"), function (e) { e.textContent = HOST.name; });
   }
