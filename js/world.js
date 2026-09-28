@@ -682,7 +682,7 @@
     if (curveD(CG.river, fx, fy) + n * 0.5 < 0 && (t0 === RIVER || t0 === GRASS || t0 === SAND)) return KW;
     if (t0 !== RIVER && !isSea(t0) && (curveD(CG.road, fx, fy) + n * 0.5 < 0 || Math.hypot(fx - PLAZA.x, fy - PLAZA.y) - PLAZA.r + n * 0.5 < 0 || field(fx, fy, isPad) + n > 0.5)) return KD;
     var cv = coast(fx, fy) + n * 0.03;                            // the shore follows the island's own smooth outline
-    return cv > 1 ? KW : cv > 0.925 || isSea(t0) ? KS : KG;
+    return cv > 1.012 ? KW : cv > 0.925 || isSea(t0) ? KS : KG;   // the waterline sits a little out to sea: never wading on dry tiles
   }
   // colours as 32-bit pixels (little-endian RGBA), for writing straight into the buffer
   var C32 = {};
@@ -967,6 +967,19 @@
     BUILDINGS.forEach(function (bd) { castShadow(Math.round((bd.x0 + bd.w / 2) * T + 10), (bd.y0 + bd.h) * T + 2, bd.w * 9, 6, 0.32); });
   })();
   groundMs = performance.now() - groundMs;
+  /* the surf: every sea pixel on the waterline, with the way out to sea, kept per tile. the foam
+     rides in and out along it with the tide (still under reduced motion) */
+  var FOAM = new Array(MW * MH);
+  (function () {
+    for (var py = 1; py < PH - 1; py++) for (var px = 1; px < PW - 1; px++) {
+      var i = py * PW + px;
+      var tl = map[py >> 4][px >> 4];
+      if (WD[i] !== 3 || tl === RIVER || tl === BRIDGE || tl === POND || hash(px, py * 3) > 0.6 || curveD(CG.river, (px + 0.5) / T, (py + 0.5) / T) < 0.8 || pondF((px + 0.5) / T, (py + 0.5) / T) < 1.3) continue;
+      var ti = (py >> 4) * MW + (px >> 4);
+      (FOAM[ti] = FOAM[ti] || []).push(px, py, Math.sign(WD[i + 1] - WD[i - 1]), Math.sign(WD[i + PW] - WD[i - PW]));
+    }
+    WD = null;                                                   // 4 MB we don't need any more
+  })();
 
   /* ════════ actors ════════ */
   // middle path: the kaiju mascot Ammaar and his friends drew, in ascii for the terminal
@@ -3968,25 +3981,27 @@
     // water: glints and foam that breathe with the tide
     var x0 = Math.max(0, Math.floor(camX / T)), y0 = Math.max(0, Math.floor(camY / T)), x1 = Math.min(MW - 1, Math.ceil((camX + VW) / T)), y1 = Math.min(MH - 1, Math.ceil((camY + VH) / T));
     for (var ty = y0; ty <= y1; ty++) for (var tx = x0; tx <= x1; tx++) {
-      var tt = map[ty][tx];
-      if (!wet(tt) || REAL === "chaos") continue;
+      var tt = map[ty][tx], fm = FOAM[ty * MW + tx];
+      if (REAL === "chaos") continue;
+      if (fm) {                                              // the surf breathes in and out along the waterline
+        ctx.fillStyle = "rgba(226,246,238,.75)";
+        for (var s = 0; s < fm.length; s += 4) {
+          var tide = REDUCED ? 1 : Math.sin(t * 1.6 + fm[s] * 0.03 + fm[s + 1] * 0.02) * 1.5 + 1.5;
+          ctx.fillRect(fm[s] + Math.round(fm[s + 2] * tide), fm[s + 1] + Math.round(fm[s + 3] * tide), 2, 1);
+        }
+      }
+      if (!wet(tt)) continue;
       if (tt === POND && pondF(tx + 0.5, ty + 0.5) > 0.9) continue;
-      var ph = hash(tx, ty), cyc = Math.floor(t * 0.9 + ph * 7);
-      if (hash(tx * 3 + cyc, ty) < 0.16) { ctx.fillStyle = tt === DEEP ? "rgba(255,255,255,.18)" : "rgba(255,255,255,.35)"; ctx.fillRect(tx * T + ((hash(cyc, tx) * 11) | 0), ty * T + ((hash(ty, cyc) * 14) | 0), 4, 1); }
+      var ph = hash(tx, ty), cyc = REDUCED ? 0 : Math.floor(t * 0.9 + ph * 7);    // glints, only ever on water
+      if (hash(tx * 3 + cyc, ty) < 0.16) {
+        var gx0 = tx * T + ((hash(cyc, tx) * 11) | 0), gy0 = ty * T + ((hash(ty, cyc) * 14) | 0);
+        if (kAt(gx0, gy0) === KW && kAt(gx0 + 3, gy0) === KW) { ctx.fillStyle = tt === DEEP ? "rgba(255,248,226,.18)" : "rgba(255,248,226,.35)"; ctx.fillRect(gx0, gy0, 4, 1); }
+      }
       if (tt === RIVER) {                                    // the current: light streaks sliding downstream
         for (var q2 = 0; q2 < 2; q2++) {
-          var fl = ((t * 14 + hash(tx, ty * 3 + q2) * 40) % 20) - 2;
-          ctx.fillStyle = "rgba(220,245,255,.35)"; ctx.fillRect(tx * T + 12 - fl * 0.6 + q2 * 3, ty * T + fl * 0.8, 3, 1);
+          var fl = REDUCED ? 8 : ((t * 14 + hash(tx, ty * 3 + q2) * 40) % 20) - 2, sx2 = Math.round(tx * T + 12 - fl * 0.6 + q2 * 3), sy2 = Math.round(ty * T + fl * 0.8);
+          if (kAt(sx2, sy2) === KW && kAt(sx2 + 2, sy2) === KW) { ctx.fillStyle = "rgba(226,246,238,.35)"; ctx.fillRect(sx2, sy2, 3, 1); }
         }
-        continue;
-      }
-      if (tt !== POND) {
-        var tide = Math.sin(t * 1.6 + tx * 0.5 + ty * 0.3) * 1.5 + 1.5;
-        ctx.fillStyle = "rgba(240,250,255,.7)";
-        if (land(at(tx, ty - 1)) || at(tx, ty - 1) === DOCK) for (var s = 0; s < T; s += 3) if (hash(tx * 16 + s, ty) < 0.7) ctx.fillRect(tx * T + s, ty * T + (tide | 0), 2, 1);
-        if (land(at(tx, ty + 1))) for (s = 0; s < T; s += 3) if (hash(tx * 16 + s, ty + 3) < 0.7) ctx.fillRect(tx * T + s, ty * T + T - 1 - (tide | 0), 2, 1);
-        if (land(at(tx - 1, ty))) for (s = 0; s < T; s += 3) if (hash(tx, ty * 16 + s) < 0.7) ctx.fillRect(tx * T + (tide | 0), ty * T + s, 1, 2);
-        if (land(at(tx + 1, ty))) for (s = 0; s < T; s += 3) if (hash(tx + 5, ty * 16 + s) < 0.7) ctx.fillRect(tx * T + T - 1 - (tide | 0), ty * T + s, 1, 2);
       }
     }
 
