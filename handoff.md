@@ -20,7 +20,11 @@ Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, th
   - **GitHub is the source of truth.** gitlab.com/ammaarrehman is an automatic weekly mirror (Sundays
     10:00, launchd, `~/gitlab-mirror`). Never push to GitLab and never add GitLab remotes; the mirror
     overwrites GitLab. New GitHub repos are copied to GitLab as private projects on their own. (This
-    overrides handoff 3 C3's `git remote add gitlab`.)
+    overrides handoff 3 C3's `git remote add gitlab`.) One exception so far: on 2026-09-29 Ammaar fast-forwarded
+    `trading-lab` and `claude-intake-triage` on GitLab by hand (no force, no remote) so they could go public
+    before the Sunday mirror. Don't repeat it without his OK.
+  - **Public on GitLab since 2026-09-29:** `trading-lab` and `claude-intake-triage`. The mirror now publishes every
+    GitHub commit on those two the next Sunday, unscanned: treat them as public repos. `homelab` and this repo stay private.
   - Ammaar's GitHub account is **flagged** (his repos 404 to the public). That's why repo links are off.
 - **Commits:** one commit per item, each message ending with:
 
@@ -70,11 +74,11 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | 4 | Island personal details | Keep the cats, cockatiels, koi pond, Middle Path drawing and timezone. The car is "Ammaar's car" (done). |
 | 5 | Raptors | Feathered Utahraptors (done). |
 | 6 | Email | Keep ammaarrehmanf@gmail.com. hello@ammaarrehman.com comes later; handoff 3 Part L is on hold. |
-| 7 | Code host | GitLab, username `ammaarrehman`. Repos are mirrored there already (private). |
+| 7 | Code host | GitLab, username `ammaarrehman`. Repos are mirrored there. `trading-lab` and `claude-intake-triage` are public (2026-09-29); the rest stay private. |
 | 8 | The Climb ending | Variant A. |
 | 9 | Reserve name | **Mossgate Reserve** (not Cinderfern). |
 | 10 | Kaiju | Option A (done): his grey, pi's rounded head and eyes, soft back bumps, tail lines that glow at night. |
-| - | Copy batch P-1 to P-14 | Approved 2026-09-27. Applied: P-1 to P-7, P-10, P-12. P-8 and P-9 show once `CODE_HOST` is set. P-11 waits. P-13, P-14 unchanged. P-15 (trading-lab: nine experiments, "each judged on a single run") approved and applied 2026-09-28; the served résumé (`f672ca8`) says nine too. P-13 and P-16 (no course names or count), P-17 (House of Delegates removed) and P-18 ("guaranteed transfer admission" removed) follow his 2026-09-29 résumé (`3e31d13`), whose contact links are all clickable. |
+| - | Copy batch P-1 to P-14 | Approved 2026-09-27. Applied: P-1 to P-7, P-10, P-12. P-8 and P-9 shipped 2026-09-29 as P-19 and P-20 (only two repos are public). P-11 waits. P-13, P-14 unchanged. P-15 (trading-lab: nine experiments, "each judged on a single run") approved and applied 2026-09-28; the served résumé (`f672ca8`) says nine too. P-13 and P-16 (no course names or count), P-17 (House of Delegates removed) and P-18 ("guaranteed transfer admission" removed) follow his 2026-09-29 résumé (`3e31d13`), whose contact links are all clickable. |
 | - | TLS | Done 2026-09-28 (R3): Minimum TLS Version is TLS 1.2, with TLS 1.3 still on. Ammaar verified TLS 1.0 and 1.1 fail, 1.2 connects, and the SSL Labs recheck passed as expected. Before that, 1.0 and 1.1 were still accepted and SSL Labs gave B. |
 | - | Web Analytics | Done 2026-09-28 (R6): Cloudflare's automatic injection is off. Ammaar verified the live page has no `cloudflareinsights`, DevTools shows no CSP errors, and Lighthouse passed as expected. The CSP was never widened; keep it that way. |
 
@@ -118,13 +122,13 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - **Deploy:**
   - `node tools/deploy.mjs --dry-run` builds `.deploy/` from the allowlist and checks it. `node tools/deploy.mjs` builds, checks, deploys with wrangler (already logged in via `npx wrangler login`) and smoke-tests the live site. `node tools/deploy.mjs --check` runs only the live checks.
   - If the live checks fail with `ENOTFOUND`, this Mac's DNS cache is stale; check with `dig ammaarrehman.com @1.1.1.1`, or use `curl --resolve ammaarrehman.com:443:104.21.52.117`.
-- **Cache version:** every script and CSS reference carries `?v=`. It's currently `20261016`. Bump it everywhere together (`index.html`, `js/site.js`, `js/world.js`) whenever a script, the CSS or a baked image changes. Nine places in `index.html`.
+- **Cache version:** every script and CSS reference carries `?v=`. It's currently `20261017`. Bump it everywhere together (`index.html`, `js/site.js`, `js/world.js`) whenever a script, the CSS or a baked image changes. Nine places in `index.html`.
 - **Audit and tests** (in `tools/`; run `npm install` and `npx playwright install` once):
   - `node audit.mjs` covers A2, A3, A6, A7 and A9 across Chromium, WebKit and Firefox, five sizes, axe, keyboard, reduced motion and links. Add `--only=a3,a9` or `--offline` to narrow it.
   - `node lighthouse.mjs`: add `--local`, or `--resolve=104.21.52.117` when the DNS cache is stale.
   - `npm run html` (html-validate) and `npm run spell` (cspell; add real words to `tools/cspell.json`).
   - `node doors.mjs` (every door, worst frame under 16 ms), `node orbs.mjs` (main-page orbs stay sharp) and `node shots.mjs <tag> name=x,y ...` (island screenshots at named places, in tiles, into `tools/out/shots/`).
-  - `node focus.mjs` (island keyboard focus, R2) and `node codelinks.mjs` (repo links with js off, no host and a GitLab host, R4).
+  - `node focus.mjs` (island keyboard focus, R2) and `node codelinks.mjs` (repo links with js off, the host off, the shipped per-repo switches and every switch on; R4, Phase 7).
   - Exit codes: `audit.mjs` and `orbs.mjs` exit 1 on a failure and 2 when nothing failed but something couldn't run (a browser that won't launch). A 2 is not a pass. `audit.mjs --engines=chromium,webkit` leaves Firefox out on purpose (reported as skipped).
   - `node atlas.mjs` bakes the man-made sprites (`tools/props-src.js`) into `img/atlas/props.png`; `tools/.venv/bin/python envart.py` bakes the environment atlas. Both rewrite their frame table line in `js/world.js` (`var PROPS`, `var ENV`).
 - **Environment quirks:**
@@ -189,6 +193,12 @@ The code findings in `docs/audit-2026-09-28.md` are fixed and committed; its "Fi
 - **Deployed** 2026-09-28 by Ammaar with `node tools/deploy.mjs`: Cloudflare version `a31ba8b4-4ef8-448f-8317-a39dadbe2078`, `ammaarrehman.com` live, `--check` passed (deploy log in `docs/hosting.md`).
 - Mac results: `focus.mjs` and `orbs.mjs` pass in Chromium and WebKit. `audit.mjs` gave 79 passed, 0 failed, 2 blocked (Firefox inside the Claude app, LinkedIn's 999). The Firefox audit from Ammaar's Terminal works, and LinkedIn works by hand.
 
+### Phase 7 publication, 2026-09-29
+
+- `trading-lab` and `claude-intake-triage` are public on GitLab, after Ammaar's manual fast-forward sync and a clean GitLab re-scan. `homelab` and this repo stay private.
+- The site links only those two (per-repo switches in `js/head.js`), `github` labels are `gitlab`, copy P-19 and P-20, cache `20261017`. Checked in the cloud session: `codelinks.mjs`, html-validate, cspell, `deploy.mjs --dry-run`, `audit.mjs --engines=chromium` (0 failed; LinkedIn and Loom unreachable from there) and `focus.mjs` in Chromium. Not deployed yet.
+- Deferred, optional: the diagrams (K) and the screenshot retakes (`docs/screenshots.md`). Waiting: the GitLab profile (section 8, item 6).
+
 ### Codex audit checkpoint, 2026-09-28
 
 User requested a full audit first, then phase-by-phase next steps with progress updates, and approved installing gitleaks. They then requested a handoff to Claude. Read `docs/audit-2026-09-28.md` first. It records completed checks, fresh visual critique, new bugs and explicit limits. No production code/copy/art changed or deployed in this checkpoint. Added supplemental read-only audit collectors and Phase 7 proposal/checklist docs. Gitleaks 8.30.1 installed, but full-history scans did NOT execute: the approval service hit an account usage limit. Scan script is prepared, not validated by a completed scan. No repository cleared for publication. See `docs/phase-7-proposals.md` and `docs/screenshots.md`.
@@ -244,7 +254,8 @@ The following historical implementation entries describe previously committed/pu
 2. HSTS: confirm after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
 3. The homelab audit, which settles P-11.
 4. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
-5. GitLab: make each mirrored project public after the secrets scan (Phase 7). Check the weekly mirror doesn't reset visibility.
+5. GitLab: `trading-lab` and `claude-intake-triage` are public (2026-09-29). After the 2026-10-04 mirror, check both are still public (`curl -s -o /dev/null -w '%{http_code}' https://gitlab.com/api/v4/projects/ammaarrehman%2Ftrading-lab`, 200 while public). `homelab` and this repo stay private.
+6. The GitLab profile project `ammaarrehman/ammaarrehman` has been public since 2026-09-25 and was never in Ammaar's scan. Scan it (`node tools/history-review.mjs --repos=ammaarrehman --from=gitlab --no-mirror`), and decide on its commit email and its README (it still says GitHub). Then the profile switch (`"": true` in `js/head.js`) can go on, showing the hero `gitlab` link and the contact row, and GitLab can be added to `sameAs` and `rel="me"`.
 
 ## 9. Next steps, in order
 
@@ -253,14 +264,11 @@ Follow handoff 3's build order. Where it stands:
 1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Deployed, and checked on the Mac in Chromium and WebKit. R3 (minimum TLS 1.2) and R6 (Web Analytics injection off) are set and verified. Phase 6's audit items are complete; still open elsewhere: HSTS on or after 2026-10-04 (section 8), the homelab audit (P-11), the dead-file list, and the island art pass (step 2).
 2. **Art conversion:** terrain/asset implementation landed, visual quality NOT accepted. See section 8 and the new audit. Propose a coherent slice; do not mark the whole island finished. Buildings/landmarks, bridges and helipad remain candidates. The pi and "future" reality tower sprites are still built at runtime.
 3. **Phase 7 (portfolio upgrades):**
-   - Current checkpoint: gitleaks installed; `tools/history-review.mjs` prepared, scan not run due approval-service usage limit. Retry with normal approval once available. Do not bypass the failed approval. Four diagram proposals and screenshot checklist are written; diagrams still require Ammaar's OK.
-   - **C2 pre-flight** on every repo the site links to:
-     - `gitleaks detect` on the full history (install it with Homebrew; ask first).
-     - Grep for private IP ranges, hostnames and MACs.
-     - Report every hit, masked. Don't rewrite history.
-   - Before `CODE_HOST` goes on, two visible labels still say "github": the hero's `github` command link and the contact list's `github` row (`github.com/ammaarrehman`). With a GitLab host they'd link to GitLab under the wrong name. Give them `data-host-name` or new wording (UI text, not a claim), and extend `tools/codelinks.mjs` to check it.
-   - Then Ammaar flips the GitLab projects public and you set `CODE_HOST` to `{ name: "GitLab", base: "https://gitlab.com/ammaarrehman" }` in `js/head.js`. Verify every GitLab link returns 200 (`node audit.mjs --only=a9`).
-   - Add GitLab to the JSON-LD `sameAs` and a `rel="me"` link.
+   - **Publication, done 2026-09-29** (details in `AUDIT.md`, "Phase 7 publication"):
+     - Scans: `tools/history-review.mjs` on every repo, GitHub and GitLab copies, masked, triaged with Ammaar. The site repo (a GPS-tagged photo and unredacted screenshots in its history) and `homelab` stay private.
+     - `trading-lab` and `claude-intake-triage`: publication-prep commits, a manual fast-forward to GitLab, a clean GitLab re-scan, then made public by Ammaar.
+     - Site: `CODE_HOST` is GitLab, with per-repo switches (`SITE.REPOS` in `js/head.js`). Only those two link out; every other repo path is plain text and its buttons hidden. The `github` labels are now `gitlab`. Copy P-19 and P-20. `tools/codelinks.mjs` checks it all; both GitLab links return 200 (`node audit.mjs --only=a9`).
+   - **Waiting:** the profile switch, `sameAs` and `rel="me"` (section 8, item 6). To publish another repo later: scan it, have Ammaar flip it public, then set its switch to `true`.
    - **K (project diagrams):**
      - Inventory the cards; there are 4 featured, not 9.
      - Propose each diagram's nodes and arrows from approved copy only, and get Ammaar's OK before drawing SVGs in the site's style.

@@ -786,7 +786,7 @@ dl.tree dt::before { color:var(--accent); opacity:.7; }
 .lost .lost-red { color:var(--red); }
 .lost .lost-hot { color:#E879F9; }
 
-/* github links switched off (js/head.js): hide the repo buttons, and links left as plain text read as text */
-html:not(.code-host) [data-gh="hide"] { display:none !important; }
+/* repo links not switched on (js/head.js): hide the repo buttons, and links left as plain text read as text */
+[data-gh="hide"] { display:none !important; }
 a[data-repo]:not([href]) { cursor:default; text-decoration:none; }
-html:not(.code-host) .work-links:not(:has(a:not([data-gh="hide"]))) { display:none; }
+.work-links:not(:has(a:not([data-gh="hide"]))) { display:none; }

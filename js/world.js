@@ -415,7 +415,7 @@
     Object.keys(PROPS).forEach(function (n) { var e = PROPS[n]; SPR[n].getContext("2d").drawImage(PROPS_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); });
     if (skinCache) { skinCache.forEach(function (e) { Object.keys(e).forEach(function (k2) { freeCanvas(e[k2]); }); }); skinCache.clear(); }   // nothing reskinned from the empty canvases
   };
-  PROPS_IMG.src = "img/atlas/props.png?v=20261016";
+  PROPS_IMG.src = "img/atlas/props.png?v=20261017";
 
   /* ════════ ground, drawn once (handoff 3, D1) ════════
      pixel by pixel, into one buffer. every pixel is grass, dirt, sand or water, decided from a
@@ -1298,9 +1298,10 @@
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
     logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
-    var host = window.SITE && window.SITE.CODE_HOST;                          // repo links only once the code host is public
-    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).filter(function (l) { return host || l[1].indexOf("github.com/") < 0; })
-      .map(function (l) { return l[1].indexOf("github.com/") < 0 ? l : [l[0].replace(/github/i, host.name), window.SITE.hostUrl(l[1])]; }));
+    var host = window.SITE && window.SITE.CODE_HOST;                          // a repo link only once that repo is public on the host
+    say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).map(function (l) {
+      return l[1].indexOf("github.com/") < 0 ? l : host && window.SITE.hostUrl(l[1]) ? [l[0].replace(/github/i, host.name), window.SITE.hostUrl(l[1])] : null;
+    }).filter(Boolean));
   }
   /* ════════ secrets ════════
      every easter egg on the island is in this one table. finding one pops a toast, rings a
@@ -1547,10 +1548,10 @@
       c.getContext("2d").drawImage(ENV_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); SPR["e:" + n] = c;
     });
   };
-  ENV_IMG.src = "img/atlas/env.png?v=20261016";
+  ENV_IMG.src = "img/atlas/env.png?v=20261017";
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261016";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261017";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;

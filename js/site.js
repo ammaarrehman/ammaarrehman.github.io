@@ -4,16 +4,20 @@
    everything here is progressive: with js off the page renders as-is. */
 (function () {
   var root = document.documentElement;
-  // repo links follow SITE.CODE_HOST (js/head.js). the markup names repo paths in data-repo and has no
-  // href, so with no host (or no js) they're plain text and the repo buttons stay hidden (css hides
-  // [data-gh=hide] until head.js marks .code-host). with a host they become links to it (GitLab's
-  // tree paths carry a /-/), and the "on <host>" sentences show
+  // repo links follow SITE.CODE_HOST and SITE.REPOS (js/head.js). the markup names repo paths in
+  // data-repo and has no href, so with no js they're plain text and the repo buttons stay hidden (css
+  // hides [data-gh=hide]). a repo that's public on the host becomes a link to it (GitLab's tree paths
+  // carry a /-/) and its button shows; an "on <host>" sentence shows once every repo it links is public
   var HOST = window.SITE && window.SITE.CODE_HOST;
   if (HOST) {
     Array.prototype.forEach.call(document.querySelectorAll("a[data-repo]"), function (a) {
-      a.href = window.SITE.hostUrl(a.getAttribute("data-repo")); a.target = "_blank"; a.rel = "noopener noreferrer";
+      var url = window.SITE.hostUrl(a.getAttribute("data-repo")); if (!url) return;
+      a.href = url; a.target = "_blank"; a.rel = "noopener noreferrer";
+      var gate = a.closest("[data-gh]"); if (gate) gate.setAttribute("data-gh", "show");
     });
-    Array.prototype.forEach.call(document.querySelectorAll("[data-host-only]"), function (e) { e.hidden = false; });
+    Array.prototype.forEach.call(document.querySelectorAll("[data-host-only]"), function (e) {
+      if (!e.querySelector("a[data-repo]:not([href])")) e.hidden = false;
+    });
     Array.prototype.forEach.call(document.querySelectorAll("[data-host-name]"), function (e) { e.textContent = HOST.name; });
   }
   // staggered entrances: the delay rides in data-d and becomes --d here
@@ -161,8 +165,8 @@
       if (island) return;
       island = 1;
       var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
-      script("js/audio.js?v=20261016", function () {
-        script("js/world.js?v=20261016", function () {
+      script("js/audio.js?v=20261017", function () {
+        script("js/world.js?v=20261017", function () {
           island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
           if (go && window.islandEnter) window.islandEnter();
         }, failed);
