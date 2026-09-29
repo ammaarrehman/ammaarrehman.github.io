@@ -74,7 +74,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | 8 | The Climb ending | Variant A. |
 | 9 | Reserve name | **Mossgate Reserve** (not Cinderfern). |
 | 10 | Kaiju | Option A (done): his grey, pi's rounded head and eyes, soft back bumps, tail lines that glow at night. |
-| - | Copy batch P-1 to P-14 | Approved 2026-09-27. Applied: P-1 to P-7, P-10, P-12. P-8 and P-9 show once `CODE_HOST` is set. P-11 waits. P-13, P-14 unchanged. P-15 (trading-lab: nine experiments, "each judged on a single run") approved and applied 2026-09-28; Ammaar's updated résumé says nine too. The PDF the site serves is still the older export (seven) until he replaces it. |
+| - | Copy batch P-1 to P-14 | Approved 2026-09-27. Applied: P-1 to P-7, P-10, P-12. P-8 and P-9 show once `CODE_HOST` is set. P-11 waits. P-13, P-14 unchanged. P-15 (trading-lab: nine experiments, "each judged on a single run") approved and applied 2026-09-28; the served résumé (`f672ca8`) says nine too. P-13 and P-16 (no course names or count), P-17 (House of Delegates removed) and P-18 ("guaranteed transfer admission" removed) follow his 2026-09-29 résumé (`3e31d13`), whose contact links are all clickable. |
 | - | TLS | Done 2026-09-28 (R3): Minimum TLS Version is TLS 1.2, with TLS 1.3 still on. Ammaar verified TLS 1.0 and 1.1 fail, 1.2 connects, and the SSL Labs recheck passed as expected. Before that, 1.0 and 1.1 were still accepted and SSL Labs gave B. |
 | - | Web Analytics | Done 2026-09-28 (R6): Cloudflare's automatic injection is off. Ammaar verified the live page has no `cloudflareinsights`, DevTools shows no CSP errors, and Lighthouse passed as expected. The CSP was never widened; keep it that way. |
 
