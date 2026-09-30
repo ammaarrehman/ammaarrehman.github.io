@@ -93,6 +93,11 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - `node tools/audit.mjs` (local server): 79 passed, 0 failed, 2 blocked. The two blocked were Firefox (its profile can't be created inside the Claude app) and LinkedIn (999 to scripts). Both were then checked another way: the Firefox audit run from Ammaar's own Terminal works, and the LinkedIn link works when opened by hand.
 - `tools/focus.mjs` and `tools/orbs.mjs` pass in Chromium and WebKit.
 
+**2026-09-29, the Phase 7 publication** (version `41e97ef1-1b2b-4a55-b5ce-c3bace2f7489`, cache `20261017`, commit `f18918c`). Ammaar fast-forwarded the Phase 7 bundle onto the Mac, pushed `f18918c` to GitHub `main`, ran the Mac checks, then deployed that state with `node tools/deploy.mjs`. It ships the per-repo GitLab switches (only `trading-lab` and `claude-intake-triage` link out) and the 2026-09-29 copy and résumé updates (commits `637f2e1` to `f18918c`). Checked:
+
+- The live `index.html` carries `v=20261017`, the live `js/head.js` has the same switches as `f18918c`, and no page has a static `gitlab.com` link.
+- `node tools/audit.mjs` on the Mac (Ammaar's final run): 36 passed, 0 failed, 1 blocked. The blocked check was Firefox ("Could not find profile folder").
+
 ### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).

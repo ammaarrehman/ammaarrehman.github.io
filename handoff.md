@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy (`git log` for the exact state).
 
 ---
 
@@ -35,6 +35,8 @@ Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, th
   Never force-push. Push after each batch.
 
 ## 2. The plan documents (read them)
+
+**Missing as of 2026-09-30:** the three `~/Downloads` files below are no longer on this Mac (not in `~/Downloads` or anywhere else on disk). What survives is their summary in this file (sections 3, 4 and 9), `docs/game-design.md` and `AUDIT.md`. Handoff 2's C4 bug list existed only there, so Phase 8's bug hunt needs that list from Ammaar (or a fresh hunt). Don't recreate the files from memory.
 
 | File | What |
 |---|---|
@@ -196,7 +198,8 @@ The code findings in `docs/audit-2026-09-28.md` are fixed and committed; its "Fi
 ### Phase 7 publication, 2026-09-29
 
 - `trading-lab` and `claude-intake-triage` are public on GitLab, after Ammaar's manual fast-forward sync and a clean GitLab re-scan. `homelab` and this repo stay private.
-- The site links only those two (per-repo switches in `js/head.js`), `github` labels are `gitlab`, copy P-19 and P-20, cache `20261017`. Checked in the cloud session: `codelinks.mjs`, html-validate, cspell, `deploy.mjs --dry-run`, `audit.mjs --engines=chromium` (0 failed; LinkedIn and Loom unreachable from there) and `focus.mjs` in Chromium. Not deployed yet.
+- The site links only those two (per-repo switches in `js/head.js`), `github` labels are `gitlab`, copy P-19 and P-20, cache `20261017`. Checked in the cloud session: `codelinks.mjs`, html-validate, cspell, `deploy.mjs --dry-run`, `audit.mjs --engines=chromium` (0 failed; LinkedIn and Loom unreachable from there) and `focus.mjs` in Chromium.
+- **Deployed** 2026-09-29 by Ammaar: he pushed `f18918c` to GitHub `main`, ran the Mac checks, then ran `node tools/deploy.mjs` on that state. Cloudflare version `41e97ef1-1b2b-4a55-b5ce-c3bace2f7489`, cache `20261017` (deploy log in `docs/hosting.md`). Ammaar's final Mac audit: `audit.mjs` 36 passed, 0 failed, 1 blocked (Firefox, "Could not find profile folder").
 - Deferred, optional: the diagrams (K) and the screenshot retakes (`docs/screenshots.md`). Waiting: the GitLab profile (section 8, item 6).
 
 ### Codex audit checkpoint, 2026-09-28
@@ -264,7 +267,7 @@ Follow handoff 3's build order. Where it stands:
 1. **Phase 6:** original copy batch approved/applied; fresh audit complete; its code findings (R1, R2, R4, R5, R7, R8) are fixed (section 7). Deployed, and checked on the Mac in Chromium and WebKit. R3 (minimum TLS 1.2) and R6 (Web Analytics injection off) are set and verified. Phase 6's audit items are complete; still open elsewhere: HSTS on or after 2026-10-04 (section 8), the homelab audit (P-11), the dead-file list, and the island art pass (step 2).
 2. **Art conversion:** terrain/asset implementation landed, visual quality NOT accepted. See section 8 and the new audit. Propose a coherent slice; do not mark the whole island finished. Buildings/landmarks, bridges and helipad remain candidates. The pi and "future" reality tower sprites are still built at runtime.
 3. **Phase 7 (portfolio upgrades):**
-   - **Publication, done 2026-09-29** (details in `AUDIT.md`, "Phase 7 publication"):
+   - **Publication, done and deployed 2026-09-29** (Cloudflare version `41e97ef1`, commit `f18918c`; details in `AUDIT.md`, "Phase 7 publication"):
      - Scans: `tools/history-review.mjs` on every repo, GitHub and GitLab copies, masked, triaged with Ammaar. The site repo (a GPS-tagged photo and unredacted screenshots in its history) and `homelab` stay private.
      - `trading-lab` and `claude-intake-triage`: publication-prep commits, a manual fast-forward to GitLab, a clean GitLab re-scan, then made public by Ammaar.
      - Site: `CODE_HOST` is GitLab, with per-repo switches (`SITE.REPOS` in `js/head.js`). Only those two link out; every other repo path is plain text and its buttons hidden. The `github` labels are now `gitlab`. Copy P-19 and P-20. `tools/codelinks.mjs` checks it all; both GitLab links return 200 (`node audit.mjs --only=a9`).

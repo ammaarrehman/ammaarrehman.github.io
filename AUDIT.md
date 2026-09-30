@@ -92,6 +92,7 @@ Source of truth: the résumé PDF on the site (`assets/resume/Ammaar_Rehman_Resu
 - **Visibility vs. the mirror:** a push can't change a project's visibility, and the mirror script calls no visibility API. Confirm both are still public after the 2026-10-04 run.
 - **Also public, not scanned by Ammaar:** `ammaarrehman/ammaarrehman`, the GitLab profile README project, public since it was created on 2026-09-25. A read-only masked scan from the cloud session (gitleaks not installed there) found only false positives in its files (a decorative prompt and a badge's logo name), plus the author's personal email in its commit metadata. The site doesn't link the profile yet (its switch is off), so `sameAs` and `rel="me"` wait too.
 - **Site:** per-repo switches (`SITE.REPOS` in `js/head.js`) with the GitLab host on; only trading-lab and claude-intake-triage link out. The `github` labels are now `gitlab` (hidden while the profile switch is off). Copy P-19 and P-20. Test: `tools/codelinks.mjs`.
+- **Deployed 2026-09-29:** GitHub `main` at `f18918c`, deployed by Ammaar with `node tools/deploy.mjs` as Cloudflare version `41e97ef1-1b2b-4a55-b5ce-c3bace2f7489`, cache `20261017`. Ammaar's final Mac audit (`audit.mjs`): 36 passed, 0 failed, 1 blocked (Firefox, "Could not find profile folder"). Deploy log in `docs/hosting.md`.
 
 ## Proposed copy changes
 
