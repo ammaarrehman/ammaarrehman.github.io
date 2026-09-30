@@ -168,8 +168,8 @@
               <section class="t-box t-in" data-d="1.44s" aria-label="homelab">
                 <h2 class="t-box-title">Homelab</h2>
                 <dl>
-                  <div><dt>DNS</dt><dd><a data-repo="homelab/tree/main/ha-dns">HA pair, keepalived VIP ↗</a> <span class="t-ok">live</span></dd></div>
-                  <div><dt>OBS</dt><dd>Prometheus · Grafana · Uptime Kuma</dd></div>
+                  <div><dt>DNS</dt><dd><a data-repo="homelab/tree/main/ha-dns">v1 HA pair, retired ↗</a> <span class="t-warn">rebuilding</span></dd></div>
+                  <div><dt>V2</dt><dd>one Pi 5, built with Ansible</dd></div>
                 </dl>
               </section>
 
@@ -228,9 +228,10 @@
               documentation.
             </p>
             <p>
-              Outside work I build and test things in the open. Two Raspberry Pi 5
-              nodes run <b>high-availability DNS</b> behind a keepalived floating IP,
-              with failover tested in both directions. In <b>trading-lab</b> I wrote
+              Outside work I build and test things in the open. My first homelab ran
+              <b>high-availability DNS</b> on two Raspberry Pi 5 nodes behind a keepalived
+              floating IP, with failover tested in both directions. I'm now rebuilding it
+              as one Pi, set up from Git with Ansible. In <b>trading-lab</b> I wrote
               the pass/fail rules for nine trading experiments before touching any
               data, and rejected every one before a dollar moved.<span data-host-only hidden> The code is
               <a data-gh="hide" data-repo="trading-lab"><b>public</b></a>.</span>
@@ -328,10 +329,10 @@
             <div class="win-bar" aria-hidden="true"><span class="term-dots"><i></i><i></i><i></i></span><span>homelab/ha-dns</span></div>
             <img class="work-img" src="assets/work/ha-dns.webp" srcset="assets/work/ha-dns-600.webp 600w, assets/work/ha-dns.webp 982w" sizes="(max-width: 820px) calc(100vw - 48px), 470px" width="982" height="792" loading="lazy" decoding="async" alt="A dig query to the homelab DNS returning six answers for google.com, with the server address and the laptop name redacted" />
             <div class="work-body">
-              <div class="work-meta"><span class="status status-live">LIVE</span><span class="work-type">homelab / networking</span></div>
+              <div class="work-meta"><span class="status status-shipped">RETIRED</span><span class="work-type">homelab / networking</span></div>
               <h3 class="work-title">High-availability DNS</h3>
-              <p class="work-desc">Two Raspberry Pi 5 nodes running AdGuard Home + Unbound behind a keepalived VRRP floating IP. keepalived moves the floating IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes.</p>
-              <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Unbound</span><span>Docker</span></div>
+              <p class="work-desc">Version one of my homelab, retired September 2026. Two Raspberry Pi 5 nodes ran AdGuard Home to filter DNS for my own devices, behind a keepalived VRRP floating IP. keepalived moved the IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes. Version two, a single Pi built with Ansible, is in progress.</p>
+              <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Docker</span></div>
               <div class="work-links"><a data-gh="hide" data-repo="homelab/tree/main/ha-dns">repo ↗</a></div>
             </div>
           </article>
@@ -379,26 +380,26 @@
           <a class="rack-row" data-repo="homelab/tree/main/dns-filtering">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">dns-filtering/</span>
-            <span class="rack-desc">AdGuard Home in front of an Unbound recursive resolver with DNSSEC validation. Where the homelab started.</span>
-            <span class="status status-live">LIVE</span>
+            <span class="rack-desc">AdGuard Home on a Raspberry Pi, filtering DNS for my own devices. Where the homelab started.</span>
+            <span class="status status-shipped">V1</span>
           </a>
           <a class="rack-row" data-repo="homelab/tree/main/monitoring-stack">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">monitoring-stack/</span>
-            <span class="rack-desc">Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose.</span>
-            <span class="status status-live">LIVE</span>
+            <span class="rack-desc">Prometheus scraped host and container metrics and Grafana charted them, in Docker Compose.</span>
+            <span class="status status-shipped">V1</span>
           </a>
           <a class="rack-row" data-repo="homelab/tree/main/uptime-monitoring">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">uptime-monitoring/</span>
-            <span class="rack-desc">Uptime Kuma in Docker, tracking availability and response health for the homelab's services.</span>
-            <span class="status status-live">LIVE</span>
+            <span class="rack-desc">Uptime Kuma in Docker tracked availability and response health for the homelab's services.</span>
+            <span class="status status-shipped">V1</span>
           </a>
           <a class="rack-row" data-repo="homelab/tree/main/remote-access">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
             <span class="rack-title">remote-access/</span>
-            <span class="rack-desc">Tailscale mesh VPN (WireGuard underneath) for SSH and admin access from anywhere, with no router ports opened.</span>
-            <span class="status status-live">LIVE</span>
+            <span class="rack-desc">A Tailscale mesh VPN (WireGuard underneath) gave SSH and admin access from anywhere, with no router ports opened.</span>
+            <span class="status status-shipped">V1</span>
           </a>
           <a class="rack-row" data-repo="ammaarrehman.github.io">
             <span class="rack-perm" aria-hidden="true">drwxr-xr-x</span>
