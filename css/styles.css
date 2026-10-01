@@ -682,6 +682,8 @@ dl.tree dt::before { color:var(--accent); opacity:.7; }
 .work-desc { font-family:var(--sans); font-size:14px; line-height:1.6; color:var(--t2); margin-bottom:14px; flex:1; }
 /* diagrams (Phase 7 K): a wide layout, and a stacked one when the card is narrow */
 .work-diagram { container-type:inline-size; margin-bottom:14px; }
+.work-body:has(.work-diagram) .work-desc { flex:none; }        /* the diagram sits right under the text; spare height goes above the tags */
+.work-body:has(.work-diagram) .work-stack { margin-top:auto; }
 .work-diagram .dg { display:block; width:100%; height:auto; }
 .work-diagram .dg-wide { max-width:440px; }
 .work-diagram .dg-narrow { display:none; max-width:300px; }

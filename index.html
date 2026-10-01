@@ -563,6 +563,68 @@
               <div class="work-meta"><span class="status status-shipped">SHIPPED</span><span class="work-type">cloud / IaC</span></div>
               <h3 class="work-title">AWS static site with Terraform</h3>
               <p class="work-desc">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.</p>
+              <div class="work-diagram">
+                <svg class="dg dg-wide" viewBox="0 0 400 164" role="img" aria-labelledby="dg-tf-w-t" aria-describedby="dg-tf-w-d">
+                  <title id="dg-tf-w-t">AWS static site with Terraform: architecture</title>
+                  <desc id="dg-tf-w-d">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.</desc>
+                  <defs><marker id="dg-tf-w-a" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="dg-tip" d="M0,0 L8,4 L0,8 z" /></marker></defs>
+                  <rect class="dg-box" x="324.5" y="0.5" width="75" height="34" rx="4" />
+                  <text x="362" y="22" text-anchor="middle">Terraform</text>
+                  <text class="dg-note" x="316" y="22" text-anchor="end">provisioned with Terraform</text>
+                  <path class="dg-line dg-dash" d="M362,35 V54" />
+                  <path class="dg-line dg-dash" d="M145.5,54 H362" />
+                  <path class="dg-line dg-dash" d="M145.5,54 V74" marker-end="url(#dg-tf-w-a)" />
+                  <path class="dg-line dg-dash" d="M254.5,54 V77" marker-end="url(#dg-tf-w-a)" />
+                  <path class="dg-line dg-dash" d="M362,54 V74" marker-end="url(#dg-tf-w-a)" />
+                  <rect class="dg-box" x="0.5" y="76" width="60" height="40" rx="4" />
+                  <text x="30.5" y="100" text-anchor="middle">visitor</text>
+                  <rect class="dg-box" x="104.5" y="76" width="82" height="40" rx="4" />
+                  <text x="145.5" y="100" text-anchor="middle">CloudFront</text>
+                  <rect class="dg-box" x="206.5" y="79" width="96" height="34" rx="17" />
+                  <text class="dg-note" x="254.5" y="93" text-anchor="middle">Origin Access</text>
+                  <text class="dg-note" x="254.5" y="106" text-anchor="middle">Control (OAC)</text>
+                  <rect class="dg-box" x="324.5" y="76" width="75" height="40" rx="4" />
+                  <text x="362" y="92" text-anchor="middle">private</text>
+                  <text x="362" y="107" text-anchor="middle">S3 bucket</text>
+                  <path class="dg-line" d="M61,96 H102" marker-end="url(#dg-tf-w-a)" />
+                  <text class="dg-note" x="82.5" y="89" text-anchor="middle">HTTPS</text>
+                  <path class="dg-line" d="M187,96 H206" />
+                  <path class="dg-line" d="M303,96 H322" marker-end="url(#dg-tf-w-a)" />
+                  <text class="dg-note" x="254.5" y="129" text-anchor="middle">access via OAC</text>
+                  <path class="dg-rule" d="M0,142.5 H400" />
+                  <text class="dg-note" x="0" y="159">deploy and teardown scripted and documented</text>
+                </svg>
+                <svg class="dg dg-narrow" viewBox="0 0 240 316" role="img" aria-labelledby="dg-tf-n-t" aria-describedby="dg-tf-n-d">
+                  <title id="dg-tf-n-t">AWS static site with Terraform: architecture</title>
+                  <desc id="dg-tf-n-d">A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.</desc>
+                  <defs><marker id="dg-tf-n-a" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="dg-tip" d="M0,0 L8,4 L0,8 z" /></marker></defs>
+                  <rect class="dg-box" x="143.5" y="0.5" width="96" height="34" rx="4" />
+                  <text x="191.5" y="22" text-anchor="middle">Terraform</text>
+                  <text class="dg-note" x="136" y="14" text-anchor="end">provisioned with</text>
+                  <text class="dg-note" x="136" y="29" text-anchor="end">Terraform</text>
+                  <path class="dg-line dg-dash" d="M228,35 V245" />
+                  <path class="dg-line dg-dash" d="M228,125 H153" marker-end="url(#dg-tf-n-a)" />
+                  <path class="dg-line dg-dash" d="M228,180 H143" marker-end="url(#dg-tf-n-a)" />
+                  <path class="dg-line dg-dash" d="M228,245 H153" marker-end="url(#dg-tf-n-a)" />
+                  <rect class="dg-box" x="0.5" y="50" width="150" height="30" rx="4" />
+                  <text x="75.5" y="70" text-anchor="middle">visitor</text>
+                  <path class="dg-line" d="M75.5,80 V108" marker-end="url(#dg-tf-n-a)" />
+                  <text class="dg-note" x="84" y="98">HTTPS</text>
+                  <rect class="dg-box" x="0.5" y="110" width="150" height="30" rx="4" />
+                  <text x="75.5" y="130" text-anchor="middle">CloudFront</text>
+                  <path class="dg-line" d="M75.5,140 V160" />
+                  <rect class="dg-box" x="10.5" y="160" width="130" height="40" rx="20" />
+                  <text class="dg-note" x="75.5" y="176" text-anchor="middle">Origin Access</text>
+                  <text class="dg-note" x="75.5" y="191" text-anchor="middle">Control (OAC)</text>
+                  <path class="dg-line" d="M75.5,200 V228" marker-end="url(#dg-tf-n-a)" />
+                  <text class="dg-note" x="84" y="218">access via OAC</text>
+                  <rect class="dg-box" x="0.5" y="230" width="150" height="30" rx="4" />
+                  <text x="75.5" y="250" text-anchor="middle">private S3 bucket</text>
+                  <path class="dg-rule" d="M0,276.5 H240" />
+                  <text class="dg-note" x="0" y="294">deploy and teardown</text>
+                  <text class="dg-note" x="0" y="309">scripted and documented</text>
+                </svg>
+              </div>
               <div class="work-stack"><span>Terraform</span><span>S3</span><span>CloudFront</span><span>OAC</span></div>
               <div class="work-links"><a data-gh="hide" data-repo="homelab/tree/main/terraform-aws-static-site">repo ↗</a></div>
             </div>
