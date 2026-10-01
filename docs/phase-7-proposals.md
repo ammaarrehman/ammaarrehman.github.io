@@ -2,7 +2,7 @@
 
 Proposals only. Ammaar must approve nodes/arrows before SVG implementation. Four featured cards, not nine. No private addresses, hostnames, infrastructure IDs or invented metrics.
 
-**Update 2026-10-01:** approved with changes and built (Phase 7 K, committed, not deployed yet). The final approved nodes, arrows and labels are in `handoff.md`, section 7. The table below is the original proposal.
+**Update 2026-10-01:** approved with changes, built and deployed on 2026-10-01 (Phase 7 K; Cloudflare version `bd2ad2cc-b2ed-49c1-a00c-9315d331ab27`, cache `20261020`). The final approved nodes, arrows and labels are in `handoff.md`, section 7. The table below is the original proposal.
 
 | Project | Proposed nodes and arrows | Guardrails |
 |---|---|---|
