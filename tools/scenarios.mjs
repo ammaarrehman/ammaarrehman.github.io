@@ -13,6 +13,10 @@
      every prop and the painted ground match tools/fixtures/map-baseline.json (made from the code
      before the layers by map-baseline.mjs); the layers have the map's size, heights 0 to 5, only
      known flags, flags that agree with the tiles, and come out the same on every load and seed;
+   - pi's paths (C4-1): every neighbour step whose aim spots pi's feet can't walk between (42 on
+     today's map) is routed round instead of stopping short; the reported 27,27 to 27,28 tap arrives; routes
+     from the village to every landmark, door and goto place finish; the no-progress failsafe never
+     fires on them; keyboard movement matches tools/fixtures/keyboard-trace.json (recorded before);
    - fireEvent() starts the flyover, the roar and a quake;
    - without ?debug=1 there is no __island.
 
@@ -30,6 +34,7 @@ import { createHash } from "node:crypto";
 import { mapDigest, finish } from "./mapdigest.mjs";
 
 const BASELINE = JSON.parse(readFileSync(new URL("./fixtures/map-baseline.json", import.meta.url), "utf8"));
+const KEYTRACE = JSON.parse(readFileSync(new URL("./fixtures/keyboard-trace.json", import.meta.url), "utf8"));
 
 const arg = (n) => (process.argv.find((a) => a.startsWith(`--${n}=`)) || "").split("=")[1];
 const ENGINES = (arg("engines") || "chromium,firefox,webkit").split(",");
@@ -196,6 +201,60 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   check(name, "layers identical across loads and seeds (1, 1, 2)", lh[0] === lh[1] && lh[1] === lh[2]);
   const counts = { solid: 0, shallow: 0, deep: 0 }; L.collision.forEach((c) => { for (const f of Object.keys(counts)) if (c & F[f]) counts[f]++; });
   console.log(`     ${name.padEnd(8)} layers: heights ${[0, 1, 2, 3, 4, 5].map((h) => L.height.filter((v) => v === h).length).join("/")}, flags ${JSON.stringify(counts)}`);
+
+  // pi's paths (C4-1)
+  const pp = await get("seed=4");
+  // the transitions pi's feet can't make: found from the pixels with move()'s own checks, not a list
+  const BADSTEPS = await run(pp.page, () => {
+    const I = window.__island, L = I.layers(), W = 100, T = 16, F = L.flags, BL = F.solid | F.shallow | F.deep | F.lava;
+    const walk = (x, y) => x >= 0 && y >= 0 && x < W && y < 80 && !(L.collision[y * W + x] & BL), B = (px, py) => I.blocked(px, py);
+    const seen = new Uint8Array(W * 80), q = [[46, 60]]; seen[60 * W + 46] = 1;
+    while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + dx, ny = y + dy; if (walk(nx, ny) && !seen[ny * W + nx]) { seen[ny * W + nx] = 1; q.push([nx, ny]); } } }
+    function seg(ax, ay, bx, by) { let x = ax * T + 8, y = ay * T + 10; const gx = bx * T + 8, gy = by * T + 10;
+      for (let s = 0; s < 120; s++) { const dx0 = gx - x, dy0 = gy - y, d = Math.hypot(dx0, dy0); if (d < 1.5) return true; const vx = dx0 / d * 58 / 60, vy = dy0 / d * 58 / 60;
+        if (vx && !B(x + vx + (vx > 0 ? 4 : -4), y - 2) && !B(x + vx + (vx > 0 ? 4 : -4), y + 1)) x += vx;
+        if (vy && !B(x - 4, y + vy + (vy > 0 ? 1 : -2)) && !B(x + 4, y + vy + (vy > 0 ? 1 : -2))) y += vy; } return false; }
+    const bad = [];
+    for (let y = 0; y < 80; y++) for (let x = 0; x < W; x++) { if (!walk(x, y) || !seen[y * W + x]) continue;
+      for (const [dx, dy] of [[1, 0], [0, 1]]) { const nx = x + dx, ny = y + dy; if (!walk(nx, ny)) continue; if (!seg(x, y, nx, ny)) bad.push([x, y, nx, ny]); if (!seg(nx, ny, x, y)) bad.push([nx, ny, x, y]); } }
+    return bad;
+  });
+  check(name, `the map still has its ${BADSTEPS.length} steps pi's feet can't make (42 when found)`, BADSTEPS.length === 42, String(BADSTEPS.length));
+  // walk somewhere the way a tap does; finished = path done, no failsafe, pi near the goal
+  const tapWalk = (from, to, loose) => run(pp.page, ([f, g, l]) => {
+    const I = window.__island; I.teleport(f[0] * 16 + 8, f[1] * 16 + 10); I.step(2);
+    const s0 = I.getState().pi.stalls, len = I.walkTo(g[0], g[1], l);
+    let n = 0; while (I.getState().pi.path && n < 3000) { I.step(10); n += 10; }
+    const s = I.getState(), tx = Math.floor(s.pi.x / 16), ty = Math.floor(s.pi.y / 16);
+    return { len, steps: n, done: !s.pi.path, stalled: s.pi.stalls - s0, at: [tx, ty], off: Math.max(Math.abs(tx - g[0]), Math.abs(ty - g[1])) };
+  }, [from, to, !!loose]);
+  const stepsBad = [];
+  for (const [ax, ay, bx, by] of BADSTEPS) { const r = await tapWalk([ax, ay], [bx, by]); if (!r.done || r.stalled || r.off > 1) stepsBad.push(`${ax},${ay}>${bx},${by} ${JSON.stringify(r)}`); }
+  check(name, "all 42 of them now finish (routed round, no failsafe, pi at or next to the tile)", !stepsBad.length, stepsBad.slice(0, 4).join(" | "));
+  const GOALS = { lighthouse: [89, 38], pond: [69, 45], shrine: [21, 22], "brachio meadow": [18, 36], "west bank": [20, 47], sign: [44, 58], uplink: [25, 64], tower: [58, 22], macbook: [66, 54], tablet: [52, 51], mailbox: [54, 64], cave: [41, 21], visitor: [41, 60], bunker: [21, 60], depot: [54, 60], helipad: [59, 62], gate: [48, 35], plaza: [46, 60], car: [37, 61], paddock: [41, 51], raptors: [64, 40], volcano: [48, 25], outpost: [26, 61], clearing: [48, 43] };
+  // the mailbox's approach tile has no walkable neighbours, so the nearest anyone gets is 2 tiles (as before)
+  const routeBad = [], NEAREST = { mailbox: 2 };
+  for (const [g, t] of Object.entries(GOALS)) { const r = await tapWalk([46, 60], t, true); if (r.len === null || !r.done || r.stalled || r.off > (NEAREST[g] || 1)) routeBad.push(`${g} ${JSON.stringify(r)}`); }
+  check(name, `routes from the village to ${Object.keys(GOALS).length} landmarks, doors, goto places and the river banks finish`, !routeBad.length, routeBad.slice(0, 4).join(" | "));
+  // the reported case with a real tap on the canvas (live loop; 1280 x 800 draws at 4x, the camera centred on pi)
+  await run(pp.page, () => { window.__island.teleport(27 * 16 + 8, 27 * 16 + 10); window.__island.play(); });
+  await pp.page.waitForTimeout(2500); await pp.page.mouse.click(5, 400); await pp.page.waitForTimeout(300);
+  await run(pp.page, () => window.__island.teleport(27 * 16 + 8, 27 * 16 + 10)); await pp.page.waitForTimeout(1500);
+  const before = await run(pp.page, () => window.__island.getState());
+  await pp.page.mouse.click(640 + (27 * 16 + 8 - before.pi.x) * 4, 400 + (28 * 16 + 8 - before.pi.y) * 4); await pp.page.waitForTimeout(3000);
+  const tapped = await run(pp.page, () => { const I = window.__island, s = I.getState(); s.clear = [[-4, -2], [4, -2], [-4, 1], [4, 1]].every(([dx, dy]) => !I.blocked(s.pi.x + dx, s.pi.y + dy)); return s; });
+  check(name, "a real tap from 27,27 to 27,28 finishes (it used to stop short and give up)", tapped.pi.path === 0 && tapped.pi.stalls === before.pi.stalls && tapped.clear, `path ${tapped.pi.path}, at ${tapped.pi.x.toFixed(1)},${tapped.pi.y.toFixed(1)}, stalls ${tapped.pi.stalls - before.pi.stalls}`);
+  // keyboard movement is untouched: the same keys from the same spots end in the same places as before
+  const kb = await get("seed=4");
+  await run(kb.page, () => window.__island.step(30)); await kb.page.focus(".w-cv");
+  const trace = [];
+  for (const [sx, sy] of KEYTRACE.starts) {
+    await run(kb.page, ([x, y]) => { window.__island.teleport(x * 16 + 8, y * 16 + 10); window.__island.step(5); }, [sx, sy]);
+    for (const [k, n] of KEYTRACE.seq) { await kb.page.keyboard.down(k); await run(kb.page, (m) => window.__island.step(m), n); await kb.page.keyboard.up(k); await run(kb.page, () => window.__island.step(20));
+      trace.push(await run(kb.page, () => { const s = window.__island.getState(); return [+s.pi.x.toFixed(3), +s.pi.y.toFixed(3)]; })); }
+  }
+  const kbDiff = trace.map((t, i) => (same(t, KEYTRACE.engines[name][i]) ? null : `#${i} ${t} vs ${KEYTRACE.engines[name][i]}`)).filter(Boolean);
+  check(name, `keyboard movement unchanged: ${trace.length} positions match the ${KEYTRACE.rev} trace`, !kbDiff.length, kbDiff.slice(0, 3).join("; "));
 
   // visitors: no test API
   const plain = await browser.newPage();

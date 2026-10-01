@@ -181,6 +181,15 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Phase 8 C4-1, pi's paths, 2026-09-30
+
+- Bug (found in the C4 hunt): on 14 river-bank and pond-edge tiles the spot the path follower aims for sits too close to painted water for pi's feet. A tapped route crossing one stopped short and gave up (the old zero-movement guard dropped it), so the landmark's card never opened. Routes from the village to the lighthouse, the koi pond, the shrine and across the river all crossed one; 42 tile-to-tile steps in all.
+- Fix (navigation only; `GROUND`, `HEIGHT`, `COLL`, `walkable()`, `move()` and the `bbadcae` parity fixture are unchanged): pi's planner (`piPath`, `bfs(..., feet)`) only steps between tiles when `move()` can walk pi from one aim spot to the next, at walking and running speed (`canStep`, cached per tile and direction); the first step is tried from where pi stands. Bots plan as before. A 0.5 s no-progress failsafe ends a path that stops getting closer; it and the old zero-movement guard both count into `pi.stalls`.
+- **Static collision assumed:** the `canStep` cache (`STEPOK`) assumes the collision geometry never changes after the island is built. A later phase that changes walkability at runtime (gates, a mended bridge, moving obstacles) must clear `STEPOK` or redesign it.
+- Tests (`scenarios.mjs`, Chromium and WebKit): the 42 steps (found from the pixels, not a list) all finish; routes from the village to 24 landmarks, doors, `goto` places and river banks finish with no give-ups; the reported 27,27 to 27,28 tap finishes; keyboard movement matches `tools/fixtures/keyboard-trace.json`, recorded from `a0d015b` before the fix. With the feet check switched off, all three path checks fail.
+- The planner leaves out exactly those 14 tiles and nothing else (no landmark, door or place lost). The mailbox's approach tile has no walkable neighbour, so a tap there ends 2 tiles away, as before.
+- Not deployed.
+
 ### Phase 8 foundation deployed, 2026-09-30
 
 - C5, D11-A and D11-B are live (no intended visual or UI behavior changes): Cloudflare version `591b3f45-9e51-49f9-81a3-61b36634cc3b`, cache `20261018` (`6c44762`), GitHub `main` at `6c44762`, deployed by Ammaar with `node tools/deploy.mjs` (deploy log in `docs/hosting.md`).
@@ -309,7 +318,7 @@ Follow handoff 3's build order. Where it stands:
    - **L6 email:** on hold (decision 6).
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
-   - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
+   - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (next: limit landings, restored positions and the hop-out spot to the area reachable from the spawn; no landing zones invented yet). Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
    - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). Phase 8 left: C4, a fresh bug hunt with the C5 scenario tools (decided 2026-09-30; handoff 2's list is lost and isn't recreated from memory). C4's cave transition (handoff 3 B2) waits for the Phase 12 tunnel.
 5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.
 6. **Phase 10:** the art test-area stop (already reached; see step 2).

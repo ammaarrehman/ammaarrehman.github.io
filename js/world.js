@@ -1269,14 +1269,37 @@
     if (e.pointerType === "touch" && !joy && !car.driving && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (hit) {
       var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [36, 26] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
-      pi.path = bfs([Math.floor(pi.x / T), Math.floor(pi.y / T)], goal, true); pi.want = hit;
+      pi.path = piPath(goal, true); pi.want = hit;
     } else {
-      pi.path = bfs([Math.floor(pi.x / T), Math.floor(pi.y / T)], [tx, ty], false); pi.want = null;
+      pi.path = piPath([tx, ty], false); pi.want = null;
     }
   });
 
-  // breadth-first path over walkable tiles; "loose" accepts the closest tile next to the goal
-  function bfs(a, b, loose) {
+  /* pi's paths also check pi's real feet (C4-1). a tile can be walkable while the spot the path
+     follower aims for in it (its centre, 10 px down) sits too close to painted water for pi's
+     8 px feet, so pi would stop short and give up. so pi only steps from one tile to the next
+     when move() can walk pi from one aim spot to the other, at walking and at running speed, the
+     way the follower does; the first step is tried from where pi really stands. the map and
+     walkable() don't change; each answer is worked out on first use and kept. that cache assumes
+     the collision (COLL and the painted water) never changes once the island is built: anything
+     that changes walkability at runtime (a later phase's gates, bridges, moving obstacles) must
+     clear STEPOK or replace it */
+  var STEPOK = new Uint8Array(MW * MH * 4);                          // per tile and direction: 0 not known yet, 1 yes, 2 no
+  function walkLine(x, y, gx, gy, top) {
+    var o = { x: x, y: y };
+    for (var s0 = 0; s0 < 90; s0++) { var dx = gx - o.x, dy = gy - o.y, d = Math.hypot(dx, dy); if (d < 1.5) return true; move(o, dx / d * top * STEP, dy / d * top * STEP); }
+    return false;
+  }
+  function footsCan(x, y, gx, gy) { return walkLine(x, y, gx, gy, 58) && walkLine(x, y, gx, gy, 58 * 1.6); }
+  function canStep(ax, ay, bx, by) {
+    var i = (ay * MW + ax) * 4 + (by > ay ? 0 : bx > ax ? 1 : by < ay ? 2 : 3);
+    if (!STEPOK[i]) STEPOK[i] = footsCan(ax * T + 8, ay * T + 10, bx * T + 8, by * T + 10) ? 1 : 2;
+    return STEPOK[i] === 1;
+  }
+  function piPath(goal, loose) { return bfs([Math.floor(pi.x / T), Math.floor(pi.y / T)], goal, loose, pi); }
+  // breadth-first path over walkable tiles; "loose" accepts the closest tile next to the goal.
+  // feet (pi) makes each step one pi's feet can walk (above); bots plan without it, as before
+  function bfs(a, b, loose, feet) {
     var q = [a], prev = {}, seen = {}; seen[k(a[0], a[1])] = 1;
     var best = null, bestD = 1e9;
     while (q.length) {
@@ -1285,7 +1308,7 @@
       if (d === 0 || (loose && d <= 1)) { best = c; break; }
       [[0, 1], [1, 0], [0, -1], [-1, 0]].forEach(function (n) {
         var nx = c[0] + n[0], ny = c[1] + n[1], kk = k(nx, ny);
-        if (!seen[kk] && walkable(nx, ny)) { seen[kk] = 1; prev[kk] = c; q.push([nx, ny]); }
+        if (!seen[kk] && walkable(nx, ny) && (!feet || (c === a ? footsCan(feet.x, feet.y, nx * T + 8, ny * T + 10) : canStep(c[0], c[1], nx, ny)))) { seen[kk] = 1; prev[kk] = c; q.push([nx, ny]); }
       });
     }
     if (!best || (!loose && bestD > 3)) return null;
@@ -3627,7 +3650,12 @@
     if (!mx && !my && pi.path && pi.path.length) {
       var n = pi.path[0], gx = n[0] * T + 8, gy = n[1] * T + 10, ddx = gx - pi.x, ddy = gy - pi.y, dd = Math.hypot(ddx, ddy);
       if (dd < 1.5) { pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
-      else { mx = ddx / dd; my = ddy / dd; onPath = true; }
+      else {
+        // a failsafe, not the route planner: half a second without getting closer ends the path
+        if (pi.pathTo !== n || dd < pi.pathD - 0.25) { pi.pathTo = n; pi.pathD = dd; pi.pathT = 0; }
+        else if ((pi.pathT += dt) > 0.5) { pi.path = null; pi.want = null; pi.pathTo = null; pi.stalls = (pi.stalls || 0) + 1; }
+        if (pi.path) { mx = ddx / dd; my = ddy / dd; onPath = true; }
+      }
     }
     // ease into a walk and out of it: quick to start, quicker to stop (tapped paths steer exactly)
     if (room && roomTap && !mx && !my) {
@@ -3652,7 +3680,7 @@
       pi.dist += moved;
       if (Math.abs(pi.vx) > 6) pi.face = pi.vx > 0 ? 1 : -1;
       if (len) { pi.dir = my < -0.5 ? "up" : "down"; pi.view = Math.abs(mx) >= Math.abs(my) * 0.8 ? "side" : pi.dir; }
-      if (pi.path && moved < 0.01) pi.path = null;   // stuck: give up
+      if (pi.path && moved < 0.01) { pi.path = null; pi.stalls = (pi.stalls || 0) + 1; }   // stuck: give up (counted for the ?debug=1 tests)
       footfall(moved);
     }
     // rex wanders the meadow
@@ -4341,12 +4369,13 @@
     },
     getSave: function () { return JSON.parse(JSON.stringify(save)); },
     fireEvent: function (name) { if (!EVENTS[name]) throw new Error("fireEvent: one of " + Object.keys(EVENTS).join(", ")); EVENTS[name](); },
-    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
+    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju, path: pi.path ? pi.path.length : 0, stalls: pi.stalls || 0 }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
     props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
     tile: function (x, y) { return { type: at(x, y), walkable: walkable(x, y), height: lvl(x, y), flags: x >= 0 && y >= 0 && x < MW && y < MH ? COLL[y * MW + x] : C_DEEP }; },   // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
     blocked: function (px, py) { return solidPx(px, py); },                                          // where feet stop, in world px
+    walkTo: function (tx, ty, loose) { pi.path = piPath([tx, ty], !!loose); pi.want = null; return pi.path ? pi.path.length : null; },   // what a tap on that tile does                                          // where feet stop, in world px
     // the map layers (copies), one value per tile at y * w + x
     layers: function () {
       return { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
