@@ -181,6 +181,14 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Phase 8 D11-A, save v2, 2026-09-30
+
+- `island-save` is now version 2: every v1 field as before, plus `island` (`"home"`), `quests`, `dex`, `cosmetics` (id to boolean/number/short string), `flags`, `tools` (id to boolean) and `edgeSeen`. The shapes are my reading of the field names in `docs/game-design.md`; handoff 2's D11 text is in the missing plan files. `docs/game-design.md`, "Technical", has the rules.
+- Migration: a v1 save is rewritten as v2 on load with every valid field kept; the older per-session keys go straight to v2. Junk starts fresh, as before. New: a save from a newer version (`v > 2`) is played fresh but never written over (`saveLocked`), so a rollback or a stale tab can't destroy it. Tightened: `ruler` must be a string and `settings` keeps only `shake`, `flash` and `map` (the fields the game reads).
+- `setSave` takes v1 or v2; new `getSave()`.
+- Sizes (Chromium): a full v1 save migrated is 390 bytes; one with every planned quest, 20 dex entries and flags is about 1.2 KB; the fullest possible (every list capped at 64) is about 27 KB.
+- Not deployed. Once deployed, rolling back to v1 code would make old code treat v2 saves as unknown and start fresh, so don't roll back past this without a plan.
+
 ### Phase 8 C5, the test API, 2026-09-30
 
 - `window.__island` (`?debug=1` only) gained `step(n)`, `play()`, `setSeed(n)`, `setSave(obj)` and `fireEvent(name)` (`ptero`, `roar`, `quake`; the weather and events system is Phase 13). `getState()` also gives the island clock, found logs, creatures and running events. README, "Debug flags", has the details.
@@ -287,7 +295,7 @@ Follow handoff 3's build order. Where it stands:
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
    - C4: the bug hunt (the handoff 2 list, and handoff 3 B2's cave transition once the tunnel exists).
-   - D11: save v2 with migration, and map data layers including height.
+   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). D11-B: map data layers including height, next, as its own batch.
 5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.
 6. **Phase 10:** the art test-area stop (already reached; see step 2).
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.

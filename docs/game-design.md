@@ -154,8 +154,12 @@ drawn look apart from recoloured outlines. The cave entrance is built; its tunne
 
 ## Technical
 
-Saves: `island-save` in localStorage, v1 today; v2 adds `island`, `quests`, `dex`, `flags`, `cosmetics`,
-`tools`, `edgeSeen`, with a v1 to v2 migration test; under 50 KB. Maps become data layers (ground, height,
+Saves: `island-save` in localStorage, v2 (built 2026-09-30, Phase 8 D11-A). v2 adds `island` (the id
+of the island pi is on, `"home"`), `quests`, `dex` and `cosmetics` (maps from an id to a boolean, number
+or short string), `flags` and `tools` (maps from an id to a boolean), and `edgeSeen` (a boolean). Ids are
+lowercase with hyphens, up to 32 characters, at most 64 per map. A v1 save migrates on load with nothing
+lost (`tools/scenarios.mjs` tests it); a newer version is never written over. The fullest possible save
+is about 27 KB, under the 50 KB budget. A later phase that needs a richer value adds a v3 migration. Maps become data layers (ground, height,
 collision flags `solid`/`shallow`/`deep`/`low`/`ledge:dir`/`lava`/`climbable`, props, spawns, triggers).
 A spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

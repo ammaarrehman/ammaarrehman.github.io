@@ -199,30 +199,62 @@
   /* ════════ the save ════════
      one versioned object in localStorage: the logs found, the secrets, whether pi has evolved,
      where pi was, the comfort settings, who holds the core, whether the credits have rolled.
-     a bad parse or an unknown version starts fresh instead of breaking the island, and a browser
-     that refuses storage (a private window) just doesn't remember */
-  var SAVE_KEY = "island-save";
-  function freshSave() { return { v: 1, logs: [], secrets: [], evolved: false, lastPos: null, settings: null, ruler: null, credits: false, hatched: false, seal: false, hints: { move: false, use: false } }; }
-  var save = freshSave();
-  // a parsed save laid over a fresh one field by field, or null if it isn't a version 1 save
+     version 2 (Phase 8, D11) adds room for the later phases: which island pi is on, quests, the
+     Field Guide (dex), story flags, cosmetics, tools, and whether the Edge has been seen. a
+     version 1 save is rewritten as version 2 the first time it loads, keeping everything in it.
+     a bad parse or a broken save starts fresh instead of breaking the island; a save from a newer
+     version is left alone (play goes on with a fresh one that is never written over it); and a
+     browser that refuses storage (a private window) just doesn't remember */
+  var SAVE_KEY = "island-save", SAVE_V = 2;
+  function freshSave() {
+    return { v: SAVE_V, logs: [], secrets: [], evolved: false, lastPos: null, settings: null, ruler: null, credits: false, hatched: false, seal: false, hints: { move: false, use: false },
+             island: "home", quests: {}, dex: {}, flags: {}, cosmetics: {}, tools: {}, edgeSeen: false };
+  }
+  var save = freshSave(), saveLocked = false;
+  // the save's own checks. ids are short lowercase names; a list or map holds at most 64, which keeps
+  // the whole save well under 50 KB however it is filled
+  var SAVE_ID = /^[a-z0-9][a-z0-9-]{0,31}$/, SAVE_MAX = 64;
+  function isObj(x) { return !!x && typeof x === "object" && !Array.isArray(x); }
+  function isBool(x) { return typeof x === "boolean"; }
+  function isEntry(x) { return isBool(x) || (typeof x === "number" && isFinite(x)) || (typeof x === "string" && x.length <= 32); }
+  function idList(a) { var out = []; if (Array.isArray(a)) a.forEach(function (x) { if (typeof x === "string" && x.length <= 64 && out.indexOf(x) < 0 && out.length < SAVE_MAX) out.push(x); }); return out; }
+  function idMap(o, ok) { var out = {}, n = 0; if (isObj(o)) Object.keys(o).forEach(function (k2) { if (n < SAVE_MAX && SAVE_ID.test(k2) && ok(o[k2])) { out[k2] = o[k2]; n++; } }); return out; }
+  // a parsed save of either version, as a version 2 save; null if it is neither. version 1 fields
+  // keep what version 1 kept (only values the game can't use are dropped); the new fields start
+  // empty for a version 1 save and are checked for a version 2 one
   function mergeSave(o) {
-    if (!o || o.v !== 1 || !Array.isArray(o.logs)) return null;
+    if (!isObj(o) || (o.v !== 1 && o.v !== 2) || !Array.isArray(o.logs)) return null;
     var m = freshSave();
-    Object.keys(m).forEach(function (k2) { if (o[k2] !== undefined && o[k2] !== null && typeof o[k2] === typeof m[k2]) m[k2] = o[k2]; else if (o[k2] !== undefined && m[k2] === null) m[k2] = o[k2]; });
-    if (!Array.isArray(m.secrets)) m.secrets = [];
-    if (!Array.isArray(m.lastPos) || m.lastPos.length !== 2 || !isFinite(m.lastPos[0]) || !isFinite(m.lastPos[1])) m.lastPos = null;
+    m.logs = idList(o.logs); m.secrets = idList(o.secrets);
+    ["evolved", "credits", "hatched", "seal"].forEach(function (k2) { if (isBool(o[k2])) m[k2] = o[k2]; });
+    if (Array.isArray(o.lastPos) && o.lastPos.length === 2 && isFinite(o.lastPos[0]) && isFinite(o.lastPos[1])) m.lastPos = [+o.lastPos[0], +o.lastPos[1]];
+    if (isObj(o.settings)) {
+      m.settings = {};
+      if (typeof o.settings.shake === "number" && isFinite(o.settings.shake)) m.settings.shake = o.settings.shake;
+      if (isBool(o.settings.flash)) m.settings.flash = o.settings.flash;
+      if (isBool(o.settings.map)) m.settings.map = o.settings.map;
+    }
+    if (typeof o.ruler === "string" && o.ruler.length <= 32) m.ruler = o.ruler;
+    if (isObj(o.hints)) { m.hints.move = o.hints.move === true; m.hints.use = o.hints.use === true; }
+    if (o.v === 2) {
+      if (typeof o.island === "string" && SAVE_ID.test(o.island)) m.island = o.island;
+      m.quests = idMap(o.quests, isEntry); m.dex = idMap(o.dex, isEntry); m.cosmetics = idMap(o.cosmetics, isEntry);
+      m.flags = idMap(o.flags, isBool); m.tools = idMap(o.tools, isBool);
+      if (isBool(o.edgeSeen)) m.edgeSeen = o.edgeSeen;
+    }
     return m;
   }
   (function () {
     var o = null; try { o = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { o = null; }
     var m = mergeSave(o);
-    if (m) { save = m; return; }
+    if (m) { save = m; if (o.v !== SAVE_V) writeSave(); return; }                       // version 1: rewritten as version 2 now
+    if (isObj(o) && typeof o.v === "number" && o.v > SAVE_V) { saveLocked = true; return; }   // newer than this code: don't touch it
     try {                                                            // no save yet: bring over the older per-session keys
-      var old = JSON.parse(sessionStorage.getItem("pi-found") || "[]"); if (Array.isArray(old)) save.logs = old;
+      var old = JSON.parse(sessionStorage.getItem("pi-found") || "[]"); if (Array.isArray(old)) save.logs = idList(old);
       save.evolved = sessionStorage.getItem("pi-kaiju") === "1"; save.ruler = sessionStorage.getItem("rift-done") || null; save.hatched = sessionStorage.getItem("pi-hatched") === "1";
     } catch (e) {}
   })();
-  function writeSave() { try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
+  function writeSave() { if (saveLocked) return; try { localStorage.setItem(SAVE_KEY, JSON.stringify(save)); } catch (e) {} }
   var found = {};
   save.logs.forEach(function (k2) { if (typeof k2 === "string") found[k2] = 1; });
 
@@ -4288,15 +4320,16 @@
     },
     play: function () { manual = false; if (open) startLoop(); },
     setSeed: function (n) { frand = seeded(+n); rand = seeded(+n ^ 0x5bd1e995); },
-    // a save object, checked the way a stored one is; pi's form and the found logs follow it now.
-    // comfort settings take effect the next time the island loads
+    // a save object of either version, checked (and migrated) the way a stored one is; pi's form and
+    // the found logs follow it now. comfort settings take effect the next time the island loads
     setSave: function (o) {
-      var m = mergeSave(o); if (!m) throw new Error("setSave: not a version 1 save");
-      save = m; writeSave();
+      var m = mergeSave(o); if (!m) throw new Error("setSave: not a version 1 or 2 save");
+      save = m; saveLocked = false; writeSave();
       found = {}; save.logs.forEach(function (k2) { if (typeof k2 === "string") found[k2] = 1; });
       pi.kaiju = !!save.evolved; paintFound(); paintLandmarks();
       return JSON.parse(JSON.stringify(save));
     },
+    getSave: function () { return JSON.parse(JSON.stringify(save)); },
     fireEvent: function (name) { if (!EVENTS[name]) throw new Error("fireEvent: one of " + Object.keys(EVENTS).join(", ")); EVENTS[name](); },
     getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
