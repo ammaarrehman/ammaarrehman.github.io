@@ -113,6 +113,15 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - Manual live smoke test by Ammaar, all four passed: the lighthouse tap route from the village completes and its card opens; a normal helicopter landing works and pi gets out normally; a reload keeps progress; the helicopter refuses to land over a paddock.
 - Save v2 is still live: fix forward, don't roll back past `bbadcae`.
 
+**2026-10-01, the Phase 7 K project diagrams** (version `bd2ad2cc-b2ed-49c1-a00c-9315d331ab27`, cache `20261020`, commit `8216a65`). Deployed by Claude on the Mac with `node tools/deploy.mjs`, with Ammaar's written authorization for this release, after `8216a65` reached GitHub `main`. It ships the four project-card diagrams: HA DNS (`16ee02b`), intake triage (`d5eff6b`), trading-lab (`26ee4a5`) and Terraform static site with the shared spacing rule (`163cbd9`); `8216a65` is the cache bump. Wrangler uploaded 4 changed files: `index.html`, `css/styles.css`, `js/site.js` and `js/world.js` (the two scripts changed only their `?v=` references). Checked:
+
+- Scope: every commit since `3bfaa3a` is the K diagrams, docs or the cache bump; nothing else changed.
+- Pre-deploy on the Mac: `focus.mjs` and `codelinks.mjs` passed; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's browser launch, LinkedIn's scripted check); `deploy.mjs --dry-run` passed (52 files, 40 references checked).
+- `node tools/deploy.mjs --check` passed; the live `index.html` has 9 references to `v=20261020` and none to `v=20261019`; the live `js/site.js` and `js/world.js` have 2 and 3; the live CSS has the diagram rules.
+- Live renders (Playwright, Chromium and WebKit, 1280, 700, 375 and 360 px, light and dark): all four diagrams are present in both layouts, one layout shows at each width, and no text overflows or overlaps. Smallest text: 11.1 px on desktop, 11.9 to 12.9 px on phones.
+- The only console error live is the pre-existing `hands.js` reduced-motion `drawImage` error (Chromium and WebKit, `hands.js:63`). It is not part of this release and is not fixed (`handoff.md`, section 10).
+- No manual live check by Ammaar yet.
+
 ### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).

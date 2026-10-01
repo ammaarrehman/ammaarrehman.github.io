@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams (committed, not deployed) (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy (`git log` for the exact state).
 
 ---
 
@@ -181,7 +181,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
-### Phase 7 K, project diagrams, 2026-10-01 (committed, not deployed)
+### Phase 7 K, project diagrams, deployed 2026-10-01
 
 - Each of the four featured project cards has an SVG diagram after its description and before its tags: HA DNS (`16ee02b`), intake triage (`d5eff6b`), trading-lab (`26ee4a5`), Terraform static site (`163cbd9`). Ammaar approved every node, arrow and label before drawing, and each rendered diagram before its commit. Labels come only from the approved card copy; no project copy changed.
 - What each shows (the approved final specs; `docs/phase-7-proposals.md` holds the original proposals):
@@ -191,7 +191,8 @@ ship them, never commit them, and never name their sources anywhere in the site 
   - **Terraform:** visitor → CloudFront (HTTPS) → private S3 bucket through an "Origin Access Control (OAC)" pill labelled "access via OAC", with dashed Terraform provisioning lines and "deploy and teardown scripted and documented". No Route 53, IAM, domain, distribution ID or live/offline state: it shows the architecture, not whether the demo is running.
 - Built as two inline SVGs per card in `index.html`: a wide one and a stacked one for cards under 380 px (a container query; the other is `display:none`). Each has `role="img"` with a `<title>` and `<desc>` and no visible caption. Styles and theme colours are in `css/styles.css` (`.work-diagram`, `.dg`); no inline styles, because of the CSP. Smallest text: 11.1 px on desktop, about 12 px on phones (11.9 px at 360 px in WebKit). On diagram cards the description no longer stretches (`.work-body:has(.work-diagram)`), so the diagram sits 14 px under the text and spare height in an equal-height desktop row goes above the tags. Card heights are unchanged; keep the tags there, not directly under the diagrams (Ammaar's call).
 - Checks: Chromium and WebKit at 1280, 700, 375 and 360 px, light and dark (one layout shown, no overflow, overlap or clipping, right accessible name and description); html-validate and cspell clean; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `focus.mjs` and `codelinks.mjs` pass.
-- **Not deployed.** Next: the cache bump to `20261020`, then Ammaar deploys. K4 (screenshot retakes) is separate (section 9).
+- **Deployed 2026-10-01:** Cloudflare version `bd2ad2cc-b2ed-49c1-a00c-9315d331ab27`, cache `20261020` (`8216a65`), GitHub `main` at `8216a65`. Claude ran `node tools/deploy.mjs` on the Mac with Ammaar's written authorization for this release (deploy log in `docs/hosting.md`). Pre-deploy: `focus.mjs` and `codelinks.mjs` passed, `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn), the dry run passed. `--check` passed; the live page has 9 references to `v=20261020`; all four diagrams are live and render without overflow or overlap in Chromium and WebKit at desktop and phone widths, light and dark. No manual live check by Ammaar yet.
+- Still separate: K4 (screenshot retakes, not started; section 9), the `hands.js` bug (not fixed; section 10). Phase 9 is not started.
 - Found while testing, not caused by K: the `hands.js` reduced-motion error (section 10).
 
 ### Phase 8 closed: the C4 fixes deployed, 2026-10-01
@@ -325,7 +326,6 @@ The following historical implementation entries describe previously committed/pu
 4. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
 5. GitLab: `trading-lab` and `claude-intake-triage` are public (2026-09-29). After the 2026-10-04 mirror, check both are still public (`curl -s -o /dev/null -w '%{http_code}' https://gitlab.com/api/v4/projects/ammaarrehman%2Ftrading-lab`, 200 while public). `homelab` and this repo stay private.
 6. The GitLab profile project `ammaarrehman/ammaarrehman` has been public since 2026-09-25 and was never in Ammaar's scan. Scan it (`node tools/history-review.mjs --repos=ammaarrehman --from=gitlab --no-mirror`), and decide on its commit email and its README (it still says GitHub). Then the profile switch (`"": true` in `js/head.js`) can go on, showing the hero `gitlab` link and the contact row, and GitLab can be added to `sameAs` and `rel="me"`.
-7. Deploy Phase 7 K (the four project diagrams) after the cache bump to `20261020`.
 
 ## 9. Next steps, in order
 
@@ -339,7 +339,7 @@ Follow handoff 3's build order. Where it stands:
      - `trading-lab` and `claude-intake-triage`: publication-prep commits, a manual fast-forward to GitLab, a clean GitLab re-scan, then made public by Ammaar.
      - Site: `CODE_HOST` is GitLab, with per-repo switches (`SITE.REPOS` in `js/head.js`). Only those two link out; every other repo path is plain text and its buttons hidden. The `github` labels are now `gitlab`. Copy P-19 and P-20. `tools/codelinks.mjs` checks it all; both GitLab links return 200 (`node audit.mjs --only=a9`).
    - **Waiting:** the profile switch, `sameAs` and `rel="me"` (section 8, item 6). To publish another repo later: scan it, have Ammaar flip it public, then set its switch to `true`.
-   - **K (project diagrams): done 2026-10-01, not deployed** (section 7). Four featured cards, four diagrams.
+   - **K (project diagrams): done and deployed 2026-10-01** (Cloudflare `bd2ad2cc`, section 7). Four featured cards, four diagrams.
    - **K4 (screenshot retakes): separate, not started.** The checklist is `docs/screenshots.md`. Besides it, K4 must fix:
      - the trading-lab screenshot, which still shows the old return chart ("$250 invested, 2015-2026", the strategy against SPY);
      - the Terraform screenshot, whose page shows `github.com/ammaarrehman/homelab` (a private repo, and GitHub links are off).
