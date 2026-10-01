@@ -57,6 +57,7 @@
   }
 
   function draw(now) {
+    if (!left) return;                 // not built yet (hands.json or the font still loading); go() draws once it is
     var o = offsets();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.clearRect(0, 0, cv.width, cv.height);

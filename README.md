@@ -222,7 +222,9 @@ Setup, once: `python3 -m venv tools/.venv && tools/.venv/bin/pip install -r tool
 only write a preview to `tools/out/`). Bump the cache version after rebaking.
 
 Tests for the island: `node tools/doors.mjs` (every door, worst frame under 16 ms) and `node tools/orbs.mjs`
-(the main-page orbs stay sharp after minimize/restore and tab switches), and `node tools/scenarios.mjs`
+(the main-page orbs stay sharp after minimize/restore and tab switches), `node tools/hands.mjs` (the
+background hands never draw before they're built: no page error when a scroll, resize or theme change
+comes while they load, with reduced or normal motion), and `node tools/scenarios.mjs`
 (the `?debug=1` test API: seeded, stepped runs repeat exactly; saves and events; the map layers match
 `tools/fixtures/map-baseline.json`, which `node tools/map-baseline.mjs --rev=<commit>` records from older code). For art reviews,
 `node tools/shots.mjs <tag> name=x,y ...` shoots places at 1x and 2x into `tools/out/shots/`, and
