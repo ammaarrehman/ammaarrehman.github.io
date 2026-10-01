@@ -1282,7 +1282,7 @@
      way the follower does; the first step is tried from where pi really stands. the map and
      walkable() don't change; each answer is worked out on first use and kept. that cache assumes
      the collision (COLL and the painted water) never changes once the island is built: anything
-     that changes walkability at runtime (a later phase's gates, bridges, moving obstacles) must
+     that changes what can be walked at runtime (a later phase's gates, bridges, moving obstacles) must
      clear STEPOK or replace it */
   var STEPOK = new Uint8Array(MW * MH * 4);                          // per tile and direction: 0 not known yet, 1 yes, 2 no
   function walkLine(x, y, gx, gy, top) {
@@ -2178,8 +2178,40 @@
   };
   var heli = { x: HELI.x * T + 8, y: HELI.y * T + 8, a: 0, vx: 0, vy: 0, z: 0, rot: 0, spin: 0, state: "parked", target: null };
   function aboard() { return heli.state !== "parked"; }
+  /* safe ground (C4-2): the walkable tiles pi can reach on foot from the spawn. the fenced paddocks
+     and other walkable pockets cut off from it are not. worked out once, on first use; like the path
+     cache it assumes collision never changes after the island is built (clear SAFE if that changes) */
+  var SAFE = null;
+  function safeTile(x, y) {
+    if (!SAFE) {
+      SAFE = new Uint8Array(MW * MH);
+      var s0 = Math.floor(SPAWN.y / T) * MW + Math.floor(SPAWN.x / T), q = [s0]; SAFE[s0] = 1;
+      while (q.length) {
+        var i = q.pop(), x0 = i % MW, y0 = (i / MW) | 0;
+        [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var nx = x0 + d[0], ny = y0 + d[1]; if (walkable(nx, ny) && !SAFE[ny * MW + nx]) { SAFE[ny * MW + nx] = 1; q.push(ny * MW + nx); } });
+      }
+    }
+    return x >= 0 && y >= 0 && x < MW && y < MH && SAFE[y * MW + x] === 1;
+  }
+  // where the helicopter may set down: safe ground, or the helipad. a later phase's landing zones go here
+  function landTile(tx, ty) { return safeTile(tx, ty) || at(tx, ty) === PAD; }
   function canLand(x, y) {
-    return [[0, 0], [9, 7], [-9, 7], [9, -7], [-9, -7]].every(function (p) { var tx = Math.floor((x + p[0]) / T), ty = Math.floor((y + p[1]) / T); return walkable(tx, ty) || at(tx, ty) === PAD; });
+    return [[0, 0], [9, 7], [-9, 7], [9, -7], [-9, -7]].every(function (p) { return landTile(Math.floor((x + p[0]) / T), Math.floor((y + p[1]) / T)); });
+  }
+  // a spot pi can stand on: safe ground, and clear of everything at the four points move() tests
+  function standSpot(x, y) { return safeTile(Math.floor(x / T), Math.floor(y / T)) && !solidPx(x - 4, y - 2) && !solidPx(x + 4, y - 2) && !solidPx(x - 4, y + 1) && !solidPx(x + 4, y + 1); }
+  // where pi hops out after a landing: beside the doors on whichever side is clear, as before; failing
+  // that, the nearest clear spot in rings round the helicopter; failing that, the spawn
+  function hopSpot(hx, hy, a) {
+    for (var dd = 14; dd <= 30; dd += 4) for (var sd = -1; sd <= 1; sd += 2) {
+      var px = hx + Math.cos(a) * dd * sd, py = hy + Math.sin(a) * dd * sd;
+      if (standSpot(px, py)) return { x: px, y: py };
+    }
+    for (var r = 8; r <= 96; r += 4) for (var n = 0; n < 16; n++) {
+      var rx = hx + Math.cos(n / 16 * 6.283) * r, ry = hy + Math.sin(n / 16 * 6.283) * r;
+      if (standSpot(rx, ry)) return { x: rx, y: ry };
+    }
+    return { x: SPAWN.x, y: SPAWN.y };
   }
   function toggleHeli() {
     if (heli.state === "parked" && !can("vehicle")) return;
@@ -2202,12 +2234,8 @@
       heli.z = Math.max(0, heli.z - 22 * dt); heli.vx *= 0.9; heli.vy *= 0.9;
       if (heli.z <= 0) {
         heli.state = "parked"; zoomTo = 1;
-        // pi hops out on whichever side is clear
-        for (var dd = 14; dd <= 30; dd += 4) for (var sd = -1; sd <= 1; sd += 2) {
-          var px = heli.x + Math.cos(heli.a) * dd * sd, py = heli.y + Math.sin(heli.a) * dd * sd;
-          if (walkable(Math.floor(px / T), Math.floor(py / T))) { pi.x = px; pi.y = py; bubble = { text: "pi:~$ touchdown.", t: 1.8 }; return; }
-        }
-        pi.x = heli.x; pi.y = heli.y + 12; return;
+        // pi hops out on whichever side is clear (hopSpot)
+        var hs = hopSpot(heli.x, heli.y, heli.a); pi.x = hs.x; pi.y = hs.y; bubble = { text: "pi:~$ touchdown.", t: 1.8 }; return;
       }
     }
     if (heli.state === "flying") {
@@ -2223,8 +2251,11 @@
     heli.vx += fx * 190 * dt; heli.vy += fy * 190 * dt;
     heli.vx *= Math.pow(0.3, dt); heli.vy *= Math.pow(0.3, dt);
     var sp = Math.hypot(heli.vx, heli.vy); if (sp > 150) { heli.vx *= 150 / sp; heli.vy *= 150 / sp; }
-    heli.x = Math.max(T * 2, Math.min(MW * T - T * 2, heli.x + heli.vx * dt));
-    heli.y = Math.max(T * 2, Math.min(MH * T - T * 2, heli.y + heli.vy * dt));
+    var hx = Math.max(T * 2, Math.min(MW * T - T * 2, heli.x + heli.vx * dt)), hy = Math.max(T * 2, Math.min(MH * T - T * 2, heli.y + heli.vy * dt));
+    // coming down, the drift stops where the next bit would leave ground it may land on (C4-2): E is
+    // checked where it's pressed, and the glide after it (up to about 19 px) must stay on such ground too
+    if (heli.state === "descend" && !canLand(hx, hy)) { heli.vx = heli.vy = 0; hx = heli.x; hy = heli.y; }
+    heli.x = hx; heli.y = hy;
     if (sp > 12) { var want = Math.atan2(heli.vx, -heli.vy), diff = Math.atan2(Math.sin(want - heli.a), Math.cos(want - heli.a)); heli.a += diff * Math.min(1, dt * 3); }
     pi.x = heli.x; pi.y = heli.y;
   }
@@ -4369,12 +4400,25 @@
     },
     getSave: function () { return JSON.parse(JSON.stringify(save)); },
     fireEvent: function (name) { if (!EVENTS[name]) throw new Error("fireEvent: one of " + Object.keys(EVENTS).join(", ")); EVENTS[name](); },
-    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju, path: pi.path ? pi.path.length : 0, stalls: pi.stalls || 0 }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
+    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju, path: pi.path ? pi.path.length : 0, stalls: pi.stalls || 0 }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, heli: { x: heli.x, y: heli.y, z: heli.z, a: heli.a, state: heli.state }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
     props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
     tile: function (x, y) { return { type: at(x, y), walkable: walkable(x, y), height: lvl(x, y), flags: x >= 0 && y >= 0 && x < MW && y < MH ? COLL[y * MW + x] : C_DEEP }; },   // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
     blocked: function (px, py) { return solidPx(px, py); },                                          // where feet stop, in world px
+    safe: function (tx, ty) { return safeTile(tx, ty); },
+    canLand: function (px, py) { return canLand(px, py); },
+    hopSpot: function (px, py, a) { return hopSpot(px, py, a); },
+    // a landing run on the game's own updateHeli: descend from (x, y) moving at (vx, vy) until parked;
+    // gives where the helicopter and pi end up, then puts the helicopter, pi and the camera back
+    landingFrom: function (x, y, vx, vy) {
+      var keep = JSON.stringify(heli), px0 = pi.x, py0 = pi.y, b0 = bubble, z0 = zoomTo;
+      heli.state = "descend"; heli.x = x; heli.y = y; heli.z = 34; heli.vx = vx; heli.vy = vy; heli.target = null;
+      for (var n = 0; n < 600 && heli.state === "descend"; n++) updateHeli(STEP);
+      var out = { heli: [heli.x, heli.y], pi: [pi.x, pi.y], state: heli.state, frames: n };
+      Object.assign(heli, JSON.parse(keep)); pi.x = px0; pi.y = py0; bubble = b0; zoomTo = z0;
+      return out;
+    },
     walkTo: function (tx, ty, loose) { pi.path = piPath([tx, ty], !!loose); pi.want = null; return pi.path ? pi.path.length : null; },   // what a tap on that tile does                                          // where feet stop, in world px
     // the map layers (copies), one value per tile at y * w + x
     layers: function () {
@@ -4546,7 +4590,7 @@
       if (first) { pi.x = 50 * T + 8; pi.y = 61 * T + 10; if (!walkable(50, 61)) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }   // the mailbox is on screen
       hintFrom = { x: pi.x, y: pi.y }; sinceLog = 0;
       var lp = save.lastPos;                                            // back where pi left off
-      if (!first && lp && walkable(Math.floor(lp[0] / T), Math.floor(lp[1] / T))) { pi.x = lp[0]; pi.y = lp[1]; }
+      if (!first && lp && safeTile(Math.floor(lp[0] / T), Math.floor(lp[1] / T))) { pi.x = lp[0]; pi.y = lp[1]; }   // only on safe ground (C4-2)
       zoom = REDUCED ? 1 : 2.6; zoomTo = 1;
       if (!first) bubble = { text: "pi:~$ welcome back.", t: 2.5 };
       camF.x = null;

@@ -17,6 +17,12 @@
      today's map) is routed round instead of stopping short; the reported 27,27 to 27,28 tap arrives; routes
      from the village to every landmark, door and goto place finish; the no-progress failsafe never
      fires on them; keyboard movement matches tools/fixtures/keyboard-trace.json (recorded before);
+   - safe ground (C4-2): over every landing spot (each 4 px, four headings) the helicopter only sets
+     down on ground reachable from the spawn or the helipad, and pi always hops out clear and on it;
+     the paddocks and other pockets are refused, in flight too; every other landing still works; a
+     saved spot in a pocket starts pi at the spawn, a normal one is still restored; and the glide
+     after E (up to about 19 px at full speed) never parks it anywhere it may not land, from every
+     accepted spot in 16 directions and from spots whose glide would carry it into a pocket;
    - fireEvent() starts the flyover, the roar and a quake;
    - without ?debug=1 there is no __island.
 
@@ -255,6 +261,102 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   }
   const kbDiff = trace.map((t, i) => (same(t, KEYTRACE.engines[name][i]) ? null : `#${i} ${t} vs ${KEYTRACE.engines[name][i]}`)).filter(Boolean);
   check(name, `keyboard movement unchanged: ${trace.length} positions match the ${KEYTRACE.rev} trace`, !kbDiff.length, kbDiff.slice(0, 3).join("; "));
+
+  // safe ground (C4-2)
+  const sg = await get("seed=6");
+  const sweep = await run(sg.page, () => {
+    const I = window.__island, L = I.layers(), W = 100, T = 16, F = L.flags, BL = F.solid | F.shallow | F.deep | F.lava;
+    const walk = (x, y) => x >= 0 && y >= 0 && x < W && y < 80 && !(L.collision[y * W + x] & BL), pad = (x, y) => L.ground[y * W + x] === 8;
+    const PTS = [[0, 0], [9, 7], [-9, 7], [9, -7], [-9, -7]], tiles = (x, y) => PTS.map(([a, c]) => [Math.floor((x + a) / T), Math.floor((y + c) / T)]);
+    const clear = (x, y) => [[-4, -2], [4, -2], [-4, 1], [4, 1]].every(([dx, dy]) => !I.blocked(x + dx, y + dy));
+    const out = { oldYes: 0, newYes: 0, droppedPocket: 0, droppedOther: 0, gained: 0, landBadTile: 0, poses: 0, hopBad: 0, hopNotSafe: 0, examples: [] };
+    for (let y = 8; y < 80 * T - 8; y += 4) for (let x = 8; x < W * T - 8; x += 4) {
+      const ts = tiles(x, y), was = ts.every(([a, c]) => walk(a, c) || pad(a, c)), now = I.canLand(x, y);
+      if (was) out.oldYes++; if (now) out.newYes++;
+      if (was && !now) { if (ts.some(([a, c]) => walk(a, c) && !I.safe(a, c))) out.droppedPocket++; else { out.droppedOther++; if (out.examples.length < 3) out.examples.push(["dropped", x, y]); } }
+      if (!was && now) out.gained++;
+      if (now && !ts.every(([a, c]) => I.safe(a, c) || pad(a, c))) out.landBadTile++;
+      if (!was) continue;            // hop-outs: every spot the old rule let it land, pockets included
+      for (const a of [0, Math.PI / 2, Math.PI / 4, -Math.PI / 4]) {
+        out.poses++; const h = I.hopSpot(x, y, a);
+        if (!clear(h.x, h.y)) { out.hopBad++; if (out.examples.length < 6) out.examples.push(["blocked", x, y, a]); }
+        else if (!I.safe(Math.floor(h.x / T), Math.floor(h.y / T))) out.hopNotSafe++;
+      }
+    }
+    out.refused = { "t-rex paddock": I.canLand(33 * 16 + 8, 48 * 16 + 8), "raptor pen": I.canLand(65 * 16 + 8, 34 * 16 + 8), "north pocket": I.canLand(41 * 16 + 8, 8 * 16 + 8) };
+    out.helipad = I.canLand(61 * 16 + 8, 62 * 16 + 8);
+    return out;
+  });
+  console.log(`     ${name.padEnd(8)} landings: ${sweep.oldYes} spots before, ${sweep.newYes} now (${sweep.droppedPocket} touched a pocket); ${sweep.poses} hop-outs checked`);
+  check(name, "every accepted landing is on safe ground or the helipad", sweep.landBadTile === 0 && sweep.gained === 0, JSON.stringify(sweep));
+  check(name, "only landings touching a cut-off pocket were dropped", sweep.droppedOther === 0 && sweep.droppedPocket > 0, JSON.stringify(sweep.examples));
+  check(name, "the paddocks and the north pocket are refused; the helipad isn't", !Object.values(sweep.refused).some(Boolean) && sweep.helipad, JSON.stringify(sweep.refused));
+  check(name, `every hop-out is clear and on safe ground (${sweep.poses} cases; 477 were blocked before)`, sweep.hopBad === 0 && sweep.hopNotSafe === 0, JSON.stringify({ blocked: sweep.hopBad, notSafe: sweep.hopNotSafe, ex: sweep.examples }));
+  // the glide after E: the game's own updateHeli, from every accepted spot at full speed in 16 directions
+  const drift = await run(sg.page, () => {
+    const I = window.__island, PTS = [[0, 0], [9, 7], [-9, 7], [9, -7], [-9, -7]], L = I.layers(), F = L.flags, BL = F.solid | F.shallow | F.deep | F.lava;
+    const walk = (x, y) => x >= 0 && y >= 0 && x < 100 && y < 80 && !(L.collision[y * 100 + x] & BL);
+    const pocketAt = (x, y) => PTS.some(([a, c]) => { const tx = Math.floor((x + a) / 16), ty = Math.floor((y + c) / 16); return walk(tx, ty) && !I.safe(tx, ty); });
+    const clear = (x, y) => [[-4, -2], [4, -2], [-4, 1], [4, 1]].every(([dx, dy]) => !I.blocked(x + dx, y + dy));
+    const out = { runs: 0, bad: 0, maxGlide: 0, toward: 0, towardBad: 0, ex: [] };
+    for (let y = 8; y < 1280 - 8; y += 4) for (let x = 8; x < 1600 - 8; x += 4) {
+      if (!I.canLand(x, y)) continue;
+      for (let k = 0; k < 16; k++) {
+        const a = k / 16 * 2 * Math.PI, vx = Math.cos(a) * 150, vy = Math.sin(a) * 150, o = I.landingFrom(x, y, vx, vy);
+        out.runs++; out.maxGlide = Math.max(out.maxGlide, Math.hypot(o.heli[0] - x, o.heli[1] - y));
+        const ok = o.state === "parked" && I.canLand(o.heli[0], o.heli[1]) && clear(o.pi[0], o.pi[1]) && I.safe(Math.floor(o.pi[0] / 16), Math.floor(o.pi[1] / 16));
+        if (!ok) { out.bad++; if (out.ex.length < 4) out.ex.push([x, y, k, o]); }
+        // the deliberate cases: an unchecked full glide (18.7 px) would end touching a pocket
+        if (pocketAt(x + Math.cos(a) * 18.7, y + Math.sin(a) * 18.7)) { out.toward++; if (!ok || pocketAt(o.heli[0], o.heli[1])) out.towardBad++; }
+      }
+    }
+    out.maxGlide = +out.maxGlide.toFixed(2);
+    return out;
+  });
+  console.log(`     ${name.padEnd(8)} glide after E: ${drift.runs} landings, longest ${drift.maxGlide} px, ${drift.toward} headed into a pocket`);
+  check(name, "the glide after E never parks the helicopter off allowed ground, and pi always gets out clear", drift.bad === 0 && drift.runs > 300000, JSON.stringify(drift.ex));
+  check(name, `landings started next to a pocket, gliding into it at full speed, stop short (${drift.toward} cases)`, drift.toward > 500 && drift.towardBad === 0, `${drift.towardBad} of ${drift.toward}`);
+  check(name, "on open ground the glide is unchanged (up to about 19 px)", drift.maxGlide > 18 && drift.maxGlide < 19.5, String(drift.maxGlide));
+  // fly it for real: over the t-rex paddock E is refused; at the helipad and on open meadow it lands
+  await sg.page.focus(".w-cv");
+  const fly = async (tx, ty) => {
+    for (let i = 0; i < 200; i++) {
+      const h = (await run(sg.page, () => window.__island.getState())).heli, dx = tx - h.x, dy = ty - h.y;
+      if (Math.abs(dx) < 6 && Math.abs(dy) < 6) { await run(sg.page, () => window.__island.step(150)); const h2 = (await run(sg.page, () => window.__island.getState())).heli; if (Math.hypot(tx - h2.x, ty - h2.y) < 10) return h2; continue; }
+      const ks = []; if (dx > 6) ks.push("ArrowRight"); if (dx < -6) ks.push("ArrowLeft"); if (dy > 6) ks.push("ArrowDown"); if (dy < -6) ks.push("ArrowUp");
+      for (const k of ks) await sg.page.keyboard.down(k);
+      await run(sg.page, (n) => window.__island.step(n), Math.hypot(dx, dy) > 80 ? 12 : 4);
+      for (const k of ks) await sg.page.keyboard.up(k);
+      await run(sg.page, () => window.__island.step(6));
+    }
+    return (await run(sg.page, () => window.__island.getState())).heli;
+  };
+  // (the first visit's hatching has to finish before pi can board)
+  const board = await run(sg.page, () => { const I = window.__island; I.step(300); const h = I.getState().heli; I.teleport(h.x + 20, h.y + 4); I.step(5); return h; });
+  await sg.page.keyboard.press("e"); await run(sg.page, () => window.__island.step(240));
+  const up = (await run(sg.page, () => window.__island.getState())).heli.state;
+  const over = await fly(33 * 16 + 8, 48 * 16 + 8);
+  await sg.page.keyboard.press("e"); await run(sg.page, () => window.__island.step(30));
+  const after = (await run(sg.page, () => window.__island.getState())).heli.state;
+  check(name, "in flight: E over the t-rex paddock doesn't land", up === "flying" && after === "flying", `took off: ${up}, over ${Math.round(over.x)},${Math.round(over.y)}, after E: ${after}`);
+  const meadow = await run(sg.page, () => { const I = window.__island; for (let r = 0; r < 200; r += 8) for (let a = 0; a < 6.28; a += 0.5) { const x = 52 * 16 + Math.cos(a) * r, y = 47 * 16 + Math.sin(a) * r; if (I.canLand(x, y)) return [x, y]; } return null; });
+  const landAt = async (x, y) => { const was = (await run(sg.page, () => window.__island.getState())).heli.state; await fly(x, y); await sg.page.keyboard.press("e"); await run(sg.page, () => window.__island.step(240));
+    return run(sg.page, (w) => { const I = window.__island, s = I.getState(); return { was: w, state: s.heli.state, pi: [s.pi.x, s.pi.y], clear: [[-4, -2], [4, -2], [-4, 1], [4, 1]].every(([dx, dy]) => !I.blocked(s.pi.x + dx, s.pi.y + dy)), safe: I.safe(Math.floor(s.pi.x / 16), Math.floor(s.pi.y / 16)) }; }, was); };
+  const l1 = await landAt(meadow[0], meadow[1]);
+  check(name, "in flight: lands on open meadow, pi hops out clear and on safe ground", l1.was === "flying" && l1.state === "parked" && l1.clear && l1.safe, JSON.stringify(l1));
+  await run(sg.page, () => { const I = window.__island, h = I.getState().heli; I.teleport(h.x + 20, h.y + 4); I.step(5); });
+  await sg.page.keyboard.press("e"); await run(sg.page, () => window.__island.step(240));
+  const l2 = await landAt(board.x, board.y);
+  check(name, "in flight: lands back on the helipad, pi hops out clear and on safe ground", l2.was === "flying" && l2.state === "parked" && l2.clear && l2.safe, JSON.stringify(l2));
+  // a saved spot in a pocket starts pi at the spawn; a normal saved spot is still restored
+  await run(sg.page, () => window.__island.setSave({ ...window.__island.getSave(), hatched: true, lastPos: [41 * 16 + 8, 8 * 16 + 10] }));
+  await sg.page.reload(); await sg.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 30000 });
+  const rp = await run(sg.page, () => { const I = window.__island, s = I.getState(); return [Math.floor(s.pi.x / 16), Math.floor(s.pi.y / 16), I.safe(Math.floor(s.pi.x / 16), Math.floor(s.pi.y / 16))]; });
+  check(name, "a saved spot in the north pocket (41,8) starts pi on safe ground, not stranded", rp[2] && !(rp[0] === 41 && rp[1] === 8), JSON.stringify(rp));
+  await run(sg.page, () => window.__island.setSave({ ...window.__island.getSave(), hatched: true, lastPos: [52 * 16 + 8, 47 * 16 + 10] }));
+  await sg.page.reload(); await sg.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 30000 });
+  const rn = await run(sg.page, () => { const s = window.__island.getState(); return [s.pi.x, s.pi.y]; });
+  check(name, "a normal saved spot (52,47) is still restored", rn[0] === 52 * 16 + 8 && rn[1] === 47 * 16 + 10, JSON.stringify(rn));
 
   // visitors: no test API
   const plain = await browser.newPage();
