@@ -98,6 +98,13 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - The live `index.html` carries `v=20261017`, the live `js/head.js` has the same switches as `f18918c`, and no page has a static `gitlab.com` link.
 - `node tools/audit.mjs` on the Mac (Ammaar's final run): 36 passed, 0 failed, 1 blocked. The blocked check was Firefox ("Could not find profile folder").
 
+**2026-09-30, the Phase 8 foundation** (version `591b3f45-9e51-49f9-81a3-61b36634cc3b`, cache `20261018`, commit `6c44762`). Deployed by Ammaar from the Mac with `node tools/deploy.mjs` after `6c44762` reached GitHub `main`. It ships C5 (the `?debug=1` test API), D11-A (save v2) and D11-B (the map as data layers); no intended visual or UI behavior changes. Checked:
+
+- Final pre-deploy `node tools/audit.mjs` on the Mac: 81 passed, 0 failed, 2 blocked (Firefox's browser launch, LinkedIn's scripted check).
+- `node tools/deploy.mjs --check` passed; the live `index.html` has 9 references to `v=20261018`; the live `js/world.js?v=20261018` has `SAVE_V = 2`.
+- Manual live check by Ammaar: opened the island on the live site, moved around, used normal interactions and reloaded. It loads and plays normally, and the saved state survives the reload.
+- **Save v2 is live.** Each visitor's save is rewritten as v2 the next time they open the island, and code from before `bbadcae` treats a v2 save as unknown and starts fresh. So fix problems forward; don't roll back past `bbadcae`.
+
 ### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).

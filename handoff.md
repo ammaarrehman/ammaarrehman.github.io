@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy (`git log` for the exact state).
 
 ---
 
@@ -181,6 +181,12 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Phase 8 foundation deployed, 2026-09-30
+
+- C5, D11-A and D11-B are live (no intended visual or UI behavior changes): Cloudflare version `591b3f45-9e51-49f9-81a3-61b36634cc3b`, cache `20261018` (`6c44762`), GitHub `main` at `6c44762`, deployed by Ammaar with `node tools/deploy.mjs` (deploy log in `docs/hosting.md`).
+- Checks: final pre-deploy `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `--check` passed; the live page has 9 references to `v=20261018` and the live `world.js` has `SAVE_V = 2`. Ammaar's manual live check passed: the island loads and plays normally (moving, normal interactions), and the saved state survives a reload.
+- **Save v2 is live: fix forward.** Visitors' saves become v2 on their next island visit, and code from before `bbadcae` would start them fresh. Don't roll back past `bbadcae`.
+
 ### Phase 8 D11-B, map data layers, 2026-09-30
 
 - The map is three typed-array layers in `js/world.js`: `GROUND` (tile codes), `HEIGHT` (0 to 5; 0 to 2 used) and `COLL` (collision bits: solid, shallow, deep, low, ledge N/E/S/W, lava, climbable). `docs/game-design.md`, "Technical", has the schema. The shape is my choice (the docs named the layers only): typed arrays and bit flags, 32 KB in all.
@@ -188,7 +194,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - Reserved for Phase 11 and unset: `low`, the ledges, `climbable`. Water is shallow (sea shallows, pond, river) or deep (open sea); the river is all shallow for now. Props stay a list; spawns and triggers wait for the Phase 12 map export.
 - Parity: `tools/map-baseline.mjs` recorded `bbadcae`'s map (every tile's type, walkability and height, all 2,048,000 pixels' collision and ground kind, the props, the painted ground) into `tools/fixtures/map-baseline.json`; `scenarios.mjs` matches it exactly in Chromium and WebKit. Checked that it catches a change: one crate moved one tile fails and names the tile.
 - Speed (Chromium): `walkable()` about 0.004 µs instead of 0.023, `solidPx` over every pixel 10 ms instead of 37; ground paint unchanged (about 347 ms). New debug API: `layers()`, `blocked(px, py)`, and `tile()` gives height and flags.
-- No layout, art, movement or save change. Not deployed.
+- No layout, art, movement or save change. Deployed 2026-09-30 (above).
 
 ### Phase 8 D11-A, save v2, 2026-09-30
 
@@ -196,13 +202,13 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - Migration: a v1 save is rewritten as v2 on load with every valid field kept; the older per-session keys go straight to v2. Junk starts fresh, as before. New: a save from a newer version (`v > 2`) is played fresh but never written over (`saveLocked`), so a rollback or a stale tab can't destroy it. Tightened: `ruler` must be a string and `settings` keeps only `shake`, `flash` and `map` (the fields the game reads).
 - `setSave` takes v1 or v2; new `getSave()`.
 - Sizes (Chromium): a full v1 save migrated is 390 bytes; one with every planned quest, 20 dex entries and flags is about 1.2 KB; the fullest possible (every list capped at 64) is about 27 KB.
-- Not deployed. Once deployed, rolling back to v1 code would make old code treat v2 saves as unknown and start fresh, so don't roll back past this without a plan.
+- Deployed 2026-09-30 (above). Rolling back to v1 code would make old code treat v2 saves as unknown and start fresh, so fix forward; don't roll back past `bbadcae`.
 
 ### Phase 8 C5, the test API, 2026-09-30
 
 - `window.__island` (`?debug=1` only) gained `step(n)`, `play()`, `setSeed(n)`, `setSave(obj)` and `fireEvent(name)` (`ptero`, `roar`, `quake`; the weather and events system is Phase 13). `getState()` also gives the island clock, found logs, creatures and running events. README, "Debug flags", has the details.
 - Every dice roll in `js/world.js` goes through `rand()` (plain `Math.random` unless seeded). Outside `?debug=1`, `?seed=n` still seeds only the fight's own stream, exactly as before. With `?debug=1` it also seeds `rand()`, and `setSeed(n)` reseeds both. New `?step=1`: the live loop never starts, so seeded, stepped runs repeat exactly. The save loader is now `mergeSave()`, shared by `setSave`.
-- Nothing changes without `?debug=1`, `?seed` included, so the cache version wasn't bumped and nothing was deployed. Bump it with the next deploy that ships `js/world.js`.
+- Nothing changes without `?debug=1`, `?seed` included. Deployed 2026-09-30 with the cache bump to `20261018` (above).
 - Tests: new `tools/scenarios.mjs`, 18 checks per engine, passes in Chromium and WebKit. Firefox is **blocked, not failed**: it won't launch inside the Claude app, and Ammaar's own Terminal run (`node tools/scenarios.mjs --engines=firefox`, 2026-09-30) was also blocked at launch ("Failed to launch the browser process"), the same Firefox launch issue as his final Phase 7 audit. Nothing failed. Regression: `focus.mjs`, `codelinks.mjs`, `orbs.mjs`, `doors.mjs` pass; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox, LinkedIn); html-validate and cspell clean.
 
 ### Audit fixes, 2026-09-28 (Claude, local session then a cloud session)
@@ -303,8 +309,8 @@ Follow handoff 3's build order. Where it stands:
    - **L6 email:** on hold (decision 6).
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
-   - C4: the bug hunt (the handoff 2 list, and handoff 3 B2's cave transition once the tunnel exists).
-   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). Phase 8 left: C4, the bug hunt (needs handoff 2's list).
+   - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
+   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). Phase 8 left: C4, a fresh bug hunt with the C5 scenario tools (decided 2026-09-30; handoff 2's list is lost and isn't recreated from memory). C4's cave transition (handoff 3 B2) waits for the Phase 12 tunnel.
 5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.
 6. **Phase 10:** the art test-area stop (already reached; see step 2).
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.
@@ -319,8 +325,9 @@ Follow handoff 3's build order. Where it stands:
 
 ## 10. Known gaps and notes
 
+- Save v2 is live (2026-09-30): fix forward, never roll back past `bbadcae`, or returning visitors' island progress starts fresh.
 - The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).
-- Firefox can't launch inside the Claude app on the Mac, so `audit.mjs` reports it as blocked (exit 2) there. Run the Firefox audit from Ammaar's own Terminal (section 5), which works. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
+- Firefox can't launch inside the Claude app on the Mac, so `audit.mjs` reports it as blocked (exit 2) there. Since 2026-09-30 it is also blocked at launch from Ammaar's own Terminal (it worked there on 2026-09-28), so Firefox currently has no automated coverage; record it as blocked, not failed. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
 - Cloud sessions (claude.ai/code): the container has Chromium only, and it is an older build than the pinned Playwright 1.63 expects. Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory whose `chromium_headless_shell-1243/chrome-headless-shell-linux64/` links to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/*`, with `chrome-headless-shell` linked to `headless_shell`. Don't run `playwright install`. There is no WebKit or Firefox, no `~/.agent-handoff`, and no `tools/.venv`. The network policy also blocks `ammaarrehman.com` and SSL Labs, so live checks can't run there. GitHub push may be refused (403) if Claude's GitHub access isn't connected; then hand the commits over as a git bundle (`git bundle create <file> origin/main..HEAD`) and push from the Mac.
 - `doors.mjs` misses its 16 ms budget on some frames in the cloud container (software rendering). The commit before the audit fixes misses it the same way, and worse, so it isn't a regression. Judge door timing on the Mac.
 
