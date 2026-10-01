@@ -680,6 +680,25 @@ dl.tree dt::before { color:var(--accent); opacity:.7; }
 .work-type { font-family:var(--mono); font-size:11px; color:var(--t3); }
 .work-title { font-family:var(--mono); color:var(--t1); font-size:16px; font-weight:700; margin-bottom:8px; }
 .work-desc { font-family:var(--sans); font-size:14px; line-height:1.6; color:var(--t2); margin-bottom:14px; flex:1; }
+/* diagrams (Phase 7 K): a wide layout, and a stacked one when the card is narrow */
+.work-diagram { container-type:inline-size; margin-bottom:14px; }
+.work-diagram .dg { display:block; width:100%; height:auto; }
+.work-diagram .dg-wide { max-width:440px; }
+.work-diagram .dg-narrow { display:none; max-width:300px; }
+.work-diagram .dg-narrow text { font-size:12px; }                /* phones: no diagram text under about 12 px */
+@container (max-width:379px) {
+  .work-diagram .dg-wide { display:none; }
+  .work-diagram .dg-narrow { display:block; }
+}
+.dg text { font-family:var(--mono); font-size:12px; fill:var(--t1); }
+.dg .dg-sub { font-size:11px; fill:var(--t3); }
+.dg .dg-note { font-size:11px; fill:var(--t2); }
+.dg .dg-box { fill:var(--bg); stroke:var(--t4); }
+.dg .dg-line { fill:none; stroke:var(--t3); stroke-width:1.25; }
+.dg .dg-dash { stroke-dasharray:5 4; }
+.dg .dg-tip { fill:var(--t3); }
+.dg .dg-mask { fill:var(--bg2); }
+.dg .dg-rule { fill:none; stroke:var(--line2); }
 .work-stack { display:flex; flex-wrap:wrap; gap:6px; margin-bottom:14px; }
 .work-stack span { font-family:var(--mono); font-size:10.5px; color:var(--t3); border:1px solid var(--line2); border-radius:4px; padding:2px 7px; }
 .work-links { display:flex; gap:16px; font-family:var(--mono); font-size:12px; }

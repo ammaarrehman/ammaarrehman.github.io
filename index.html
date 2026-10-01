@@ -332,6 +332,69 @@
               <div class="work-meta"><span class="status status-shipped">RETIRED</span><span class="work-type">homelab / networking</span></div>
               <h3 class="work-title">High-availability DNS</h3>
               <p class="work-desc">Version one of my homelab, retired September 2026. Two Raspberry Pi 5 nodes ran AdGuard Home to filter DNS for my own devices, behind a keepalived VRRP floating IP. keepalived moved the IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes. Version two, a single Pi built with Ansible, is in progress.</p>
+              <div class="work-diagram">
+                <svg class="dg dg-wide" viewBox="0 0 400 250" role="img" aria-labelledby="dg-dns-w-t" aria-describedby="dg-dns-w-d">
+                  <title id="dg-dns-w-t">High-availability DNS, homelab v1, retired September 2026</title>
+                  <desc id="dg-dns-w-d">Two Raspberry Pi 5 nodes ran AdGuard Home to filter DNS for my own devices, behind a keepalived VRRP floating IP. keepalived moved the IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes. Version two, a single Pi built with Ansible, is in progress.</desc>
+                  <defs><marker id="dg-dns-w-a" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="dg-tip" d="M0,0 L8,4 L0,8 z" /></marker></defs>
+                  <text class="dg-note" x="0" y="11">Homelab v1 · retired September 2026</text>
+                  <rect class="dg-box" x="0.5" y="88" width="84" height="36" rx="4" />
+                  <text x="42.5" y="110" text-anchor="middle">my devices</text>
+                  <rect class="dg-box" x="110.5" y="82" width="112" height="48" rx="4" />
+                  <text x="166.5" y="102" text-anchor="middle">floating IP</text>
+                  <text class="dg-sub" x="166.5" y="119" text-anchor="middle">keepalived VRRP</text>
+                  <rect class="dg-box" x="250.5" y="24" width="149" height="58" rx="4" />
+                  <text x="325" y="43" text-anchor="middle">Raspberry Pi 5 /</text>
+                  <text x="325" y="58" text-anchor="middle">AdGuard Home</text>
+                  <text class="dg-sub" x="325" y="74" text-anchor="middle">node</text>
+                  <rect class="dg-box" x="250.5" y="140" width="149" height="58" rx="4" />
+                  <text x="325" y="159" text-anchor="middle">Raspberry Pi 5 /</text>
+                  <text x="325" y="174" text-anchor="middle">AdGuard Home</text>
+                  <text class="dg-sub" x="325" y="190" text-anchor="middle">backup node</text>
+                  <path class="dg-line" d="M85,106 H108" marker-end="url(#dg-dns-w-a)" />
+                  <path class="dg-line" d="M223,106 H236 V53 H248" marker-end="url(#dg-dns-w-a)" />
+                  <path class="dg-line dg-dash" d="M166.5,130 V169 H248" marker-end="url(#dg-dns-w-a)" />
+                  <text class="dg-note" x="159" y="153" text-anchor="end">IP moves on failure</text>
+                  <path class="dg-line" d="M325,82 V140" />
+                  <rect class="dg-mask" x="282" y="94" width="86" height="34" />
+                  <text class="dg-note" x="325" y="108" text-anchor="middle">config sync</text>
+                  <text class="dg-note" x="325" y="122" text-anchor="middle">every 10 min</text>
+                  <text class="dg-note" x="399" y="216" text-anchor="end">failover and failback tested both ways</text>
+                  <path class="dg-rule" d="M0,226.5 H400" />
+                  <text class="dg-note" x="0" y="243">Version two, a single Pi built with Ansible, is in progress.</text>
+                </svg>
+                <svg class="dg dg-narrow" viewBox="0 0 240 326" role="img" aria-labelledby="dg-dns-n-t" aria-describedby="dg-dns-n-d">
+                  <title id="dg-dns-n-t">High-availability DNS, homelab v1, retired September 2026</title>
+                  <desc id="dg-dns-n-d">Two Raspberry Pi 5 nodes ran AdGuard Home to filter DNS for my own devices, behind a keepalived VRRP floating IP. keepalived moved the IP to the backup node automatically; failover and failback tested in both directions, config synced every 10 minutes. Version two, a single Pi built with Ansible, is in progress.</desc>
+                  <defs><marker id="dg-dns-n-a" viewBox="0 0 8 8" refX="8" refY="4" markerWidth="8" markerHeight="8" markerUnits="userSpaceOnUse" orient="auto"><path class="dg-tip" d="M0,0 L8,4 L0,8 z" /></marker></defs>
+                  <text class="dg-note" x="0" y="12">Homelab v1 ·</text>
+                  <text class="dg-note" x="0" y="27">retired September 2026</text>
+                  <rect class="dg-box" x="0.5" y="44" width="82" height="40" rx="4" />
+                  <text x="41.5" y="68" text-anchor="middle">my devices</text>
+                  <rect class="dg-box" x="121.5" y="40" width="118" height="48" rx="4" />
+                  <text x="180.5" y="60" text-anchor="middle">floating IP</text>
+                  <text class="dg-sub" x="180.5" y="77" text-anchor="middle">keepalived VRRP</text>
+                  <rect class="dg-box" x="0.5" y="148" width="114" height="58" rx="4" />
+                  <text x="57.5" y="166" text-anchor="middle">Raspberry Pi 5</text>
+                  <text x="57.5" y="181" text-anchor="middle">/ AdGuard Home</text>
+                  <text class="dg-sub" x="57.5" y="198" text-anchor="middle">node</text>
+                  <rect class="dg-box" x="125.5" y="148" width="114" height="58" rx="4" />
+                  <text x="182.5" y="166" text-anchor="middle">Raspberry Pi 5</text>
+                  <text x="182.5" y="181" text-anchor="middle">/ AdGuard Home</text>
+                  <text class="dg-sub" x="182.5" y="198" text-anchor="middle">backup node</text>
+                  <path class="dg-line" d="M83,64 H119" marker-end="url(#dg-dns-n-a)" />
+                  <path class="dg-line" d="M150,88 V106 H57.5 V146" marker-end="url(#dg-dns-n-a)" />
+                  <path class="dg-line dg-dash" d="M222,88 V146" marker-end="url(#dg-dns-n-a)" />
+                  <text class="dg-note" x="216" y="129" text-anchor="end">IP moves on failure</text>
+                  <path class="dg-line" d="M57.5,206 V218 H182.5 V206" />
+                  <text class="dg-note" x="120" y="236" text-anchor="middle">config sync every 10 min</text>
+                  <text class="dg-note" x="120" y="258" text-anchor="middle">failover and failback</text>
+                  <text class="dg-note" x="120" y="273" text-anchor="middle">tested both ways</text>
+                  <path class="dg-rule" d="M0,286.5 H240" />
+                  <text class="dg-note" x="0" y="303">Version two, a single Pi built</text>
+                  <text class="dg-note" x="0" y="318">with Ansible, is in progress.</text>
+                </svg>
+              </div>
               <div class="work-stack"><span>Raspberry Pi 5 ×2</span><span>keepalived</span><span>AdGuard Home</span><span>Docker</span></div>
               <div class="work-links"><a data-gh="hide" data-repo="homelab/tree/main/ha-dns">repo ↗</a></div>
             </div>
