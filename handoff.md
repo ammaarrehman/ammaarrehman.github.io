@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix (committed, not deployed) (`git log` for the exact state).
 
 ---
 
@@ -130,8 +130,9 @@ ship them, never commit them, and never name their sources anywhere in the site 
   - `node lighthouse.mjs`: add `--local`, or `--resolve=104.21.52.117` when the DNS cache is stale.
   - `npm run html` (html-validate) and `npm run spell` (cspell; add real words to `tools/cspell.json`).
   - `node doors.mjs` (every door, worst frame under 16 ms), `node orbs.mjs` (main-page orbs stay sharp) and `node shots.mjs <tag> name=x,y ...` (island screenshots at named places, in tiles, into `tools/out/shots/`).
+  - `node hands.mjs` (the background hands never draw before they're built: no page error when a scroll, resize or theme change comes while they load).
   - `node focus.mjs` (island keyboard focus, R2) and `node codelinks.mjs` (repo links with js off, the host off, the shipped per-repo switches and every switch on; R4, Phase 7).
-  - Exit codes: `audit.mjs` and `orbs.mjs` exit 1 on a failure and 2 when nothing failed but something couldn't run (a browser that won't launch). A 2 is not a pass. `audit.mjs --engines=chromium,webkit` leaves Firefox out on purpose (reported as skipped).
+  - Exit codes: `audit.mjs`, `orbs.mjs` and `hands.mjs` exit 1 on a failure and 2 when nothing failed but something couldn't run (a browser that won't launch). A 2 is not a pass. `audit.mjs --engines=chromium,webkit` leaves Firefox out on purpose (reported as skipped).
   - `node atlas.mjs` bakes the man-made sprites (`tools/props-src.js`) into `img/atlas/props.png`; `tools/.venv/bin/python envart.py` bakes the environment atlas. Both rewrite their frame table line in `js/world.js` (`var PROPS`, `var ENV`).
 - **Environment quirks:**
   - Playwright browsers must run **outside the command sandbox** (`dangerouslyDisableSandbox: true`); WebKit and Chromium then work.
@@ -181,6 +182,14 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### `hands.js` drawing before it's built, fixed 2026-10-01 (committed, not deployed)
+
+- Bug (found during the Phase 7 K checks, present before K): `draw()` reads the hand canvases that only `build()` makes, but three handlers call it from the moment the script runs: the reduced-motion scroll listener, the resize handler and the `data-theme` observer. `build()` can't run until `assets/hands.json` has loaded, and the first draw waits for the font, so any of those events during loading threw a `drawImage` TypeError (`hands.js` line 63). Reduced motion: scroll, resize or theme change; normal motion: resize or theme change. On the live site it showed in every reduced-motion Playwright run.
+- Fix (`cd80047`): one line, `draw()` returns until the canvases exist. Nothing is lost: `go()` always builds and draws once loading finishes, at the current scroll, size and theme. No timing or order change; the animation loop only starts after `build()`, so normal motion is unchanged.
+- Test: new `tools/hands.mjs`. It holds `hands.json` back while each trigger fires, in Chromium, WebKit and Firefox, with reduced and normal motion, and requires no page error, the canvas switched on and drawn, and (reduced motion) a scroll after loading still redrawing. 26 of 26 pass in Chromium and WebKit; Firefox is blocked at launch (exit 2). Against the old `hands.js` it fails 12 checks, all the TypeError.
+- Also checked: with reduced motion, the old and new `hands.js` draw byte-identical canvases (Chromium and WebKit, light and dark, top and bottom of the page); `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); html-validate and cspell clean.
+- **Not deployed.** It needs the cache bump to `20261021` first.
+
 ### Phase 7 K, project diagrams, deployed 2026-10-01
 
 - Each of the four featured project cards has an SVG diagram after its description and before its tags: HA DNS (`16ee02b`), intake triage (`d5eff6b`), trading-lab (`26ee4a5`), Terraform static site (`163cbd9`). Ammaar approved every node, arrow and label before drawing, and each rendered diagram before its commit. Labels come only from the approved card copy; no project copy changed.
@@ -192,7 +201,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - Built as two inline SVGs per card in `index.html`: a wide one and a stacked one for cards under 380 px (a container query; the other is `display:none`). Each has `role="img"` with a `<title>` and `<desc>` and no visible caption. Styles and theme colours are in `css/styles.css` (`.work-diagram`, `.dg`); no inline styles, because of the CSP. Smallest text: 11.1 px on desktop, about 12 px on phones (11.9 px at 360 px in WebKit). On diagram cards the description no longer stretches (`.work-body:has(.work-diagram)`), so the diagram sits 14 px under the text and spare height in an equal-height desktop row goes above the tags. Card heights are unchanged; keep the tags there, not directly under the diagrams (Ammaar's call).
 - Checks: Chromium and WebKit at 1280, 700, 375 and 360 px, light and dark (one layout shown, no overflow, overlap or clipping, right accessible name and description); html-validate and cspell clean; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `focus.mjs` and `codelinks.mjs` pass.
 - **Deployed 2026-10-01:** Cloudflare version `bd2ad2cc-b2ed-49c1-a00c-9315d331ab27`, cache `20261020` (`8216a65`), GitHub `main` at `8216a65`. Claude ran `node tools/deploy.mjs` on the Mac with Ammaar's written authorization for this release (deploy log in `docs/hosting.md`). Pre-deploy: `focus.mjs` and `codelinks.mjs` passed, `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn), the dry run passed. `--check` passed; the live page has 9 references to `v=20261020`; all four diagrams are live and render without overflow or overlap in Chromium and WebKit at desktop and phone widths, light and dark. No manual live check by Ammaar yet.
-- Still separate: K4 (screenshot retakes, not started; section 9), the `hands.js` bug (not fixed; section 10). Phase 9 is not started.
+- Still separate: K4 (screenshot retakes, not started; section 9), the `hands.js` bug (fixed afterwards in `cd80047`, not deployed; section 7). Phase 9 is not started.
 - Found while testing, not caused by K: the `hands.js` reduced-motion error (section 10).
 
 ### Phase 8 closed: the C4 fixes deployed, 2026-10-01
@@ -326,6 +335,7 @@ The following historical implementation entries describe previously committed/pu
 4. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
 5. GitLab: `trading-lab` and `claude-intake-triage` are public (2026-09-29). After the 2026-10-04 mirror, check both are still public (`curl -s -o /dev/null -w '%{http_code}' https://gitlab.com/api/v4/projects/ammaarrehman%2Ftrading-lab`, 200 while public). `homelab` and this repo stay private.
 6. The GitLab profile project `ammaarrehman/ammaarrehman` has been public since 2026-09-25 and was never in Ammaar's scan. Scan it (`node tools/history-review.mjs --repos=ammaarrehman --from=gitlab --no-mirror`), and decide on its commit email and its README (it still says GitHub). Then the profile switch (`"": true` in `js/head.js`) can go on, showing the hero `gitlab` link and the contact row, and GitLab can be added to `sameAs` and `rel="me"`.
+7. Deploy the `hands.js` fix (`cd80047`) after the cache bump to `20261021`.
 
 ## 9. Next steps, in order
 
@@ -366,7 +376,7 @@ Follow handoff 3's build order. Where it stands:
 - The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).
 - Firefox can't launch inside the Claude app on the Mac, so `audit.mjs` reports it as blocked (exit 2) there. Since 2026-09-30 it is also blocked at launch from Ammaar's own Terminal (it worked there on 2026-09-28), so Firefox currently has no automated coverage; record it as blocked, not failed. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
 - Cloud sessions (claude.ai/code): the container has Chromium only, and it is an older build than the pinned Playwright 1.63 expects. Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory whose `chromium_headless_shell-1243/chrome-headless-shell-linux64/` links to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/*`, with `chrome-headless-shell` linked to `headless_shell`. Don't run `playwright install`. There is no WebKit or Firefox, no `~/.agent-handoff`, and no `tools/.venv`. The network policy also blocks `ammaarrehman.com` and SSL Labs, so live checks can't run there. GitHub push may be refused (403) if Claude's GitHub access isn't connected; then hand the commits over as a git bundle (`git bundle create <file> origin/main..HEAD`) and push from the Mac.
-- `js/hands.js`, a pre-existing bug, **not fixed**: with reduced motion on, the scroll listener (line 136) can call `draw()` before `build()` has made the hand canvases, so `drawImage` throws a TypeError in the console. Found during the Phase 7 K checks and reproduced on unchanged `HEAD` (`6b2e580`), so K didn't cause it. To reproduce: Playwright, reduced motion, 2x pixel ratio, scroll a project card into view; about half the runs log it. A separate fix, not started.
+- `js/hands.js` drawing before it was built (the `drawImage` TypeError found during Phase 7 K): **fixed** in `cd80047`, not deployed yet (section 7). `tools/hands.mjs` guards it.
 - `doors.mjs` misses its 16 ms budget on some frames in the cloud container (software rendering). The commit before the audit fixes misses it the same way, and worse, so it isn't a regression. Judge door timing on the Mac.
 
 - The ground painter's pixel edges can sit up to about half a tile off the collision tiles (the waterline is biased out to sea so walkable sand never looks wet). Road pixels can cross a solid cliff-rim tile at a stair edge.
