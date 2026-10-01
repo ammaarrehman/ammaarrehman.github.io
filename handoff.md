@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8 (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams (committed, not deployed) (`git log` for the exact state).
 
 ---
 
@@ -181,6 +181,19 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Phase 7 K, project diagrams, 2026-10-01 (committed, not deployed)
+
+- Each of the four featured project cards has an SVG diagram after its description and before its tags: HA DNS (`16ee02b`), intake triage (`d5eff6b`), trading-lab (`26ee4a5`), Terraform static site (`163cbd9`). Ammaar approved every node, arrow and label before drawing, and each rendered diagram before its commit. Labels come only from the approved card copy; no project copy changed.
+- What each shows (the approved final specs; `docs/phase-7-proposals.md` holds the original proposals):
+  - **HA DNS:** v1 only, headed "Homelab v1 · retired September 2026": my devices, the keepalived VRRP floating IP, the two Raspberry Pi 5 / AdGuard Home nodes, "IP moves on failure", "config sync every 10 min" (no direction: the copy doesn't establish one) and "failover and failback tested both ways". The footer repeats the card's "Version two, a single Pi built with Ansible, is in progress."; if that sentence changes, change the diagram too. No Unbound, no upstream or DoH node, no "active" role, nothing styled as live.
+  - **Intake triage:** Google Forms → Google Sheets → Apps Script ⇄ Claude API, with Apps Script writing the five fields (category, urgency, summary, next step, human-review flag) back into the same Sheet row. Checked against the public repo's `apps-script/Code.gs` (GitLab `50a1039`), which showed the form lands in the Sheet first. The eval lane (15 eval cases → Python evals → the two approved figures) is drawn separately with no line to the Claude API. No staff, users, volumes or production.
+  - **trading-lab:** nine experiments; rules committed to git before any data, backtests built to catch their own bugs, each judged on a single run; "all nine rejected · $0 lost". No returns, charts, names or "before capital".
+  - **Terraform:** visitor → CloudFront (HTTPS) → private S3 bucket through an "Origin Access Control (OAC)" pill labelled "access via OAC", with dashed Terraform provisioning lines and "deploy and teardown scripted and documented". No Route 53, IAM, domain, distribution ID or live/offline state: it shows the architecture, not whether the demo is running.
+- Built as two inline SVGs per card in `index.html`: a wide one and a stacked one for cards under 380 px (a container query; the other is `display:none`). Each has `role="img"` with a `<title>` and `<desc>` and no visible caption. Styles and theme colours are in `css/styles.css` (`.work-diagram`, `.dg`); no inline styles, because of the CSP. Smallest text: 11.1 px on desktop, about 12 px on phones (11.9 px at 360 px in WebKit). On diagram cards the description no longer stretches (`.work-body:has(.work-diagram)`), so the diagram sits 14 px under the text and spare height in an equal-height desktop row goes above the tags. Card heights are unchanged; keep the tags there, not directly under the diagrams (Ammaar's call).
+- Checks: Chromium and WebKit at 1280, 700, 375 and 360 px, light and dark (one layout shown, no overflow, overlap or clipping, right accessible name and description); html-validate and cspell clean; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `focus.mjs` and `codelinks.mjs` pass.
+- **Not deployed.** Next: the cache bump to `20261020`, then Ammaar deploys. K4 (screenshot retakes) is separate (section 9).
+- Found while testing, not caused by K: the `hands.js` reduced-motion error (section 10).
+
 ### Phase 8 closed: the C4 fixes deployed, 2026-10-01
 
 - C4-1 (`cc39bb5`) and C4-2 (`3bc6f9b`) are live: Cloudflare version `bff274a4-ef11-4b9b-8283-2d40a3a51955`, cache `20261019` (`3bfaa3a`), GitHub `main` at `3bfaa3a`, deployed by Ammaar with `node tools/deploy.mjs` (deploy log in `docs/hosting.md`).
@@ -308,10 +321,11 @@ The following historical implementation entries describe previously committed/pu
 
 1. **Island visual quality reopened:** Ammaar says the conversion does not look good/fully reworked. Fresh assessment in `docs/audit-2026-09-28.md` agrees it needs a coherent art-direction/layout pass, not simply more props. Propose one cohesive slice for approval before expanding it. Park plaque still reads "PI'S ISLAND" rather than Mossgate; buildings/landmarks retain older art. Phase 12 map/layout approval still applies.
 2. HSTS: confirm after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
-3. The homelab audit, which settles P-11.
+3. The homelab audit, which settles P-11. Also in that copy-verification queue: the skills list (`js/skills.js`) still names "Unbound". It stays unchanged until verified.
 4. Dead-file candidates (README). Résumé bullet issue is closed for the current asset after a fresh render/extraction; tagged-PDF accessibility remains optional future work.
 5. GitLab: `trading-lab` and `claude-intake-triage` are public (2026-09-29). After the 2026-10-04 mirror, check both are still public (`curl -s -o /dev/null -w '%{http_code}' https://gitlab.com/api/v4/projects/ammaarrehman%2Ftrading-lab`, 200 while public). `homelab` and this repo stay private.
 6. The GitLab profile project `ammaarrehman/ammaarrehman` has been public since 2026-09-25 and was never in Ammaar's scan. Scan it (`node tools/history-review.mjs --repos=ammaarrehman --from=gitlab --no-mirror`), and decide on its commit email and its README (it still says GitHub). Then the profile switch (`"": true` in `js/head.js`) can go on, showing the hero `gitlab` link and the contact row, and GitLab can be added to `sameAs` and `rel="me"`.
+7. Deploy Phase 7 K (the four project diagrams) after the cache bump to `20261020`.
 
 ## 9. Next steps, in order
 
@@ -325,16 +339,16 @@ Follow handoff 3's build order. Where it stands:
      - `trading-lab` and `claude-intake-triage`: publication-prep commits, a manual fast-forward to GitLab, a clean GitLab re-scan, then made public by Ammaar.
      - Site: `CODE_HOST` is GitLab, with per-repo switches (`SITE.REPOS` in `js/head.js`). Only those two link out; every other repo path is plain text and its buttons hidden. The `github` labels are now `gitlab`. Copy P-19 and P-20. `tools/codelinks.mjs` checks it all; both GitLab links return 200 (`node audit.mjs --only=a9`).
    - **Waiting:** the profile switch, `sameAs` and `rel="me"` (section 8, item 6). To publish another repo later: scan it, have Ammaar flip it public, then set its switch to `true`.
-   - **K (project diagrams):**
-     - Inventory the cards; there are 4 featured, not 9.
-     - Propose each diagram's nodes and arrows from approved copy only, and get Ammaar's OK before drawing SVGs in the site's style.
-     - Write `docs/screenshots.md` (K4's retake checklist).
+   - **K (project diagrams): done 2026-10-01, not deployed** (section 7). Four featured cards, four diagrams.
+   - **K4 (screenshot retakes): separate, not started.** The checklist is `docs/screenshots.md`. Besides it, K4 must fix:
+     - the trading-lab screenshot, which still shows the old return chart ("$250 invested, 2015-2026", the strategy against SPY);
+     - the Terraform screenshot, whose page shows `github.com/ammaarrehman/homelab` (a private repo, and GitHub links are off).
    - **L6 email:** on hold (decision 6).
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
    - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (**fixed 2026-09-30**, section 7). Both deployed 2026-10-01 (Cloudflare `bff274a4`). **Phase 8 is done**; only B2 below remains, deferred to Phase 12. Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
    - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). C4's cave transition (handoff 3 B2) is deferred to Phase 12: it can't be tested until the tunnel exists.
-5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.
+5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups. Not started. Its detailed spec was only in the missing handoff 2 (section 2), so it needs Ammaar's spec or an approved fresh proposal first.
 6. **Phase 10:** the art test-area stop (already reached; see step 2).
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.
 8. **Phase 12:**
@@ -352,6 +366,7 @@ Follow handoff 3's build order. Where it stands:
 - The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).
 - Firefox can't launch inside the Claude app on the Mac, so `audit.mjs` reports it as blocked (exit 2) there. Since 2026-09-30 it is also blocked at launch from Ammaar's own Terminal (it worked there on 2026-09-28), so Firefox currently has no automated coverage; record it as blocked, not failed. The orb test's Chromium contact failures were a test-timing problem, now fixed (R8). Supplemental collectors (`review.mjs`, `island-review.mjs`) gather evidence and are not pass/fail gates.
 - Cloud sessions (claude.ai/code): the container has Chromium only, and it is an older build than the pinned Playwright 1.63 expects. Point `PLAYWRIGHT_BROWSERS_PATH` at a scratch directory whose `chromium_headless_shell-1243/chrome-headless-shell-linux64/` links to `/opt/pw-browsers/chromium_headless_shell-1194/chrome-linux/*`, with `chrome-headless-shell` linked to `headless_shell`. Don't run `playwright install`. There is no WebKit or Firefox, no `~/.agent-handoff`, and no `tools/.venv`. The network policy also blocks `ammaarrehman.com` and SSL Labs, so live checks can't run there. GitHub push may be refused (403) if Claude's GitHub access isn't connected; then hand the commits over as a git bundle (`git bundle create <file> origin/main..HEAD`) and push from the Mac.
+- `js/hands.js`, a pre-existing bug, **not fixed**: with reduced motion on, the scroll listener (line 136) can call `draw()` before `build()` has made the hand canvases, so `drawImage` throws a TypeError in the console. Found during the Phase 7 K checks and reproduced on unchanged `HEAD` (`6b2e580`), so K didn't cause it. To reproduce: Playwright, reduced motion, 2x pixel ratio, scroll a project card into view; about half the runs log it. A separate fix, not started.
 - `doors.mjs` misses its 16 ms budget on some frames in the cloud container (software rendering). The commit before the audit fixes misses it the same way, and worse, so it isn't a regression. Judge door timing on the Mac.
 
 - The ground painter's pixel edges can sit up to about half a tile off the collision tiles (the waterline is biased out to sea so walkable sand never looks wet). Road pixels can cross a solid cliff-rim tile at a stair edge.

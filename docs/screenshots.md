@@ -9,6 +9,8 @@ Use authentic project output, never fabricated terminal results. Keep existing i
 - Triage: use clearly synthetic cases without patient/student/customer data. Show the structured result and review flag; do not imply operational adoption.
 - Trading: show the preregistered test/rejection evidence with its actual scope. No cherry-picked profit chart or implied live investment performance.
 - Terraform: show the deployed demo or infrastructure result without distribution identifiers, account numbers or an unsupported current-live claim.
+- Trading (found in Phase 7 K, 2026-10-01): the current screenshot is the old return chart ("$250 invested, 2015-2026", the strategy against SPY). The replacement must not show strategy returns or profit performance.
+- Terraform (found in Phase 7 K, 2026-10-01): the current screenshot's page shows `github.com/ammaarrehman/homelab` (a private repo, and GitHub links are off). The replacement or crop must remove that text.
 - Strip EXIF/GPS/XMP metadata; inspect the final exported image, not only the editing canvas. If redaction is needed, use opaque irreversible bars and do not substitute fake values that look real.
 - Review all four images together on desktop and phone. Check contrast, crop consistency and legibility; retain useful factual alt text.
 - Run the deploy allowlist check and confirm only approved web assets ship. Source captures and reports stay under ignored tools/out, never in deployed assets.

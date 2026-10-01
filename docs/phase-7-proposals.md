@@ -2,6 +2,8 @@
 
 Proposals only. Ammaar must approve nodes/arrows before SVG implementation. Four featured cards, not nine. No private addresses, hostnames, infrastructure IDs or invented metrics.
 
+**Update 2026-10-01:** approved with changes and built (Phase 7 K, committed, not deployed yet). The final approved nodes, arrows and labels are in `handoff.md`, section 7. The table below is the original proposal.
+
 | Project | Proposed nodes and arrows | Guardrails |
 |---|---|---|
 | HA DNS | Clients → floating VIP → active DNS node; node A ↔ node B failover relationship; configuration sync A → B | Unbound may be listed as installed, but no AdGuard → Unbound query-resolution arrow until P-11 is verified. Do not imply an unverified current topology. |
