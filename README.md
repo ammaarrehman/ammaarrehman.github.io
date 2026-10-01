@@ -154,7 +154,7 @@ minimap. Everything is remembered in this browser.
 - the tour (HUD or menu) visits every section in about a minute: space skips, esc stops, it ends on the contact card. on a phone the title card offers it first
 - `#island` in the URL opens it directly, `#island/experience` (or any landmark or section name) opens that card, `#island/tour` starts the tour
 - every landmark card is named twice (the lighthouse · experience) and its facts are the main page's own words
-- `?debug=1` shows frame time, particles, audio voices, canvases, state and the save; `?seed=n` makes the fight repeat exactly
+- `?debug=1` shows frame time, particles, audio voices, canvases, state and the save; `?seed=n` makes the fight repeat exactly (with `?debug=1`, the creatures and bots too)
 - first visit per session: pi hatches from an egg in the village square
 
 The background (`js/hands.js`) is two ASCII hands after the Sistine ceiling,
@@ -222,7 +222,8 @@ Setup, once: `python3 -m venv tools/.venv && tools/.venv/bin/pip install -r tool
 only write a preview to `tools/out/`). Bump the cache version after rebaking.
 
 Tests for the island: `node tools/doors.mjs` (every door, worst frame under 16 ms) and `node tools/orbs.mjs`
-(the main-page orbs stay sharp after minimize/restore and tab switches). For art reviews,
+(the main-page orbs stay sharp after minimize/restore and tab switches), and `node tools/scenarios.mjs`
+(the `?debug=1` test API: seeded, stepped runs repeat exactly; saves and events). For art reviews,
 `node tools/shots.mjs <tag> name=x,y ...` shoots places at 1x and 2x into `tools/out/shots/`, and
 `__island.ground()` (below) returns the whole painted map.
 
@@ -232,8 +233,9 @@ All of them are URL parameters, off by default, and harmless to leave in the shi
 
 | Flag | What it does | Read in |
 |---|---|---|
-| `?debug=1` | The island's overlay (frame time, particles, audio voices, canvases, state, the save) and a test API, `window.__island`: `teleport(x, y)` in world px, `getState()`, `frames(clear)` (each recent frame's work in ms), `ground()` (the painted ground as a PNG data URL, and how long it took), `props()` (every planted prop as `[kind, tx, ty]`). | `js/world.js` |
-| `?seed=n` | Seeds the island's random numbers, so the orb fight plays the same way every time. | `js/world.js` |
+| `?debug=1` | The island's overlay (frame time, particles, audio voices, canvases, state, the save) and a test API, `window.__island`: `teleport(x, y)` in world px, `getState()`, `frames(clear)` (each recent frame's work in ms), `ground()` (the painted ground as a PNG data URL, and how long it took), `props()` (every planted prop as `[kind, tx, ty]`), `tile(x, y)`, `kind(px, py)`, and for scenario tests (handoff 2 C5): `step(n)` (stop the live loop and run exactly n fixed 1/60 s steps, then draw once), `play()` (hand time back to the loop), `setSeed(n)` (reseed from here on), `setSave(obj)` (a version 1 save, checked like a stored one, applied now and written), `fireEvent(name)` (`ptero`, `roar` or `quake`). `getState()` also gives the island clock `t`, the found logs, every creature as `[kind, x, y]` and which events are running. Tested by `node tools/scenarios.mjs`. | `js/world.js` |
+| `?seed=n` | Seeds the orb fight's random numbers, so it plays the same way every time. With `?debug=1` it also seeds every other roll (creatures, bots, flyovers) for the scenario tests. | `js/world.js` |
+| `?step=1` | With `?debug=1`: the live loop never starts, so only `__island.step(n)` moves time. With `?seed=n`, two runs of the same steps end in the same state. Door and warp animations still run on the wall clock. | `js/world.js` |
 | `?islandhour=21` | Previews the island at any hour (0 to 24, decimals allowed) instead of Eastern time. | `js/world.js` |
 | `#island`, `#island/<landmark>`, `#island/tour` | Opens straight into the island, at a landmark, or into the tour. Landmarks: rack, desk, uplink, tower, lighthouse, macbook, tablet, mailbox (and their section names). | `js/world.js` |
 

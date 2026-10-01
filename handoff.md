@@ -175,11 +175,18 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | `art/palette.json`, `art/src/dinos-src.png` + `.json` | The master palette; the hand-drawn creature source frames. |
 | `fonts/` | Self-hosted woff2 fonts + OFL licenses. |
 | `_headers`, `wrangler.jsonc`, `.well-known/security.txt`, `robots.txt`, `sitemap.xml`, `site.webmanifest` | Hosting config. |
-| `tools/` | `deploy.mjs`, `serve.mjs`, `audit.mjs`, `lighthouse.mjs`, `orbs.mjs`, `doors.mjs`, `shots.mjs`, `animate.py`, `brachio.py`, `envart.py`, and older `marks.py` / `duotone.py` / `resume.py` (see the dead-file list in the README). |
+| `tools/` | `deploy.mjs`, `serve.mjs`, `audit.mjs`, `lighthouse.mjs`, `orbs.mjs`, `doors.mjs`, `shots.mjs`, `focus.mjs`, `codelinks.mjs`, `scenarios.mjs`, `history-review.mjs`, `island-review.mjs`, `review.mjs`, `animate.py`, `brachio.py`, `envart.py`, and older `marks.py` / `duotone.py` / `resume.py` (see the dead-file list in the README). |
 | `docs/` | `hosting.md`, `dns-claim.md`, `game-design.md`. |
 | Local branch `gh-pages` (not pushed) | A redirect page for github.io, for when the GitHub flag clears (docs/hosting.md). |
 
 ## 7. What's done
+
+### Phase 8 C5, the test API, 2026-09-30
+
+- `window.__island` (`?debug=1` only) gained `step(n)`, `play()`, `setSeed(n)`, `setSave(obj)` and `fireEvent(name)` (`ptero`, `roar`, `quake`; the weather and events system is Phase 13). `getState()` also gives the island clock, found logs, creatures and running events. README, "Debug flags", has the details.
+- Every dice roll in `js/world.js` goes through `rand()` (plain `Math.random` unless seeded). Outside `?debug=1`, `?seed=n` still seeds only the fight's own stream, exactly as before. With `?debug=1` it also seeds `rand()`, and `setSeed(n)` reseeds both. New `?step=1`: the live loop never starts, so seeded, stepped runs repeat exactly. The save loader is now `mergeSave()`, shared by `setSave`.
+- Nothing changes without `?debug=1`, `?seed` included, so the cache version wasn't bumped and nothing was deployed. Bump it with the next deploy that ships `js/world.js`.
+- Tests: new `tools/scenarios.mjs`, 18 checks per engine, passes in Chromium and WebKit. Firefox is **blocked, not failed**: it won't launch inside the Claude app, and Ammaar's own Terminal run (`node tools/scenarios.mjs --engines=firefox`, 2026-09-30) was also blocked at launch ("Failed to launch the browser process"), the same Firefox launch issue as his final Phase 7 audit. Nothing failed. Regression: `focus.mjs`, `codelinks.mjs`, `orbs.mjs`, `doors.mjs` pass; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox, LinkedIn); html-validate and cspell clean.
 
 ### Audit fixes, 2026-09-28 (Claude, local session then a cloud session)
 
@@ -278,7 +285,7 @@ Follow handoff 3's build order. Where it stands:
      - Write `docs/screenshots.md` (K4's retake checklist).
    - **L6 email:** on hold (decision 6).
 4. **Phase 8 (foundations):**
-   - Handoff 2 C5: grow `window.__island` (`step`, `setSave`, `setSeed`, `fireEvent`), plus Playwright scenarios on three engines.
+   - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
    - C4: the bug hunt (the handoff 2 list, and handoff 3 B2's cave transition once the tunnel exists).
    - D11: save v2 with migration, and map data layers including height.
 5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.

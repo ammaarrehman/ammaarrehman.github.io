@@ -19,10 +19,13 @@
   var REDUCED = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
   var TOUCH = window.matchMedia && window.matchMedia("(pointer: coarse)").matches;
   // ?debug=1 shows a readout of the frame time, particles, audio, canvases, state and the save;
-  // ?seed=n makes the fight play out the same way every time
+  // ?seed=n makes the fight play out the same way every time. with ?debug=1 it also seeds every
+  // other roll (the creatures, the bots, the flyovers), for the scenario tests
   var DEBUG = /[?&]debug=1(&|$)/.test(location.search);
   var SEED = (location.search.match(/[?&]seed=(\d+)/) || [])[1];
-  var frand = SEED ? (function (a) { return function () { a = (a + 0x6d2b79f5) | 0; var q = Math.imul(a ^ (a >>> 15), 1 | a); q = (q + Math.imul(q ^ (q >>> 7), 61 | q)) ^ q; return ((q ^ (q >>> 14)) >>> 0) / 4294967296; }; })(+SEED) : Math.random;
+  function seeded(a) { return function () { a = (a + 0x6d2b79f5) | 0; var q = Math.imul(a ^ (a >>> 15), 1 | a); q = (q + Math.imul(q ^ (q >>> 7), 61 | q)) ^ q; return ((q ^ (q >>> 14)) >>> 0) / 4294967296; }; }
+  var frand = SEED ? seeded(+SEED) : Math.random;                                   // the fight's rolls, as before
+  var rand = SEED && DEBUG ? seeded(+SEED ^ 0x5bd1e995) : Math.random;            // every other roll
   // every offscreen canvas is made here, so they can be counted (and their memory estimated)
   var CANVASES = [];
   function mkCanvas() { var c = document.createElement("canvas"); CANVASES.push(c); return c; }
@@ -201,14 +204,19 @@
   var SAVE_KEY = "island-save";
   function freshSave() { return { v: 1, logs: [], secrets: [], evolved: false, lastPos: null, settings: null, ruler: null, credits: false, hatched: false, seal: false, hints: { move: false, use: false } }; }
   var save = freshSave();
+  // a parsed save laid over a fresh one field by field, or null if it isn't a version 1 save
+  function mergeSave(o) {
+    if (!o || o.v !== 1 || !Array.isArray(o.logs)) return null;
+    var m = freshSave();
+    Object.keys(m).forEach(function (k2) { if (o[k2] !== undefined && o[k2] !== null && typeof o[k2] === typeof m[k2]) m[k2] = o[k2]; else if (o[k2] !== undefined && m[k2] === null) m[k2] = o[k2]; });
+    if (!Array.isArray(m.secrets)) m.secrets = [];
+    if (!Array.isArray(m.lastPos) || m.lastPos.length !== 2 || !isFinite(m.lastPos[0]) || !isFinite(m.lastPos[1])) m.lastPos = null;
+    return m;
+  }
   (function () {
     var o = null; try { o = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { o = null; }
-    if (o && o.v === 1 && Array.isArray(o.logs)) {
-      Object.keys(save).forEach(function (k2) { if (o[k2] !== undefined && o[k2] !== null && typeof o[k2] === typeof save[k2]) save[k2] = o[k2]; else if (o[k2] !== undefined && save[k2] === null) save[k2] = o[k2]; });
-      if (!Array.isArray(save.secrets)) save.secrets = [];
-      if (!Array.isArray(save.lastPos) || save.lastPos.length !== 2 || !isFinite(save.lastPos[0]) || !isFinite(save.lastPos[1])) save.lastPos = null;
-      return;
-    }
+    var m = mergeSave(o);
+    if (m) { save = m; return; }
     try {                                                            // no save yet: bring over the older per-session keys
       var old = JSON.parse(sessionStorage.getItem("pi-found") || "[]"); if (Array.isArray(old)) save.logs = old;
       save.evolved = sessionStorage.getItem("pi-kaiju") === "1"; save.ruler = sessionStorage.getItem("rift-done") || null; save.hatched = sessionStorage.getItem("pi-hatched") === "1";
@@ -995,7 +1003,7 @@
     amb.buzz.set({ vol: Math.pow(Math.max(0, 1 - dn / 150), 1.5) * 0.018 });
     amb.aura.set({ vol: rift ? 0.1 * Math.max(0, 1 - Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) / 200) : 0, rate: 0.2 });
     amb.rumble.set({ vol: Math.max(0, 1 - vd / 380) * 0.4, pan: Math.max(-1, Math.min(1, (VX - pi.x) / 300)) });
-    if (vd < 300 && (popT -= dt) <= 0) { popT = 0.4 + Math.random() * 1.6; sfx("pop", VX + (Math.random() - 0.5) * 30, VY); }
+    if (vd < 300 && (popT -= dt) <= 0) { popT = 0.4 + rand() * 1.6; sfx("pop", VX + (rand() - 0.5) * 30, VY); }
     var hd = Math.hypot(heli.x - pi.x, heli.y - pi.y);
     amb.rotor.set({ vol: heli.spin * (aboard() ? 0.2 : 0.2 * Math.max(0, 1 - hd / 320)), rate: heli.spin });
     amb.engine.set({ vol: car.driving ? 0.08 + Math.min(1, Math.abs(car.v) / 120) * 0.12 : 0, rate: Math.min(1, Math.abs(car.v) / 120) });
@@ -1284,7 +1292,7 @@
   function interact(s) {
     if (!save.hints.use) { save.hints.use = true; writeSave(); }
     pi.path = null; pi.want = null; keys = {};
-    if (s.id === "rex") { foundSecret("rex"); rex.hop = 1; rex.vy = -2.2; say("rex", REX[(Math.random() * REX.length) | 0], []); return; }
+    if (s.id === "rex") { foundSecret("rex"); rex.hop = 1; rex.vy = -2.2; say("rex", REX[(rand() * REX.length) | 0], []); return; }
     if (s.id === "core") { coreSay(false); return; }
     if (s.id === "cave") { openTerm(); return; }
     if (s.id === "shrine" && sealed()) { say("an old shrine", "a standing stone, older than the park, with a ring carved into it. the ring is cold, and something has sealed it shut. (it opens when all eight logs are found: " + countFound() + " of " + TOTAL + ".)", []); return; }
@@ -1295,7 +1303,7 @@
     if (s.id === "critter" || s.id === "bird" || s.id === "pond" || s.id === "nest" || s.id === "fence") { sayLocal(s); return; }
     if (s.id === "building") { if (s.ref.room) { var rm = s.ref.room; pi.sq = 0.12; pi.sqStart = false; sfx("open"); doorAnim = { bd: s.ref, t0: performance.now(), open: true }; stepIn = { y: pi.y, t0: performance.now() }; irisTo(function () { stepIn = null; enterRoom(rm); }, DOOR_CLOSE, DOOR_OPEN, ROOMS[rm]); } else say(s.ref.name, s.ref.text, []); return; }
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
-    if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(Math.random() * bl.length) | 0], []); return; }
+    if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(rand() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
     logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
     var host = window.SITE && window.SITE.CODE_HOST;                          // a repo link only once that repo is public on the host
@@ -1411,7 +1419,7 @@
     if (!cut.broke && cut.t > 0.9) {
       cut.broke = true; save.seal = true; writeSave();
       sfx("toll", cut.x, cut.y, { vol: 0.5 }); quake = Math.max(quake, 2);
-      for (var i = 0; i < 40; i++) { var a = Math.random() * 6.283, v = 20 + Math.random() * 50; embers.push({ x: cut.x, y: cut.y - 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life: 1 + Math.random() }); }
+      for (var i = 0; i < 40; i++) { var a = rand() * 6.283, v = 20 + rand() * 50; embers.push({ x: cut.x, y: cut.y - 10, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 20, life: 1 + rand() }); }
     }
     if (cut.t > 2.6) { cut = null; camF.x = null; fade = 0.9; bubble = { text: "pi:~$ something up on the highland just opened.", t: 3.5 }; if (pendingRift && open) later(1.2, function () { if (pendingRift && dlg.hidden && !side) { pendingRift = false; askRift(); } }); }
   }
@@ -1601,7 +1609,7 @@
       say: "one of Ammaar's two himalayan cats. very fluffy, fully unbothered.", sleepSay: "one of Ammaar's two himalayan cats. it's asleep in the sun. pi lets it be." }
   };
   function critter(kind, tx, ty, area) {
-    return { kind: kind, x: tx * T + 8, y: ty * T + 10, area: area, tx: 0, ty: 0, wait: Math.random() * 3, face: Math.random() < 0.5 ? 1 : -1, dist: 0, hop: 0, vy: 0, sleep: 0, roar: 0, cd: 0, graze: 0, seed: Math.random() * 10, call: 3 + Math.random() * 14, fast: 1 };
+    return { kind: kind, x: tx * T + 8, y: ty * T + 10, area: area, tx: 0, ty: 0, wait: rand() * 3, face: rand() < 0.5 ? 1 : -1, dist: 0, hop: 0, vy: 0, sleep: 0, roar: 0, cd: 0, graze: 0, seed: rand() * 10, call: 3 + rand() * 14, fast: 1 };
   }
   var ROARS = { trex: 1, dilo: 1, pachy: 1 };
   var CALLS = { spino: "grunt", dilo: "screech", pachy: "snort", galli: "squeak", compy: "chirp", brachio: "hoot", trex: "grunt", raptor: "screech", trike: "snort", ankylo: "snort", stego: "grunt", para: "honkp", baby: "squeak", baby2: "squeak", robot: "chatter", roomba: "chatter" };
@@ -1653,28 +1661,28 @@
     // every creature has a voice, and calls out now and then (heard only if pi is in earshot)
     c.call -= dt;
     if (c.call <= 0) {
-      c.call = 9 + Math.random() * 18;
+      c.call = 9 + rand() * 18;
       var cs = CALLS[c.kind];
       if (cs && !room && Math.hypot(pi.x - c.x, pi.y - c.y) < 300) { sfx(cs, c.x, c.y); if (d.art && !c.tx) c.hop = c.hop || (c.kind.indexOf("baby") === 0 ? 1 : 0); }
     }
     var pd0 = room ? 1e9 : Math.hypot(pi.x - c.x, pi.y - c.y);
     // the small and the skittish bolt when pi gets close
     // at night the dinosaurs doze where they stand (the raptors don't)
-    if (d.art && sky.dark > 0.7 && !c.tx && c.kind !== "raptor" && pd0 > 70 && c.wait > 0 && Math.random() < dt * 0.3) { c.sleep = 8 + Math.random() * 14; return; }
+    if (d.art && sky.dark > 0.7 && !c.tx && c.kind !== "raptor" && pd0 > 70 && c.wait > 0 && rand() < dt * 0.3) { c.sleep = 8 + rand() * 14; return; }
     if ((c.kind === "compy" && pd0 < 48) || (c.kind === "galli" && pd0 < 64)) {
-      if (!c.flee || !c.tx) { var fa = Math.atan2(c.y - pi.y, c.x - pi.x) + (Math.random() - 0.5) * 0.8; c.tx = c.x + Math.cos(fa) * 60; c.ty = c.y + Math.sin(fa) * 40; c.fast = 1.6; c.flee = 1; if (Math.random() < 0.3) sfx(CALLS[c.kind], c.x, c.y); }
+      if (!c.flee || !c.tx) { var fa = Math.atan2(c.y - pi.y, c.x - pi.x) + (rand() - 0.5) * 0.8; c.tx = c.x + Math.cos(fa) * 60; c.ty = c.y + Math.sin(fa) * 40; c.fast = 1.6; c.flee = 1; if (rand() < 0.3) sfx(CALLS[c.kind], c.x, c.y); }
     } else c.flee = 0;
     // the dilophosaurus calls; two pachycephalosaurs butt heads
-    if (c.kind === "dilo" && !c.tx && Math.random() < dt * 0.08) { c.roar = 1.4; sfx("screech", c.x, c.y); }
+    if (c.kind === "dilo" && !c.tx && rand() < dt * 0.08) { c.roar = 1.4; sfx("screech", c.x, c.y); }
     if (c.kind === "pachy" && !c.tx && c.cd <= 0) {
       var rival2 = critters.filter(function (o) { return o.kind === "pachy" && o !== c && !o.tx; })[0];
-      if (rival2 && Math.hypot(rival2.x - c.x, rival2.y - c.y) < 44 && Math.random() < dt * 0.4) {
+      if (rival2 && Math.hypot(rival2.x - c.x, rival2.y - c.y) < 44 && rand() < dt * 0.4) {
         c.face = rival2.x > c.x ? 1 : -1; rival2.face = -c.face; c.roar = rival2.roar = 1; c.cd = rival2.cd = 6;
         later(0.45, function () { sfx("hit", c.x, c.y, { vol: 0.7 }); c.hop = rival2.hop = 1; c.vy = rival2.vy = -1.4; });
       }
     }
     // the raptors pace their fence to keep level with pi
-    if (c.kind === "raptor" && pd0 < 170 && !aboard() && (!c.tx || Math.random() < dt * 1.2)) {
+    if (c.kind === "raptor" && pd0 < 170 && !aboard() && (!c.tx || rand() < dt * 1.2)) {
       var ro = (critters.indexOf(c) % 3 - 1) * 14;
       c.tx = Math.max((c.area[0] + 0.5) * T, Math.min((c.area[2] + 0.5) * T, pi.x + ro)); c.ty = Math.max((c.area[1] + 0.5) * T, Math.min((c.area[3] + 0.5) * T, pi.y + ro * 0.5)); c.fast = 1.5;
       if (!okFor(c, Math.floor(c.tx / T), Math.floor(c.ty / T))) c.tx = 0;
@@ -1685,20 +1693,20 @@
       else c.near = (c.near || 0) < 0 ? c.near + dt : 0;
     }
     // the t-rex stalks pi along the inside of its fence
-    if (c.kind === "trex" && pd0 < 190 && !aboard() && (!c.tx || Math.random() < dt * 1.5)) {
+    if (c.kind === "trex" && pd0 < 190 && !aboard() && (!c.tx || rand() < dt * 1.5)) {
       c.tx = Math.max((c.area[0] + 0.5) * T, Math.min((c.area[2] + 0.5) * T, pi.x)); c.ty = Math.max((c.area[1] + 0.5) * T, Math.min((c.area[3] + 0.5) * T, pi.y)); c.fast = 1.4;
     }
     c.wait -= dt;
     if (c.wait <= 0 && !c.tx) {
       c.fast = 1;
       // raptors dart after each other; herd animals drift together
-      if (c.kind === "raptor" && Math.random() < 0.35) { var mate = critters.filter(function (o) { return o.kind === "raptor" && o !== c; })[(Math.random() * 2) | 0]; if (mate) { c.tx = mate.x + (Math.random() - 0.5) * 30; c.ty = mate.y + (Math.random() - 0.5) * 20; c.fast = 1.7; } }
-      if (d.graze && Math.random() < 0.4) { var lead = critters.filter(function (o) { return o !== c && o.area === c.area && o.tx; })[0]; if (lead) { c.tx = lead.tx + (Math.random() - 0.5) * 40; c.ty = lead.ty + (Math.random() - 0.5) * 24; } }
+      if (c.kind === "raptor" && rand() < 0.35) { var mate = critters.filter(function (o) { return o.kind === "raptor" && o !== c; })[(rand() * 2) | 0]; if (mate) { c.tx = mate.x + (rand() - 0.5) * 30; c.ty = mate.y + (rand() - 0.5) * 20; c.fast = 1.7; } }
+      if (d.graze && rand() < 0.4) { var lead = critters.filter(function (o) { return o !== c && o.area === c.area && o.tx; })[0]; if (lead) { c.tx = lead.tx + (rand() - 0.5) * 40; c.ty = lead.ty + (rand() - 0.5) * 24; } }
       if (c.tx && !okFor(c, Math.floor(c.tx / T), Math.floor(c.ty / T))) c.tx = 0;
     }
     if (c.wait <= 0 && !c.tx) {
       for (var tries = 0; tries < 6; tries++) {
-        var tx = c.area[0] + Math.floor(Math.random() * (c.area[2] - c.area[0] + 1)), ty = c.area[1] + Math.floor(Math.random() * (c.area[3] - c.area[1] + 1));
+        var tx = c.area[0] + Math.floor(rand() * (c.area[2] - c.area[0] + 1)), ty = c.area[1] + Math.floor(rand() * (c.area[3] - c.area[1] + 1));
         if (okFor(c, tx, ty)) { c.tx = tx * T + 8; c.ty = ty * T + 10; break; }
       }
       if (!c.tx) c.wait = 1;
@@ -1706,9 +1714,9 @@
     if (c.tx) {
       var dx = c.tx - c.x, dy = c.ty - c.y, dd = Math.hypot(dx, dy);
       if (dd < 2) {
-        c.tx = 0; c.wait = 1 + Math.random() * 4;
-        if (d.cat && Math.random() < 0.4) c.sleep = 6 + Math.random() * 10;
-        if (d.graze && Math.random() < 0.55) { c.graze = 3 + Math.random() * 5; c.wait = Math.max(c.wait, c.graze); }
+        c.tx = 0; c.wait = 1 + rand() * 4;
+        if (d.cat && rand() < 0.4) c.sleep = 6 + rand() * 10;
+        if (d.graze && rand() < 0.55) { c.graze = 3 + rand() * 5; c.wait = Math.max(c.wait, c.graze); }
         return;
       }
       var bx = c.x, by = c.y, step = d.sp * (c.fast || 1) * dt, d0 = c.dist;
@@ -1801,9 +1809,9 @@
     }
     if (b.barkN === 2) {
       var left = SECRETS.filter(function (x) { return save.secrets.indexOf(x.id) < 0; });
-      if (left.length) return "rumour: " + left[(Math.random() * left.length) | 0].hint;
+      if (left.length) return "rumour: " + left[(rand() * left.length) | 0].hint;
     }
-    var j = BARKS[b.kind]; return j[(Math.random() * j.length) | 0];
+    var j = BARKS[b.kind]; return j[(rand() * j.length) | 0];
   }
   function updateBots(dt) {
     bots.forEach(function (b) {
@@ -1816,16 +1824,16 @@
           // at the dock it loads a crate; at the depot or the visitor centre it drops one off
           var at0 = b.legs[b.leg];
           b.carry = at0 === DOCKPT || (at0 === DEPOTPT && b.legs.length > 2 && b.leg === 0);
-          b.leg = (b.leg + 1) % b.legs.length; b.wait = 1.6 + Math.random();
+          b.leg = (b.leg + 1) % b.legs.length; b.wait = 1.6 + rand();
           if (at0 === DOCKPT) sfx("backup", b.x, b.y); else sfx("chatter", b.x, b.y);
         }
       } else if (b.kind === "welder") {
         if (!b.path) { b.spot = (b.spot + 1) % b.spots.length; botGo(b, b.spots[b.spot]); if (!b.path) b.wait = 3; return; }
-        if (stepBot(b, dt, 14)) { b.wait = 8 + Math.random() * 6; b.work = b.wait; b.face = 1; }
+        if (stepBot(b, dt, 14)) { b.wait = 8 + rand() * 6; b.work = b.wait; b.face = 1; }
       } else if (b.kind === "gardener") {
         if (!b.path) {
           var near2 = props.filter(function (p2) { return /^e:(fern|cycad|bush|magnolia|tallgrass)/.test(p2.kind) && Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8; });
-          var pick = near2[(Math.random() * near2.length) | 0];
+          var pick = near2[(rand() * near2.length) | 0];
           if (pick) botGo(b, [pick.tx, pick.ty + 1]);
           if (!b.path) { b.wait = 2; return; }
           b.target = pick; return;
@@ -1837,21 +1845,21 @@
     sparks = sparks.filter(function (s2) { return s2.life > 0; });
     drones.forEach(function (d) {
       d.spin += dt * 40;
-      if (d.state === "rest") { d.z = pad.roof; if ((d.wait -= dt) <= 0) { var dest = OUT[(Math.random() * OUT.length) | 0]; d.tx = dest.x * T + 8; d.ty = dest.y * T + 18; d.state = "up"; d.carry = true; } }
+      if (d.state === "rest") { d.z = pad.roof; if ((d.wait -= dt) <= 0) { var dest = OUT[(rand() * OUT.length) | 0]; d.tx = dest.x * T + 8; d.ty = dest.y * T + 18; d.state = "up"; d.carry = true; } }
       else if (d.state === "up") { d.z += 18 * dt; if (d.z >= 46) d.state = d.carry ? "out" : "home"; }
       else if (d.state === "out" || d.state === "home") {
         var gx = d.state === "out" ? d.tx : pad.x, gy = d.state === "out" ? d.ty : pad.y, dx = gx - d.x, dy = gy - d.y, dd = Math.hypot(dx, dy);
         if (dd < 3) { d.state = d.state === "out" ? "drop" : "land"; d.wait = 1.4; }
         else { d.x += dx / dd * 46 * dt; d.y += dy / dd * 46 * dt; }
       } else if (d.state === "drop") { d.z = Math.max(16, d.z - 30 * dt); if ((d.wait -= dt) <= 0) { d.carry = false; sparks.push({ x: d.x, y: d.y - 4, vx: 0, vy: -10, life: 0.8, c: "#c89458", box: true }); d.state = "up"; } }
-      else if (d.state === "land") { d.z = Math.max(pad.roof, d.z - 18 * dt); if (d.z <= pad.roof) { d.state = "rest"; d.wait = 4 + Math.random() * 6; } }
+      else if (d.state === "land") { d.z = Math.max(pad.roof, d.z - 18 * dt); if (d.z <= pad.roof) { d.state = "rest"; d.wait = 4 + rand() * 6; } }
     });
   }
   function weldSparks(b, dt) {
-    if (Math.random() < dt * 30) { var sx = b.x + 9 * b.face, sy = b.y - 6; sparks.push({ x: sx, y: sy, vx: (Math.random() - 0.5) * 70, vy: -30 - Math.random() * 40, life: 1, c: Math.random() < 0.5 ? "#ffe07a" : "#ffffff" }); light(sx, sy, 14, "255,200,120", 0.9); }
-    b.wt = (b.wt || 0) - dt; if (b.wt <= 0) { b.wt = 1 + Math.random() * 0.8; sfx("weld", b.x, b.y); }
+    if (rand() < dt * 30) { var sx = b.x + 9 * b.face, sy = b.y - 6; sparks.push({ x: sx, y: sy, vx: (rand() - 0.5) * 70, vy: -30 - rand() * 40, life: 1, c: rand() < 0.5 ? "#ffe07a" : "#ffffff" }); light(sx, sy, 14, "255,200,120", 0.9); }
+    b.wt = (b.wt || 0) - dt; if (b.wt <= 0) { b.wt = 1 + rand() * 0.8; sfx("weld", b.x, b.y); }
   }
-  function spraying(b) { if (Math.random() < 0.6) sparks.push({ x: b.x - 6 * b.face, y: b.y - 4, vx: -b.face * (20 + Math.random() * 20), vy: -10 - Math.random() * 10, life: 0.8, c: "#8fc0ff" }); }
+  function spraying(b) { if (rand() < 0.6) sparks.push({ x: b.x - 6 * b.face, y: b.y - 4, vx: -b.face * (20 + rand() * 20), vy: -10 - rand() * 10, life: 0.8, c: "#8fc0ff" }); }
   function drawBot(b) {
     var art = BOTART[b.kind], rows = Math.floor(b.dist / 3) % 2 || (b.work > 0 && Math.floor(t * 6) % 2) ? art.b : art.a;
     shadow(b.x, b.y, art.w - 2);
@@ -1899,7 +1907,7 @@
         var u = Math.min(1, f.t), e = u * u * (3 - 2 * u);
         b.x = f.x0 + (f.x1 - f.x0) * e; b.y = f.y0 + (f.y1 - f.y0) * e - Math.sin(u * Math.PI) * f.arc; b.gy = f.g0 + (f.g1 - f.g0) * e;
         b.face = f.x1 > f.x0 ? 1 : -1;
-        if (u >= 1) { b.fly = null; b.rest = 4 + Math.random() * 9; }
+        if (u >= 1) { b.fly = null; b.rest = 4 + rand() * 9; }
         return;
       }
       b.rest -= dt;
@@ -1907,7 +1915,7 @@
       if (i === 0 && !room && (pi.vx || pi.vy) && Math.hypot(pi.x - b.x, pi.y - b.gy) < 16) { b.rest = 0; sfx("chirp", b.x, b.y); }
       // the leader picks a new perch; the other follows a moment later
       if (b.rest <= 0 && i === 0) {
-        var n = (Math.random() * perches.length) | 0; if (n === b.perch) n = (n + 1) % perches.length;
+        var n = (rand() * perches.length) | 0; if (n === b.perch) n = (n + 1) % perches.length;
         fly(b, n, 0); fly(birds[1], n, 0.5);
       }
     });
@@ -1916,7 +1924,7 @@
     var p = perches[n], off = b.i ? 4 : 0;
     later(delay, function () {
       b.perch = n;
-      b.fly = { t: 0, dur: 1.4 + Math.hypot(p.x - b.x, p.y - b.y) / 160, x0: b.x, y0: b.y, g0: b.gy, x1: p.x + off, y1: p.y, g1: p.gy, arc: 18 + Math.random() * 16 };
+      b.fly = { t: 0, dur: 1.4 + Math.hypot(p.x - b.x, p.y - b.y) / 160, x0: b.x, y0: b.y, g0: b.gy, x1: p.x + off, y1: p.y, g1: p.gy, arc: 18 + rand() * 16 };
     });
   }
   function drawBird(b) {
@@ -1948,13 +1956,13 @@
     foundSecret("koi");
     if (bx === undefined) { bx = (KP.x - KP.rx * 0.72) * T; by = KP.y * T; }
     food = { x: bx, y: by, t: 12, bits: [] };
-    for (var i = 0; i < 14; i++) food.bits.push({ x: bx + (Math.random() - 0.5) * 18, y: by + (Math.random() - 0.5) * 8, life: 1 });
+    for (var i = 0; i < 14; i++) food.bits.push({ x: bx + (rand() - 0.5) * 18, y: by + (rand() - 0.5) * 8, life: 1 });
     ripples.push({ x: bx, y: by, r: 1, life: 1 });
   }
   function updateKoi(dt) {
     if (food) { food.t -= dt; if (food.t <= 0) food = null; }
     koi.forEach(function (f) {
-      f.turn += (Math.random() - 0.5) * dt * 3; f.turn *= 0.97; f.a += f.turn * dt * 2;
+      f.turn += (rand() - 0.5) * dt * 3; f.turn *= 0.97; f.a += f.turn * dt * 2;
       var boost = 1;
       if (food) {
         var want = Math.atan2(food.y - f.y, food.x - f.x), dd = Math.hypot(food.x - f.x, food.y - f.y);
@@ -1963,9 +1971,9 @@
         if (dd < 8) food.bits.forEach(function (b) { if (b.life > 0 && Math.hypot(b.x - f.x, b.y - f.y) < 5) { b.life = 0; ripples.push({ x: b.x, y: b.y, r: 1, life: 0.7 }); } });
       }
       var nx = f.x + Math.cos(f.a) * f.v * boost * dt, ny = f.y + Math.sin(f.a) * f.v * boost * dt;
-      if (pondF((nx + Math.cos(f.a) * f.len) / T, (ny + Math.sin(f.a) * f.len) / T) > 0.86) { f.a += 2.2 + Math.random(); return; }
+      if (pondF((nx + Math.cos(f.a) * f.len) / T, (ny + Math.sin(f.a) * f.len) / T) > 0.86) { f.a += 2.2 + rand(); return; }
       f.x = nx; f.y = ny;
-      if (Math.random() < dt * 0.08) ripples.push({ x: f.x, y: f.y, r: 1, life: 1 });
+      if (rand() < dt * 0.08) ripples.push({ x: f.x, y: f.y, r: 1, life: 1 });
     });
     ripples.forEach(function (r) { r.r += dt * 8; r.life -= dt * 0.8; });
     ripples = ripples.filter(function (r) { return r.life > 0; });
@@ -2192,10 +2200,10 @@
       p.face = nx > p.x ? 1 : -1; p.x = nx; p.y = ny;
     });
     smokeT -= dt;
-    if (smokeT <= 0) { smokeT = 0.18; smoke.push({ x: VX + (Math.random() - 0.5) * 20, y: VY + 2, r: 3 + Math.random() * 3, life: 1, vx: 4 + Math.random() * 4 }); }
+    if (smokeT <= 0) { smokeT = 0.18; smoke.push({ x: VX + (rand() - 0.5) * 20, y: VY + 2, r: 3 + rand() * 3, life: 1, vx: 4 + rand() * 4 }); }
     smoke.forEach(function (s) { s.y -= 11 * dt; s.x += s.vx * dt; s.r += 3.2 * dt; s.life -= dt * 0.16; });
     smoke = smoke.filter(function (s) { return s.life > 0; });
-    if (Math.random() < dt * 1.2) embers.push({ x: VX + (Math.random() - 0.5) * 30, y: VY, vx: (Math.random() - 0.5) * 30, vy: -30 - Math.random() * 30, life: 1 });
+    if (rand() < dt * 1.2) embers.push({ x: VX + (rand() - 0.5) * 30, y: VY, vx: (rand() - 0.5) * 30, vy: -30 - rand() * 30, life: 1 });
     embers.forEach(function (e) { e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 40 * dt; e.life -= dt * 0.9; });
     embers = embers.filter(function (e) { return e.life > 0; });
     quake = Math.max(0, quake - dt * 8);
@@ -2549,7 +2557,7 @@
       var c = v.ref, d = DINOS[c.kind];
       if (c.sleep <= 0) { c.hop = 1; c.vy = -2; sfx(c.kind === "para" ? "honkp" : c.kind === "robot" || c.kind === "roomba" ? "blip" : "hop", c.x, c.y); }
       var line = c.name ? (c.sleep > 0 ? c.name + " is asleep in the sun. pi lets " + (c.name === "jasmine" ? "her" : "him") + " be." : c.say)
-        : c.sleep > 0 && d.sleepSay ? d.sleepSay : Array.isArray(d.say) ? d.say[(Math.random() * d.say.length) | 0] : d.say;
+        : c.sleep > 0 && d.sleepSay ? d.sleepSay : Array.isArray(d.say) ? d.say[(rand() * d.say.length) | 0] : d.say;
       say(c.name ? c.name : c.kind === "cat" ? "a himalayan cat" : c.kind === "robot" || c.kind === "roomba" ? "a bot" : "a dinosaur", line, []);
     } else if (v.id === "bird") { sfx("whistle", pi.x, pi.y); say("a cockatiel", "one of Ammaar's two cockatiels. it whistles at pi, then preens.", []); }
     else if (v.id === "pond") {
@@ -2903,7 +2911,7 @@
       var hx = (act.a.x - camX) * E, hy = (act.a.y - act.a.z - camY) * E, tx2 = (act.b.x - camX) * E, ty2 = (act.b.y - act.b.z - camY) * E;
       if (!act.beam) { ctx.strokeStyle = "rgba(255,255,255," + (0.15 * act.t).toFixed(3) + ")"; ctx.lineWidth = 1; ctx.setLineDash([4, 6]); ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx2, ty2); ctx.stroke(); ctx.setLineDash([]); }
       else {
-        var bf = 1 - act.beam.t / 0.4, fl = 0.8 + Math.random() * 0.4;
+        var bf = 1 - act.beam.t / 0.4, fl = 0.8 + rand() * 0.4;
         [[18, 0.18], [9, 0.4], [3, 0.95]].forEach(function (lw, i) { ctx.strokeStyle = i === 2 ? "rgba(255,255,255," + (lw[1] * bf).toFixed(3) + ")" : "rgba(" + dust(act.a.name).join(",") + "," + (lw[1] * bf).toFixed(3) + ")"; ctx.lineWidth = lw[0] * fl * E / 3; ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(tx2, ty2); ctx.stroke(); });
       }
     }
@@ -3036,7 +3044,7 @@
   }
   function drawFuture(E, VW, VH) {
     // flying traffic in lanes across the view
-    if (!cars.length) for (var i = 0; i < 16; i++) cars.push({ lane: i % 8, off: Math.random() * 400, v: (i % 2 ? 1 : -1) * (60 + Math.random() * 60), c: ["#29d8ff", "#ff4fa0", "#ffe07a"][i % 3] });
+    if (!cars.length) for (var i = 0; i < 16; i++) cars.push({ lane: i % 8, off: rand() * 400, v: (i % 2 ? 1 : -1) * (60 + rand() * 60), c: ["#29d8ff", "#ff4fa0", "#ffe07a"][i % 3] });
     cars.forEach(function (cr) {
       var span = VW + 80, x = camX - 40 + ((((cr.off + t * cr.v) % span) + span) % span), y = camY + 20 + cr.lane * (VH - 40) / 8;
       ctx.fillStyle = cr.c; ctx.fillRect(Math.round(x), Math.round(y), 5, 2);
@@ -3050,7 +3058,7 @@
   var nodes = null;
   function drawChaosNet(E) {
     // a neural net over the ink: nodes, flickering connections, pulses running along them
-    if (!nodes) { nodes = []; for (var i = 0; i < 70; i++) { var a = Math.random() * 6.283, d = 30 + Math.random() * 520; nodes.push({ x: ARENA.x + Math.cos(a) * d * 1.3, y: ARENA.y + Math.sin(a) * d * 0.8, r: 1 + Math.random() * 3 }); } nodes.forEach(function (n) { n.to = nodes.slice().sort(function (p2, q2) { return Math.hypot(p2.x - n.x, p2.y - n.y) - Math.hypot(q2.x - n.x, q2.y - n.y); }).slice(1, 4); }); }
+    if (!nodes) { nodes = []; for (var i = 0; i < 70; i++) { var a = rand() * 6.283, d = 30 + rand() * 520; nodes.push({ x: ARENA.x + Math.cos(a) * d * 1.3, y: ARENA.y + Math.sin(a) * d * 0.8, r: 1 + rand() * 3 }); } nodes.forEach(function (n) { n.to = nodes.slice().sort(function (p2, q2) { return Math.hypot(p2.x - n.x, p2.y - n.y) - Math.hypot(q2.x - n.x, q2.y - n.y); }).slice(1, 4); }); }
     ctx.lineWidth = 0.6;
     nodes.forEach(function (n, i) {
       n.to.forEach(function (m, j) {
@@ -3067,8 +3075,8 @@
       ctx.globalCompositeOperation = "soft-light"; ctx.fillStyle = "rgba(120,40,255,.35)"; ctx.fillRect(0, 0, W, H);
       ctx.globalCompositeOperation = "source-over"; ctx.fillStyle = "rgba(41,216,255,.05)"; for (var y = (t * 40) % 4; y < H; y += 4) ctx.fillRect(0, y, W, 1);
     } else if (R === "chaos") {
-      for (var i = 0; i < 700; i++) { ctx.fillStyle = Math.random() < 0.5 ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.55)"; ctx.fillRect(Math.random() * W, Math.random() * H, 1 + (Math.random() < 0.1 ? 2 : 0), 1); }
-      if (Math.random() < 0.04) invertFlash();
+      for (var i = 0; i < 700; i++) { ctx.fillStyle = rand() < 0.5 ? "rgba(0,0,0,.55)" : "rgba(255,255,255,.55)"; ctx.fillRect(rand() * W, rand() * H, 1 + (rand() < 0.1 ? 2 : 0), 1); }
+      if (rand() < 0.04) invertFlash();
     }
   }
   // the tear isn't a circle: a jagged, rotating star of a hole, its points flickering
@@ -3110,9 +3118,9 @@
   }
   function glitchSlices() {
     // tear the frame: shove a few horizontal bands sideways and split the colour channels
-    var n = 5 + ((Math.random() * 6) | 0);
+    var n = 5 + ((rand() * 6) | 0);
     for (var i = 0; i < n; i++) {
-      var sy = Math.random() * cv.height, sh = 4 + Math.random() * 40 * dpr, dx = (Math.random() - 0.5) * 60 * dpr;
+      var sy = rand() * cv.height, sh = 4 + rand() * 40 * dpr, dx = (rand() - 0.5) * 60 * dpr;
       ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(cv, 0, sy, cv.width, sh, dx, sy, cv.width, sh);
     }
     ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.25; ctx.drawImage(cv, 6 * dpr, 0); ctx.globalAlpha = 1; ctx.globalCompositeOperation = "source-over";
@@ -3441,14 +3449,14 @@
     } else if (side.phase === "warp") {
       side.warp = Math.min(1, side.t / 4);
       reality.glitch = 0.3; quake = 6 * side.warp;
-      if (Math.random() < dt * 3) sfx("warp");
+      if (rand() < dt * 3) sfx("warp");
       if (side.t > 4.2 && !side.done) { side.done = true; throwOut(); }
     }
   }
   function renderSide() {
     var E = crisp(Math.max(2, Math.min(5, Math.floor(Math.min(H / 190, W / 240))))), VW = W / E, VH = H / E;
     var cam = Math.max(0, Math.min(SIDEW - VW, side.x - VW * 0.4)), oy = Math.max(0, VH - 230) * 0.6;
-    var shx = (Math.random() - 0.5) * shakeBy(quake), shy = (Math.random() - 0.5) * shakeBy(quake);
+    var shx = (rand() - 0.5) * shakeBy(quake), shy = (rand() - 0.5) * shakeBy(quake);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.fillStyle = "#2a4a8a"; ctx.fillRect(0, 0, W, oy * E + 1);
     ctx.setTransform(E * dpr, 0, 0, E * dpr, shx * dpr, (shy + oy * E) * dpr); ctx.imageSmoothingEnabled = false; VH -= oy;
     // the sky: a smooth gradient that sinks from a clear afternoon into a bruised dusk as you
@@ -3489,7 +3497,7 @@
       var dc = A.dc || (A.dc = mkCanvas()); dc.width = dc.height = 140; var dg = dc.getContext("2d");
       dg.clearRect(0, 0, 140, 140); dg.drawImage(A.deity.canvas, 10, 10, 120, 120);
       if (rage > 0.05) { dg.globalCompositeOperation = "source-atop"; dg.globalAlpha = Math.min(OPT.flash ? 0.85 : 0.5, rage * (0.6 + 0.2 * Math.sin(t * 2.4))); dg.fillStyle = col; dg.fillRect(0, 0, 140, 140); dg.globalAlpha = 1; dg.globalCompositeOperation = "source-over"; }
-      var sz = R0 * 2 / 120 * 140, jx = (Math.random() - 0.5) * rage * 4, jy = (Math.random() - 0.5) * rage * 4;
+      var sz = R0 * 2 / 120 * 140, jx = (rand() - 0.5) * rage * 4, jy = (rand() - 0.5) * rage * 4;
       if (rage > 0.3) {                                                      // it splits: offset ghosts of itself
         ctx.globalCompositeOperation = "lighter"; ctx.globalAlpha = 0.35 * rage;
         ctx.drawImage(dc, ax - sz / 2 - 5 * rage + jx, ay - sz / 2 + jy, sz, sz); ctx.drawImage(dc, ax - sz / 2 + 5 * rage - jx, ay - sz / 2 - jy, sz, sz);
@@ -3507,7 +3515,7 @@
     if (side.phase === "warp") {
       // reality comes apart: the colours invert in flashes, a hole opens out of the orb, everything shakes
       var u = side.warp, ex = (ax) * E, ey = (ay + oy) * E;
-      if (Math.random() < 0.2 + u * 0.35) invertFlash();
+      if (rand() < 0.2 + u * 0.35) invertFlash();
       var hr = u * u * Math.max(W, H) * 1.3;
       var hole = ctx.createRadialGradient(ex, ey, hr * 0.6, ex, ey, hr * 1.05); hole.addColorStop(0, "rgba(0,0,0,1)"); hole.addColorStop(0.8, "rgba(40,0,30,.8)"); hole.addColorStop(1, "rgba(0,0,0,0)");
       ctx.fillStyle = "#000"; tearPath(ex, ey, hr * 0.6, 7); ctx.fill();
@@ -3608,19 +3616,19 @@
     // rex wanders the meadow
     rex.wait -= dt;
     if (rex.wait <= 0 && !rex.tx) {
-      var tx = 38 + Math.floor(Math.random() * 12), ty = 60 + Math.floor(Math.random() * 3);
+      var tx = 38 + Math.floor(rand() * 12), ty = 60 + Math.floor(rand() * 3);
       if (walkable(tx, ty)) { rex.tx = tx * T + 8; rex.ty = ty * T + 10; }
     }
     if (rex.tx) {
       var rx = rex.tx - rex.x, ry = rex.ty - rex.y, rd = Math.hypot(rx, ry);
-      if (rd < 2) { rex.tx = 0; rex.wait = 1 + Math.random() * 3; }
+      if (rd < 2) { rex.tx = 0; rex.wait = 1 + rand() * 3; }
       else { var bx = rex.x, by = rex.y; move(rex, rx / rd * 22 * dt, ry / rd * 22 * dt); rex.dist += 22 * dt; rex.face = rx > 0 ? 1 : -1; if (Math.hypot(rex.x - bx, rex.y - by) < 0.01) { rex.tx = 0; rex.wait = 1; } }
     }
     if (rex.hop) { rex.vy += 9 * dt; rex.hop += rex.vy; if (rex.hop >= 0) { rex.hop = 0; rex.vy = 0; } }
     // pterodactyl fly-bys
     ptero.next -= dt;
-    if (!ptero.on && ptero.next <= 0) { ptero.on = true; ptero.vx = Math.random() < 0.5 ? 38 : -38; ptero.x = ptero.vx > 0 ? camX - 30 : camX + W / (S * zoom) + 30; ptero.y = camY + 20 + Math.random() * (H / (S * zoom) - 60); }
-    if (ptero.on) { ptero.x += ptero.vx * dt; ptero.y -= 4 * dt; if (ptero.x < camX - 60 || ptero.x > camX + W / (S * zoom) + 60) { ptero.on = false; ptero.next = 6 + Math.random() * 8; } }
+    if (!ptero.on && ptero.next <= 0) { ptero.on = true; ptero.vx = rand() < 0.5 ? 38 : -38; ptero.x = ptero.vx > 0 ? camX - 30 : camX + W / (S * zoom) + 30; ptero.y = camY + 20 + rand() * (H / (S * zoom) - 60); }
+    if (ptero.on) { ptero.x += ptero.vx * dt; ptero.y -= 4 * dt; if (ptero.x < camX - 60 || ptero.x > camX + W / (S * zoom) + 60) { ptero.on = false; ptero.next = 6 + rand() * 8; } }
     clouds.forEach(function (c) { c.x += c.v * dt; if (c.x > MW * T + c.w) c.x = -c.w; });
     if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; }
   }
@@ -3676,13 +3684,13 @@
     if (room) { sfx("step", undefined, undefined, { surface: room.id === "visitor" ? "dock" : "gravel", vol: 0.7 }); return; }
     sfx("step", undefined, undefined, { surface: tt === DOCK ? "dock" : tt === GRASS ? "grass" : "gravel", vol: keys.run ? 1.2 : 0.8 });
     if (pi.kaiju) { sfx("stomp", undefined, undefined, { vol: 0.18 }); nudge = 1; }     // middle path is a little heavier than pi: the screen feels it
-    if (tt === GRASS && nstep % 3 === 0 && !keys.run) puffs.push({ x: pi.x + side, y: pi.y, vx: (Math.random() - 0.5) * 5, vy: -2 - Math.random() * 2, life: 0.7, c: "150,130,90" });   // a little dust off the grass
+    if (tt === GRASS && nstep % 3 === 0 && !keys.run) puffs.push({ x: pi.x + side, y: pi.y, vx: (rand() - 0.5) * 5, vy: -2 - rand() * 2, life: 0.7, c: "150,130,90" });   // a little dust off the grass
     if (tt === PATH || tt === SAND || tt === PAD || keys.run) {
-      for (var i = 0; i < (keys.run ? 3 : 1); i++) puffs.push({ x: pi.x + side + (Math.random() - 0.5) * 3, y: pi.y, vx: -pi.vx * 0.08 + (Math.random() - 0.5) * 6, vy: -3 - Math.random() * 4, life: 1, c: tt === GRASS ? "150,190,110" : tt === SAND ? "230,214,170" : "200,170,120" });
+      for (var i = 0; i < (keys.run ? 3 : 1); i++) puffs.push({ x: pi.x + side + (rand() - 0.5) * 3, y: pi.y, vx: -pi.vx * 0.08 + (rand() - 0.5) * 6, vy: -3 - rand() * 4, life: 1, c: tt === GRASS ? "150,190,110" : tt === SAND ? "230,214,170" : "200,170,120" });
     }
     if (tt === SAND) { prints.push({ x: Math.round(pi.x + side), y: Math.round(pi.y), life: 1 }); if (prints.length > 60) prints.shift(); }
     var fp = ferns[k(tx, Math.floor(pi.y / T))];
-    if (fp) { fp.rustle = 1; if (rustling.indexOf(fp) < 0) rustling.push(fp); sfx("rustle", pi.x, pi.y); puffs.push({ x: pi.x, y: pi.y - 8, vx: (Math.random() - 0.5) * 16, vy: -8, life: 1.2, c: "70,140,70", leaf: true }); }
+    if (fp) { fp.rustle = 1; if (rustling.indexOf(fp) < 0) rustling.push(fp); sfx("rustle", pi.x, pi.y); puffs.push({ x: pi.x, y: pi.y - 8, vx: (rand() - 0.5) * 16, vy: -8, life: 1.2, c: "70,140,70", leaf: true }); }
   }
   function updateFootfalls(dt) {
     puffs.forEach(function (d) { d.x += d.vx * dt; d.y += d.vy * dt; d.vy += (d.leaf ? 14 : 4) * dt; d.life -= dt * (d.leaf ? 0.9 : 2.2); });
@@ -3905,10 +3913,10 @@
         if (p.kind === "campfire") {
           for (var f2 = 0; f2 < 8; f2++) { var fl2 = Math.sin(t * 13 + f2 * 1.9), w5 = Math.max(1, 6 - f2 * 0.8 + fl2); ctx.fillStyle = f2 < 2 ? "#ffe07a" : f2 < 5 ? "#ff9a30" : "#e85414"; ctx.fillRect(Math.round(bx - w5 / 2 + fl2 * 0.6), by - 9 - f2, Math.round(w5), 1); }
           light(bx, by - 10, 46, "255,150,60", 1);
-          if (Math.random() < 0.3) puffs.push({ x: bx + (Math.random() - 0.5) * 3, y: by - 16, vx: (Math.random() - 0.5) * 4, vy: -10, life: 1, c: "120,110,100" });
+          if (rand() < 0.3) puffs.push({ x: bx + (rand() - 0.5) * 3, y: by - 16, vx: (rand() - 0.5) * 4, vy: -10, life: 1, c: "120,110,100" });
         }
         if (p.kind === "mast" && Math.floor(t * 1.2) % 2) { ctx.fillStyle = "#ff5252"; ctx.fillRect(bx, by - s.height + 3, 2, 1); light(bx, by - s.height + 3, 10, "255,82,82", 0.9); }
-        if (p.kind === "generator" && Math.random() < 0.25) puffs.push({ x: bx + 6, y: by - 16, vx: 2, vy: -8, life: 0.8, c: "80,80,80" });
+        if (p.kind === "generator" && rand() < 0.25) puffs.push({ x: bx + 6, y: by - 16, vx: 2, vy: -8, life: 0.8, c: "80,80,80" });
       } });
     });
     OUT.forEach(function (s) { list.push({ y: s.y * T + 15, f: function () { drawStation(s); } }); });
@@ -3957,8 +3965,8 @@
     var kf = 1 - Math.pow(0.001, rdt);                                  // the same follow at any frame rate
     camF.x += (fx - camF.x) * kf; camF.y += (fy - camF.y) * kf;
     var sh = shakeBy((rift ? rift.shake : 0) + quake);
-    camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (Math.random() - 0.5) * sh;
-    camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (Math.random() - 0.5) * sh + shakeBy(nudge) / E; nudge = 0;
+    camX = Math.max(0, Math.min(MW * T - VW, camF.x - VW / 2)) + (rand() - 0.5) * sh;
+    camY = Math.max(0, Math.min(MH * T - VH, camF.y - VH / 2)) + (rand() - 0.5) * sh + shakeBy(nudge) / E; nudge = 0;
     camX = Math.round(camX * E * dpr) / (E * dpr); camY = Math.round(camY * E * dpr) / (E * dpr);        // whole device pixels: no shimmer
     if (reality.wipe) {
       REAL = reality.wipe.from; drawWorld(E, VW, VH);
@@ -4231,6 +4239,7 @@
      to 100 ms and at most five steps run per frame, so a long hitch (or a tab coming back from
      the background) can't make the car tunnel through a wall or a fight skip ahead */
   var STEP = 1 / 60, acc = 0, paused = false;
+  var manual = DEBUG && /[?&]step=1(&|$)/.test(location.search);             // ?debug=1&step=1: only __island.step() moves time
   var qTier = 0, fAvg = 16, qSlow = 0, qFast = 0;
   var qGrace = 0;                                                             // no samples until this time (ms)
   function qualityWatch(ms) {
@@ -4240,7 +4249,7 @@
     else if (fAvg < 12) { qFast += ms / 1000; qSlow = 0; if (qFast > 5 && qTier === 1) { qTier = 0; qFast = 0; } }
     else { qSlow = 0; qFast = 0; }
   }
-  function startLoop() { if (raf) cancelAnimationFrame(raf); last = performance.now(); acc = 0; raf = requestAnimationFrame(loop); }
+  function startLoop() { if (raf) cancelAnimationFrame(raf); raf = 0; if (manual) { if (open) render(); return; } last = performance.now(); acc = 0; raf = requestAnimationFrame(loop); }
   function stopLoop() { if (raf) cancelAnimationFrame(raf); raf = 0; }
   function loop(now) {
     raf = 0;
@@ -4256,12 +4265,40 @@
     if (DEBUG) { drawDebug(ms); work.push(performance.now() - now); if (work.length > 600) work.shift(); }
     raf = requestAnimationFrame(loop);
   }
-  /* ?debug=1 only: a small test API (handoff 2 C5 grows it). work[] is how long each recent frame's
-     update and render took, in ms, which is what the transition tests check against 16 ms */
+  /* ?debug=1 only: the test API (handoff 2 C5). work[] is how long each recent frame's update and
+     render took, in ms, which is what the transition tests check against 16 ms.
+     step(n) stops the live loop and runs exactly n fixed steps (none while paused or a menu is
+     up, like the loop), then draws once; play() hands time back to the loop. With ?seed=n and
+     ?step=1 (the loop never starts) two runs of the same steps end in the same state; setSeed(n)
+     reseeds from wherever the island is. Door and warp animations still run on the wall clock */
   var work = [];
+  var EVENTS = {
+    ptero: function () { ptero.on = false; ptero.next = 0; },                   // the flyover crosses the view from the next step
+    roar: function () { roar(); },
+    quake: function () { quake = 4; }
+  };
   if (DEBUG) window.__island = {
     teleport: function (x, y) { pi.x = x; pi.y = y; pi.vx = pi.vy = 0; pi.path = null; camF.x = null; },
-    getState: function () { return { open: open, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
+    step: function (n) {
+      manual = true; stopLoop();
+      var ran = 0;
+      if (open && !paused && !setOpen() && !creditsOpen() && !mapOpen()) for (; ran < (n | 0); ran++) { t += STEP; update(STEP); }
+      if (open) { rdt = STEP; render(); }
+      return ran;
+    },
+    play: function () { manual = false; if (open) startLoop(); },
+    setSeed: function (n) { frand = seeded(+n); rand = seeded(+n ^ 0x5bd1e995); },
+    // a save object, checked the way a stored one is; pi's form and the found logs follow it now.
+    // comfort settings take effect the next time the island loads
+    setSave: function (o) {
+      var m = mergeSave(o); if (!m) throw new Error("setSave: not a version 1 save");
+      save = m; writeSave();
+      found = {}; save.logs.forEach(function (k2) { if (typeof k2 === "string") found[k2] = 1; });
+      pi.kaiju = !!save.evolved; paintFound(); paintLandmarks();
+      return JSON.parse(JSON.stringify(save));
+    },
+    fireEvent: function (name) { if (!EVENTS[name]) throw new Error("fireEvent: one of " + Object.keys(EVENTS).join(", ")); EVENTS[name](); },
+    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
     props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
@@ -4343,7 +4380,7 @@
     var d = Math.min(window.devicePixelRatio || 1, 2);
     warp.width = Math.floor(innerWidth * d); warp.height = Math.floor(innerHeight * d);
     streaks = [];
-    for (var i = 0; i < 260; i++) streaks.push({ a: Math.random() * 6.283, r: Math.random() * 40, v: 0.5 + Math.random(), c: Math.random() });
+    for (var i = 0; i < 260; i++) streaks.push({ a: rand() * 6.283, r: rand() * 40, v: 0.5 + rand(), c: rand() });
     var start = performance.now(), dur = dir > 0 ? 1000 : 650, far = Math.hypot(innerWidth, innerHeight), bloom = dir > 0 && OPT.flash && flashGate();
     (function frame(now) {
       var p = Math.min(1, (now - start) / dur), e = dir > 0 ? p * p * p : 1 - Math.pow(1 - p, 3);
