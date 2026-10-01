@@ -122,6 +122,14 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - The only console error live is the pre-existing `hands.js` reduced-motion `drawImage` error (Chromium and WebKit, `hands.js:63`). It is not part of this release and is not fixed (`handoff.md`, section 10).
 - No manual live check by Ammaar yet.
 
+**2026-10-01, the `hands.js` fix** (version `8957e8ba-22da-4e16-ad92-ab82d22b217a`, cache `20261021`, commit `ba157d0`). Deployed by Claude on the Mac with `node tools/deploy.mjs`, with Ammaar's written authorization for this release, after `ba157d0` reached GitHub `main`. It ships `cd80047` (`hands.js` no longer draws before it's built, so a scroll, resize or theme change during loading no longer throws a `drawImage` TypeError); `ba157d0` is the cache bump. Wrangler uploaded 4 changed files: `js/hands.js`, `index.html`, `js/site.js` and `js/world.js` (the last three changed only their `?v=` references). Checked:
+
+- Scope: every commit since `8216a65` is the `hands.js` fix and its test, docs or the cache bump; the shipped files changed only by the one-line guard and `?v=` references.
+- Pre-deploy on the Mac: `hands.mjs` 26 of 26 passed in Chromium and WebKit (Firefox blocked at launch); `focus.mjs` and `codelinks.mjs` passed; html-validate and cspell clean; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's browser launch, LinkedIn's scripted check); `deploy.mjs --dry-run` passed (52 files, 40 references checked).
+- `node tools/deploy.mjs --check` passed; the live `index.html` has 9 references to `v=20261021` and none to `v=20261020`; the live `js/site.js` and `js/world.js` have 2 and 3; every `?v=20261021` asset the scripts load returns 200; the live `js/hands.js?v=20261021` is byte-identical to `cd80047`'s, guard included.
+- Live runtime (Playwright, Chromium and WebKit; Firefox blocked at launch): `hands.mjs` pointed at the live site, holding `hands.json` back during a scroll, resize or theme change, passed 26 of 26 with no page error. The four project cards loaded normally with reduced motion (1280, 700, 375 and 360 px, light and dark; 64 runs) logged no page error, where before nearly every live run logged the `drawImage` TypeError. A normal load with a scroll, a resize and the theme button, in both motion modes and both themes, logged no page or console error; the hands were drawn, and with normal motion they kept animating.
+- No manual live check by Ammaar yet.
+
 ### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).
