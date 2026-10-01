@@ -175,11 +175,20 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | `art/palette.json`, `art/src/dinos-src.png` + `.json` | The master palette; the hand-drawn creature source frames. |
 | `fonts/` | Self-hosted woff2 fonts + OFL licenses. |
 | `_headers`, `wrangler.jsonc`, `.well-known/security.txt`, `robots.txt`, `sitemap.xml`, `site.webmanifest` | Hosting config. |
-| `tools/` | `deploy.mjs`, `serve.mjs`, `audit.mjs`, `lighthouse.mjs`, `orbs.mjs`, `doors.mjs`, `shots.mjs`, `focus.mjs`, `codelinks.mjs`, `scenarios.mjs`, `history-review.mjs`, `island-review.mjs`, `review.mjs`, `animate.py`, `brachio.py`, `envart.py`, and older `marks.py` / `duotone.py` / `resume.py` (see the dead-file list in the README). |
+| `tools/` | `deploy.mjs`, `serve.mjs`, `audit.mjs`, `lighthouse.mjs`, `orbs.mjs`, `doors.mjs`, `shots.mjs`, `focus.mjs`, `codelinks.mjs`, `scenarios.mjs`, `map-baseline.mjs` (+ `mapdigest.mjs`, `fixtures/map-baseline.json`), `history-review.mjs`, `island-review.mjs`, `review.mjs`, `animate.py`, `brachio.py`, `envart.py`, and older `marks.py` / `duotone.py` / `resume.py` (see the dead-file list in the README). |
 | `docs/` | `hosting.md`, `dns-claim.md`, `game-design.md`. |
 | Local branch `gh-pages` (not pushed) | A redirect page for github.io, for when the GitHub flag clears (docs/hosting.md). |
 
 ## 7. What's done
+
+### Phase 8 D11-B, map data layers, 2026-09-30
+
+- The map is three typed-array layers in `js/world.js`: `GROUND` (tile codes), `HEIGHT` (0 to 5; 0 to 2 used) and `COLL` (collision bits: solid, shallow, deep, low, ledge N/E/S/W, lava, climbable). `docs/game-design.md`, "Technical", has the schema. The shape is my choice (the docs named the layers only): typed arrays and bit flags, 32 KB in all.
+- One source: the builder writes `GROUND` and `HEIGHT` directly (`map` and `ELEV` are gone). `COLL` is built once from the tiles and the builder's `solid` set, which is then dropped; the painter's water pass sets the solid bit. `walkable()` reads the flags.
+- Reserved for Phase 11 and unset: `low`, the ledges, `climbable`. Water is shallow (sea shallows, pond, river) or deep (open sea); the river is all shallow for now. Props stay a list; spawns and triggers wait for the Phase 12 map export.
+- Parity: `tools/map-baseline.mjs` recorded `bbadcae`'s map (every tile's type, walkability and height, all 2,048,000 pixels' collision and ground kind, the props, the painted ground) into `tools/fixtures/map-baseline.json`; `scenarios.mjs` matches it exactly in Chromium and WebKit. Checked that it catches a change: one crate moved one tile fails and names the tile.
+- Speed (Chromium): `walkable()` about 0.004 µs instead of 0.023, `solidPx` over every pixel 10 ms instead of 37; ground paint unchanged (about 347 ms). New debug API: `layers()`, `blocked(px, py)`, and `tile()` gives height and flags.
+- No layout, art, movement or save change. Not deployed.
 
 ### Phase 8 D11-A, save v2, 2026-09-30
 
@@ -295,7 +304,7 @@ Follow handoff 3's build order. Where it stands:
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
    - C4: the bug hunt (the handoff 2 list, and handoff 3 B2's cave transition once the tunnel exists).
-   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). D11-B: map data layers including height, next, as its own batch.
+   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). Phase 8 left: C4, the bug hunt (needs handoff 2's list).
 5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.
 6. **Phase 10:** the art test-area stop (already reached; see step 2).
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.

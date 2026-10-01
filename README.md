@@ -223,7 +223,8 @@ only write a preview to `tools/out/`). Bump the cache version after rebaking.
 
 Tests for the island: `node tools/doors.mjs` (every door, worst frame under 16 ms) and `node tools/orbs.mjs`
 (the main-page orbs stay sharp after minimize/restore and tab switches), and `node tools/scenarios.mjs`
-(the `?debug=1` test API: seeded, stepped runs repeat exactly; saves and events). For art reviews,
+(the `?debug=1` test API: seeded, stepped runs repeat exactly; saves and events; the map layers match
+`tools/fixtures/map-baseline.json`, which `node tools/map-baseline.mjs --rev=<commit>` records from older code). For art reviews,
 `node tools/shots.mjs <tag> name=x,y ...` shoots places at 1x and 2x into `tools/out/shots/`, and
 `__island.ground()` (below) returns the whole painted map.
 
@@ -233,7 +234,7 @@ All of them are URL parameters, off by default, and harmless to leave in the shi
 
 | Flag | What it does | Read in |
 |---|---|---|
-| `?debug=1` | The island's overlay (frame time, particles, audio voices, canvases, state, the save) and a test API, `window.__island`: `teleport(x, y)` in world px, `getState()`, `frames(clear)` (each recent frame's work in ms), `ground()` (the painted ground as a PNG data URL, and how long it took), `props()` (every planted prop as `[kind, tx, ty]`), `tile(x, y)`, `kind(px, py)`, and for scenario tests (handoff 2 C5): `step(n)` (stop the live loop and run exactly n fixed 1/60 s steps, then draw once), `play()` (hand time back to the loop), `setSeed(n)` (reseed from here on), `setSave(obj)` (a version 1 or 2 save, checked and migrated like a stored one, applied now and written), `getSave()` (a copy of the save in memory), `fireEvent(name)` (`ptero`, `roar` or `quake`). `getState()` also gives the island clock `t`, the found logs, every creature as `[kind, x, y]` and which events are running. Tested by `node tools/scenarios.mjs`. | `js/world.js` |
+| `?debug=1` | The island's overlay (frame time, particles, audio voices, canvases, state, the save) and a test API, `window.__island`: `teleport(x, y)` in world px, `getState()`, `frames(clear)` (each recent frame's work in ms), `ground()` (the painted ground as a PNG data URL, and how long it took), `props()` (every planted prop as `[kind, tx, ty]`), `tile(x, y)` (type, walkable, height, collision flags), `kind(px, py)`, `blocked(px, py)` (whether feet stop at a world pixel), `layers()` (copies of the map layers: `ground`, `height`, `collision`, and the flag bits), and for scenario tests (handoff 2 C5): `step(n)` (stop the live loop and run exactly n fixed 1/60 s steps, then draw once), `play()` (hand time back to the loop), `setSeed(n)` (reseed from here on), `setSave(obj)` (a version 1 or 2 save, checked and migrated like a stored one, applied now and written), `getSave()` (a copy of the save in memory), `fireEvent(name)` (`ptero`, `roar` or `quake`). `getState()` also gives the island clock `t`, the found logs, every creature as `[kind, x, y]` and which events are running. Tested by `node tools/scenarios.mjs`. | `js/world.js` |
 | `?seed=n` | Seeds the orb fight's random numbers, so it plays the same way every time. With `?debug=1` it also seeds every other roll (creatures, bots, flyovers) for the scenario tests. | `js/world.js` |
 | `?step=1` | With `?debug=1`: the live loop never starts, so only `__island.step(n)` moves time. With `?seed=n`, two runs of the same steps end in the same state. Door and warp animations still run on the wall clock. | `js/world.js` |
 | `?islandhour=21` | Previews the island at any hour (0 to 24, decimals allowed) instead of Eastern time. | `js/world.js` |

@@ -9,6 +9,10 @@
      and play on exactly like the same save written as version 2; junk starts fresh; a newer
      version is never written over; bad fields are dropped; the fullest possible save stays
      under 50 KB (the sizes are printed);
+   - map layers (D11-B): every tile's type, walkability and height, every pixel's collision and ground,
+     every prop and the painted ground match tools/fixtures/map-baseline.json (made from the code
+     before the layers by map-baseline.mjs); the layers have the map's size, heights 0 to 5, only
+     known flags, flags that agree with the tiles, and come out the same on every load and seed;
    - fireEvent() starts the flyover, the roar and a quake;
    - without ?debug=1 there is no __island.
 
@@ -21,6 +25,11 @@
 import { chromium, firefox, webkit } from "playwright";
 import { serve } from "./serve.mjs";
 import { isDeepStrictEqual as same } from "node:util";
+import { readFileSync } from "node:fs";
+import { createHash } from "node:crypto";
+import { mapDigest, finish } from "./mapdigest.mjs";
+
+const BASELINE = JSON.parse(readFileSync(new URL("./fixtures/map-baseline.json", import.meta.url), "utf8"));
 
 const arg = (n) => (process.argv.find((a) => a.startsWith(`--${n}=`)) || "").split("=")[1];
 const ENGINES = (arg("engines") || "chromium,firefox,webkit").split(",");
@@ -159,11 +168,40 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   console.log(`     ${name.padEnd(8)} save sizes: v1 progress migrated ${size.v1} B, every planned quest/dex/flag ${size.full} B, fullest possible ${size.max} B (caps: ${size.capped.join(", ")})`);
   check(name, "the fullest possible save is under 50 KB, lists capped at 64", size.max < 50 * 1024 && size.capped.every((n) => n === 64), JSON.stringify(size));
 
+  // map layers (D11-B)
+  const m1 = await get("seed=1"), m2 = await get("seed=1"), m3 = await get("seed=2");
+  const now2 = finish(await run(m1.page, mapDigest, "new")), base = BASELINE.engines[name];
+  const diff = Object.keys(base).filter((k) => !same(base[k], now2[k]));
+  check(name, `map parity with ${BASELINE.rev}: tiles, walkability, height, ${base.pxBlocked} blocked px, ground, props, painting`, !diff.length, "differs: " + diff.join(", "));
+  if (diff.includes("walk") || diff.includes("ground") || diff.includes("height")) {
+    const at = (k) => [...base[k]].map((c, i) => (c !== now2[k][i] ? `${k}@${i % 100},${(i / 100) | 0} ${c}->${now2[k][i]}` : null)).filter(Boolean).slice(0, 8);
+    console.log("     first differences:", ["ground", "walk", "height"].flatMap(at).join("; "));
+  }
+  const L = await run(m1.page, () => window.__island.layers());
+  check(name, "layers are 100 x 80, one value per tile", L.w === 100 && L.h === 80 && ["ground", "height", "collision"].every((k) => L[k].length === L.w * L.h));
+  check(name, "heights are whole numbers 0 to 5", L.height.every((v) => Number.isInteger(v) && v >= 0 && v <= 5), `range ${Math.min(...L.height)} to ${Math.max(...L.height)}`);
+  const F = L.flags, KNOWN = Object.values(F).reduce((a, b) => a | b, 0), RESERVED = F.low | F.ledgeN | F.ledgeE | F.ledgeS | F.ledgeW | F.climbable;
+  const walkNow = await run(m1.page, () => { const w = []; for (let y = 0; y < 80; y++) for (let x = 0; x < 100; x++) w.push(window.__island.tile(x, y).walkable); return w; });
+  const badFlags = L.collision.map((c, i) => {
+    const g = L.ground[i], water = g === 0 || g === 1 || g === 5 || g === 9;
+    if (c & ~KNOWN) return "unknown bit";
+    if (c & RESERVED) return "reserved bit set";
+    if (!!(c & F.deep) !== (g === 0) || !!(c & F.shallow) !== (g === 1 || g === 5 || g === 9) || !!(c & F.lava) !== (g === 7)) return "flag/tile mismatch";
+    if (walkNow[i] !== !(c & (F.solid | F.shallow | F.deep | F.lava))) return "walkable disagrees with flags";
+    if (walkNow[i] && water) return "walkable water";
+    return null;
+  }).filter(Boolean);
+  check(name, "flags: known bits only, reserved ones unset, agree with tiles and walkable()", !badFlags.length, [...new Set(badFlags)].join(", "));
+  const lh = await Promise.all([m1, m2, m3].map(async (it) => createHash("sha256").update(JSON.stringify(await run(it.page, () => window.__island.layers()))).digest("hex")));
+  check(name, "layers identical across loads and seeds (1, 1, 2)", lh[0] === lh[1] && lh[1] === lh[2]);
+  const counts = { solid: 0, shallow: 0, deep: 0 }; L.collision.forEach((c) => { for (const f of Object.keys(counts)) if (c & F[f]) counts[f]++; });
+  console.log(`     ${name.padEnd(8)} layers: heights ${[0, 1, 2, 3, 4, 5].map((h) => L.height.filter((v) => v === h).length).join("/")}, flags ${JSON.stringify(counts)}`);
+
   // visitors: no test API
   const plain = await browser.newPage();
   await plain.goto(`${BASE}#island`);
   await plain.waitForTimeout(4000);
-  check(name, "no __island without ?debug=1", await plain.evaluate(() => window.__island === undefined));
+  check(name, "no __island (or map layers) without ?debug=1", await plain.evaluate(() => window.__island === undefined && ["GROUND", "HEIGHT", "COLL", "__mapapi"].every((k) => !(k in window))));
   await plain.close();
 
   const errs = open.flatMap((it) => it.errors);

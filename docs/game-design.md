@@ -159,8 +159,16 @@ of the island pi is on, `"home"`), `quests`, `dex` and `cosmetics` (maps from an
 or short string), `flags` and `tools` (maps from an id to a boolean), and `edgeSeen` (a boolean). Ids are
 lowercase with hyphens, up to 32 characters, at most 64 per map. A v1 save migrates on load with nothing
 lost (`tools/scenarios.mjs` tests it); a newer version is never written over. The fullest possible save
-is about 27 KB, under the 50 KB budget. A later phase that needs a richer value adds a v3 migration. Maps become data layers (ground, height,
-collision flags `solid`/`shallow`/`deep`/`low`/`ledge:dir`/`lava`/`climbable`, props, spawns, triggers).
-A spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
+is about 27 KB, under the 50 KB budget. A later phase that needs a richer value adds a v3 migration.
+
+Map layers (built 2026-09-30, Phase 8 D11-B): three typed arrays, one value per tile at `y * 100 + x`.
+`GROUND` (Uint8) holds the tile codes; `HEIGHT` (Uint8) the level, 0 to 5 (the home island uses the
+three terraces, 0 to 2); `COLL` (Uint16) collision bits: `solid` 1, `shallow` 2 (sea shallows, the
+pond, the river), `deep` 4, `low` 8, `ledge` N/E/S/W 16/32/64/128, `lava` 256, `climbable` 512. A tile
+can be walked when none of solid, shallow, deep or lava is set. `low`, the ledges and `climbable` are
+reserved for Phase 11 and unset. The builder writes the layers directly, and they are the only record of
+the map at runtime. Props stay a list; spawns and triggers come with the Phase 12 map export.
+
+Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

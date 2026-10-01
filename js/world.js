@@ -73,12 +73,13 @@
   function hiEdge(x) { return 26.5 + 3.2 * Math.sin(x * 0.13 + 0.6) + 1.6 * Math.sin(x * 0.37 + 2.1) - Math.max(0, x - 68) * 0.55 - Math.max(0, 24 - x) * 0.5; }
   function midEdge(x) { return 55 + 2.6 * Math.sin(x * 0.17 + 1.3) + 1.4 * Math.sin(x * 0.41) - (x - 48) * 0.1; }
   function tier(x, y) { return y < hiEdge(x) ? 2 : y < midEdge(x) ? 1 : 0; }
-  var map = [], x, y;
-  for (y = 0; y < MH; y++) {
-    map.push([]);
-    for (x = 0; x < MW; x++) { var cv0 = coast(x + 0.5, y + 0.5); map[y].push(cv0 > 1.12 ? DEEP : cv0 > 1 ? SHAL : cv0 > 0.925 ? SAND : GRASS); }
-  }
-  function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : map[y][x]; }
+  /* the map is three layers, one value per tile, at index y * MW + x (Phase 8, D11-B):
+     GROUND, the tile codes above; HEIGHT, the terrace (0 to 5; the island uses 0 to 2 today); and
+     COLL, collision flags (below the planting). the builder writes them directly, so there is no
+     second copy of the map to drift */
+  var GROUND = new Uint8Array(MW * MH), x, y;
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { var cv0 = coast(x + 0.5, y + 0.5); GROUND[y * MW + x] = cv0 > 1.12 ? DEEP : cv0 > 1 ? SHAL : cv0 > 0.925 ? SAND : GRASS; }
+  function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : GROUND[y * MW + x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
   /* the art (handoff 3, D1): the master palette is art/palette.json (PAL below copies it); the
@@ -95,7 +96,7 @@
     var dx = (fx - KP.x) / KP.rx, dy = (fy - KP.y) / KP.ry, a = Math.atan2(dy, dx);
     return Math.sqrt(dx * dx + dy * dy) / (1 + 0.13 * Math.sin(3 * a + 0.8) + 0.08 * Math.sin(5 * a + 2.1) + 0.05 * Math.sin(7 * a));
   }
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (map[y][x] === GRASS && pondF(x + 0.5, y + 0.5) < 1) map[y][x] = POND;
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (GROUND[y * MW + x] === GRASS && pondF(x + 0.5, y + 0.5) < 1) GROUND[y * MW + x] = POND;
   // roads and the river are smooth curves (catmull-rom through a few points), not grid lines
   function spline(pts, fn) {
     for (var i = 0; i < pts.length - 1; i++) {
@@ -121,10 +122,10 @@
     });
   }
   var RIVER_PTS = [[31, 13.5], [30.2, 19], [29.6, 24], [28.4, 29], [25.6, 34], [22, 39], [19.6, 44.5], [18.2, 50], [17, 55], [15.4, 59.5], [12.6, 63.5], [8, 66.4], [3, 67.4]];
-  carve(RIVER_PTS, function (q) { return 1.4 + q * 1.3; }, function (tx, ty) { if (map[ty][tx] === GRASS || map[ty][tx] === SAND) map[ty][tx] = RIVER; }, "river");
-  function road(pts, width) { carve(pts, width, function (tx, ty) { var m = map[ty][tx]; if (m === GRASS || m === SAND) map[ty][tx] = PATH; else if (m === RIVER) map[ty][tx] = BRIDGE; }, "road"); }
+  carve(RIVER_PTS, function (q) { return 1.4 + q * 1.3; }, function (tx, ty) { if (GROUND[ty * MW + tx] === GRASS || GROUND[ty * MW + tx] === SAND) GROUND[ty * MW + tx] = RIVER; }, "river");
+  function road(pts, width) { carve(pts, width, function (tx, ty) { var m = GROUND[ty * MW + tx]; if (m === GRASS || m === SAND) GROUND[ty * MW + tx] = PATH; else if (m === RIVER) GROUND[ty * MW + tx] = BRIDGE; }, "road"); }
   var PLAZA = { x: 46.5, y: 60.5, r: 2.7 };                           // the village square, by the harbour
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (Math.hypot(x + 0.5 - PLAZA.x, y + 0.5 - PLAZA.y) < PLAZA.r && land(at(x, y))) map[y][x] = PATH;
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (Math.hypot(x + 0.5 - PLAZA.x, y + 0.5 - PLAZA.y) < PLAZA.r && land(at(x, y))) GROUND[y * MW + x] = PATH;
   var dockY = 60; while (land(at(DOCKX, dockY + 1))) dockY++;
   road([[46.6, 58], [45.6, 55.2], [46.6, 52], [49.4, 49.4], [50.2, 46.6]], 1.9);                              // up the first cliff: the village to the clearing
   road([[47.6, 40.6], [46.2, 37.6], [47.4, 34.4], [49.2, 31.6], [48.8, 28.6], [47.6, 25.5]], 1.9);           // the gate, then up the second cliff to the highland
@@ -140,9 +141,9 @@
   road([[49.4, 60.8], [54, 61.8], [58.6, 62.6]], 1.3);                                                        // the helipad and the herd plain
   road([[48, 62.6], [50.4, 63.4], [DOCKX + 0.5, dockY + 0.5]], 1.3);                                          // the dock
   road([[47.8, 50.6], [51.6, 51.4]], 1);                                                                      // the stone tablet
-  for (y = dockY + 1; y <= dockY + 4; y++) { map[y][DOCKX] = DOCK; map[y][DOCKX + 1] = DOCK; }
+  for (y = dockY + 1; y <= dockY + 4; y++) { GROUND[y * MW + DOCKX] = DOCK; GROUND[y * MW + DOCKX + 1] = DOCK; }
   var HELI = { x: 61, y: 62 };                                         // the helipad, 3x3 tiles
-  for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) map[y][x] = PAD;
+  for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) GROUND[y * MW + x] = PAD;
   // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost
   var BUILDINGS = [
     { id: "visitor", x0: 39, y0: 58, w: 4, h: 2, room: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'lost and found: one hat, two sunglasses, a very small egg.'" },
@@ -151,24 +152,21 @@
   ];
 
   // height: which terrace each tile of ground (and water on the ground) sits on
-  var ELEV = [];
-  for (y = 0; y < MH; y++) {
-    ELEV.push([]);
-    for (x = 0; x < MW; x++) { var tl = map[y][x]; ELEV[y].push(tl === GRASS || tl === PATH || tl === RIVER || tl === BRIDGE || tl === POND || tl === PAD ? tier(x + 0.5, y + 0.5) : 0); }
-  }
+  var HEIGHT = new Uint8Array(MW * MH);
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { var tl = GROUND[y * MW + x]; HEIGHT[y * MW + x] = tl === GRASS || tl === PATH || tl === RIVER || tl === BRIDGE || tl === POND || tl === PAD ? tier(x + 0.5, y + 0.5) : 0; }
   // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
   // (x, y) is the centre of its footprint; squash flattens the footprint front to back
   var VOLC = { x: 46 * T + 8, y: 15 * T + 4, R: 118, H: 104, sq: 1.65, rc: 27 };
   function volcD(wx, wy) { var u = wx - VOLC.x, v = (wy - VOLC.y) * VOLC.sq; return Math.sqrt(u * u + v * v); }
   var RIMH = Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H;
-  function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : ELEV[y][x]; }
+  function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : HEIGHT[y * MW + x]; }
   function rim(x, y) { var l = lvl(x, y); return lvl(x + 1, y) !== l || lvl(x - 1, y) !== l || lvl(x, y + 1) !== l || lvl(x, y - 1) !== l; }
   // the waterfalls: wherever the river runs off a cliff
   var FALLS = [];
   (function () {
     var seen = {};
     for (var yy = 1; yy < MH; yy++) for (var xx = 0; xx < MW; xx++) {
-      if (map[yy][xx] !== RIVER || map[yy - 1][xx] !== RIVER || lvl(xx, yy - 1) <= lvl(xx, yy)) continue;
+      if (GROUND[yy * MW + xx] !== RIVER || GROUND[(yy - 1) * MW + xx] !== RIVER || lvl(xx, yy - 1) <= lvl(xx, yy)) continue;
       var key = lvl(xx, yy - 1) * 100 + lvl(xx, yy);
       if (!seen[key]) { seen[key] = { n: 0, x: 0, up: lvl(xx, yy - 1) }; FALLS.push(seen[key]); }
       seen[key].n++; seen[key].x += xx;
@@ -272,7 +270,7 @@
   }
   function near(x, y, r, fn) { for (var j = -r; j <= r; j++) for (var i = -r; i <= r; i++) if (fn(x + i, y + j)) return true; return false; }
   // cliffs: tiles where the ground changes level can't be walked, except where a path makes stairs
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (map[y][x] !== PATH && (map[y][x] === GRASS || map[y][x] === SAND) && rim(x, y)) solid[k(x, y)] = 1;
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (GROUND[y * MW + x] !== PATH && (GROUND[y * MW + x] === GRASS || GROUND[y * MW + x] === SAND) && rim(x, y)) solid[k(x, y)] = 1;
   // nobody climbs the volcano
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (volcD(x * T + 8, y * T + 8) < VOLC.R * 0.93) solid[k(x, y)] = 1;
   // the park gate over the north road, and the electric fences around the paddocks
@@ -353,7 +351,7 @@
   function nearWater(a, b, r) { return near(a, b, r, function (i, j) { var q = at(i, j); return q === RIVER || q === POND; }); }
   function jit(x, y, n) { return Math.round((hash(x * n, y * 3 + n) - 0.5) * 8); }
   for (y = 1; y < MH - 1; y++) for (x = 1; x < MW - 1; x++) {
-    var t = map[y][x], h = hash(x, y);
+    var t = GROUND[y * MW + x], h = hash(x, y);
     if (volcD(x * T + 8, y * T + 8) < VOLC.R + 6) {       // boulders ring the volcano's foot
       if (t === GRASS && volcD(x * T + 8, y * T + 8) > VOLC.R * 0.93 && h < 0.28 && !busy(x, y) && !solid[k(x, y)]) props.push({ kind: h < 0.06 ? epick("rock2_", 5, h) : h < 0.14 ? epick("rock1_", 5, h) : epick("pebbles", 2, h), tx: x, ty: y, flip: h < 0.1, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 });
       continue;
@@ -388,7 +386,7 @@
   })();
   // lily pads: a few clusters on the pond, clear of the middle
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
-    if (map[y][x] !== POND) continue;
+    if (GROUND[y * MW + x] !== POND) continue;
     var pf0 = pondF(x + 0.5, y + 0.5);
     if (pf0 > 0.35 && pf0 < 0.85 && fbm(x * 1.7 + 11, y * 1.7) > 0.05 && hash(x * 5, y * 11) < 0.5) props.push({ kind: epick("lilies", 3, hash(y, x)), tx: x, ty: y, flip: hash(x, y) < 0.5, ox: jit(x, y, 2), oy: 0, flat: true });
   }
@@ -412,7 +410,19 @@
   });
   // crates stacked by the depot and on the dock
   [[56, 60], [56, 59], [52, 60], [DOCKX - 1, dockY]].forEach(function (c2) { if (walkable0(c2[0], c2[1])) { props.push({ kind: "crates", tx: c2[0], ty: c2[1] }); solid[k(c2[0], c2[1])] = 1; } });
-  function walkable(x, y) { var t = at(x, y); return (land(t) || t === DOCK) && !solid[k(x, y)]; }
+  /* the collision layer. built once from the tile types and everything planted above, then it is
+     the only record: the solid set was the builder's scratchpad and is dropped. a tile can be walked
+     when none of SOLID, SHALLOW, DEEP or LAVA is set. LOW, the ledges and CLIMBABLE are reserved for
+     Phase 11 (jumping, heights) and nothing sets them yet */
+  var C_SOLID = 1, C_SHALLOW = 2, C_DEEP = 4, C_LOW = 8, C_LEDGE_N = 16, C_LEDGE_E = 32, C_LEDGE_S = 64, C_LEDGE_W = 128, C_LAVA = 256, C_CLIMB = 512;
+  var C_BLOCK = C_SOLID | C_SHALLOW | C_DEEP | C_LAVA;
+  var COLL = new Uint16Array(MW * MH);
+  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
+    var ct = GROUND[y * MW + x];
+    COLL[y * MW + x] = (solid[k(x, y)] ? C_SOLID : 0) | (ct === DEEP ? C_DEEP : 0) | (ct === SHAL || ct === POND || ct === RIVER ? C_SHALLOW : 0) | (ct === LAVA ? C_LAVA : 0);
+  }
+  solid = null;
+  function walkable(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH && !(COLL[y * MW + x] & C_BLOCK); }
   // feet stop at painted water too: the ground's edges wander off the tiles, so a walkable tile can
   // hold a few pixels of river (the ground painter's GK, below; bridges and the dock are always dry)
   function solidPx(px, py) {
@@ -556,7 +566,7 @@
   var DEPTH = [];
   (function () {
     var q = [], x, y;
-    for (y = 0; y < MH; y++) { DEPTH.push([]); for (x = 0; x < MW; x++) { var lt = land(map[y][x]) || map[y][x] === DOCK || map[y][x] === LAVA; DEPTH[y].push(lt ? 0 : 99); if (lt) q.push([x, y]); } }
+    for (y = 0; y < MH; y++) { DEPTH.push([]); for (x = 0; x < MW; x++) { var lt = land(GROUND[y * MW + x]) || GROUND[y * MW + x] === DOCK || GROUND[y * MW + x] === LAVA; DEPTH[y].push(lt ? 0 : 99); if (lt) q.push([x, y]); } }
     while (q.length) {
       var c = q.shift();
       [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (n) {
@@ -584,7 +594,7 @@
 
     // 1. what every pixel is. a tile whose neighbours all match is the same all the way through
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
-      var t0 = map[ty][tx], same = t0 !== BRIDGE && !(t0 === GRASS && pondF(tx + 0.5, ty + 0.5) < 1.6) && !CG.river[ty * MW + tx] && !CG.road[ty * MW + tx];
+      var t0 = GROUND[ty * MW + tx], same = t0 !== BRIDGE && !(t0 === GRASS && pondF(tx + 0.5, ty + 0.5) < 1.6) && !CG.river[ty * MW + tx] && !CG.road[ty * MW + tx];
       for (var j2 = -1; j2 <= 1 && same; j2++) for (var i2 = -1; i2 <= 1 && same; i2++) if (at(tx + i2, ty + j2) !== t0) same = false;
       var kd0 = same ? (t0 === GRASS ? KG : isDirt(t0) ? KD : t0 === SAND ? KS : KW) : 0;
       for (py = ty * T; py < ty * T + T; py++) for (px = tx * T; px < tx * T + T; px++) GK[py * PW + px] = kd0 || kindAt(px, py);
@@ -640,7 +650,7 @@
         if (kAt(px, py - 1) === KG || kAt(px, py - 2) === KG) sv = 0.02;       // under the grass lip
         c = soft(sv, P32.sand, px, py, 0.3);
       } else {
-        var d = WD[i] / 3, tt = map[ty][tx], wv;
+        var d = WD[i] / 3, tt = GROUND[ty * MW + tx], wv;
         if (d <= 1.01) c = P32.rim[(px + py) % 3 ? 0 : 1];
         else {
           if (tt === POND) wv = 0.85 - Math.min(1, 1 - pondF(fx, fy)) * 0.75;
@@ -670,7 +680,7 @@
     // decals, in drifts: tufts, flowers (one colour per drift), clover, pebbles by paths and water,
     // twigs under trees, shells on the beach
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
-      var tl = map[ty][tx], X = tx * T, Y = ty * T, hh = hash(tx * 13, ty * 7);
+      var tl = GROUND[ty * MW + tx], X = tx * T, Y = ty * T, hh = hash(tx * 13, ty * 7);
       if (tl === SAND) {
         if (hash(tx, ty * 3) < 0.05) { var shx = X + 3 + ((hh * 9) | 0), shy = Y + 4 + ((hash(ty, tx) * 8) | 0); if (kAt(shx, shy) === KS) { put(shx, shy, P32.flower[0]); put(shx + 1, shy, P32.blossom[0]); put(shx, shy + 1, P32.sand[1]); } }
         continue;
@@ -719,14 +729,14 @@
 
     // the dock: planks over the water
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
-      if (map[ty][tx] !== DOCK) continue;
+      if (GROUND[ty * MW + tx] !== DOCK) continue;
       X = tx * T; Y = ty * T;
       for (j2 = 0; j2 < 4; j2++) r(X, Y + j2 * 4, T, 3, j2 % 2 ? PAL.wood[2] : PAL.wood[3]);
       r(X, Y, 2, T, PAL.wood[1]); if (tx === DOCKX + 1) r(X + T - 2, Y, 2, T, PAL.wood[1]);
     }
     // bridges: planks across, rails and posts along the sides that meet the water
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
-      if (map[ty][tx] !== BRIDGE) continue;
+      if (GROUND[ty * MW + tx] !== BRIDGE) continue;
       X = tx * T; Y = ty * T;
       r(X, Y + 1, T, T - 2, PAL.wood[3]);
       for (i = 0; i < T; i += 3) r(X + i, Y + 1, 1, T - 2, PAL.wood[2]);
@@ -845,7 +855,7 @@
   (function () {
     for (var py = 1; py < PH - 1; py++) for (var px = 1; px < PW - 1; px++) {
       var i = py * PW + px;
-      var tl = map[py >> 4][px >> 4];
+      var tl = GROUND[(py >> 4) * MW + (px >> 4)];
       if (WD[i] !== 3 || tl === RIVER || tl === BRIDGE || tl === POND || hash(px, py * 3) > 0.6 || curveD(CG.river, (px + 0.5) / T, (py + 0.5) / T) < 0.8 || pondF((px + 0.5) / T, (py + 0.5) / T) < 1.3) continue;
       var ti = (py >> 4) * MW + (px >> 4);
       (FOAM[ti] = FOAM[ti] || []).push(px, py, Math.sign(WD[i + 1] - WD[i - 1]), Math.sign(WD[i + PW] - WD[i - PW]));
@@ -853,8 +863,8 @@
     WD = null;                                                   // 4 MB we don't need any more
     // a walkable tile painted as water where it matters, in the middle, is water: route round it
     for (var ty = 0; ty < MH; ty++) for (var tx = 0; tx < MW; tx++) {
-      var tt = map[ty][tx];
-      if (tt !== BRIDGE && tt !== DOCK && walkable(tx, ty) && GK[(ty * T + 8) * PW + tx * T + 8] === KW) solid[k(tx, ty)] = 1;
+      var tt = GROUND[ty * MW + tx];
+      if (tt !== BRIDGE && tt !== DOCK && walkable(tx, ty) && GK[(ty * T + 8) * PW + tx * T + 8] === KW) COLL[ty * MW + tx] |= C_SOLID;
     }
   })();
 
@@ -3019,7 +3029,7 @@
       c = duotone(ground, SKINS.future, 1.1); g = c.getContext("2d");
       // circuitry: a faint grid on the land, traces along tile edges, glowing vias, light-strip roads
       for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
-        var tt = map[y][x], X = x * T, Y = y * T;
+        var tt = GROUND[y * MW + x], X = x * T, Y = y * T;
         if (!land(tt)) continue;
         g.fillStyle = "rgba(41,216,255,.08)"; g.fillRect(X, Y, T, 1); g.fillRect(X, Y, 1, T);
         if (tt === PATH || tt === BRIDGE) { g.fillStyle = "rgba(255,79,160,.55)"; if ((x + y) % 2) g.fillRect(X + 6, Y + 7, 4, 1); g.fillStyle = "rgba(41,216,255,.35)"; g.fillRect(X, Y, T, 1); continue; }
@@ -3859,7 +3869,7 @@
     // water: glints and foam that breathe with the tide
     var x0 = Math.max(0, Math.floor(camX / T)), y0 = Math.max(0, Math.floor(camY / T)), x1 = Math.min(MW - 1, Math.ceil((camX + VW) / T)), y1 = Math.min(MH - 1, Math.ceil((camY + VH) / T));
     for (var ty = y0; ty <= y1; ty++) for (var tx = x0; tx <= x1; tx++) {
-      var tt = map[ty][tx], fm = FOAM[ty * MW + tx];
+      var tt = GROUND[ty * MW + tx], fm = FOAM[ty * MW + tx];
       if (REAL === "chaos") continue;
       if (fm) {                                              // the surf breathes in and out along the waterline
         ctx.fillStyle = "rgba(226,246,238,.75)";
@@ -4335,7 +4345,13 @@
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
     props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
-    tile: function (x, y) { return { type: at(x, y), walkable: walkable(x, y) }; },                  // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
+    tile: function (x, y) { return { type: at(x, y), walkable: walkable(x, y), height: lvl(x, y), flags: x >= 0 && y >= 0 && x < MW && y < MH ? COLL[y * MW + x] : C_DEEP }; },   // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
+    blocked: function (px, py) { return solidPx(px, py); },                                          // where feet stop, in world px
+    // the map layers (copies), one value per tile at y * w + x
+    layers: function () {
+      return { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
+               flags: { solid: C_SOLID, shallow: C_SHALLOW, deep: C_DEEP, low: C_LOW, ledgeN: C_LEDGE_N, ledgeE: C_LEDGE_E, ledgeS: C_LEDGE_S, ledgeW: C_LEDGE_W, lava: C_LAVA, climbable: C_CLIMB } };
+    },
     kind: function (px, py) { return ["", "grass", "dirt", "sand", "water"][kAt(Math.floor(px), Math.floor(py))]; }
   };
   /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
