@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8 (`git log` for the exact state).
 
 ---
 
@@ -181,12 +181,19 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Phase 8 closed: the C4 fixes deployed, 2026-10-01
+
+- C4-1 (`cc39bb5`) and C4-2 (`3bc6f9b`) are live: Cloudflare version `bff274a4-ef11-4b9b-8283-2d40a3a51955`, cache `20261019` (`3bfaa3a`), GitHub `main` at `3bfaa3a`, deployed by Ammaar with `node tools/deploy.mjs` (deploy log in `docs/hosting.md`).
+- Checks: `scenarios.mjs` 98 of 98 in Chromium and WebKit (Claude's run on `3bc6f9b`; the bump changed only `?v=`); final pre-deploy `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `--check` passed; the live page has 9 references to `v=20261019` and the live `world.js` has `canStep`, `safeTile` and `hopSpot`. Firefox is still blocked at launch, not failed.
+- Manual live smoke test by Ammaar, all four passed: the lighthouse tap route from the village completes and its card opens; a normal helicopter landing works and pi gets out normally; a reload keeps progress; the helicopter refuses to land over a paddock.
+- **Phase 8 is done.** C5, D11-A, D11-B, C4-1 and C4-2 are all live. Nothing actionable is left; the cave transition (handoff 3 B2) is deferred to Phase 12, when the tunnel exists.
+
 ### Phase 8 C4-2, safe ground for the helicopter and restored positions, 2026-09-30
 
 - Bug (found in the C4 hunt): the helicopter could land in walkable pockets cut off from the island (both paddock interiors, the highland behind the volcano and others: 3,229 of 25,670 landing spots touched one), and a save made there restored pi into the pocket with the helicopter back on its pad. Separately, 477 of 102,680 hop-outs put pi inside blocked pixels.
 - Fix: `safeTile()` is the walkable ground reachable on foot from the spawn (a flood fill, done once and cached in `SAFE`; like `STEPOK` it assumes collision never changes at runtime, so a later phase that changes walkability must clear it). The helicopter lands only where `landTile()` allows: safe ground or the helipad. That function is where a later phase adds explicit landing zones; none exist yet. Pi hops out at `hopSpot()`: the same spots beside the doors as before, but only one that is safe and clear at all four of `move()`'s points; failing that, the nearest such spot in rings out to 96 px; failing that, the spawn. A saved position is restored only on safe ground, otherwise pi starts at the spawn. E is checked where it's pressed, and the helicopter then glides up to about 19 px while it comes down; that glide now stops where the next bit would leave ground `canLand()` allows, so the parked helicopter is always on it (before: 79,243 of 359,056 full-speed glides parked off it). No save schema, control or movement change.
 - Tests (`scenarios.mjs`, Chromium and WebKit): every 4 px landing spot with four headings. 22,441 landings are still accepted, and the 3,229 dropped are exactly those touching a pocket. None lands outside safe ground or the helipad. All 102,680 old hop-out cases end clear and on safe ground. The paddocks and the north pocket are refused, and the helipad isn't. The glide after E, run on the game's own `updateHeli` (`__island.landingFrom`) from every accepted spot in 16 directions at full speed, never parks off allowed ground, including the cases gliding toward a pocket, and is unchanged on open ground (18.71 px). In real flights, E over the t-rex paddock doesn't land, while landing on open meadow and back on the helipad works with pi clear. The (41,8) saved spot starts pi on safe ground; a normal saved spot is still restored. With the old rules put back, every one of these checks fails.
-- Not deployed.
+- Deployed 2026-10-01 (Cloudflare `bff274a4`, above).
 
 ### Phase 8 C4-1, pi's paths, 2026-09-30
 
@@ -195,7 +202,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - **Static collision assumed:** the `canStep` cache (`STEPOK`) assumes the collision geometry never changes after the island is built. A later phase that changes walkability at runtime (gates, a mended bridge, moving obstacles) must clear `STEPOK` or redesign it.
 - Tests (`scenarios.mjs`, Chromium and WebKit): the 42 steps (found from the pixels, not a list) all finish; routes from the village to 24 landmarks, doors, `goto` places and river banks finish with no give-ups; the reported 27,27 to 27,28 tap finishes; keyboard movement matches `tools/fixtures/keyboard-trace.json`, recorded from `a0d015b` before the fix. With the feet check switched off, all three path checks fail.
 - The planner leaves out exactly those 14 tiles and nothing else (no landmark, door or place lost). The mailbox's approach tile has no walkable neighbour, so a tap there ends 2 tiles away, as before.
-- Not deployed.
+- Deployed 2026-10-01 (Cloudflare `bff274a4`, above).
 
 ### Phase 8 foundation deployed, 2026-09-30
 
@@ -325,8 +332,8 @@ Follow handoff 3's build order. Where it stands:
    - **L6 email:** on hold (decision 6).
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
-   - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (**fixed 2026-09-30**, section 7). Neither fix is deployed yet. Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
-   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). Phase 8 left: C4, a fresh bug hunt with the C5 scenario tools (decided 2026-09-30; handoff 2's list is lost and isn't recreated from memory). C4's cave transition (handoff 3 B2) waits for the Phase 12 tunnel.
+   - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (**fixed 2026-09-30**, section 7). Both deployed 2026-10-01 (Cloudflare `bff274a4`). **Phase 8 is done**; only B2 below remains, deferred to Phase 12. Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
+   - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). C4's cave transition (handoff 3 B2) is deferred to Phase 12: it can't be tested until the tunnel exists.
 5. **Phase 9:** the CTF (handoff 2 E1): six flags, stored hashed, with hints and write-ups.
 6. **Phase 10:** the art test-area stop (already reached; see step 2).
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.

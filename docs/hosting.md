@@ -105,6 +105,14 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - Manual live check by Ammaar: opened the island on the live site, moved around, used normal interactions and reloaded. It loads and plays normally, and the saved state survives the reload.
 - **Save v2 is live.** Each visitor's save is rewritten as v2 the next time they open the island, and code from before `bbadcae` treats a v2 save as unknown and starts fresh. So fix problems forward; don't roll back past `bbadcae`.
 
+**2026-10-01, the Phase 8 C4 fixes** (version `bff274a4-ef11-4b9b-8283-2d40a3a51955`, cache `20261019`, commit `3bfaa3a`). Deployed by Ammaar from the Mac with `node tools/deploy.mjs` after `3bfaa3a` reached GitHub `main`. It ships C4-1 (`cc39bb5`: tapped routes no longer stop short at river and pond banks) and C4-2 (`3bc6f9b`: the helicopter lands, and pi is restored, only on ground reachable from the spawn); `3bfaa3a` is the cache bump. Checked:
+
+- `node tools/scenarios.mjs`: 98 of 98 in Chromium and WebKit (run on `3bc6f9b`; the bump changed only `?v=`). Firefox is blocked at launch, not failed.
+- Final pre-deploy `node tools/audit.mjs` on the Mac: 81 passed, 0 failed, 2 blocked (Firefox's browser launch, LinkedIn's scripted check).
+- `node tools/deploy.mjs --check` passed; the live `index.html` has 9 references to `v=20261019`; the live `js/world.js?v=20261019` has `canStep`, `safeTile` and `hopSpot`.
+- Manual live smoke test by Ammaar, all four passed: the lighthouse tap route from the village completes and its card opens; a normal helicopter landing works and pi gets out normally; a reload keeps progress; the helicopter refuses to land over a paddock.
+- Save v2 is still live: fix forward, don't roll back past `bbadcae`.
+
 ### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).
