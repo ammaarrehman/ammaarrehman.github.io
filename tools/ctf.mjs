@@ -2,7 +2,13 @@
 /* ctf: the Phase 9 ctf engine (E1-A) in each engine, through the ?debug=1 test API. Every flag here
    is a synthetic test flag injected with __island.ctfLoad(), with a synthetic answer; no real
    flag's answer is used or stored anywhere. Hashes are made here with tools/ctfhash.mjs.
-   - the shipped table: valid, no flags yet, all six slots offline;
+   - the shipped table: valid, one real flag (fence logs, slot 1, open), slots 2 to 6 offline;
+   - fence logs (E1-C1), without its answer written anywhere: fence.log is listed and exact, only
+     RFC 5737 addresses, 40 characters a line; the answer is worked out from the log itself (the one
+     source logged in across every fence test), and of every address in the file only that one solves
+     it, wrapped or not; the controller, the failing source and the short session don't; the hint;
+     the write-up locked, then shown, never naming the address; the solve survives a reload;
+     paddocks.log and the secrets are as before; no shipped file holds flag{<any address in the log>};
    - normalization and hashing: the page and ctfhash.mjs agree on a corpus and on the hashes;
    - table integrity: duplicate ids, duplicate slots, slots outside 1 to 6, hashes that aren't 64
      lowercase hex, duplicate hashes, ids outside ctf-, bad conditions, hints and write-ups are refused;
@@ -34,6 +40,7 @@
 import { chromium, firefox, webkit } from "playwright";
 import { AxeBuilder } from "@axe-core/playwright";
 import { execFileSync } from "node:child_process";
+import { readFileSync, readdirSync } from "node:fs";
 import { serve } from "./serve.mjs";
 import { normalize, hash } from "./ctfhash.mjs";
 
@@ -93,8 +100,8 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
 
   // ── the shipped table
   const shipped = await ev(page, () => window.__island.ctf());
-  check(name, "shipped table: valid, no flags yet, six slots all offline, nothing waiting",
-    shipped.shipped === 0 && !shipped.shippedProblems.length && !shipped.loaded.length && shipped.slots.length === 6 && shipped.slots.every((s, i) => s.slot === i + 1 && s.state === "offline" && s.id === null) && shipped.count === 0 && !shipped.pending, JSON.stringify(shipped));
+  check(name, "shipped table: valid, exactly one real flag (fence logs, slot 1, open), slots 2 to 6 offline, nothing waiting",
+    shipped.shipped === 1 && !shipped.shippedProblems.length && shipped.loaded.join() === "ctf-fence-logs" && shipped.slots.length === 6 && shipped.slots[0].id === "ctf-fence-logs" && shipped.slots[0].state === "open" && shipped.slots.slice(1).every((s, i) => s.slot === i + 2 && s.state === "offline" && s.id === null) && shipped.count === 0 && !shipped.pending, JSON.stringify(shipped));
 
   // ── normalization: the page, ctfhash.mjs and what's expected all agree
   const CORPUS = [
@@ -183,7 +190,7 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const back = await ev(page, (t) => { window.__island.ctfLoad(t); return window.__island.ctf(); }, SIX);
   check(name, "solves survive a reload (six of six, flags in the save)", back.count === 6 && back.slots.every((s) => s.state === "solved"), JSON.stringify(back.slots.map((s) => s.state)));
   await page.reload(); await page.waitForFunction(() => window.__island && window.__island.getState().open);
-  check(name, "the injected table doesn't survive a reload (the shipped one comes back)", await ev(page, () => window.__island.ctf().loaded.length === 0));
+  check(name, "the injected table doesn't survive a reload (the shipped one comes back)", await ev(page, () => window.__island.ctf().loaded.join() === "ctf-fence-logs"));
   const oldSaves = await ev(page, (t) => {
     window.__island.ctfLoad(t);
     const v2 = window.__island.setSave({ v: 2, logs: ["rack"], secrets: [] }); const a = window.__island.ctf().count;
@@ -279,6 +286,87 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   await page.keyboard.press("Escape");
   check(name, "escape closes the terminal and focus goes back to the island", await ev(page, () => document.querySelector(".w-term").hidden && document.activeElement === document.querySelector(".w-cv")));
 
+  // ── fence logs (E1-C1): the real flag, tested without its answer written down anywhere. the
+  // answer is worked out from fence.log the way a player would, and the checker has to agree
+  const FENCE = ["# fence controller, raptor pen", "# this controller is 192.0.2.10", "# 3 fence tests tonight, none scheduled",
+    "02:58:10 198.51.100.8  login fail", "03:05:44 198.51.100.8  login fail", "03:11:58 203.0.113.47  login ok", "03:12:04 192.0.2.10    fence test",
+    "03:12:30 203.0.113.47  logout", "03:28:16 198.51.100.8  login fail", "03:46:51 203.0.113.47  login ok", "03:47:02 192.0.2.10    fence test",
+    "03:47:40 203.0.113.47  logout", "03:51:40 192.0.2.11    login ok", "03:52:05 192.0.2.11    logout", "04:19:57 203.0.113.47  login ok",
+    "04:20:06 192.0.2.10    fence test", "04:20:31 203.0.113.47  logout", "04:33:58 198.51.100.8  login fail"];
+  const fenceCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });      // its own storage: this section solves the real flag
+  const fenceIt = await island(fenceCtx); pages.push(fenceIt); const fp = fenceIt.page;
+  const fsay = async (line, min = 1) => {
+    const n = (await ev(fp, () => window.__island.termOut())).length;
+    await ev(fp, (l) => window.__island.term(l), line);
+    await fp.waitForFunction(([n, m]) => window.__island.termOut().length >= n + m, [n, min + 1], { timeout: 10000 });
+    await fp.waitForTimeout(60);
+    return (await ev(fp, () => window.__island.termOut())).slice(n + 1);
+  };
+  await ev(fp, () => window.__island.terminal(true));
+  const lsOut = await fsay("ls", 2);
+  check(name, "fence logs: fence.log is listed by ls", lsOut[0].split(/\s+/).includes("fence.log"), JSON.stringify(lsOut));
+  await fp.fill(".w-term-in", "cat fe"); await fp.focus(".w-term-in"); await fp.keyboard.press("Tab");
+  check(name, "fence logs: tab completes cat fe → cat fence.log", await fp.inputValue(".w-term-in") === "cat fence.log");
+  await fp.fill(".w-term-in", "");
+  const log = await fsay("cat fence.log", FENCE.length);
+  check(name, "fence logs: cat fence.log prints exactly the agreed lines", JSON.stringify(log) === JSON.stringify(FENCE), JSON.stringify(log));
+  const ips = [...new Set(log.join("\n").match(/\b\d{1,3}(\.\d{1,3}){3}\b/g))];
+  const doc = (ip) => /^(192\.0\.2|198\.51\.100|203\.0\.113)\.(\d{1,3})$/.test(ip) && +ip.split(".")[3] <= 255;
+  check(name, `fence logs: all ${ips.length} addresses are RFC 5737 documentation addresses`, ips.length >= 4 && ips.every(doc), JSON.stringify(ips));
+  check(name, "fence logs: every line fits the mobile width (40 characters)", log.every((l) => l.length <= 40), JSON.stringify(log.filter((l) => l.length > 40)));
+  // the analysis: the controller from the header; each source's sessions (login ok to logout); the
+  // tests; the source logged in across every test; the sources that only failed; short sessions elsewhere
+  const sec = (t) => { const [h, m, s2] = t.split(":").map(Number); return h * 3600 + m * 60 + s2; };
+  const ev2 = log.filter((l) => /^\d/.test(l)).map((l) => { const [t, ip, ...rest] = l.split(/\s+/); return { t: sec(t), ip, what: rest.join(" ") }; });
+  const controller = log.find((l) => l.startsWith("# this controller is")).split(" ").pop();
+  const tests = ev2.filter((e) => e.what === "fence test").map((e) => e.t);
+  const sessions = {};
+  ev2.forEach((e) => { if (e.what === "login ok") (sessions[e.ip] ||= []).push([e.t, Infinity]); if (e.what === "logout") sessions[e.ip].at(-1)[1] = e.t; });
+  const covers = (ip) => tests.every((t) => (sessions[ip] || []).some(([a, b]) => a <= t && t <= b));
+  const derived = ips.filter(covers);
+  const failOnly = ips.filter((ip) => ev2.some((e) => e.ip === ip && e.what === "login fail") && !sessions[ip]);
+  const shortOnly = ips.filter((ip) => sessions[ip] && !tests.some((t) => sessions[ip].some(([a, b]) => a <= t && t <= b)));
+  check(name, "fence logs: the log's own analysis gives exactly one answer, distinct from the controller, the failing source and the short session",
+    tests.length === 3 && derived.length === 1 && derived[0] !== controller && failOnly.length === 1 && shortOnly.length === 1 && ![controller, ...failOnly, ...shortOnly].includes(derived[0]), JSON.stringify({ tests: tests.length, derived: derived.length, failOnly: failOnly.length, shortOnly: shortOnly.length }));
+  const verdict = await ev(fp, (ips) => Promise.all(ips.map(async (ip) => [ip, (await window.__island.ctfCheck(ip)), (await window.__island.ctfCheck("flag{" + ip + "}"))])), ips);
+  const solves = verdict.filter(([, a, b]) => a.status === "match" && a.id === "ctf-fence-logs" && b.status === "match" && b.id === "ctf-fence-logs").map(([ip]) => ip);
+  check(name, `fence logs: of the ${ips.length} addresses in the log, exactly one solves it (bare and wrapped), and it's the one the analysis found`, solves.length === 1 && solves[0] === derived[0] && verdict.every(([ip, a, b]) => ip === derived[0] || (a.status === "none" && b.status === "none")), JSON.stringify(verdict.map(([ip, a, b]) => [ip === derived[0] ? "<answer>" : ip, a.status, b.status])));
+  check(name, "fence logs: the controller, the failing source and the short-session source don't solve it", [controller, ...failOnly, ...shortOnly].every((ip) => verdict.find((v) => v[0] === ip)[1].status === "none"));
+  check(name, "fence logs: nothing was written while checking", !(await flagsOf(fp))["ctf-fence-logs"]);
+  const hint1 = await fsay("hint 1", 2);
+  check(name, "fence logs: hint 1 is the one agreed hint", JSON.stringify(hint1) === JSON.stringify(["flag 1 · fence logs", "  1. match each fence test to who was logged in at that moment."]), JSON.stringify(hint1));
+  const wLocked = await fsay("writeup 1");
+  check(name, "fence logs: the write-up is locked before the capture", JSON.stringify(wLocked) === '["writeup 1: locked. capture flag 1 first."]', JSON.stringify(wLocked));
+  const capt = await fsay("submit flag{" + derived[0] + "}");
+  check(name, "fence logs: submitting the worked-out answer captures it (1/6)", JSON.stringify(capt) === '["flag accepted: fence logs (1/6)"]' && (await flagsOf(fp))["ctf-fence-logs"] === true, JSON.stringify(capt));
+  const wOpen = await fsay("writeup 1", 7);
+  check(name, "fence logs: the write-up after the capture, exactly", JSON.stringify(wOpen) === JSON.stringify(["flag 1 · fence logs · write-up", "  logs say who did what, and when.", "  the loudest source only failed to log in.", "  a quieter source had a session around", "  every unscheduled fence test.", "  one line proves little. defenders", "  correlate time and source, then act."]), JSON.stringify(wOpen));
+  check(name, "fence logs: the write-up never names an address", !wOpen.some((l) => ips.some((ip) => l.includes(ip))));
+  await fp.reload(); await fp.waitForFunction(() => window.__island && window.__island.getState().open);
+  const after2 = await ev(fp, () => ({ c: window.__island.ctf().count, s: window.__island.ctf().slots[0].state }));
+  check(name, "fence logs: the capture survives a reload", after2.c === 1 && after2.s === "solved", JSON.stringify(after2));
+  // paddocks.log and the secrets, against the code before the ctf (fresh saves on both)
+  const boxRun = async (p, lines) => {
+    await ev(p, (ls) => { const t = document.querySelector(".w-term"), i = t.querySelector(".w-term-in"); t.hidden = false; t.querySelector(".w-term-out").innerHTML = ""; for (const l of ls) { i.value = l; t.querySelector(".w-term-row").requestSubmit(); } }, lines);
+    return ev(p, () => [...document.querySelectorAll(".w-term-out .w-term-line")].map((l) => l.textContent));
+  };
+  const freshCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const fNew = await island(freshCtx); pages.push(fNew);
+  const newOut = await boxRun(fNew.page, ["cat paddocks.log", "cat fence.log", "secrets"]);
+  const newSecrets = await ev(fNew.page, () => window.__island.getSave().secrets);
+  const oldCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const fOld = await island(oldCtx, "", { old: true }); pages.push(fOld);
+  const oldOut = await boxRun(fOld.page, ["cat paddocks.log", "secrets"]);
+  const cut = (out, cmd) => { const i = out.indexOf("pi@island:~$ " + cmd); const j = out.findIndex((l, k) => k > i && l.startsWith("pi@island:~$ ")); return out.slice(i + 1, j < 0 ? undefined : j); };
+  check(name, `fence logs: paddocks.log reads exactly as in ${STALE}`, JSON.stringify(cut(newOut, "cat paddocks.log")) === JSON.stringify(cut(oldOut, "cat paddocks.log")), JSON.stringify(cut(newOut, "cat paddocks.log")));
+  check(name, `fence logs: reading fence.log finds no secret, and secrets reads exactly as in ${STALE}`, !newSecrets.length && JSON.stringify(cut(newOut, "secrets")) === JSON.stringify(cut(oldOut, "secrets")), JSON.stringify({ newSecrets, s: cut(newOut, "secrets") }));
+  await freshCtx.close(); await oldCtx.close(); await fenceCtx.close();
+  // shipped files: no flag{<address>} for any address in the log, and the table holds a hash, not an answer
+  const SHIPPED = ["js/world.js", "index.html", "404.html", "css/styles.css", ...readdirSync(new URL("../js/", import.meta.url)).map((f) => "js/" + f)];
+  const wrapped = [...new Set(SHIPPED)].filter((f) => ips.some((ip) => readFileSync(new URL("../" + f, import.meta.url), "utf8").includes("flag{" + ip + "}")));
+  const entry = /\{ id: "ctf-fence-logs"[^\n]*\n/.exec(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"));
+  check(name, "fence logs: no shipped file holds flag{<any address in the log>}; the table entry holds a 64-hex hash and no address", !wrapped.length && !!entry && /h: "[0-9a-f]{64}"/.test(entry[0]) && !ips.some((ip) => entry[0].includes(ip)), JSON.stringify({ wrapped, entry: !!entry }));
+
   // ── the visitor commands (E1-B): ctf, flags, submit, hint, writeup
   const vp = (await get()).page;
   const sayL = async (line, min = 1) => {                       // run a line; the lines it printed (min: wait for at least that many)
@@ -292,12 +380,12 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const banner = await ev(vp, () => window.__island.termOut());
   check(name, "banner: one new line, 'ctf board available · type ctf', after the old three", JSON.stringify(banner) === JSON.stringify(["pi-sh 1.0 on tty1, cave terminal (volcano, level 1)", "last login: a long time ago, from the helipad", "type help. esc leaves.", "ctf board available · type ctf"]), JSON.stringify(banner));
   const pad = (s) => s.padEnd(14);
-  const EMPTY = ["ctf board · 0 of 6 captured", ...[1, 2, 3, 4, 5, 6].map((i) => `  [-] ${i} ${pad("???")} offline`), "submit flag{...} · hint <n> · writeup <n>"];
+  const EMPTY = ["ctf board · 0 of 6 captured", `  [ ] 1 ${pad("fence logs")} open`, ...[2, 3, 4, 5, 6].map((i) => `  [-] ${i} ${pad("???")} offline`), "submit flag{...} · hint <n> · writeup <n>"];
   const bEmpty = await sayL("ctf", 8), bFlags = await sayL("flags", 8);
-  check(name, "ctf on the shipped (empty) table: six offline slots, exactly", JSON.stringify(bEmpty.out) === JSON.stringify(EMPTY), JSON.stringify(bEmpty.out));
+  check(name, "ctf on the shipped table: fence logs open, five offline slots, exactly", JSON.stringify(bEmpty.out) === JSON.stringify(EMPTY), JSON.stringify(bEmpty.out));
   check(name, "flags is the same board", JSON.stringify(bFlags.out) === JSON.stringify(EMPTY), JSON.stringify(bFlags.out));
   const markOnly = await ev(vp, () => [...document.querySelectorAll(".w-term-out .w-term-line")].slice(-7, -1).map((l) => l.textContent.slice(2, 5)));
-  check(name, "state is in the text: every slot line carries its [-] / [ ] / [x] mark", markOnly.every((m) => m === "[-]"), JSON.stringify(markOnly));
+  check(name, "state is in the text: every slot line carries its [-] / [ ] / [x] mark", markOnly.join() === "[ ],[-],[-],[-],[-],[-]", JSON.stringify(markOnly));
   // synthetic flags: alpha open, beta open with locked hints, gamma behind a tool
   const VIS = [flag(1, "alpha"), flag(2, "beta", { hints: [{ t: "test hint one" }, { t: "test hint two", when: "tool:scanner" }, { t: "test hint three", when: ["secret:koi"] }], writeup: ["test write-up one", "test write-up two"] }), flag(3, "gamma", { open: "tool:scanner" })];
   await ev(vp, (t) => { window.__island.setSave({ v: 2, logs: [], secrets: [] }); window.__island.ctfLoad(t); }, VIS);

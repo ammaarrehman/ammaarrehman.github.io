@@ -2456,11 +2456,15 @@
      stored: a guess is normalized, hashed with the flag's id and compared. that keeps answers out
      of plain sight in the source, nothing more; this is a game in the browser, so anyone reading
      the code can still work everything out. a solve is save.flags[id] = true (save v2 as it is),
-     so a tab still running older code keeps it. no real flags yet (E1-C adds them)
+     so a tab still running older code keeps it. one flag so far: fence logs (E1-C1)
        open, hints[].when: null, or "tool:x", "flag:x", "secret:x", "log:x", "island:x", or a
        list of those that must all hold. a later tool or region opens things through these */
   var CTF_SLOTS = 6, CTF_SCHEME = "pi-ctf/1/", CTF_LEN = 64;
-  var CTF_SHIPPED = [];
+  var CTF_SHIPPED = [
+    { id: "ctf-fence-logs", slot: 1, name: "fence logs", open: null, h: "d8bd6c4774846c50220ff0a609f84d053eacb617864f6224481ecd6503ac3b6c",     // fence.log, in the cave terminal
+      hints: [{ t: "match each fence test to who was logged in at that moment." }],
+      writeup: ["logs say who did what, and when.", "the loudest source only failed to log in.", "a quieter source had a session around", "every unscheduled fence test.", "one line proves little. defenders", "correlate time and source, then act."] }
+  ];
   var CTF_ID = /^ctf-[a-z0-9][a-z0-9-]{0,27}$/, CTF_COND = /^(tool|flag|secret|log|island):[a-z0-9][a-z0-9-]{0,31}$/;
   var CTF = [], ctfDone = 0;                                       // ctfDone: times all six were completed this visit
   function ctfCondOk(c) { return c == null || (typeof c === "string" && CTF_COND.test(c)) || (Array.isArray(c) && c.every(function (x) { return typeof x === "string" && CTF_COND.test(x); })); }
@@ -2565,6 +2569,7 @@
   var FILES = {
     "readme.txt": "welcome to pi's island.\nthis terminal runs the park: fences, feeding, the helipad, the clock.\nmost of it is harmless. type help.",
     "paddocks.log": "[ ok ] t-rex paddock ...... fence live, 10,000 V\n[ ok ] raptor pen ......... 3 of 3 raptors accounted for\n[warn] raptor pen ......... fence tested at 03:12, 03:47, 04:20. they're learning.\n[ ok ] herd meadow ........ 2 nests, eggs warm",
+    "fence.log": "# fence controller, raptor pen\n# this controller is 192.0.2.10\n# 3 fence tests tonight, none scheduled\n02:58:10 198.51.100.8  login fail\n03:05:44 198.51.100.8  login fail\n03:11:58 203.0.113.47  login ok\n03:12:04 192.0.2.10    fence test\n03:12:30 203.0.113.47  logout\n03:28:16 198.51.100.8  login fail\n03:46:51 203.0.113.47  login ok\n03:47:02 192.0.2.10    fence test\n03:47:40 203.0.113.47  logout\n03:51:40 192.0.2.11    login ok\n03:52:05 192.0.2.11    logout\n04:19:57 203.0.113.47  login ok\n04:20:06 192.0.2.10    fence test\n04:20:31 203.0.113.47  logout\n04:33:58 198.51.100.8  login fail",
     "koi.csv": null,
     "orbs.txt": "the orbs, as last recorded:\n  eclipse   default. current champion.\n  bone\n  halo\n  fog\n  void",
     ".bash_history": "ls -a\ncat .rift\nsudo ./rift --wake\n# forgot the password again.\n# it's the default orb. check orbs.txt\ncat .middlepath\n./evolve pi",
