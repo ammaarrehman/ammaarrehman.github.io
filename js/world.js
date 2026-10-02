@@ -1395,12 +1395,20 @@
     { id: "deity", name: "the first orb", hint: "step through the shrine and keep climbing." }
   ];
   var toastEl = root.querySelector(".w-toast"), toastT = 0;
+  /* the toast: one short line over the island that pops in and goes after 3.2 s, the newest
+     replacing the last. it's a status region, so screen readers hear it; quiet keeps it out of
+     the accessibility tree, for news a screen reader already gets another way (the terminal's log) */
+  function toast(msg, quiet) {
+    if (!toastEl) return;
+    if (quiet) toastEl.setAttribute("aria-hidden", "true"); else toastEl.removeAttribute("aria-hidden");
+    toastEl.textContent = msg; toastEl.hidden = false; toastEl.classList.remove("w-toast-in"); void toastEl.offsetWidth; toastEl.classList.add("w-toast-in"); clearTimeout(toastT); toastT = setTimeout(function () { toastEl.hidden = true; }, 3200);
+  }
   function foundSecret(id) {
     var q = SECRETS.filter(function (x) { return x.id === id; })[0];
     if (!q || save.secrets.indexOf(id) >= 0) return;
     save.secrets.push(id); writeSave();
     var msg = "secret found (" + save.secrets.length + "/" + SECRETS.length + "): " + q.name;
-    if (toastEl) { toastEl.textContent = msg; toastEl.hidden = false; toastEl.classList.remove("w-toast-in"); void toastEl.offsetWidth; toastEl.classList.add("w-toast-in"); clearTimeout(toastT); toastT = setTimeout(function () { toastEl.hidden = true; }, 3200); }
+    toast(msg);
     sfx("secret"); announce(msg + ".");
   }
   /* the logs. a card counts as read once it has been open a second and a half, or scrolled to
@@ -2553,6 +2561,7 @@
      everyday commands. the hidden files explain the rest. */
   var term = root.querySelector(".w-term"), tOut = term.querySelector(".w-term-out"), tIn = term.querySelector(".w-term-in"), tPs = term.querySelector(".w-term-ps");
   var termOpen = false, tHist = [], tHi = 0, sudoTries = -1, uptime0 = Date.now();
+  tOut.tabIndex = 0;                                    // the log scrolls once it fills, so the keyboard has to reach it too
   var FILES = {
     "readme.txt": "welcome to pi's island.\nthis terminal runs the park: fences, feeding, the helipad, the clock.\nmost of it is harmless. type help.",
     "paddocks.log": "[ ok ] t-rex paddock ...... fence live, 10,000 V\n[ ok ] raptor pen ......... 3 of 3 raptors accounted for\n[warn] raptor pen ......... fence tested at 03:12, 03:47, 04:20. they're learning.\n[ ok ] herd meadow ........ 2 nests, eggs warm",
@@ -2570,11 +2579,12 @@
   }
   function openTerm() {
     if (!can("terminal")) return;
-    termOpen = true; keys = {}; pi.path = null; pi.want = null; tSession++; tWait = null;
+    termOpen = true; keys = {}; pi.path = null; pi.want = null; tSession++; tWait = null; tMiss = 0;
     term.hidden = false; tOut.innerHTML = ""; sudoTries = -1; setPrompt();
     print("pi-sh 1.0 on tty1, cave terminal (volcano, level 1)", "dim");
     print("last login: a long time ago, from the helipad", "dim");
     print("type help. esc leaves.", "dim");
+    print("ctf board available · type ctf", "dim");
     tIn.value = ""; setTimeout(function () { tIn.focus({ preventScroll: true }); }, 30);
   }
   function closeTerm() { termOpen = false; tSession++; tWait = null; term.hidden = true; tIn.type = "text"; cv.focus({ preventScroll: true }); }
@@ -2583,7 +2593,7 @@
      each open and close of the terminal is a new session; a wait that settles after its session
      ended prints nothing and does nothing (so closing the terminal mid-check saves nothing). a
      watchdog ends a wait that never settles, so the terminal can't stay stuck */
-  var tSession = 0, tWait = null, TERM_WAIT_MS = 4000;
+  var tSession = 0, tWait = null, TERM_WAIT_MS = 4000, tMiss = 0;
   function termWait(p, done) {
     var me = { s: tSession }; tWait = me;
     var dog = new Promise(function (ok, no) { me.dog = setTimeout(function () { no(new Error("timed out")); }, TERM_WAIT_MS); });
@@ -2617,7 +2627,7 @@
   var CMDS = {
     help: function () {
       ["commands:", "  help              this list", "  ls [-a]           list files", "  cat <file>        print a file", "  whoami            who's logged in", "  neofetch          island info",
-       "  census            who lives here", "  found             landmarks found so far", "  secrets           the island's secrets, found and not", "  goto <place>      go somewhere (goto with no place lists them)", "  time [hour|reset] the island clock, synced to Ammaar's timezone",
+       "  census            who lives here", "  found             landmarks found so far", "  secrets           the island's secrets, found and not", "  ctf | flags       the ctf board: six flags to capture", "  submit <answer>   check a flag", "  hint <n>          hints for flag n", "  writeup <n>       how flag n works, once it's captured", "  goto <place>      go somewhere (goto with no place lists them)", "  time [hour|reset] the island clock, synced to Ammaar's timezone",
        "  feed koi          ring the dinner bell at the pond", "  sound [on|off]    music and sound effects", "  fly | drive       go to the helicopter or the car", "  history           what you've typed", "  clear             clear the screen", "  exit              log out"].forEach(function (l) { print(l); });
     },
     ls: function (args) {
@@ -2686,6 +2696,26 @@
       print("secrets: " + save.secrets.length + " of " + SECRETS.length + " found" + (all ? "" : " (hints open up once all eight logs are found)"), "dim");
       SECRETS.forEach(function (q) { var got = save.secrets.indexOf(q.id) >= 0; print((got ? "  [x] " : "  [ ] ") + (got ? q.name : "???") + (!got && all ? "   " + q.hint : "")); });
     },
+    ctf: function () { ctfBoardLines().forEach(function (l) { print(l[0], l[1]); }); },
+    flags: function () { CMDS.ctf([]); },
+    submit: function (args) {
+      var guess = args.join(" ");
+      if (!guess) { print("usage: submit <answer>   (flag{...} or just what's inside)", "err"); return; }
+      if (ctfNorm(guess) === null) { print("submit: that can't be a flag. answers are letters, digits, _ and ., up to 64.", "err"); return; }
+      termWait(ctfCheck(guess), ctfReport);
+    },
+    hint: function (args) {
+      var f = ctfSlotArg(args, "hint"); if (!f) return;
+      print("flag " + f.slot + " · " + f.name, "dim");
+      if (!f.hints.length) { print("  no hints for this one."); return; }
+      f.hints.forEach(function (q, i) { print("  " + (i + 1) + ". " + (ctfCond(q.when) ? q.t : "(another hint unlocks " + ctfLockedWhy(q.when) + ".)"), ctfCond(q.when) ? "" : "dim"); });
+    },
+    writeup: function (args) {
+      var f = ctfSlotArg(args, "writeup"); if (!f) return;
+      if (!ctfSolved(f)) { print("writeup " + f.slot + ": locked. capture flag " + f.slot + " first.", "dim"); return; }
+      print("flag " + f.slot + " · " + f.name + " · write-up", "dim");
+      f.writeup.forEach(function (l) { print("  " + l); });
+    },
     middlepath: function () { KAIJU_ART.forEach(function (l) { print(l, "hi"); }); },
     evolve: function (args) {
       if (args[0] && args[0] !== "pi") { print("evolve: only pi can evolve. try ./evolve pi"); return; }
@@ -2709,6 +2739,55 @@
     },
     fences: function (args) { print(args[0] === "off" ? "fences: permission denied. and also, no." : "fences: all paddocks live. 10,000 V."); }
   };
+  /* the ctf in this terminal: the board, submit's answers, hints and write-ups. the engine
+     (above, "the ctf") does the checking and saving; this is only how this terminal shows it */
+  var CTF_STATE = { solved: ["[x]", "captured"], open: ["[ ]", "open"], offline: ["[-]", "offline"] };
+  function ctfBoardLines() {
+    var b = ctfBoard(), out = [["ctf board · " + ctfCount() + " of " + CTF_SLOTS + " captured", "dim"]];
+    b.forEach(function (q) { var st = CTF_STATE[q.state], nm = q.state === "offline" ? "???" : q.name; out.push(["  " + st[0] + " " + q.slot + " " + (nm.length < 14 ? (nm + "              ").slice(0, 14) : nm) + " " + st[1], q.state === "solved" ? "ok" : q.state === "offline" ? "dim" : ""]); });
+    out.push(["submit flag{...} · hint <n> · writeup <n>", "dim"]);
+    return out;
+  }
+  // the flag a slot argument names, or null after saying why: a bad number, or nothing there yet
+  function ctfSlotArg(args, cmd) {
+    if (!/^[1-6]$/.test(args[0] || "")) { print("usage: " + cmd + " <n>   (n is a slot, 1 to " + CTF_SLOTS + ")", "err"); return null; }
+    var f = CTF.filter(function (q) { return q.slot === +args[0]; })[0];
+    if (!f || (!ctfSolved(f) && !ctfCond(f.open))) { print("flag " + args[0] + " is offline. nothing here yet.", "dim"); return null; }
+    return f;
+  }
+  // a locked hint's reason, said vaguely: never the condition itself
+  function ctfLockedWhy(c) {
+    var first = (Array.isArray(c) ? c : [c]).filter(function (x) { return !ctfCond(x); })[0] || "";
+    var kind = first.slice(0, first.indexOf(":"));
+    return kind === "tool" ? "with a tool you don't have yet" : kind === "secret" ? "after you find a certain secret" : kind === "log" ? "after you read a certain log"
+      : kind === "island" ? "somewhere you haven't been yet" : "after something else happens";
+  }
+  // submit's answer, once the check settles (termWait only calls this while the terminal is open)
+  function ctfReport(err, r) {
+    if (err) { print("submit: the flag checker didn't answer. try again.", "err"); return; }
+    var f = r.id ? ctfById(r.id) : null;
+    if (r.status === "match") {
+      var sv = ctfSolve(r.id);
+      if (sv.status === "match") {
+        print("flag accepted: " + f.name + " (" + sv.count + "/" + CTF_SLOTS + ")", "ok"); sfx("grant");
+        toast(sv.complete ? "all six flags captured" : "flag captured (" + sv.count + "/" + CTF_SLOTS + "): " + f.name, true);
+        if (sv.complete) print("all six flags captured.", "ok");
+        return;
+      }
+      if (sv.status === "full") { print("submit: the island's save has no room left, so this can't be kept.", "err"); return; }
+      if (sv.status === "already") { print("already captured: " + f.name, "dim"); return; }
+      r = { status: "none" };
+    }
+    if (r.status === "already") { print("already captured: " + f.name, "dim"); return; }
+    if (r.status === "none") {
+      print("no flag matches that.", "err");
+      if (++tMiss === 3) print("stuck? try hint <n>", "dim");
+      return;
+    }
+    if (r.status === "no-crypto") { print("submit: the flag checker needs a secure (https) connection.", "err"); return; }
+    if (r.status === "invalid") { print("usage: submit <answer>   (flag{...} or just what's inside)", "err"); return; }
+    print("submit: the flag checker failed. try again.", "err");
+  }
   function countFound() { return Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length; }
   function run(line) {
     if (sudoTries >= 0) {                                        // answering the sudo password prompt
@@ -2744,14 +2823,14 @@
   };
   // one line from the box: nothing runs while a wait is open (the line stays typed)
   function submitLine() { if (tWait) return false; var v = tIn.value; tIn.value = ""; run(v); return true; }
-  term.querySelector(".w-term-row").addEventListener("submit", function (e) { e.preventDefault(); submitLine(); });
+  term.querySelector(".w-term-row").addEventListener("submit", function (e) { e.preventDefault(); submitLine(); if (termOpen && document.activeElement !== tIn) tIn.focus({ preventScroll: true }); });
   tIn.addEventListener("keydown", function (e) {
     if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") sfx("key");
     if (e.key === "Escape") { e.preventDefault(); closeTerm(); return; }
     if (sudoTries >= 0) return;
     if (e.key === "ArrowUp" && tHist.length) { e.preventDefault(); tHi = Math.max(0, tHi - 1); tIn.value = tHist[tHi]; }
     else if (e.key === "ArrowDown") { e.preventDefault(); tHi = Math.min(tHist.length, tHi + 1); tIn.value = tHist[tHi] || ""; }
-    else if (e.key === "Tab") {                                  // complete a command or a file name
+    else if (e.key === "Tab" && !e.shiftKey) {                   // complete a command or a file name (shift+tab moves focus back, to the log)
       e.preventDefault();
       var v = tIn.value, sp = v.lastIndexOf(" "), word = v.slice(sp + 1);
       var pool = sp < 0 ? Object.keys(CMDS) : v.indexOf("goto") === 0 ? Object.keys(PLACES) : Object.keys(FILES);

@@ -567,6 +567,7 @@ html.in-world, html.in-world body { overflow:hidden; }
 .w-term-x { background:none; border:1px solid #444; color:#d6dccf; font:inherit; font-size:14px; line-height:1; padding:2px 8px; cursor:pointer; }
 .w-term-x:hover { border-color:#f4f4f4; }
 .w-term-out { flex:1; overflow-y:auto; padding:10px 14px 4px; white-space:pre-wrap; overflow-wrap:anywhere; scrollbar-width:thin; }
+.w-term-out:focus-visible { outline:2px solid #f454a6; outline-offset:-2px; }
 .w-term-line.cmd { color:#f4f4f4; }
 .w-term-line.dim { color:#7c8378; }
 .w-term-line.err { color:#ff6b6b; }
@@ -790,6 +791,7 @@ dl.tree dt::before { color:var(--accent); opacity:.7; }
   .js .rv, .js .section-heading .w > span { opacity:1; transform:none; transition:none; }
   .stack-chips span, .nav::after, .xp-dot.live, .status-live::before { animation:none; }
   .cursor, .t-bar.busy::after, .w-more, .dock-item.pop { animation:none; }
+  .w-term, .w-toast-in { animation:none; }               /* the terminal and the toast just appear */
   .js .t-in { transition:none; }                       /* the hero is there at once, no staggered reveal */
   .js .term.in .t-type { animation:none; width:8ch; }
   .nav::after { display:none; }

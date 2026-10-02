@@ -16,8 +16,15 @@
      terminal mid-check prints and saves nothing, and reopening works; a failed or never-ending
      check ends cleanly; no web crypto gives a clean message; history and tab completion are right;
      keyboard and touch both run it; axe on the open terminal;
-   - nothing changes for visitors: help and tab completion match STALE's, and __ctf doesn't exist
-     without ?debug=1.
+   - the visitor commands (E1-B): the banner line; ctf and flags (the empty shipped board exactly,
+     and test flags' names and states); submit (right, already, wrong, empty, malformed, the save
+     full, the three-miss nudge once per session, pending, failing, never-ending, closed mid-check,
+     six of six once); hint (usage, offline, locked tiers said vaguely, no condition ids); writeup
+     (locked, then shown); keyboard, touch and focus; tab completion; axe with the board up;
+   - the shared toast: the secret toast is as before; reduced motion stops the terminal's and the
+     toast's animations and both still show; at 360 px the board fits with no sideways scroll;
+   - help and tab completion are STALE's plus exactly the ctf commands; __ctf is in neither, and
+     doesn't exist without ?debug=1.
 
      node tools/ctf.mjs                            chromium, firefox and webkit
      node tools/ctf.mjs --engines=chromium,webkit  only these
@@ -272,6 +279,161 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   await page.keyboard.press("Escape");
   check(name, "escape closes the terminal and focus goes back to the island", await ev(page, () => document.querySelector(".w-term").hidden && document.activeElement === document.querySelector(".w-cv")));
 
+  // ── the visitor commands (E1-B): ctf, flags, submit, hint, writeup
+  const vp = (await get()).page;
+  const sayL = async (line, min = 1) => {                       // run a line; the lines it printed (min: wait for at least that many)
+    const n = (await ev(vp, () => window.__island.termOut())).length;
+    const ran = await ev(vp, (l) => window.__island.term(l), line);
+    await vp.waitForFunction(([n, m]) => window.__island.termOut().length >= n + m, [n, min + 1], { timeout: 10000 });
+    await vp.waitForTimeout(60);
+    return { ran, out: (await ev(vp, () => window.__island.termOut())).slice(n + 1) };
+  };
+  await ev(vp, () => window.__island.terminal(true));
+  const banner = await ev(vp, () => window.__island.termOut());
+  check(name, "banner: one new line, 'ctf board available · type ctf', after the old three", JSON.stringify(banner) === JSON.stringify(["pi-sh 1.0 on tty1, cave terminal (volcano, level 1)", "last login: a long time ago, from the helipad", "type help. esc leaves.", "ctf board available · type ctf"]), JSON.stringify(banner));
+  const pad = (s) => s.padEnd(14);
+  const EMPTY = ["ctf board · 0 of 6 captured", ...[1, 2, 3, 4, 5, 6].map((i) => `  [-] ${i} ${pad("???")} offline`), "submit flag{...} · hint <n> · writeup <n>"];
+  const bEmpty = await sayL("ctf", 8), bFlags = await sayL("flags", 8);
+  check(name, "ctf on the shipped (empty) table: six offline slots, exactly", JSON.stringify(bEmpty.out) === JSON.stringify(EMPTY), JSON.stringify(bEmpty.out));
+  check(name, "flags is the same board", JSON.stringify(bFlags.out) === JSON.stringify(EMPTY), JSON.stringify(bFlags.out));
+  const markOnly = await ev(vp, () => [...document.querySelectorAll(".w-term-out .w-term-line")].slice(-7, -1).map((l) => l.textContent.slice(2, 5)));
+  check(name, "state is in the text: every slot line carries its [-] / [ ] / [x] mark", markOnly.every((m) => m === "[-]"), JSON.stringify(markOnly));
+  // synthetic flags: alpha open, beta open with locked hints, gamma behind a tool
+  const VIS = [flag(1, "alpha"), flag(2, "beta", { hints: [{ t: "test hint one" }, { t: "test hint two", when: "tool:scanner" }, { t: "test hint three", when: ["secret:koi"] }], writeup: ["test write-up one", "test write-up two"] }), flag(3, "gamma", { open: "tool:scanner" })];
+  await ev(vp, (t) => { window.__island.setSave({ v: 2, logs: [], secrets: [] }); window.__island.ctfLoad(t); }, VIS);
+  const bVis = (await sayL("ctf", 8)).out;
+  const WANT = ["ctf board · 0 of 6 captured", `  [ ] 1 ${pad("test alpha")} open`, `  [ ] 2 ${pad("test beta")} open`, `  [-] 3 ${pad("???")} offline`, `  [-] 4 ${pad("???")} offline`, `  [-] 5 ${pad("???")} offline`, `  [-] 6 ${pad("???")} offline`, "submit flag{...} · hint <n> · writeup <n>"];
+  check(name, "board with test flags: names and states, an offline flag's name hidden", JSON.stringify(bVis) === JSON.stringify(WANT), JSON.stringify(bVis));
+  // submit: right, then already
+  await ev(vp, () => { document.querySelector(".w-toast").hidden = true; });
+  const wS = await ev(vp, () => window.__writes);
+  const sub1 = await sayL("submit flag{test_alpha}");
+  const toast1 = await ev(vp, () => { const t = document.querySelector(".w-toast"); return { text: t.textContent, hidden: t.hidden, quiet: t.getAttribute("aria-hidden"), live: document.getElementById("w-live").textContent }; });
+  check(name, "submit right: 'flag accepted: test alpha (1/6)', one save write", JSON.stringify(sub1.out) === JSON.stringify(["flag accepted: test alpha (1/6)"]) && await ev(vp, () => window.__writes) === wS + 1 && (await flagsOf(vp))["ctf-test-alpha"] === true, JSON.stringify(sub1.out));
+  check(name, "submit right: the shared toast shows 'flag captured (1/6): test alpha', kept from screen readers (the log reads it)", toast1.text === "flag captured (1/6): test alpha" && !toast1.hidden && toast1.quiet === "true" && !/flag/.test(toast1.live), JSON.stringify(toast1));
+  await ev(vp, () => { document.querySelector(".w-toast").hidden = true; });
+  const sub2 = await sayL("submit TEST ALPHA");
+  check(name, "submit again: 'already captured: test alpha', no write, no toast", JSON.stringify(sub2.out) === JSON.stringify(["already captured: test alpha"]) && await ev(vp, () => window.__writes) === wS + 1 && await ev(vp, () => document.querySelector(".w-toast").hidden), JSON.stringify(sub2.out));
+  check(name, "board after: slot 1 is [x] captured", (await sayL("ctf", 8)).out[1] === `  [x] 1 ${pad("test alpha")} captured`);
+  // empty and malformed
+  const e1 = await sayL("submit"), e2 = await sayL("submit test alpha!"), e3 = await sayL("submit " + "x".repeat(70));
+  check(name, "submit with nothing, or something that can't be a flag: usage and error lines, no write", e1.out[0] === "usage: submit <answer>   (flag{...} or just what's inside)" && e2.out[0] === "submit: that can't be a flag. answers are letters, digits, _ and ., up to 64." && e3.out[0] === e2.out[0] && await ev(vp, () => window.__writes) === wS + 1, JSON.stringify([e1.out, e2.out, e3.out]));
+  // wrong answers and the nudge: invalid input isn't a miss; the nudge comes once, on the third miss
+  const m1 = await sayL("submit nope_one"), m2 = await sayL("submit nope_two"), mi = await sayL("submit bad answer!"), m3 = await sayL("submit nope_three", 2), m4 = await sayL("submit nope_four");
+  check(name, "wrong: 'no flag matches that.', nothing written", [m1, m2, m4].every((m) => JSON.stringify(m.out) === '["no flag matches that."]') && await ev(vp, () => window.__writes) === wS + 1, JSON.stringify([m1.out, m2.out, m4.out]));
+  check(name, "the third miss (invalid input not counted) nudges once: 'stuck? try hint <n>'; the fourth doesn't", JSON.stringify(m3.out) === JSON.stringify(["no flag matches that.", "stuck? try hint <n>"]) && !mi.out.includes("stuck? try hint <n>"), JSON.stringify([mi.out, m3.out, m4.out]));
+  await ev(vp, () => { window.__island.terminal(false); window.__island.terminal(true); });
+  const r1 = await sayL("submit nope_a"), r2 = await sayL("submit nope_b");
+  check(name, "a new terminal session starts the count again (two misses, no nudge)", ![...r1.out, ...r2.out].includes("stuck? try hint <n>"), JSON.stringify([r1.out, r2.out]));
+  // hint
+  const h0 = await sayL("hint"), h9 = await sayL("hint 9"), h4 = await sayL("hint 4"), h3 = await sayL("hint 3"), h2 = await sayL("hint 2", 4);
+  check(name, "hint: no slot or a bad one is usage; an empty slot and a closed flag are offline", h0.out[0] === "usage: hint <n>   (n is a slot, 1 to 6)" && h9.out[0] === h0.out[0] && h4.out[0] === "flag 4 is offline. nothing here yet." && h3.out[0] === "flag 3 is offline. nothing here yet.", JSON.stringify([h0.out, h9.out, h4.out, h3.out]));
+  check(name, "hint 2: the unlocked hint, then the locked tiers said vaguely, in order", JSON.stringify(h2.out) === JSON.stringify(["flag 2 · test beta", "  1. test hint one", "  2. (another hint unlocks with a tool you don't have yet.)", "  3. (another hint unlocks after you find a certain secret.)"]), JSON.stringify(h2.out));
+  const leaked = [h2, h3, h4].flatMap((x) => x.out).filter((l) => /scanner|koi|tool:|secret:|log:|flag:|island:|test hint two|test hint three|gamma/.test(l));
+  check(name, "no condition ids, locked hint text or offline names reach the visitor", !leaked.length, JSON.stringify(leaked));
+  const bdbg = await ev(vp, () => window.__island.ctf().slots[1].hints);
+  check(name, "debug state still shows the tiers (1 of 3 unlocked)", bdbg[0] === 1 && bdbg[1] === 3, JSON.stringify(bdbg));
+  await ev(vp, () => { const s = window.__island.getSave(); s.tools.scanner = true; s.secrets = ["koi"]; window.__island.setSave(s); });
+  const h2b = await sayL("hint 2", 4);
+  check(name, "once unlocked, every hint shows its text", JSON.stringify(h2b.out) === JSON.stringify(["flag 2 · test beta", "  1. test hint one", "  2. test hint two", "  3. test hint three"]), JSON.stringify(h2b.out));
+  // writeup
+  const w0x = await sayL("writeup"), w4 = await sayL("writeup 4"), w2 = await sayL("writeup 2");
+  check(name, "writeup: usage, offline, and locked until captured", w0x.out[0] === "usage: writeup <n>   (n is a slot, 1 to 6)" && w4.out[0] === "flag 4 is offline. nothing here yet." && w2.out[0] === "writeup 2: locked. capture flag 2 first.", JSON.stringify([w0x.out, w4.out, w2.out]));
+  await sayL("submit flag{test_beta}");
+  const w2b = await sayL("writeup 2", 3);
+  check(name, "writeup after the capture: its lines", JSON.stringify(w2b.out) === JSON.stringify(["flag 2 · test beta · write-up", "  test write-up one", "  test write-up two"]), JSON.stringify(w2b.out));
+  // the save is full
+  await ev(vp, () => window.__island.setSave({ v: 2, logs: [], secrets: [], flags: Object.fromEntries(Array.from({ length: 64 }, (_, i) => ["story-" + i, true])) }));
+  const rawF = await raw(vp), wF = await ev(vp, () => window.__writes);
+  const full = await sayL("submit flag{test_alpha}");
+  check(name, "submit with save.flags full: says it can't be kept, claims nothing, writes nothing", JSON.stringify(full.out) === JSON.stringify(["submit: the island's save has no room left, so this can't be kept."]) && await raw(vp) === rawF && await ev(vp, () => window.__writes) === wF && await ev(vp, () => window.__island.ctf().count) === 0, JSON.stringify(full.out));
+  // 5 of 6 to 6 of 6
+  await ev(vp, (a) => { window.__island.ctfLoad(a[0]); window.__island.setSave({ v: 2, logs: [], secrets: [], flags: Object.fromEntries(a[1].map((i) => [i, true])) }); }, [SIX, SIX.slice(0, 5).map((f) => f.id)]);
+  const c6 = await sayL("submit flag{test_zeta}", 2), c7 = await sayL("submit flag{test_zeta}"), c8 = await sayL("submit flag{test_alpha}");
+  const toastC = await ev(vp, () => document.querySelector(".w-toast").textContent);
+  check(name, "5 of 6 to 6 of 6: accepted, then 'all six flags captured.' once", JSON.stringify(c6.out) === JSON.stringify(["flag accepted: test zeta (6/6)", "all six flags captured."]) && toastC === "all six flags captured", JSON.stringify([c6.out, toastC]));
+  check(name, "submitting again after six: already, no second completion", JSON.stringify(c7.out) === '["already captured: test zeta"]' && JSON.stringify(c8.out) === '["already captured: test alpha"]' && await ev(vp, () => window.__island.ctf().completions) === 1, JSON.stringify([c7.out, c8.out]));
+  // the wait, through submit: pending, a failed digest, and the watchdog
+  await ev(vp, (t) => { window.__island.setSave({ v: 2, logs: [], secrets: [] }); window.__island.ctfLoad(t); }, SIX);
+  await slowDigest(vp, 300);
+  const nP = (await ev(vp, () => window.__island.termOut())).length;
+  const pend = await ev(vp, () => ({ a: window.__island.term("submit flag{test_alpha}"), b: window.__island.term("submit flag{test_alpha}"), box: document.querySelector(".w-term-in").value }));
+  await vp.waitForFunction((n) => window.__island.termOut().length >= n + 2 && !window.__island.ctf().pending, nP);
+  await vp.waitForTimeout(400);
+  const outP = (await ev(vp, () => window.__island.termOut())).slice(nP);
+  check(name, "submit while a check waits: the second is ignored (stays typed), one solve", pend.a && !pend.b && pend.box === "submit flag{test_alpha}" && JSON.stringify(outP) === JSON.stringify(["pi@island:~$ submit flag{test_alpha}", "flag accepted: test alpha (1/6)"]), JSON.stringify({ pend, outP }));
+  await ev(vp, () => { document.querySelector(".w-term-in").value = ""; crypto.subtle.digest = () => Promise.reject(new Error("broken")); });
+  const fd = await sayL("submit flag{test_beta}");
+  check(name, "submit with a failing digest: 'the flag checker failed. try again.', nothing saved", JSON.stringify(fd.out) === '["submit: the flag checker failed. try again."]' && !(await flagsOf(vp))["ctf-test-beta"], JSON.stringify(fd.out));
+  await ev(vp, () => { crypto.subtle.digest = () => new Promise(() => {}); });
+  const wd = await sayL("submit flag{test_beta}");
+  check(name, "submit when the digest never settles: the watchdog's line, then lines run again", JSON.stringify(wd.out) === '["submit: the flag checker didn\'t answer. try again."]' && await ev(vp, () => !window.__island.ctf().pending), JSON.stringify(wd.out));
+  await realDigest(vp);
+  // closing mid-submit: nothing printed, nothing saved
+  await slowDigest(vp, 300);
+  const wCl = await ev(vp, () => window.__writes);
+  await ev(vp, () => { window.__island.term("submit flag{test_beta}"); window.__island.terminal(false); });
+  await vp.waitForTimeout(700);
+  check(name, "closing the terminal mid-submit: no save, no toast, nothing pending", await ev(vp, () => window.__writes) === wCl && !(await flagsOf(vp))["ctf-test-beta"] && await ev(vp, () => !window.__island.ctf().pending));
+  await realDigest(vp);
+  // keyboard: submit typed and entered; focus stays in the box
+  await ev(vp, () => window.__island.terminal(true));
+  await vp.waitForTimeout(80); await vp.focus(".w-term-in");
+  await vp.keyboard.type("submit Test Beta"); await vp.keyboard.press("Enter");
+  await vp.waitForFunction(() => window.__island.termOut().includes("flag accepted: test beta (2/6)"));
+  check(name, "keyboard submit: accepted, focus stays in the box", await ev(vp, () => document.activeElement === document.querySelector(".w-term-in")));
+  const tabs = {};
+  for (const w of ["ct", "fla", "sub", "wr", "he", "__"]) { await vp.fill(".w-term-in", w); await vp.keyboard.press("Tab"); tabs[w] = await vp.inputValue(".w-term-in"); }
+  const listOf = async (w) => { await vp.fill(".w-term-in", w); await vp.keyboard.press("Tab"); return (await ev(vp, () => window.__island.termOut())).pop().split(/\s+/).sort().join(); };
+  const hiList = await listOf("hi"), flList = await listOf("fl"), suList = await listOf("su");
+  await vp.fill(".w-term-in", "");
+  check(name, "tab completion: ct→ctf, fla→flags, sub→submit, wr→writeup, he→help, __ nothing; hi, fl, su list both matches", tabs.ct === "ctf " && tabs.fla === "flags " && tabs.sub === "submit " && tabs.wr === "writeup " && tabs.he === "help " && tabs.__ === "__" && hiList === "hint,history" && flList === "flags,fly" && suList === "submit,summon", JSON.stringify({ tabs, hiList, flList, suList }));
+  // the log can be reached by keyboard now (it scrolls once full): shift+tab from the box lands on it, with a ring
+  await vp.focus(".w-term-in"); await vp.keyboard.press("Shift+Tab");
+  const logFocus = await ev(vp, () => { const a = document.activeElement; return { log: a === document.querySelector(".w-term-out"), ring: getComputedStyle(a).outlineStyle }; });
+  check(name, "the terminal log takes keyboard focus (shift+tab from the box) and shows a focus ring", logFocus.log && logFocus.ring === "solid", JSON.stringify(logFocus));
+  await sayL("ctf", 8); await sayL("hint 2", 3);
+  // axe with the board and a hint on screen
+  const axC = await new AxeBuilder({ page: vp }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).include(".w-term").analyze().then((r) => r.violations.map((v) => `${v.id} (${v.nodes.length})`), (e) => ["axe failed: " + e.message]);
+  check(name, "axe (WCAG 2.2 AA) on the terminal showing the board and a hint: no violations", !axC.length, axC.join(", "));
+  const logAttrs = await ev(vp, () => { const o = document.querySelector(".w-term-out"); return o.getAttribute("role") + " " + o.getAttribute("aria-live"); });
+  check(name, "the terminal's output is still role=log, aria-live=polite", logAttrs === "log polite", logAttrs);
+
+  // ── the secret toast, unchanged by the refactor
+  const sp2 = (await get()).page;
+  await ev(sp2, () => window.__island.fireEvent("roar"));
+  await sp2.waitForTimeout(120);
+  const st = await ev(sp2, () => { const t = document.querySelector(".w-toast"); return { text: t.textContent, hidden: t.hidden, aria: t.getAttribute("aria-hidden"), role: t.getAttribute("role"), cls: t.className, anim: getComputedStyle(t).animationName, live: document.getElementById("w-live").textContent, secrets: window.__island.getSave().secrets }; });
+  check(name, "secret toast: 'secret found (1/12): too close', popping in, heard by screen readers, announced, saved", st.text === "secret found (1/12): too close" && !st.hidden && st.aria === null && st.role === "status" && /w-toast-in/.test(st.cls) && st.anim === "w-pop" && st.live === "secret found (1/12): too close." && st.secrets.join() === "roar", JSON.stringify(st));
+  await sp2.waitForTimeout(3300);
+  check(name, "secret toast goes after 3.2 s", await ev(sp2, () => document.querySelector(".w-toast").hidden));
+  const rmT = await ev(sp2, () => { window.__island.terminal(true); return getComputedStyle(document.querySelector(".w-term")).animationName; });
+  check(name, "normal motion: the terminal still opens with its animation (w-term-in)", rmT === "w-term-in", rmT);
+
+  // ── reduced motion: the terminal and the toast just appear, and both still work
+  const rctx = await browser.newContext({ viewport: { width: 1280, height: 800 }, reducedMotion: "reduce" });
+  const rp = await island(rctx); pages.push(rp);
+  await ev(rp.page, (t) => { window.__island.ctfLoad(t); window.__island.terminal(true); window.__island.term("submit flag{test_alpha}"); }, SIX);
+  await rp.page.waitForFunction(() => window.__island.termOut().includes("flag accepted: test alpha (1/6)"));
+  const rmC = await ev(rp.page, () => { const t = document.querySelector(".w-toast"); return { term: getComputedStyle(document.querySelector(".w-term")).animationName, vis: !document.querySelector(".w-term").hidden, toast: getComputedStyle(t).animationName, text: t.textContent, hidden: t.hidden }; });
+  await ev(rp.page, () => { window.__island.terminal(false); window.__island.fireEvent("roar"); });
+  const rmS = await ev(rp.page, () => { const t = document.querySelector(".w-toast"); return { toast: getComputedStyle(t).animationName, text: t.textContent, hidden: t.hidden }; });
+  check(name, "reduced motion: no terminal or toast animation; the ctf toast and the secret toast still show", rmC.term === "none" && rmC.vis && rmC.toast === "none" && rmC.text === "flag captured (1/6): test alpha" && !rmC.hidden && rmS.toast === "none" && rmS.text === "secret found (1/12): too close" && !rmS.hidden, JSON.stringify({ rmC, rmS }));
+  await rctx.close();
+
+  // ── 360 px: the board fits, one screen line per board line, no sideways scroll
+  const nctx = await browser.newContext({ viewport: { width: 360, height: 740 }, hasTouch: true });
+  const np = await island(nctx); pages.push(np);
+  await ev(np.page, (t) => { window.__island.ctfLoad(t); window.__island.terminal(true); window.__island.term("submit flag{test_epsilon}"); }, SIX);
+  await np.page.waitForFunction(() => window.__island.termOut().some((l) => l.startsWith("flag accepted")));
+  await ev(np.page, () => { window.__island.term("ctf"); });
+  const fit = await ev(np.page, () => {
+    const o = document.querySelector(".w-term-out"), lines = [...o.querySelectorAll(".w-term-line")].slice(-8), lh = parseFloat(getComputedStyle(lines[0]).lineHeight);
+    return { over: o.scrollWidth - o.clientWidth, page: document.documentElement.scrollWidth - window.innerWidth, tall: lines.filter((l) => l.getBoundingClientRect().height > lh + 1).map((l) => l.textContent), n: lines.length };
+  });
+  check(name, "360 px: the board has no sideways scroll and every board line fits on one line", fit.over <= 0 && fit.page <= 0 && !fit.tall.length && fit.n === 8, JSON.stringify(fit));
+  await nctx.close();
+
   // ── axe on the open terminal
   await ev(page, () => window.__island.terminal(true));
   await page.waitForTimeout(300);
@@ -287,8 +449,9 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const tctx = await browser.newContext({ viewport: { width: 390, height: 844 }, hasTouch: true });
   const tp = await island(tctx); pages.push(tp);
   await ev(tp.page, (t) => { window.__island.ctfLoad(t); window.__island.terminal(true); }, SIX);
-  await tp.page.tap(".w-term-in"); await tp.page.keyboard.type("__ctf flag{test_epsilon}"); await tp.page.tap(".w-term-go");
-  check(name, "touch (390 x 844): tap the box, type, tap ↵: solved", (await lastLine(tp.page, "__ctf: match")) === "__ctf: match ctf-test-epsilon (1/6)");
+  await tp.page.tap(".w-term-in"); await tp.page.keyboard.type("submit flag{test_epsilon}"); await tp.page.tap(".w-term-go");
+  check(name, "touch (390 x 844): tap the box, type submit, tap ↵: accepted", (await lastLine(tp.page, "flag accepted")) === "flag accepted: test epsilon (1/6)");
+  check(name, "touch: focus is back in the box after ↵", await ev(tp.page, () => document.activeElement === document.querySelector(".w-term-in")));
   await tctx.close();
 
   // ── nothing changes for visitors
@@ -300,7 +463,13 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
     return ev(p, () => [...document.querySelectorAll(".w-term-out .w-term-line")].map((l) => l.textContent));
   };
   const helpNew = await helpOf(page), helpOld = await helpOf(oldp.page);
-  check(name, `help and the full tab completion list are identical to ${STALE}'s`, JSON.stringify(helpNew) === JSON.stringify(helpOld) && !helpNew.join("\n").includes("ctf"), JSON.stringify(helpNew.slice(-1)));
+  const NEWHELP = ["  ctf | flags       the ctf board: six flags to capture", "  submit <answer>   check a flag", "  hint <n>          hints for flag n", "  writeup <n>       how flag n works, once it's captured"];
+  const at = helpOld.findIndex((l) => l.startsWith("  secrets ")) + 1;
+  const wantHelp = [...helpOld.slice(0, at), ...NEWHELP, ...helpOld.slice(at, -1)];
+  const tabOld = new Set(helpOld[helpOld.length - 1].split(/\s+/)), tabNew = new Set(helpNew[helpNew.length - 1].split(/\s+/));
+  const added = [...tabNew].filter((w) => !tabOld.has(w)).sort().join(), lost = [...tabOld].filter((w) => !tabNew.has(w));
+  check(name, `help is ${STALE}'s plus exactly the four ctf lines (after secrets); nothing else changed`, JSON.stringify(helpNew.slice(0, -1)) === JSON.stringify(wantHelp), JSON.stringify(helpNew.slice(0, -1)));
+  check(name, `tab completion is ${STALE}'s plus exactly ctf, flags, hint, submit, writeup; no __ctf`, added === "ctf,flags,hint,submit,writeup" && !lost.length && !tabNew.has("__ctf"), JSON.stringify({ added, lost }));
   const plain = await browser.newPage(); const perr = []; plain.on("pageerror", (e) => perr.push(e.message));
   await plain.goto(`${BASE}#island`); await plain.waitForSelector("#world.show", { timeout: 30000 }); await plain.waitForTimeout(500);
   const vis = await plain.evaluate(() => { const f = document.querySelector(".w-term-row"), i = document.querySelector(".w-term-in"); i.value = "__ctf flag{test_alpha}"; f.requestSubmit(); const out = [...document.querySelectorAll(".w-term-out .w-term-line")].map((l) => l.textContent); return { api: window.__island === undefined, last: out.pop() }; });
