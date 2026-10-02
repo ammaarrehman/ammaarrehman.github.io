@@ -2441,6 +2441,113 @@
     });
   }
 
+  /* ════════ the ctf (Phase 9, E1) ════════
+     six flags, one per slot. one engine for every terminal that takes flags: the cave terminal
+     now, others later. each flag is data: a stable id (ctf-..., never renamed or reused), its
+     slot (1 to 6), when it is open, a sha-256 of its answer, hints and a write-up. no answer is
+     stored: a guess is normalized, hashed with the flag's id and compared. that keeps answers out
+     of plain sight in the source, nothing more; this is a game in the browser, so anyone reading
+     the code can still work everything out. a solve is save.flags[id] = true (save v2 as it is),
+     so a tab still running older code keeps it. no real flags yet (E1-C adds them)
+       open, hints[].when: null, or "tool:x", "flag:x", "secret:x", "log:x", "island:x", or a
+       list of those that must all hold. a later tool or region opens things through these */
+  var CTF_SLOTS = 6, CTF_SCHEME = "pi-ctf/1/", CTF_LEN = 64;
+  var CTF_SHIPPED = [];
+  var CTF_ID = /^ctf-[a-z0-9][a-z0-9-]{0,27}$/, CTF_COND = /^(tool|flag|secret|log|island):[a-z0-9][a-z0-9-]{0,31}$/;
+  var CTF = [], ctfDone = 0;                                       // ctfDone: times all six were completed this visit
+  function ctfCondOk(c) { return c == null || (typeof c === "string" && CTF_COND.test(c)) || (Array.isArray(c) && c.every(function (x) { return typeof x === "string" && CTF_COND.test(x); })); }
+  function ctfCond(c) {
+    if (c == null) return true;
+    if (Array.isArray(c)) return c.every(ctfCond);
+    if (typeof c !== "string" || !CTF_COND.test(c)) return false;
+    var kind = c.slice(0, c.indexOf(":")), id = c.slice(c.indexOf(":") + 1);
+    return kind === "tool" ? save.tools[id] === true : kind === "flag" ? save.flags[id] === true : kind === "secret" ? save.secrets.indexOf(id) >= 0
+      : kind === "log" ? !!found[id] : save.island === id;
+  }
+  // what's wrong with a table of flags: [] when it can be used
+  function ctfProblems(list) {
+    var bad = [], ids = {}, slots = {}, hs = {};
+    if (!Array.isArray(list)) return ["not a list"];
+    list.forEach(function (f, i) {
+      var at0 = "flag " + i + (f && typeof f.id === "string" ? " (" + f.id + ")" : "");
+      if (!isObj(f)) { bad.push(at0 + ": not an object"); return; }
+      if (typeof f.id !== "string" || !CTF_ID.test(f.id)) bad.push(at0 + ": id must be ctf- and a short lowercase name");
+      else if (ids[f.id]) bad.push(at0 + ": duplicate id"); else ids[f.id] = 1;
+      if (typeof f.slot !== "number" || f.slot !== Math.floor(f.slot) || f.slot < 1 || f.slot > CTF_SLOTS) bad.push(at0 + ": slot must be a whole number from 1 to " + CTF_SLOTS);
+      else if (slots[f.slot]) bad.push(at0 + ": duplicate slot " + f.slot); else slots[f.slot] = 1;
+      if (typeof f.h !== "string" || !/^[0-9a-f]{64}$/.test(f.h)) bad.push(at0 + ": h must be 64 lowercase hex characters (sha-256)");
+      else if (hs[f.h]) bad.push(at0 + ": duplicate hash"); else hs[f.h] = 1;
+      if (typeof f.name !== "string" || !f.name) bad.push(at0 + ": needs a name");
+      if (!ctfCondOk(f.open)) bad.push(at0 + ": bad open condition");
+      if (!Array.isArray(f.hints) || !f.hints.every(function (q) { return isObj(q) && typeof q.t === "string" && ctfCondOk(q.when); })) bad.push(at0 + ": hints must be a list of { t, when }");
+      if (!Array.isArray(f.writeup) || !f.writeup.every(function (l) { return typeof l === "string"; })) bad.push(at0 + ": writeup must be a list of lines");
+    });
+    return bad;
+  }
+  var ctfShippedBad = ctfProblems(CTF_SHIPPED);
+  function ctfUse(list) { CTF = ctfProblems(list).length ? [] : JSON.parse(JSON.stringify(list)); }
+  ctfUse(CTF_SHIPPED);                                             // a broken table ships no flags rather than breaking the island
+  function ctfById(id) { return CTF.filter(function (f) { return f.id === id; })[0] || null; }
+  function ctfSolved(f) { return save.flags[f.id] === true; }
+  function ctfCount() { return CTF.filter(ctfSolved).length; }
+  // a guess as the hash sees it, or null when it can't be an answer (refused before hashing):
+  // NFKC, trimmed, wrapping quotes or backticks off, flag{...} optional, lowercase, every run of
+  // spaces, hyphens and underscores one underscore, none at the ends; then a-z, 0-9, _ and . only
+  function ctfNorm(s) {
+    if (typeof s !== "string" || s.length > 256) return null;
+    if (s.normalize) s = s.normalize("NFKC");
+    s = s.trim().replace(/^["'`‘’“”]+|["'`‘’“”]+$/g, "").trim();
+    var w = /^flag\{([\s\S]*)\}$/i.exec(s); if (w) s = w[1];
+    s = s.toLowerCase().replace(/[\s_-]+/g, "_").replace(/^_+|_+$/g, "");
+    return s && s.length <= CTF_LEN && /^[a-z0-9_.]+$/.test(s) ? s : null;
+  }
+  // web crypto, looked up each time (an http page on a LAN address has none)
+  function ctfCrypto() { var c = window.crypto; return c && c.subtle && typeof c.subtle.digest === "function" && typeof TextEncoder !== "undefined" ? c.subtle : null; }
+  function ctfHash(id, norm) {
+    var sub = ctfCrypto(); if (!sub) return Promise.reject(new Error("no web crypto"));
+    return Promise.resolve().then(function () { return sub.digest("SHA-256", new TextEncoder().encode(CTF_SCHEME + id + "/" + norm)); }).then(function (buf) {
+      return Array.prototype.map.call(new Uint8Array(buf), function (b) { return (b < 16 ? "0" : "") + b.toString(16); }).join("");
+    });
+  }
+  /* check a guess against every open flag. it never writes anything; it resolves (never rejects)
+     with a status: "match" (id), "already" (id, solved before), "none", "invalid" (refused before
+     hashing), "no-crypto" or "error" (the hashing failed). an offline flag can't match */
+  function ctfCheck(text) {
+    var n = ctfNorm(text);
+    if (n === null) return Promise.resolve({ status: "invalid" });
+    if (!ctfCrypto()) return Promise.resolve({ status: "no-crypto" });
+    var live = CTF.filter(function (f) { return ctfCond(f.open); });
+    return Promise.all(live.map(function (f) { return ctfHash(f.id, n); })).then(function (hs) {
+      for (var i = 0; i < live.length; i++) if (hs[i] === live[i].h) return { status: ctfSolved(live[i]) ? "already" : "match", id: live[i].id };
+      return { status: "none" };
+    }, function () { return { status: "error" }; });
+  }
+  /* mark a flag solved: one save write, only the first time. complete is true only on the solve
+     that makes it six of six */
+  function ctfSolve(id) {
+    var f = ctfById(id);
+    if (!f || !ctfCond(f.open)) return { status: "none" };
+    if (ctfSolved(f)) return { status: "already", id: id, count: ctfCount(), complete: false };
+    if (!(id in save.flags) && Object.keys(save.flags).length >= SAVE_MAX) return { status: "full" };   // it would be dropped on the next load
+    var before = ctfCount();
+    save.flags[id] = true; writeSave();
+    var n = ctfCount(), complete = before < CTF_SLOTS && n === CTF_SLOTS;
+    if (complete) ctfDone++;
+    return { status: "match", id: id, count: n, complete: complete };
+  }
+  // every slot, as a board would show it: offline, open or solved, the hints unlocked, the write-up
+  function ctfBoard() {
+    var out = [];
+    for (var s = 1; s <= CTF_SLOTS; s++) {
+      var f = CTF.filter(function (q) { return q.slot === s; })[0];
+      if (!f) { out.push({ slot: s, id: null, state: "offline", hints: [0, 0], writeup: false }); continue; }
+      var solved = ctfSolved(f);
+      out.push({ slot: s, id: f.id, name: f.name, state: solved ? "solved" : ctfCond(f.open) ? "open" : "offline",
+                 hints: [f.hints.filter(function (q) { return ctfCond(q.when); }).length, f.hints.length], writeup: solved });
+    }
+    return out;
+  }
+
   /* ════════ the cave terminal ════════
      a shell that runs the park, left logged in inside the volcano. `help` lists the
      everyday commands. the hidden files explain the rest. */
@@ -2463,14 +2570,30 @@
   }
   function openTerm() {
     if (!can("terminal")) return;
-    termOpen = true; keys = {}; pi.path = null; pi.want = null;
+    termOpen = true; keys = {}; pi.path = null; pi.want = null; tSession++; tWait = null;
     term.hidden = false; tOut.innerHTML = ""; sudoTries = -1; setPrompt();
     print("pi-sh 1.0 on tty1, cave terminal (volcano, level 1)", "dim");
     print("last login: a long time ago, from the helipad", "dim");
     print("type help. esc leaves.", "dim");
     tIn.value = ""; setTimeout(function () { tIn.focus({ preventScroll: true }); }, 30);
   }
-  function closeTerm() { termOpen = false; term.hidden = true; tIn.type = "text"; cv.focus({ preventScroll: true }); }
+  function closeTerm() { termOpen = false; tSession++; tWait = null; term.hidden = true; tIn.type = "text"; cv.focus({ preventScroll: true }); }
+  /* a command that has to wait (the ctf's hashing is a promise) goes through termWait. one wait
+     at a time: while it lasts the terminal runs no new line, and what's typed stays in the box.
+     each open and close of the terminal is a new session; a wait that settles after its session
+     ended prints nothing and does nothing (so closing the terminal mid-check saves nothing). a
+     watchdog ends a wait that never settles, so the terminal can't stay stuck */
+  var tSession = 0, tWait = null, TERM_WAIT_MS = 4000;
+  function termWait(p, done) {
+    var me = { s: tSession }; tWait = me;
+    var dog = new Promise(function (ok, no) { me.dog = setTimeout(function () { no(new Error("timed out")); }, TERM_WAIT_MS); });
+    Promise.race([p, dog]).then(function (v) { return { v: v }; }, function (e) { return { err: e || new Error("failed") }; }).then(function (r) {
+      clearTimeout(me.dog);
+      if (tWait === me) tWait = null;
+      if (me.s !== tSession || !termOpen) return;               // that terminal session is gone
+      done(r.err || null, r.v);
+    });
+  }
   function setPrompt() { tPs.textContent = sudoTries >= 0 ? "[sudo] password for pi:" : "pi@island:~$"; tIn.type = sudoTries >= 0 ? "password" : "text"; }
   var PLACES = { rack: 1, desk: 1, uplink: 1, tower: 1, lighthouse: 1, macbook: 1, tablet: 1, mailbox: 1, sign: 1, boat: 1, dock: "boat", pond: [69, 45], helipad: [59, 62], heli: [59, 62], gate: [48, 35], plaza: [46, 60], car: [37, 61], paddock: [41, 51], raptors: [64, 40], volcano: [48, 25], outpost: [26, 61], shrine: [21, 23], clearing: [48, 43] };
   function goto(name) {
@@ -2606,9 +2729,22 @@
     if (/^sudo\b/.test(line)) { print("pi is not in the sudoers file. this incident will be reported.", "err"); return; }
     if (/^rm\s+-\w*r\w*f|^rm\s+-\w*f\w*r/.test(line)) { print("nice try. the raptors are watching.", "err"); return; }
     var parts = line.split(/\s+/), cmd = parts[0].toLowerCase();
-    if (CMDS[cmd]) CMDS[cmd](parts.slice(1)); else print(cmd + ": command not found. try help", "err");
+    if (CMDS[cmd]) CMDS[cmd](parts.slice(1)); else if (DEBUG && DCMDS[cmd]) DCMDS[cmd](line.slice(parts[0].length).trim()); else print(cmd + ": command not found. try help", "err");
   }
-  term.querySelector(".w-term-row").addEventListener("submit", function (e) { e.preventDefault(); var v = tIn.value; tIn.value = ""; run(v); });
+  /* ?debug=1 only, and in neither help nor tab completion: __ctf <guess> checks a guess through
+     the terminal's wait, the way the ctf's own commands will (E1-B) */
+  var DCMDS = {
+    __ctf: function (guess) {
+      termWait(ctfCheck(guess), function (err, r) {
+        if (err) { print("__ctf: the checker failed (" + err.message + ")", "err"); return; }
+        if (r.status === "match") { var sv = ctfSolve(r.id); print("__ctf: " + sv.status + " " + r.id + " (" + ctfCount() + "/" + CTF_SLOTS + ")" + (sv.complete ? " complete" : ""), "ok"); }
+        else print("__ctf: " + r.status + (r.id ? " " + r.id : ""), r.status === "already" ? "dim" : "err");
+      });
+    }
+  };
+  // one line from the box: nothing runs while a wait is open (the line stays typed)
+  function submitLine() { if (tWait) return false; var v = tIn.value; tIn.value = ""; run(v); return true; }
+  term.querySelector(".w-term-row").addEventListener("submit", function (e) { e.preventDefault(); submitLine(); });
   tIn.addEventListener("keydown", function (e) {
     if (e.key.length === 1 || e.key === "Backspace" || e.key === "Enter") sfx("key");
     if (e.key === "Escape") { e.preventDefault(); closeTerm(); return; }
@@ -4425,7 +4561,26 @@
       return { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
                flags: { solid: C_SOLID, shallow: C_SHALLOW, deep: C_DEEP, low: C_LOW, ledgeN: C_LEDGE_N, ledgeE: C_LEDGE_E, ledgeS: C_LEDGE_S, ledgeW: C_LEDGE_W, lava: C_LAVA, climbable: C_CLIMB } };
     },
-    kind: function (px, py) { return ["", "grass", "dirt", "sand", "water"][kAt(Math.floor(px), Math.floor(py))]; }
+    kind: function (px, py) { return ["", "grass", "dirt", "sand", "water"][kAt(Math.floor(px), Math.floor(py))]; },
+    // the ctf (Phase 9, E1): the board, the solved count, completions this visit, problems in the
+    // shipped table, and whether the terminal is waiting on a check
+    ctf: function () { return { slots: ctfBoard(), count: ctfCount(), completions: ctfDone, shipped: CTF_SHIPPED.length, shippedProblems: ctfShippedBad.slice(), loaded: CTF.map(function (f) { return f.id; }), pending: !!tWait }; },
+    // swap in a table of test flags until the next load (null puts the shipped one back); a table
+    // with problems is refused and the current one kept
+    ctfLoad: function (list) {
+      var use = list === null ? CTF_SHIPPED : list, bad = ctfProblems(use);
+      if (bad.length) throw new Error("ctfLoad: " + bad.join("; "));
+      ctfUse(use); return this.ctf();
+    },
+    ctfNorm: function (s) { return ctfNorm(s); },
+    ctfHash: function (id, text) { var n = ctfNorm(text); return n === null ? Promise.resolve(null) : ctfHash(id, n); },
+    ctfCheck: function (text) { return ctfCheck(text); },
+    ctfSubmit: function (text) { return ctfCheck(text).then(function (r) { return r.status === "match" ? ctfSolve(r.id) : r; }); },
+    // the cave terminal: open or close it; run a line the way the box does (false while a check
+    // is waiting); read what it shows
+    terminal: function (on) { if (on) { if (!termOpen) openTerm(); } else if (termOpen) closeTerm(); return termOpen; },
+    term: function (line) { tIn.value = line; return submitLine(); },
+    termOut: function () { return Array.prototype.map.call(tOut.children, function (el) { return el.textContent; }); }
   };
   /* hidden tab: pause. coming back shows the pause card; nothing (least of all a fight)
      carries on by itself */
