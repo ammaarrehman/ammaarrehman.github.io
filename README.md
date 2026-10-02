@@ -122,7 +122,8 @@ through violent colours and splits into copies of itself as you close in. There'
 also a terminal left logged in, in a cave at the foot of the volcano (a robot will
 tell you). It has `help`, `ls`, `cat`, `neofetch`, `census`, `goto`, `time`,
 `feed koi` and more, and the hidden files explain how to summon the fight early. It also holds a ctf board
-(`ctf` or `flags`, `submit`, `hint`, `writeup`) with six slots; no flags are placed yet, so all six read offline.
+(`ctf` or `flags`, `submit`, `hint`, `writeup`) with six slots: two flags are open (fence logs, and the bunker
+radio's static, decoded with `echo <text> | base64 -d`), and the other four read offline until later phases.
 
 It plays like a small top-down game: pi reaches its pace in about a tenth of a second,
 squashes as it sets off and stretches as it stops, shift runs, the camera follows the same at
@@ -228,7 +229,7 @@ background hands never draw before they're built: no page error when a scroll, r
 comes while they load, with reduced or normal motion), and `node tools/scenarios.mjs`
 (the `?debug=1` test API: seeded, stepped runs repeat exactly; saves and events; the map layers match
 `tools/fixtures/map-baseline.json`, which `node tools/map-baseline.mjs --rev=<commit>` records from older code), and
-`node tools/ctf.mjs` (the Phase 9 ctf engine and the terminal's ctf commands, with synthetic test flags only: normalization, hashing, table
+`node tools/ctf.mjs` (the Phase 9 ctf engine and the terminal's ctf commands, with synthetic test flags, plus the two real flags, whose answers it works out at runtime from the game itself: normalization, hashing, table
 integrity, answers, offline flags, hints, completion, the save, the terminal's wait, the board, submit, hint, writeup,
 the shared toast, reduced motion, 360 px, keyboard, touch and axe). `node tools/ctfhash.mjs
 ctf-<slug>` prints a flag's `h` from its answer, typed at a prompt that doesn't echo it; it never prints or

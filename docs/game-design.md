@@ -99,6 +99,35 @@ Q7 Root Access, Q8 Signal, Q9 The Wreck (handoff 2 D6); Q10 The Ford, Q11 Boardw
 Q13 Night Watch, Q14 The Keep (handoff 3 H3). A Quests tab in the pause menu. One Playwright scenario per
 quest. Status: planned.
 
+## The CTF (Phase 9, handoff 2 E1)
+
+One reusable engine with six flag slots (`js/world.js`, "the ctf"). Each flag is data: a stable id
+(`ctf-<slug>`, never renamed or reused), its slot, when it is open, a SHA-256 hash of its answer,
+hints and a write-up. A guess is normalized (case, spaces, hyphens and underscores, an optional
+`flag{...}`) and hashed with the flag's id through Web Crypto. The hash only keeps answers out of plain
+sight in the source: this is a game in the browser, so anyone reading the code can still work every
+flag out. No backend, no leaderboard, no network call.
+
+The cave terminal is an early access point to the engine, not the CTF's narrative home. Its `ctf` (or
+`flags`) board shows all six slots, open or offline; `submit`, `hint <n>` and `writeup <n>` work on
+them. Any later terminal (Root's, at Server Key) calls the same engine, with no migration.
+
+A solve is `save.flags["ctf-<slug>"] = true` in save v2, so no save-version bump was needed. Hints and
+write-ups are data. A hint or a flag can wait on a condition (`tool:`, `flag:`, `secret:`, `log:`,
+`island:`); the Phase 11 Scanner opens or unlocks things by setting `tools.scanner` or a story flag,
+without changing the CTF's data model. Answers are never written into the repo: `tools/ctfhash.mjs`
+makes a flag's hash from an answer typed at a prompt that doesn't echo it.
+
+| Slot | Flag | Phase | Status |
+|---|---|---|---|
+| 1 | Fence Logs | 9 | built: `fence.log` in the cave terminal, a fence controller's log using only RFC 5737 documentation addresses. The player correlates the successful sessions with three unscheduled fence tests, past a noisy source that only fails to log in. One hint, always available. The write-up teaches correlating time and source, and not being drawn by the loudest line. |
+| 2 | Radio Static | 9 | built: the bunker radio's display shows a Base64 payload; the terminal decodes it with `echo <text> \| base64 -d` (or `--decode`), a deliberately narrow path with no encode mode and no general pipes. One hint, always available. The write-up teaches that Base64 is encoding, not encryption. |
+| 3 | reserved | 11 | planned, with the Scanner |
+| 4 | reserved | 12 | planned, with the cave's tunnel and chamber |
+| 5, 6 | reserved | 18 | planned, at Server Key with Root, the CTF's full narrative home and any reward for all six |
+
+The answers are not documented anywhere. Status: built 2026-10-02 (slots 1 and 2), not deployed yet.
+
 ## Weather and events (handoff 3 Part I)
 
 Open-Meteo (Ellicott City town centre, 39.27, -76.80, rounded; never the visitor's location), at most one
@@ -156,7 +185,8 @@ drawn look apart from recoloured outlines. The cave entrance is built; its tunne
 
 Saves: `island-save` in localStorage, v2 (built 2026-09-30, Phase 8 D11-A). v2 adds `island` (the id
 of the island pi is on, `"home"`), `quests`, `dex` and `cosmetics` (maps from an id to a boolean, number
-or short string), `flags` and `tools` (maps from an id to a boolean), and `edgeSeen` (a boolean). Ids are
+or short string), `flags` and `tools` (maps from an id to a boolean; CTF solves are `flags` entries named
+`ctf-<slug>`), and `edgeSeen` (a boolean). Ids are
 lowercase with hyphens, up to 32 characters, at most 64 per map. A v1 save migrates on load with nothing
 lost (`tools/scenarios.mjs` tests it); a newer version is never written over. The fullest possible save
 is about 27 KB, under the 50 KB budget. A later phase that needs a richer value adds a v3 migration.
