@@ -158,7 +158,8 @@
   var orbBtn = document.querySelector(".orb-btn");
   if (orbBtn) {
     var island = 0, go = false;
-    // the island and its sound engine arrive together, the sound first (the island looks for it)
+    // the island arrives in three parts, in order: its sound engine (the island looks for it), its map
+    // (js/maps/home.js, the data the island is built from), then the island
     var hint = document.querySelector(".orb-hint"), hint0 = hint ? hint.textContent : "";
     var script = function (src, done, fail) { var sc = document.createElement("script"); sc.src = src; sc.onload = done; sc.onerror = fail; document.body.appendChild(sc); };
     var loadIsland = function () {
@@ -166,9 +167,12 @@
       island = 1;
       var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
       script("js/audio.js?v=20261022", function () {
-        script("js/world.js?v=20261022", function () {
-          island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
-          if (go && window.islandEnter) window.islandEnter();
+        script("js/maps/home.js?v=20261022", function () {
+          script("js/world.js?v=20261022", function () {
+            if (!window.islandEnter) { failed(); return; }           // it loaded but couldn't build (say, a broken map)
+            island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
+            if (go) window.islandEnter();
+          }, failed);
         }, failed);
       }, failed);
     };

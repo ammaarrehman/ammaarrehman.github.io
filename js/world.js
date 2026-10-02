@@ -51,7 +51,24 @@
   }
 
   /* ════════ map ════════ */
-  var T = 16, MW = 100, MH = 80, CX = 48, CY = 40, DOCKX = 51;
+  /* the map's geometry is authored data, js/maps/home.js (MAP-A), loaded just before this file: the
+     size, the shapes the island is drawn from (coast, terrace edges, pond, plaza, river and roads,
+     volcano, woods), where the buildings, landmarks, helipad, dock and gate stand, the paddocks and the
+     outpost. the shape types reproduce the original island exactly. a missing or unusable file stops
+     the island here, before anything is built */
+  var MAP = window.ISLAND_MAPS && window.ISLAND_MAPS.home;
+  (function () {
+    function nums(a, n) { return Array.isArray(a) && a.length === n && a.every(function (v) { return typeof v === "number" && isFinite(v); }); }
+    var M = MAP, S = M && M.shapes, A = M && M.anchors, R = M && M.regions, ok = !!M && M.format === 1 && M.tile === 16 && M.w > 0 && M.w % 1 === 0 && M.h > 0 && M.h % 1 === 0 &&
+      !!S && !!S.coast && Array.isArray(S.coast.waves) && Array.isArray(S.coast.union) && Array.isArray(S.coast.cut) && Array.isArray(S.terraces) && S.terraces.length === 2 &&
+      S.terraces[0].level === 2 && S.terraces[1].level === 1 && !!S.pond && Array.isArray(S.pond.waves) && !!S.plaza && Array.isArray(S.curves) && S.curves.length > 0 &&
+      S.curves.every(function (c, i) { return (c.kind === "river" || c.kind === "road") && Array.isArray(c.pts) && c.pts.length > 1 && (c.kind === "road" || !S.curves.slice(0, i).some(function (d) { return d.kind === "road"; })); }) &&
+      !!S.volcano && Array.isArray(S.woods) && !!M.decals && !!M.decals.tracks && nums(M.decals.bones, 2) && Array.isArray(M.buildings) && !!M.stations &&
+      !!A && nums(A.spawn, 2) && nums(A.helipad, 2) && nums(A.dock, 2) && nums(A.gate, 2) && !!R && Array.isArray(R.paddocks) && !!R.compound;
+    if (!ok) { var e = new Error("pi's island: js/maps/home.js is missing or not a format 1 map"); if (window.console) console.error(e.message); throw e; }
+  })();
+  var SH = MAP.shapes;
+  var T = 16, MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock[0];
   var DEEP = 0, SHAL = 1, SAND = 2, GRASS = 3, PATH = 4, POND = 5, DOCK = 6, LAVA = 7, PAD = 8, RIVER = 9, BRIDGE = 10;
   function hash(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
   /* the island is built like a level, in three terraces. the highland across the north holds
@@ -63,15 +80,30 @@
      and the outpost in the southwest. the only ways up or down a cliff are the stairs where a
      trail climbs it, so the trails are the level's chokepoints. the river rises on the
      highland, falls off both cliffs and runs out to sea past the outpost. */
+  /* the shapes, worked out from the data in the same operations, in the same order, as the original
+     formulas, so every value is the same to the last bit. a wave [a, f, p] adds a * sin(f * t + p);
+     [a, f] adds a * sin(f * t) */
+  function wave(v, w, t) { return v + w[0] * Math.sin(w.length > 2 ? w[1] * t + w[2] : w[1] * t); }
+  // the coast: an outline round a centre, rippled by waves, joined by ellipses (the lighthouse headland,
+  // the southwest lobe), cut by others (the harbour bay)
   function coast(x, y) {             // < 1 is land
-    var a = Math.atan2(y - 39, (x - 48) / 1.32), d = Math.hypot((x - 48) / 1.32, y - 39);
-    var v = d / (28 + 2.2 * Math.sin(3 * a + 1.1) + 1.6 * Math.sin(5 * a + 2.3) + 1.0 * Math.sin(7 * a + 0.4) + 0.6 * Math.sin(11 * a + 1.7));
-    v = Math.min(v, Math.hypot((x - 84) / 10, (y - 37) / 5.6));             // the lighthouse headland
-    v = Math.min(v, Math.hypot((x - 21) / 12, (y - 61) / 8.5));             // the southwest lobe
-    return Math.max(v, 1.9 - Math.hypot((x - 52) / 6.4, (y - 69.5) / 5.4));  // the harbour bay
+    var C = SH.coast, a = Math.atan2(y - C.c[1], (x - C.c[0]) / C.sx), d = Math.hypot((x - C.c[0]) / C.sx, y - C.c[1]), r = C.r, i;
+    for (i = 0; i < C.waves.length; i++) r = wave(r, C.waves[i], a);
+    var v = d / r;
+    for (i = 0; i < C.union.length; i++) v = Math.min(v, Math.hypot((x - C.union[i][0]) / C.union[i][2], (y - C.union[i][1]) / C.union[i][3]));
+    for (i = 0; i < C.cut.length; i++) v = Math.max(v, C.cut[i][4] - Math.hypot((x - C.cut[i][0]) / C.cut[i][2], (y - C.cut[i][1]) / C.cut[i][3]));
+    return v;
   }
-  function hiEdge(x) { return 26.5 + 3.2 * Math.sin(x * 0.13 + 0.6) + 1.6 * Math.sin(x * 0.37 + 2.1) - Math.max(0, x - 68) * 0.55 - Math.max(0, 24 - x) * 0.5; }
-  function midEdge(x) { return 55 + 2.6 * Math.sin(x * 0.17 + 1.3) + 1.4 * Math.sin(x * 0.41) - (x - 48) * 0.1; }
+  // a terrace's edge: its row at column x, a base with waves, ramps and a slope
+  function edgeAt(E, x) {
+    var v = E.base, i;
+    for (i = 0; i < E.waves.length; i++) { var w = E.waves[i]; v = v + w[0] * Math.sin(w.length > 2 ? x * w[1] + w[2] : x * w[1]); }
+    if (E.ramps) for (i = 0; i < E.ramps.length; i++) { var q = E.ramps[i]; v = v - Math.max(0, q[1] > 0 ? x - q[0] : q[0] - x) * q[2]; }
+    if (E.slope) v = v - (x - E.slope[0]) * E.slope[1];
+    return v;
+  }
+  function hiEdge(x) { return edgeAt(SH.terraces[0], x); }
+  function midEdge(x) { return edgeAt(SH.terraces[1], x); }
   function tier(x, y) { return y < hiEdge(x) ? 2 : y < midEdge(x) ? 1 : 0; }
   /* the map is three layers, one value per tile, at index y * MW + x (Phase 8, D11-B):
      GROUND, the tile codes above; HEIGHT, the terrace (0 to 5; the island uses 0 to 2 today); and
@@ -91,10 +123,11 @@
               sand: ["#8f7c6a", "#b99a6c", "#d6bb86", "#ecd9a6", "#f6ecc8"], blossom: ["#e7a9bf", "#f6dde4"],
               leaf2: ["#2c4a3a", "#3f6a42", "#5c8c49", "#86ad55", "#b6cf6b"], dry: ["#4a5236", "#6b7440", "#8f944c", "#b6b060", "#d8cd80"] };   // from art/palette.json
   // the koi pond: a wobbly blob (tile units). < 1 is water
-  var KP = { x: 69, y: 48.5, rx: 5.2, ry: 2.4 };
+  var KP = { x: SH.pond.x, y: SH.pond.y, rx: SH.pond.rx, ry: SH.pond.ry };
   function pondF(fx, fy) {
-    var dx = (fx - KP.x) / KP.rx, dy = (fy - KP.y) / KP.ry, a = Math.atan2(dy, dx);
-    return Math.sqrt(dx * dx + dy * dy) / (1 + 0.13 * Math.sin(3 * a + 0.8) + 0.08 * Math.sin(5 * a + 2.1) + 0.05 * Math.sin(7 * a));
+    var dx = (fx - KP.x) / KP.rx, dy = (fy - KP.y) / KP.ry, a = Math.atan2(dy, dx), r = 1;
+    for (var i = 0; i < SH.pond.waves.length; i++) r = wave(r, SH.pond.waves[i], a);
+    return Math.sqrt(dx * dx + dy * dy) / r;
   }
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (GROUND[y * MW + x] === GRASS && pondF(x + 0.5, y + 0.5) < 1) GROUND[y * MW + x] = POND;
   // roads and the river are smooth curves (catmull-rom through a few points), not grid lines
@@ -121,42 +154,40 @@
       }
     });
   }
-  var RIVER_PTS = [[31, 13.5], [30.2, 19], [29.6, 24], [28.4, 29], [25.6, 34], [22, 39], [19.6, 44.5], [18.2, 50], [17, 55], [15.4, 59.5], [12.6, 63.5], [8, 66.4], [3, 67.4]];
-  carve(RIVER_PTS, function (q) { return 1.4 + q * 1.3; }, function (tx, ty) { if (GROUND[ty * MW + tx] === GRASS || GROUND[ty * MW + tx] === SAND) GROUND[ty * MW + tx] = RIVER; }, "river");
+  /* the river first, then the village square, then the roads (the data keeps them in that order): the
+     village to the clearing, up past the gate to the highland, the watchtower, the cave, west over the
+     river to the brachio meadow, the old trail into the woods, east past the garden along the headland,
+     the raptor pen, the t-rex viewpoint, the garden, the coast road to the outpost, the helipad, the
+     dock, the stone tablet */
+  var RIVERS = SH.curves.filter(function (c) { return c.kind === "river"; }), ROADS = SH.curves.filter(function (c) { return c.kind === "road"; });
+  var RIVER_PTS = RIVERS[0].pts;
+  RIVERS.forEach(function (c) { carve(c.pts, function (q) { return c.w[0] + q * c.w[1]; }, function (tx, ty) { if (GROUND[ty * MW + tx] === GRASS || GROUND[ty * MW + tx] === SAND) GROUND[ty * MW + tx] = RIVER; }, "river"); });
   function road(pts, width) { carve(pts, width, function (tx, ty) { var m = GROUND[ty * MW + tx]; if (m === GRASS || m === SAND) GROUND[ty * MW + tx] = PATH; else if (m === RIVER) GROUND[ty * MW + tx] = BRIDGE; }, "road"); }
-  var PLAZA = { x: 46.5, y: 60.5, r: 2.7 };                           // the village square, by the harbour
+  var PLAZA = { x: SH.plaza.x, y: SH.plaza.y, r: SH.plaza.r };       // the village square, by the harbour
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (Math.hypot(x + 0.5 - PLAZA.x, y + 0.5 - PLAZA.y) < PLAZA.r && land(at(x, y))) GROUND[y * MW + x] = PATH;
-  var dockY = 60; while (land(at(DOCKX, dockY + 1))) dockY++;
-  road([[46.6, 58], [45.6, 55.2], [46.6, 52], [49.4, 49.4], [50.2, 46.6]], 1.9);                              // up the first cliff: the village to the clearing
-  road([[47.6, 40.6], [46.2, 37.6], [47.4, 34.4], [49.2, 31.6], [48.8, 28.6], [47.6, 25.5]], 1.9);           // the gate, then up the second cliff to the highland
-  road([[48, 25.5], [52.5, 23.6], [57, 22.8]], 1.2);                                                          // the watchtower
-  road([[47.6, 25.4], [44, 23.4], [41.4, 21.2]], 1.2);                                                        // the cave
-  road([[46.6, 38.4], [41, 38.8], [35, 40.6], [29.5, 40.4], [24.5, 38.2], [18.5, 36.6]], 1.9);               // west, over the river to the brachio meadow
-  road([[18.5, 36.6], [17.6, 32.4], [18.2, 28.6], [19.6, 25.4], [20.6, 23.2], [21, 22.2]], 1.6);                                  // an old trail up into the woods
-  road([[52.4, 46], [57, 46.6], [62.4, 44.6], [68.6, 44.6], [74.5, 43.4], [80, 40.4], [86.5, 37.6]], 1.9);   // east, past the garden and out along the headland
-  road([[62.4, 44.6], [63, 41], [64.4, 38]], 1);                                                              // the raptor pen
-  road([[45.6, 47], [42.6, 48.6], [40.8, 50.4]], 1);                                                          // the t-rex paddock viewpoint
-  road([[68.6, 44.6], [67.4, 50.4], [66.4, 52]], 1);                                                          // the garden: pond, blanket, the car
-  road([[44.4, 60.4], [38, 61.6], [31.6, 61.2], [27, 61.4]], 1.3);                                            // the coast road to the outpost
-  road([[49.4, 60.8], [54, 61.8], [58.6, 62.6]], 1.3);                                                        // the helipad and the herd plain
-  road([[48, 62.6], [50.4, 63.4], [DOCKX + 0.5, dockY + 0.5]], 1.3);                                          // the dock
-  road([[47.8, 50.6], [51.6, 51.4]], 1);                                                                      // the stone tablet
+  var dockY = MAP.anchors.dock[1];                                     // the last tile of land before the dock
+  ROADS.forEach(function (c) { road(c.pts, c.w); });
   for (y = dockY + 1; y <= dockY + 4; y++) { GROUND[y * MW + DOCKX] = DOCK; GROUND[y * MW + DOCKX + 1] = DOCK; }
-  var HELI = { x: 61, y: 62 };                                         // the helipad, 3x3 tiles
+  var HELI = { x: MAP.anchors.helipad[0], y: MAP.anchors.helipad[1] }; // the helipad, 3x3 tiles
   for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) GROUND[y * MW + x] = PAD;
-  // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost
+  // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost. where
+  // each stands and the room behind its door are map data; the names and words are here
   var BUILDINGS = [
-    { id: "visitor", x0: 39, y0: 58, w: 4, h: 2, room: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'lost and found: one hat, two sunglasses, a very small egg.'" },
-    { id: "bunker", x0: 19, y0: 58, w: 4, h: 2, room: "bunker", name: "the bunker", text: "the outpost bunker." },
-    { id: "depot", x0: 53, y0: 58, w: 3, h: 2, room: "depot", name: "the supply depot", text: "the supply depot. crates come off the boat, the cargo bots haul them in here, and the drones fly them out to wherever something needs fixing." }
-  ];
+    { id: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'lost and found: one hat, two sunglasses, a very small egg.'" },
+    { id: "bunker", name: "the bunker", text: "the outpost bunker." },
+    { id: "depot", name: "the supply depot", text: "the supply depot. crates come off the boat, the cargo bots haul them in here, and the drones fly them out to wherever something needs fixing." }
+  ].map(function (bd) {
+    var m = MAP.buildings.filter(function (q) { return q.id === bd.id; })[0];
+    if (!m) throw new Error("pi's island: js/maps/home.js has no building " + bd.id);
+    return { id: bd.id, x0: m.x0, y0: m.y0, w: m.w, h: m.h, room: m.room, name: bd.name, text: bd.text };
+  });
 
   // height: which terrace each tile of ground (and water on the ground) sits on
   var HEIGHT = new Uint8Array(MW * MH);
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { var tl = GROUND[y * MW + x]; HEIGHT[y * MW + x] = tl === GRASS || tl === PATH || tl === RIVER || tl === BRIDGE || tl === POND || tl === PAD ? tier(x + 0.5, y + 0.5) : 0; }
   // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
   // (x, y) is the centre of its footprint; squash flattens the footprint front to back
-  var VOLC = { x: 46 * T + 8, y: 15 * T + 4, R: 118, H: 104, sq: 1.65, rc: 27 };
+  var VOLC = { x: SH.volcano.x, y: SH.volcano.y, R: SH.volcano.R, H: SH.volcano.H, sq: SH.volcano.sq, rc: SH.volcano.rc };
   function volcD(wx, wy) { var u = wx - VOLC.x, v = (wy - VOLC.y) * VOLC.sq; return Math.sqrt(u * u + v * v); }
   var RIMH = Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H;
   function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : HEIGHT[y * MW + x]; }
@@ -178,20 +209,25 @@
   /* ════════ the portfolio, as landmarks ════════ */
   var GH = "https://github.com/ammaarrehman/";
   var STATIONS = [
-    { id: "sign", x: 44, y: 57, name: "signpost", text: "Mossgate Reserve. the robots run it; pi is the newest intern. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
+    { id: "sign", name: "signpost", text: "Mossgate Reserve. the robots run it; pi is the newest intern. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
     { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "Homelab v1, retired September 2026: high-availability DNS. Two Raspberry Pi 5 nodes ran AdGuard Home behind a keepalived VRRP floating IP, filtering DNS for my own devices. Failover and failback tested in both directions. Version two, one Pi built with Ansible, is in progress.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
     { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
-    { id: "uplink", x: 25, y: 63, name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
-    { id: "tower", x: 58, y: 21, name: "the watchtower", sec: "projects", found: true, text: "monitoring-stack: Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker, tracking availability and response health for the homelab's services. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
-    { id: "lighthouse", x: 89, y: 37, name: "the lighthouse", sec: "experience", found: true, text: "Cyber Ready Clinic, Cyber Security Analyst, Sep 2026 – present, Maryland · internship cohort. Support nonprofit cyber-readiness assessments using the Discover5 business-risk and Ready5 capability frameworks, with findings aligned to the NIST Cybersecurity Framework and CIS Controls. Working toward the Ready5 Practitioner digital badge, expected Nov 2026 on cohort completion. Also: NextGen Consulting Inc., Cloud & AI Operations Intern, May 2025 – present. HCC Campus Store · Slingshot, Campus Operations Associate, Aug 2024 – present.", links: [["experience", "#experience"]] },
-    { id: "macbook", x: 66, y: 53, name: "a macbook on a blanket", sec: "projects", found: true, text: "ammaarrehman.com. This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas. (you're standing in it.)", links: [["site repo ↗", GH + "ammaarrehman.github.io"], ["projects", "#projects"]] },
-    { id: "tablet", x: 52, y: 50, name: "a stone tablet", sec: "education & certs", found: true, text: "Howard Community College, A.A. General Studies, Aug 2024 – Dec 2026, GPA 3.65 · Dean's List. UMD · Smith School of Business, B.S. Information Systems, starts Jan 2027. Certifications: AWS Certified Cloud Practitioner (CLF-C02), CompTIA Tech+, Ready5 Practitioner (Cyber Ready Clinic, in progress · expected Nov 2026).", links: [["education", "#education"]] },
-    { id: "mailbox", x: 54, y: 63, name: "the mailbox", sec: "contact", found: true, text: "ammaarrehmanf@gmail.com. Want to talk? Email is the fastest way to reach me.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"], ["contact", "#contact"]] },
-    { id: "drink", x: 50, y: 58, name: "a drink stand", text: "pi takes a sip. zoom mode for ten seconds." },
-    { id: "shrine", x: 21, y: 21, name: "an old shrine", text: "" },
-    { id: "cave", x: 41, y: 20, name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
-    { id: "boat", x: DOCKX + 2, y: dockY + 3, name: "the boat", text: "the boat back to the mainland. sail back to the site?", links: [["sail back ↩", "#exit"]] }
-  ];
+    { id: "uplink", name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
+    { id: "tower", name: "the watchtower", sec: "projects", found: true, text: "monitoring-stack: Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker, tracking availability and response health for the homelab's services. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
+    { id: "lighthouse", name: "the lighthouse", sec: "experience", found: true, text: "Cyber Ready Clinic, Cyber Security Analyst, Sep 2026 – present, Maryland · internship cohort. Support nonprofit cyber-readiness assessments using the Discover5 business-risk and Ready5 capability frameworks, with findings aligned to the NIST Cybersecurity Framework and CIS Controls. Working toward the Ready5 Practitioner digital badge, expected Nov 2026 on cohort completion. Also: NextGen Consulting Inc., Cloud & AI Operations Intern, May 2025 – present. HCC Campus Store · Slingshot, Campus Operations Associate, Aug 2024 – present.", links: [["experience", "#experience"]] },
+    { id: "macbook", name: "a macbook on a blanket", sec: "projects", found: true, text: "ammaarrehman.com. This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas. (you're standing in it.)", links: [["site repo ↗", GH + "ammaarrehman.github.io"], ["projects", "#projects"]] },
+    { id: "tablet", name: "a stone tablet", sec: "education & certs", found: true, text: "Howard Community College, A.A. General Studies, Aug 2024 – Dec 2026, GPA 3.65 · Dean's List. UMD · Smith School of Business, B.S. Information Systems, starts Jan 2027. Certifications: AWS Certified Cloud Practitioner (CLF-C02), CompTIA Tech+, Ready5 Practitioner (Cyber Ready Clinic, in progress · expected Nov 2026).", links: [["education", "#education"]] },
+    { id: "mailbox", name: "the mailbox", sec: "contact", found: true, text: "ammaarrehmanf@gmail.com. Want to talk? Email is the fastest way to reach me.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"], ["contact", "#contact"]] },
+    { id: "drink", name: "a drink stand", text: "pi takes a sip. zoom mode for ten seconds." },
+    { id: "shrine", name: "an old shrine", text: "" },
+    { id: "cave", name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
+    { id: "boat", name: "the boat", text: "the boat back to the mainland. sail back to the site?", links: [["sail back ↩", "#exit"]] }
+  ].map(function (s) {             // an outdoor landmark's place is map data; the words are here
+    if (s.room) return s;
+    var p = MAP.stations[s.id];
+    if (!p) throw new Error("pi's island: js/maps/home.js has no place for " + s.id);
+    return Object.assign({ id: s.id, x: p[0], y: p[1] }, s);
+  });
   var TOTAL = STATIONS.filter(function (s) { return s.found; }).length;
   var OUT = STATIONS.filter(function (s) { return !s.room; });        // the landmarks that stand outdoors
   /* ════════ the save ════════
@@ -274,12 +310,9 @@
   // nobody climbs the volcano
   for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (volcD(x * T + 8, y * T + 8) < VOLC.R * 0.93) solid[k(x, y)] = 1;
   // the park gate over the north road, and the electric fences around the paddocks
-  var GATE = { x: 48, y: 33 };
+  var GATE = { x: MAP.anchors.gate[0], y: MAP.anchors.gate[1] };
   solid[k(GATE.x - 2, GATE.y)] = 1; solid[k(GATE.x + 2, GATE.y)] = 1;
-  var PADDOCKS = [
-    { name: "t-rex paddock", x0: 27, y0: 43, x1: 39, y1: 54 },
-    { name: "raptor pen", x0: 60, y0: 30, x1: 70, y1: 38 }
-  ];
+  var PADDOCKS = MAP.regions.paddocks.map(function (p) { return { name: p[0], x0: p[1], y0: p[2], x1: p[3], y1: p[4] }; });
   PADDOCKS.forEach(function (p) {
     for (y = p.y0; y <= p.y1; y++) for (x = p.x0; x <= p.x1; x++) {
       if ((x === p.x0 || x === p.x1 || y === p.y0 || y === p.y1) && land(at(x, y))) { fence[k(x, y)] = 1; solid[k(x, y)] = 1; }
@@ -297,14 +330,14 @@
     for (var o = 0; o < 3; o++) { v += a2 * (Math.sin(x * f + o * 1.7) * Math.cos(y * f * 1.13 + o * 2.3) + Math.sin((x + y) * f * 0.7 + o)); n += a2 * 2; a2 *= 0.5; f *= 2.1; }
     return v / n;
   }
-  var FOREST_BIAS = [[31, 18, 6, 0.35], [62, 19, 5, 0.3], [28, 32, 5, 0.35], [19, 25, 4, 0.35], [74, 29, 4, 0.25], [36, 56, 4, 0.3], [59, 49, 3, 0.25], [81, 48, 4, 0.3], [14, 50, 3, 0.25], [40, 29, 4, 0.25]];
+  var FOREST_BIAS = SH.woods;
   function forest(x, y) {
     var v = fbm(x, y) + 0.08;
     FOREST_BIAS.forEach(function (fb) { v += fb[3] * Math.max(0, 1 - Math.hypot(x - fb[0], y - fb[1]) / fb[2]); });
     return v;
   }
   var CLEAR = [[46.5, 60, 6], [48.5, 43.5, 6.2], [18, 38, 4], [61, 56, 5.5], [67, 50, 4], [65, 34, 4], [33, 48.5, 4.5], [61, 62, 3], [78, 44, 4], [58, 22, 2.5], [41, 20.5, 2], [48, 33, 2.5], [89, 37, 2.5], [77, 34, 3], [22, 61, 5]];
-  var COMPOUND = { x0: 17, y0: 57, x1: 28, y1: 65, gate: [60, 61, 62] };
+  var COMPOUND = MAP.regions.compound;
   function inCompound(x, y) { return x >= COMPOUND.x0 && x <= COMPOUND.x1 && y >= COMPOUND.y0 - 1 && y <= COMPOUND.y1; }
   function clearing(x, y) { return inCompound(x, y) || Math.hypot(x - 21, y - 21.5) < 1.7 || CLEAR.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2]; }); }
   var props = [];     // trees, palms, ferns, rocks, nests: static, y-sorted with everything else
@@ -775,9 +808,10 @@
       for (var b = 0; b < 6; b++) { r(bx + b * 3, by, 1, 6, "#d9cfb8"); r(bx + b * 3, by, 1, 1, "#f2ead8"); }
       r(bx - 1, by + 3, 18, 1, "#c8bea8"); r(bx + 17, by + 2, 6, 3, "#e8e0cc"); r(bx + 21, by + 1, 5, 4, "#e8e0cc"); r(bx + 22, by + 2, 1, 1, "#3a3024"); r(bx + 24, by + 4, 2, 1, "#c8bea8");
       r(bx - 10, by + 3, 9, 1, "#c8bea8"); r(bx - 12, by + 4, 3, 1, "#c8bea8");
-    })(31 * T + 2, 50 * T + 4);
-    for (var ft = 0; ft < 11; ft++) {
-      var fx0 = Math.round((30 + ft * 1.3) * T + (ft % 2) * 6), fy0 = Math.round((65.4 + Math.sin(ft * 0.6) * 0.5) * T);
+    })(MAP.decals.bones[0], MAP.decals.bones[1]);
+    var TRK = MAP.decals.tracks;
+    for (var ft = 0; ft < TRK.n; ft++) {
+      var fx0 = Math.round((TRK.x + ft * TRK.dx) * T + (ft % 2) * 6), fy0 = Math.round((TRK.y + Math.sin(ft * 0.6) * 0.5) * T);
       if (kAt(fx0, fy0) !== KS) continue;
       g.fillStyle = PAL.sand[0]; g.fillRect(fx0, fy0, 2, 2); g.fillRect(fx0 + 2, fy0 - 2, 1, 2); g.fillRect(fx0 + 2, fy0 + 2, 1, 2); g.fillRect(fx0 + 3, fy0, 2, 1);
     }
@@ -813,7 +847,7 @@
         g.fillRect(gx, top + y3, 1, 1);
       }
     }
-    [[hiEdge, 17], [midEdge, 29]].forEach(function (E) {
+    [[hiEdge, SH.terraces[0].salt], [midEdge, SH.terraces[1].salt]].forEach(function (E) {
       var col = [];
       for (var gx = 0; gx < PW; gx++) {
         var top = Math.round(E[0]((gx + 0.5) / T) * T), up = kAt(gx, top - 1), dn = kAt(gx, top + 1);
@@ -835,7 +869,7 @@
       var Lc = tier((px + 0.5) / T, (py + 0.5) / T); if (!Lc) continue;
       var run = 0; while (run < 30 && kAt(px, py + 1 + run) === KS) run++;
       var fhc = Math.min(8 + 5 * Lc, run - 3);
-      if (fhc >= 4) face(px, py + 1, fhc, 41);
+      if (fhc >= 4) face(px, py + 1, fhc, SH.coast.salt);
     }
 
     // the buildings' shadows, baked into the ground: soft and dithered, down and to the right
@@ -951,7 +985,7 @@
   }
   function shadow(x, y, w) { ctx.fillStyle = "rgba(0,0,0,.22)"; ctx.fillRect(x - w / 2 + 1, y - 1, w - 2, 1); ctx.fillRect(x - w / 2, y, w, 2); ctx.fillRect(x - w / 2 + 1, y + 2, w - 2, 1); }
 
-  var SPAWN = { x: 46 * T + 8, y: 60 * T + 12 };
+  var SPAWN = { x: MAP.anchors.spawn[0], y: MAP.anchors.spawn[1] };
   var pi = { kaiju: !!save.evolved, x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
   var rex = { x: 44 * T + 8, y: 62 * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
   var ptero = { on: false, x: 0, y: 0, vx: 0, next: 4 };
