@@ -126,7 +126,7 @@ makes a flag's hash from an answer typed at a prompt that doesn't echo it.
 | 4 | reserved | 12 | planned, with the cave's tunnel and chamber |
 | 5, 6 | reserved | 18 | planned, at Server Key with Root, the CTF's full narrative home and any reward for all six |
 
-The answers are not documented anywhere. Status: built 2026-10-02 (slots 1 and 2), not deployed yet.
+The answers are not documented anywhere. Status: slots 1 and 2 built and deployed 2026-10-02 (cache `20261022`); slots 3 to 6 offline until their phases.
 
 ## Weather and events (handoff 3 Part I)
 

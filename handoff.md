@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix and its deploy, and the K4 screenshot retakes and their deploy, and the triage repo's screenshot privacy cleanup; 2026-10-02 after Phase 9 E1-A to E1-C2 (the CTF), committed and not deployed (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix and its deploy, and the K4 screenshot retakes and their deploy, and the triage repo's screenshot privacy cleanup; 2026-10-02 after Phase 9 (the CTF, E1-A to E1-C2) and its deploy (`git log` for the exact state).
 
 ---
 
@@ -184,7 +184,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
-### Phase 9, the CTF (E1-A to E1-C2), committed 2026-10-02, not deployed
+### Phase 9, the CTF (E1-A to E1-C2), deployed 2026-10-02
 
 - Design: Ammaar approved a fresh proposal (the old E1 spec is lost), Option D: one reusable six-slot engine, two real flags now, the other slots reserved for the phases whose places and tools exist then. `docs/game-design.md`, "The CTF", has the design and the slot table.
 - Commits: E1-A the engine (`f6a3863`): data model, conditions, normalization, SHA-256 through Web Crypto, the save write, the terminal's async wait (`termWait`: one check at a time, a closed terminal drops a pending result, a 4 s watchdog), debug hooks, `tools/ctf.mjs`, `tools/ctfhash.mjs`. E1-B the terminal (`f078a25`): `ctf`/`flags`, `submit`, `hint`, `writeup`, the banner and help lines, the shared toast, the reduced-motion fix for the terminal and toast, a keyboard-reachable terminal log (axe's scrollable-region rule, which already failed before Phase 9 once the log scrolled) and Shift+Tab out of the input. E1-C1 Fence Logs (`b3fc6de`), E1-C2 Radio Static (`ba8396b`), including the narrow `echo <text> | base64 -d` decoder.
@@ -192,7 +192,8 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - Save: solves are `save.flags["ctf-<slug>"] = true`, save v2 unchanged. No version bump.
 - Answers: never in the repo. Ammaar typed each answer into `ctfhash.mjs`'s hidden prompt; only the hashes are in `CTF_SHIPPED`. The tests work each answer out from the game (the fence log's own sessions; decoding the radio's payload). Fence Logs' answer is, by design, also ordinary data in its log among other addresses; Radio Static ships only its Base64 payload.
 - Checks (2026-10-02, on `ba8396b`'s code): `ctf.mjs` 125 of 125 in Chromium and WebKit; `scenarios.mjs` 98 of 98; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `focus.mjs`, `codelinks.mjs`, `doors.mjs` pass; `hands.mjs` 26 of 26; html-validate and cspell clean; the deploy dry run passed. Firefox is blocked at launch everywhere, not failed.
-- Not deployed: the cache bump and the deploy are the release step (E1-E), waiting on Ammaar. No manual live check by Ammaar yet.
+- Docs `74ba3f8`; cache bump to `20261022` in `50ba18d`.
+- **Deployed 2026-10-02:** Cloudflare version `77077169-5af9-4f10-939f-00b4abe2c2ef`, cache `20261022`, GitHub `main` at `50ba18d`. Claude ran `node tools/deploy.mjs` on the Mac with Ammaar's written authorization for this release (deploy log in `docs/hosting.md`). Pre-deploy from the committed state: `ctf.mjs` 125 of 125 (Chromium, WebKit), `scenarios.mjs` 98 of 98, `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn), `focus.mjs`, `codelinks.mjs`, `doors.mjs` passed, `hands.mjs` 26 of 26, html-validate and cspell clean, the dry run passed. `--check` passed; the live `index.html`, `world.js`, `site.js` and `styles.css` are byte-identical to the repo, with 9 references to `v=20261022`. The full `ctf.mjs` run against the live site passed 125 of 125 in Chromium and WebKit: slots 1 (Fence Logs) and 2 (Radio Static) open and solvable, slots 3 to 6 offline, saves in v2. No page or console error for a plain visitor. No manual live check by Ammaar yet.
 
 ### `claude-intake-triage` screenshot privacy cleanup, 2026-10-01
 
@@ -392,7 +393,7 @@ Follow handoff 3's build order. Where it stands:
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
    - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (**fixed 2026-09-30**, section 7). Both deployed 2026-10-01 (Cloudflare `bff274a4`). **Phase 8 is done**; only B2 below remains, deferred to Phase 12. Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
    - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). C4's cave transition (handoff 3 B2) is deferred to Phase 12: it can't be tested until the tunnel exists.
-5. **Phase 9:** the CTF (handoff 2 E1). **Built and committed 2026-10-02, not deployed** (section 7): the engine, the cave terminal's commands, slot 1 Fence Logs and slot 2 Radio Static. Next: E1-E, the cache bump and deploy, with Ammaar's OK. Deliberately not in Phase 9: the Scanner and slot 3 (Phase 11), the cave's tunnel and chamber, the B2 transition and slot 4 (Phase 12), Root, Server Key, slots 5 and 6, the CTF's full narrative home and any reward for all six (Phase 18).
+5. **Phase 9:** the CTF (handoff 2 E1). **Done and deployed 2026-10-02** (Cloudflare `77077169`, cache `20261022`; section 7): the engine, the cave terminal's commands, slot 1 Fence Logs and slot 2 Radio Static. Deliberately not in Phase 9: the Scanner and slot 3 (Phase 11), the cave's tunnel and chamber, the B2 transition and slot 4 (Phase 12), Root, Server Key, slots 5 and 6, the CTF's full narrative home and any reward for all six (Phase 18).
 6. **Phase 10:** the art test-area stop (already reached; see step 2).
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.
 8. **Phase 12:**
