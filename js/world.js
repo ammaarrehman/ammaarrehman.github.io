@@ -2456,14 +2456,17 @@
      stored: a guess is normalized, hashed with the flag's id and compared. that keeps answers out
      of plain sight in the source, nothing more; this is a game in the browser, so anyone reading
      the code can still work everything out. a solve is save.flags[id] = true (save v2 as it is),
-     so a tab still running older code keeps it. one flag so far: fence logs (E1-C1)
+     so a tab still running older code keeps it. two flags so far: fence logs and radio static (E1-C)
        open, hints[].when: null, or "tool:x", "flag:x", "secret:x", "log:x", "island:x", or a
        list of those that must all hold. a later tool or region opens things through these */
   var CTF_SLOTS = 6, CTF_SCHEME = "pi-ctf/1/", CTF_LEN = 64;
   var CTF_SHIPPED = [
     { id: "ctf-fence-logs", slot: 1, name: "fence logs", open: null, h: "d8bd6c4774846c50220ff0a609f84d053eacb617864f6224481ecd6503ac3b6c",     // fence.log, in the cave terminal
       hints: [{ t: "match each fence test to who was logged in at that moment." }],
-      writeup: ["logs say who did what, and when.", "the loudest source only failed to log in.", "a quieter source had a session around", "every unscheduled fence test.", "one line proves little. defenders", "correlate time and source, then act."] }
+      writeup: ["logs say who did what, and when.", "the loudest source only failed to log in.", "a quieter source had a session around", "every unscheduled fence test.", "one line proves little. defenders", "correlate time and source, then act."] },
+    { id: "ctf-radio-static", slot: 2, name: "radio static", open: null, h: "6956553b0f475a33f2bd9985ec2b53aabd28472b981bdda1329c42af19953d02",   // the bunker radio; decoded with echo ... | base64 -d
+      hints: [{ t: "the bunker radio shows mixed-case letters and digits, a multiple of 4 long: a standard way to write bytes as text. this terminal has the usual tool." }],
+      writeup: ["base64 writes bytes as text, using", "A-Z, a-z, 0-9, + and / (= pads it).", "it is encoding, not encryption: no", "key, so anyone can turn it back.", "spotting base64, hex and url encoding", "is an everyday step in analysis."] }
   ];
   var CTF_ID = /^ctf-[a-z0-9][a-z0-9-]{0,27}$/, CTF_COND = /^(tool|flag|secret|log|island):[a-z0-9][a-z0-9-]{0,31}$/;
   var CTF = [], ctfDone = 0;                                       // ctfDone: times all six were completed this visit
@@ -2742,6 +2745,7 @@
       if ((args[0] === "on") !== SND.on() && (args[0] === "on" || args[0] === "off")) SND.toggle(); else if (!args[0]) SND.toggle();
       startSound(); print("sound " + (SND.on() ? "on" : "off") + ". (m toggles it too)");
     },
+    base64: function () { print("usage: echo <text> | base64 -d"); },
     fences: function (args) { print(args[0] === "off" ? "fences: permission denied. and also, no." : "fences: all paddocks live. 10,000 V."); }
   };
   /* the ctf in this terminal: the board, submit's answers, hints and write-ups. the engine
@@ -2793,6 +2797,18 @@
     if (r.status === "invalid") { print("usage: submit <answer>   (flag{...} or just what's inside)", "err"); return; }
     print("submit: the flag checker failed. try again.", "err");
   }
+  /* the one pipe this shell knows: echo <text> | base64 -d (or --decode), the real command's
+     form. no other pipes, no encoding, and base64 on its own only says how to use it. the text
+     must be whole base64 (its alphabet, = only as padding, a multiple of 4 long); what comes out
+     is printed, never run, and only if it's text */
+  function base64Decode(t) {
+    if (!t) return;                                              // like the real one: nothing in, nothing out
+    if (t.length % 4 || !/^[A-Za-z0-9+\/]+={0,2}$/.test(t)) { print("base64: invalid input", "err"); return; }
+    var out; try { out = atob(t); } catch (e) { print("base64: invalid input", "err"); return; }
+    out = out.replace(/\n$/, "");
+    if (!/^[\x20-\x7e\t\n]*$/.test(out)) { print("base64: output isn't text", "err"); return; }
+    out.split("\n").forEach(function (l) { print(l); });
+  }
   function countFound() { return Object.keys(found).filter(function (id) { return STATIONS.some(function (s) { return s.id === id && s.found; }); }).length; }
   function run(line) {
     if (sudoTries >= 0) {                                        // answering the sudo password prompt
@@ -2812,6 +2828,8 @@
     if (/^(sudo\s+)?(\.\/)?rift\b/.test(line)) { print(/^sudo/.test(line) ? "usage: sudo ./rift --wake" : "./rift: permission denied (try sudo)"); return; }
     if (/^sudo\b/.test(line)) { print("pi is not in the sudoers file. this incident will be reported.", "err"); return; }
     if (/^rm\s+-\w*r\w*f|^rm\s+-\w*f\w*r/.test(line)) { print("nice try. the raptors are watching.", "err"); return; }
+    var b64 = /^echo\s+(?:'([^']*)'|"([^"]*)"|([^\s'"|]+))\s*\|\s*base64\s+(?:-d|--decode)$/.exec(line);
+    if (b64) { base64Decode(b64[1] !== undefined ? b64[1] : b64[2] !== undefined ? b64[2] : b64[3]); return; }
     var parts = line.split(/\s+/), cmd = parts[0].toLowerCase();
     if (CMDS[cmd]) CMDS[cmd](parts.slice(1)); else if (DEBUG && DCMDS[cmd]) DCMDS[cmd](line.slice(parts[0].length).trim()); else print(cmd + ": command not found. try help", "err");
   }
@@ -3457,7 +3475,7 @@
         { kind: "cot", x: 1, y: 6, w: 2, h: 1, say: "a cot and a sleeping bag. somebody's been pulling all-nighters out here." },
         { kind: "table", x: 6, y: 6, w: 3, h: 1, say: "a map table. the island's drawn on it in marker, with the paddocks circled twice." },
         { kind: "gen", x: 11, y: 6, w: 2, h: 1, say: "a UPS bank and a battery wall. if the island loses power, the DNS doesn't." },
-        { kind: "radio", x: 9, y: 3, say: "a shortwave radio. mostly static. once, very faintly, something that sounds like an orb humming." }
+        { kind: "radio", x: 9, y: 3, say: "a shortwave radio. mostly static. its little display keeps scrolling:\nZmxhZ3tqdXN0X2VuY29kZWR9\nonce, very faintly, something that sounds like an orb humming." }   // cspell:disable-line
       ] },
     visitor: { name: "the visitor centre", w: 13, h: 8, floor: ["#6e4a2a", "#7e5836", "#8e6640", "#9e744a"], wall: ["#3a2616", "#553820", "#6e4a2a"], trim: "#b8321f", door: 6, light: "255,224,170",
       items: [

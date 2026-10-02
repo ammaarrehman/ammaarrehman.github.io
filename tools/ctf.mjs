@@ -9,6 +9,13 @@
      it, wrapped or not; the controller, the failing source and the short session don't; the hint;
      the write-up locked, then shown, never naming the address; the solve survives a reload;
      paddocks.log and the secrets are as before; no shipped file holds flag{<any address in the log>};
+   - radio static (E1-C2), its answer never written down either: the bunker radio's dialog carries the
+     payload; the payload itself isn't an answer; echo <payload> | base64 -d (plain, quoted, --decode)
+     prints one flag{...} line, and that printed value (bare or wrapped) solves it; bad alphabet,
+     padding and length are refused, binary output too; base64 alone is usage, tab-completes and isn't in
+     help; base64 -d <arg> isn't decoding; echo x | cat is as before; the hint; the write-up locked, then
+     exact; the solve survives a reload; secrets unchanged; 360 px; axe; no shipped file holds the
+     decoded value or its inside;
    - normalization and hashing: the page and ctfhash.mjs agree on a corpus and on the hashes;
    - table integrity: duplicate ids, duplicate slots, slots outside 1 to 6, hashes that aren't 64
      lowercase hex, duplicate hashes, ids outside ctf-, bad conditions, hints and write-ups are refused;
@@ -100,8 +107,8 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
 
   // ── the shipped table
   const shipped = await ev(page, () => window.__island.ctf());
-  check(name, "shipped table: valid, exactly one real flag (fence logs, slot 1, open), slots 2 to 6 offline, nothing waiting",
-    shipped.shipped === 1 && !shipped.shippedProblems.length && shipped.loaded.join() === "ctf-fence-logs" && shipped.slots.length === 6 && shipped.slots[0].id === "ctf-fence-logs" && shipped.slots[0].state === "open" && shipped.slots.slice(1).every((s, i) => s.slot === i + 2 && s.state === "offline" && s.id === null) && shipped.count === 0 && !shipped.pending, JSON.stringify(shipped));
+  check(name, "shipped table: valid, exactly two real flags (fence logs slot 1, radio static slot 2, both open), slots 3 to 6 offline, nothing waiting",
+    shipped.shipped === 2 && !shipped.shippedProblems.length && shipped.loaded.join() === "ctf-fence-logs,ctf-radio-static" && shipped.slots.length === 6 && shipped.slots[0].id === "ctf-fence-logs" && shipped.slots[0].state === "open" && shipped.slots[1].id === "ctf-radio-static" && shipped.slots[1].state === "open" && shipped.slots.slice(2).every((s, i) => s.slot === i + 3 && s.state === "offline" && s.id === null) && shipped.count === 0 && !shipped.pending, JSON.stringify(shipped));
 
   // ── normalization: the page, ctfhash.mjs and what's expected all agree
   const CORPUS = [
@@ -190,7 +197,7 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const back = await ev(page, (t) => { window.__island.ctfLoad(t); return window.__island.ctf(); }, SIX);
   check(name, "solves survive a reload (six of six, flags in the save)", back.count === 6 && back.slots.every((s) => s.state === "solved"), JSON.stringify(back.slots.map((s) => s.state)));
   await page.reload(); await page.waitForFunction(() => window.__island && window.__island.getState().open);
-  check(name, "the injected table doesn't survive a reload (the shipped one comes back)", await ev(page, () => window.__island.ctf().loaded.join() === "ctf-fence-logs"));
+  check(name, "the injected table doesn't survive a reload (the shipped one comes back)", await ev(page, () => window.__island.ctf().loaded.join() === "ctf-fence-logs,ctf-radio-static"));
   const oldSaves = await ev(page, (t) => {
     window.__island.ctfLoad(t);
     const v2 = window.__island.setSave({ v: 2, logs: ["rack"], secrets: [] }); const a = window.__island.ctf().count;
@@ -367,6 +374,89 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const entry = /\{ id: "ctf-fence-logs"[^\n]*\n/.exec(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"));
   check(name, "fence logs: no shipped file holds flag{<any address in the log>}; the table entry holds a 64-hex hash and no address", !wrapped.length && !!entry && /h: "[0-9a-f]{64}"/.test(entry[0]) && !ips.some((ip) => entry[0].includes(ip)), JSON.stringify({ wrapped, entry: !!entry }));
 
+  // ── radio static (E1-C2): the answer comes only from decoding the radio's payload here, at runtime
+  const PAYLOAD = "ZmxhZ3tqdXN0X2VuY29kZWR9";                // challenge content: what the radio shows
+  const radioCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const radioIt = await island(radioCtx); pages.push(radioIt); const rpg = radioIt.page;
+  const rsay = async (line, min = 1) => {
+    const n = (await ev(rpg, () => window.__island.termOut())).length;
+    await ev(rpg, (l) => window.__island.term(l), line);
+    await rpg.waitForFunction(([n, m]) => window.__island.termOut().length >= n + m, [n, min + 1], { timeout: 10000 });
+    await rpg.waitForTimeout(60);
+    return (await ev(rpg, () => window.__island.termOut())).slice(n + 1);
+  };
+  // the radio, as a visitor meets it: into the bunker, up to the radio, e
+  await ev(rpg, () => { window.__island.terminal(true); window.__island.term("goto desk"); });
+  await rpg.waitForFunction(() => window.__island.getState().room === "bunker" && document.querySelector(".w-term").hidden, null, { timeout: 5000 });
+  await ev(rpg, () => window.__island.teleport(9 * 16 + 8, 4 * 16 + 10));
+  await rpg.focus(".w-cv");
+  for (let i = 0; i < 4 && await ev(rpg, () => document.querySelector(".w-dialog").hidden); i++) { await rpg.keyboard.press("e"); await ev(rpg, () => window.__island.step(2)); await rpg.waitForTimeout(150); }   // a first visit's egg takes the first press, and only a step clears it
+  const radio = await ev(rpg, () => document.getElementById("w-sr").textContent);
+  check(name, "radio static: the bunker radio's dialog, exactly, with the payload and the orb's hum", radio === `a shortwave radio. mostly static. its little display keeps scrolling:\n${PAYLOAD}\nonce, very faintly, something that sounds like an orb humming.`, radio);
+  const shown = (radio.match(/[A-Za-z0-9+/]{16,}={0,2}/) || [])[0];
+  await rpg.waitForFunction(() => document.querySelector(".w-dialog .w-text").textContent.length === document.getElementById("w-sr").textContent.length, null, { timeout: 8000 });   // the typewriter finishes
+  const onScreen = await ev(rpg, () => document.querySelector(".w-dialog .w-text").textContent);
+  check(name, "radio static: on screen, the payload stands alone, with no full stop touching it", new RegExp("(^|\\s)" + PAYLOAD + "(\\s|$)").test(onScreen) && !onScreen.includes(PAYLOAD + "."), JSON.stringify(onScreen.slice(0, 120)));
+  await rpg.reload(); await rpg.waitForFunction(() => window.__island && window.__island.getState().open);   // out of the bunker, where the terminal can't open
+  const payCheck = await ev(rpg, (p) => Promise.all([window.__island.ctfCheck(p), window.__island.ctfCheck("flag{" + p + "}")]), shown);
+  check(name, "radio static: the payload itself is not an answer", shown === PAYLOAD && payCheck.every((r) => r.status === "none"), JSON.stringify(payCheck));
+  await ev(rpg, () => window.__island.terminal(true));
+  const dec = await rsay(`echo ${shown} | base64 -d`);
+  const decoded = dec[0], inner = (/^flag\{([a-z0-9_]+)\}$/.exec(decoded || "") || [])[1];
+  check(name, "radio static: echo <payload> | base64 -d prints one flag{...} line", dec.length === 1 && !!inner, JSON.stringify(dec.map((l) => l.replace(/\{.*\}/, "{…}"))));
+  const forms = [await rsay(`echo '${shown}' | base64 -d`), await rsay(`echo "${shown}" | base64 -d`), await rsay(`echo ${shown} | base64 --decode`), await rsay(`echo ${shown}|base64 -d`)];
+  check(name, "radio static: single quotes, double quotes, --decode and no spaces round the pipe decode the same", forms.every((f) => f.length === 1 && f[0] === decoded));
+  const bareW = await ev(rpg, (a) => Promise.all([window.__island.ctfCheck(a[0]), window.__island.ctfCheck(a[1])]), [inner, decoded]);
+  check(name, "radio static: the decoded value solves it, bare and wrapped (checked, not yet written)", bareW.every((r) => r.status === "match" && r.id === "ctf-radio-static") && !(await flagsOf(rpg))["ctf-radio-static"], JSON.stringify(bareW));
+  const bad = { alphabet: await rsay("echo Zm!h | base64 -d"), dash: await rsay("echo Zm-h | base64 -d"), pad: await rsay("echo Zm=h | base64 -d"), pads: await rsay("echo Z=== | base64 -d"), len: await rsay("echo Zmx | base64 -d"), len5: await rsay("echo ZmxhZ | base64 -d") };
+  check(name, "base64: a bad alphabet, misplaced or extra padding and a bad length are 'base64: invalid input'", Object.values(bad).every((o) => JSON.stringify(o) === '["base64: invalid input"]'), JSON.stringify(bad));
+  const bin = [await rsay("echo AAEC | base64 -d"), await rsay("echo /w== | base64 -d")];
+  check(name, "base64: binary output is refused: 'base64: output isn't text'", bin.every((o) => JSON.stringify(o) === `["base64: output isn't text"]`), JSON.stringify(bin));
+  const multi = await rsay("echo aGkKdGhlcmUK | base64 -d", 2);
+  check(name, "base64: text with newlines prints line by line (printed only, never run)", JSON.stringify(multi) === '["hi","there"]', JSON.stringify(multi));
+  const usage = [await rsay("base64"), await rsay("base64 -d SGk=")];
+  check(name, "base64 alone is usage, and base64 -d <arg> doesn't decode its argument", usage.every((u) => JSON.stringify(u) === '["usage: echo <text> | base64 -d"]'), JSON.stringify(usage));
+  await rpg.fill(".w-term-in", "ba"); await rpg.focus(".w-term-in"); await rpg.keyboard.press("Tab");
+  const tabB = await rpg.inputValue(".w-term-in"); await rpg.fill(".w-term-in", "");
+  const helpR = await rsay("help", 10);
+  check(name, "base64 tab-completes, and isn't in help", tabB === "base64 " && !helpR.some((l) => /base64/.test(l)), JSON.stringify({ tabB }));
+  const hintR = await rsay("hint 2", 2), wLock = await rsay("writeup 2");
+  check(name, "radio static: hint 2 is the one agreed hint", JSON.stringify(hintR) === JSON.stringify(["flag 2 · radio static", "  1. the bunker radio shows mixed-case letters and digits, a multiple of 4 long: a standard way to write bytes as text. this terminal has the usual tool."]), JSON.stringify(hintR));
+  check(name, "radio static: the write-up is locked before the capture", JSON.stringify(wLock) === '["writeup 2: locked. capture flag 2 first."]', JSON.stringify(wLock));
+  const capR = await rsay("submit " + decoded);
+  check(name, "radio static: submitting the decoded line captures it (1/6)", JSON.stringify(capR) === '["flag accepted: radio static (1/6)"]' && (await flagsOf(rpg))["ctf-radio-static"] === true, JSON.stringify(capR));
+  const wR = await rsay("writeup 2", 7);
+  check(name, "radio static: the write-up after the capture, exactly (encoding, not encryption)", JSON.stringify(wR) === JSON.stringify(["flag 2 · radio static · write-up", "  base64 writes bytes as text, using", "  A-Z, a-z, 0-9, + and / (= pads it).", "  it is encoding, not encryption: no", "  key, so anyone can turn it back.", "  spotting base64, hex and url encoding", "  is an everyday step in analysis."]), JSON.stringify(wR));
+  check(name, "radio static: the write-up doesn't give the answer away", !wR.some((l) => l.includes(inner) || l.includes(shown)));
+  const ax2 = await new AxeBuilder({ page: rpg }).withTags(["wcag2a", "wcag2aa", "wcag21a", "wcag21aa", "wcag22aa"]).include(".w-term").analyze().then((r) => r.violations.map((v) => `${v.id} (${v.nodes.length})`), (e) => ["axe failed: " + e.message]);
+  check(name, "radio static: axe (WCAG 2.2 AA) with its hint and write-up on screen: no violations", !ax2.length, ax2.join(", "));
+  const boardR = await rsay("ctf", 8);
+  check(name, "radio static: the board shows it captured, and fence logs still open", boardR[1] === `  [ ] 1 ${"fence logs".padEnd(14)} open` && boardR[2] === `  [x] 2 ${"radio static".padEnd(14)} captured`, JSON.stringify(boardR.slice(1, 3)));
+  await rpg.reload(); await rpg.waitForFunction(() => window.__island && window.__island.getState().open);
+  const rAfter = await ev(rpg, () => ({ c: window.__island.ctf().count, s: window.__island.ctf().slots[1].state, f: window.__island.ctf().slots[0].state, secrets: window.__island.getSave().secrets }));
+  check(name, "radio static: the capture survives a reload; fence logs stays open; no secret was found along the way", rAfter.c === 1 && rAfter.s === "solved" && rAfter.f === "open" && !rAfter.secrets.length, JSON.stringify(rAfter));
+  await radioCtx.close();
+  // pipe-looking lines that aren't the decode form, and secrets: exactly as the code before the ctf
+  const pipeCtx = await browser.newContext({ viewport: { width: 1280, height: 800 } }), pipeOld = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const pN = await island(pipeCtx), pO = await island(pipeOld, "", { old: true }); pages.push(pN, pO);
+  const PIPES = ["echo x | cat", "echo SGk= | base64", "echo a b | base64 -d", "echo SGk= | base64 -d -d", "echo hi", "secrets"];
+  const runBox = async (p) => { await ev(p, (ls) => { const t = document.querySelector(".w-term"), i = t.querySelector(".w-term-in"); t.hidden = false; t.querySelector(".w-term-out").innerHTML = ""; for (const l of ls) { i.value = l; t.querySelector(".w-term-row").requestSubmit(); } }, PIPES); return ev(p, () => [...document.querySelectorAll(".w-term-out .w-term-line")].map((l) => l.textContent)); };
+  const pipeNew = await runBox(pN.page), pipeOldOut = await runBox(pO.page);
+  check(name, `other pipe-looking lines (echo x | cat, base64 without -d, extra words) and secrets print exactly as in ${STALE}`, JSON.stringify(pipeNew) === JSON.stringify(pipeOldOut), JSON.stringify(pipeNew));
+  await pipeCtx.close(); await pipeOld.close();
+  // 360 px: the hint and write-up wrap inside the terminal, nothing scrolls sideways
+  const r360 = await browser.newContext({ viewport: { width: 360, height: 740 }, hasTouch: true });
+  const r3 = await island(r360); pages.push(r3);
+  await ev(r3.page, (d) => { const s = window.__island.getSave(); s.flags["ctf-radio-static"] = true; window.__island.setSave(s); window.__island.terminal(true); window.__island.term("hint 2"); window.__island.term("writeup 2"); window.__island.term("ctf"); }, decoded);
+  await r3.page.waitForTimeout(150);
+  const fit2 = await ev(r3.page, () => { const o = document.querySelector(".w-term-out"); return { over: o.scrollWidth - o.clientWidth, page: document.documentElement.scrollWidth - window.innerWidth }; });
+  check(name, "radio static at 360 px: hint, write-up and board, no sideways scroll", fit2.over <= 0 && fit2.page <= 0, JSON.stringify(fit2));
+  await r360.close();
+  // shipped files: neither the decoded value nor its inside appears; the entry holds a hash
+  const shippedSrc = [...new Set(["js/world.js", "index.html", "404.html", "css/styles.css", ...readdirSync(new URL("../js/", import.meta.url)).map((f) => "js/" + f)])].map((f) => readFileSync(new URL("../" + f, import.meta.url), "utf8")).join("\n");
+  const rEntry = /\{ id: "ctf-radio-static"[^\n]*\n/.exec(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"));
+  check(name, "radio static: no shipped file holds the decoded value or its inside; the entry holds a 64-hex hash", !!inner && !shippedSrc.includes(decoded) && !shippedSrc.includes(inner) && !!rEntry && /h: "[0-9a-f]{64}"/.test(rEntry[0]));
+
   // ── the visitor commands (E1-B): ctf, flags, submit, hint, writeup
   const vp = (await get()).page;
   const sayL = async (line, min = 1) => {                       // run a line; the lines it printed (min: wait for at least that many)
@@ -380,12 +470,12 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const banner = await ev(vp, () => window.__island.termOut());
   check(name, "banner: one new line, 'ctf board available · type ctf', after the old three", JSON.stringify(banner) === JSON.stringify(["pi-sh 1.0 on tty1, cave terminal (volcano, level 1)", "last login: a long time ago, from the helipad", "type help. esc leaves.", "ctf board available · type ctf"]), JSON.stringify(banner));
   const pad = (s) => s.padEnd(14);
-  const EMPTY = ["ctf board · 0 of 6 captured", `  [ ] 1 ${pad("fence logs")} open`, ...[2, 3, 4, 5, 6].map((i) => `  [-] ${i} ${pad("???")} offline`), "submit flag{...} · hint <n> · writeup <n>"];
+  const EMPTY = ["ctf board · 0 of 6 captured", `  [ ] 1 ${pad("fence logs")} open`, `  [ ] 2 ${pad("radio static")} open`, ...[3, 4, 5, 6].map((i) => `  [-] ${i} ${pad("???")} offline`), "submit flag{...} · hint <n> · writeup <n>"];
   const bEmpty = await sayL("ctf", 8), bFlags = await sayL("flags", 8);
-  check(name, "ctf on the shipped table: fence logs open, five offline slots, exactly", JSON.stringify(bEmpty.out) === JSON.stringify(EMPTY), JSON.stringify(bEmpty.out));
+  check(name, "ctf on the shipped table: fence logs and radio static open, four offline slots, exactly", JSON.stringify(bEmpty.out) === JSON.stringify(EMPTY), JSON.stringify(bEmpty.out));
   check(name, "flags is the same board", JSON.stringify(bFlags.out) === JSON.stringify(EMPTY), JSON.stringify(bFlags.out));
   const markOnly = await ev(vp, () => [...document.querySelectorAll(".w-term-out .w-term-line")].slice(-7, -1).map((l) => l.textContent.slice(2, 5)));
-  check(name, "state is in the text: every slot line carries its [-] / [ ] / [x] mark", markOnly.join() === "[ ],[-],[-],[-],[-],[-]", JSON.stringify(markOnly));
+  check(name, "state is in the text: every slot line carries its [-] / [ ] / [x] mark", markOnly.join() === "[ ],[ ],[-],[-],[-],[-]", JSON.stringify(markOnly));
   // synthetic flags: alpha open, beta open with locked hints, gamma behind a tool
   const VIS = [flag(1, "alpha"), flag(2, "beta", { hints: [{ t: "test hint one" }, { t: "test hint two", when: "tool:scanner" }, { t: "test hint three", when: ["secret:koi"] }], writeup: ["test write-up one", "test write-up two"] }), flag(3, "gamma", { open: "tool:scanner" })];
   await ev(vp, (t) => { window.__island.setSave({ v: 2, logs: [], secrets: [] }); window.__island.ctfLoad(t); }, VIS);
@@ -557,7 +647,7 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   const tabOld = new Set(helpOld[helpOld.length - 1].split(/\s+/)), tabNew = new Set(helpNew[helpNew.length - 1].split(/\s+/));
   const added = [...tabNew].filter((w) => !tabOld.has(w)).sort().join(), lost = [...tabOld].filter((w) => !tabNew.has(w));
   check(name, `help is ${STALE}'s plus exactly the four ctf lines (after secrets); nothing else changed`, JSON.stringify(helpNew.slice(0, -1)) === JSON.stringify(wantHelp), JSON.stringify(helpNew.slice(0, -1)));
-  check(name, `tab completion is ${STALE}'s plus exactly ctf, flags, hint, submit, writeup; no __ctf`, added === "ctf,flags,hint,submit,writeup" && !lost.length && !tabNew.has("__ctf"), JSON.stringify({ added, lost }));
+  check(name, `tab completion is ${STALE}'s plus exactly base64 (E1-C2), ctf, flags, hint, submit, writeup; no __ctf`, added === "base64,ctf,flags,hint,submit,writeup" && !lost.length && !tabNew.has("__ctf"), JSON.stringify({ added, lost }));
   const plain = await browser.newPage(); const perr = []; plain.on("pageerror", (e) => perr.push(e.message));
   await plain.goto(`${BASE}#island`); await plain.waitForSelector("#world.show", { timeout: 30000 }); await plain.waitForTimeout(500);
   const vis = await plain.evaluate(() => { const f = document.querySelector(".w-term-row"), i = document.querySelector(".w-term-in"); i.value = "__ctf flag{test_alpha}"; f.requestSubmit(); const out = [...document.querySelectorAll(".w-term-out .w-term-line")].map((l) => l.textContent); return { api: window.__island === undefined, last: out.pop() }; });
