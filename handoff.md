@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix and its deploy, and the K4 screenshot retakes (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix and its deploy, and the K4 screenshot retakes and their deploy (`git log` for the exact state).
 
 ---
 
@@ -182,7 +182,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
-### Phase 7 K4, project screenshot retakes, 2026-10-01 (committed, not deployed)
+### Phase 7 K4, project screenshot retakes, deployed 2026-10-01
 
 - Committed in `ef88c90` (the six images and the three `<img>` tags). Three featured-card screenshots changed; Ammaar approved each choice and its alt text before the work. Details, sources and the exact crop and render numbers: `docs/screenshots.md`, "K4".
   - **HA DNS:** re-cropped from the committed, already-redacted v1 image to 982 x 614 (rows 178 to 791: the dig HEADER line through MSG SIZE), so all six answers show; the old card crop cut the sixth in half. No retake (v1 is retired). Alt text drops "and the laptop name" (that redaction is now out of frame).
@@ -191,7 +191,8 @@ ship them, never commit them, and never name their sources anywhere in the site 
   - **Triage:** unchanged, exactly as before.
 - Each new image is exactly 16:10 (the card shows all of it) with a 600 x 375 copy; WebP, and inspecting the exported files shows only the image payload, no EXIF, XMP or ICC metadata. `index.html` changed only those three `<img>` tags (alt, width, height, srcset widths). Work images carry no `?v=` and are served with `max-age=0, must-revalidate`, so no cache bump is needed.
 - Checks, on the tracked images (no substitution): Chromium and WebKit at 1280, 700, 375 and 360 px, light and dark, 1x and 2x (32 runs): every card image loads from its srcset at its real size, is uncropped in its 16:10 box, sits inside its card without overlapping the bar or text, has the approved alt text, no horizontal overflow, no page or console errors. The redaction bars are flat and opaque; triage is byte-identical. `focus.mjs` and `codelinks.mjs` pass, html-validate and cspell clean, `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn), the dry run passed.
-- Not deployed. No manual live check by Ammaar yet. The project copy, the four diagrams, `hands.js` and homelab wording are unchanged.
+- **Deployed 2026-10-01:** Cloudflare version `1e3c4c5e-df30-49d7-832b-1b9bf3272aa9`, cache still `20261021` (no bump needed), GitHub `main` at `3636e79` (docs commit for `ef88c90`). Claude ran `node tools/deploy.mjs` on the Mac with Ammaar's written authorization for this release (deploy log in `docs/hosting.md`). Pre-deploy from the committed state: `focus.mjs` and `codelinks.mjs` passed, html-validate and cspell clean, `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn), the dry run passed, the K4 card-image check 32 of 32. `--check` passed; the live `index.html` and all eight work images are byte-identical to the repo; on the live site the same 32-run card-image check passed in Chromium and WebKit with no page or console error. No manual live check by Ammaar yet.
+- The project copy, the four diagrams, `hands.js` and homelab wording are unchanged. Still separate and not started: the `claude-intake-triage` README screenshot privacy cleanup (section 9) and Phase 9.
 
 ### `hands.js` drawing before it's built, fixed and deployed 2026-10-01
 
@@ -212,7 +213,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - Built as two inline SVGs per card in `index.html`: a wide one and a stacked one for cards under 380 px (a container query; the other is `display:none`). Each has `role="img"` with a `<title>` and `<desc>` and no visible caption. Styles and theme colours are in `css/styles.css` (`.work-diagram`, `.dg`); no inline styles, because of the CSP. Smallest text: 11.1 px on desktop, about 12 px on phones (11.9 px at 360 px in WebKit). On diagram cards the description no longer stretches (`.work-body:has(.work-diagram)`), so the diagram sits 14 px under the text and spare height in an equal-height desktop row goes above the tags. Card heights are unchanged; keep the tags there, not directly under the diagrams (Ammaar's call).
 - Checks: Chromium and WebKit at 1280, 700, 375 and 360 px, light and dark (one layout shown, no overflow, overlap or clipping, right accessible name and description); html-validate and cspell clean; `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn); `focus.mjs` and `codelinks.mjs` pass.
 - **Deployed 2026-10-01:** Cloudflare version `bd2ad2cc-b2ed-49c1-a00c-9315d331ab27`, cache `20261020` (`8216a65`), GitHub `main` at `8216a65`. Claude ran `node tools/deploy.mjs` on the Mac with Ammaar's written authorization for this release (deploy log in `docs/hosting.md`). Pre-deploy: `focus.mjs` and `codelinks.mjs` passed, `audit.mjs` 81 passed, 0 failed, 2 blocked (Firefox's launch, LinkedIn), the dry run passed. `--check` passed; the live page has 9 references to `v=20261020`; all four diagrams are live and render without overflow or overlap in Chromium and WebKit at desktop and phone widths, light and dark. No manual live check by Ammaar yet.
-- Still separate: K4 (screenshot retakes, done afterwards, not deployed; section 7), the `hands.js` bug (fixed afterwards in `cd80047` and deployed 2026-10-01; section 7). Phase 9 is not started.
+- Still separate: K4 (screenshot retakes, done and deployed afterwards; section 7), the `hands.js` bug (fixed afterwards in `cd80047` and deployed 2026-10-01; section 7). Phase 9 is not started.
 - Found while testing, not caused by K: the `hands.js` reduced-motion error (section 10).
 
 ### Phase 8 closed: the C4 fixes deployed, 2026-10-01
@@ -360,7 +361,7 @@ Follow handoff 3's build order. Where it stands:
      - Site: `CODE_HOST` is GitLab, with per-repo switches (`SITE.REPOS` in `js/head.js`). Only those two link out; every other repo path is plain text and its buttons hidden. The `github` labels are now `gitlab`. Copy P-19 and P-20. `tools/codelinks.mjs` checks it all; both GitLab links return 200 (`node audit.mjs --only=a9`).
    - **Waiting:** the profile switch, `sameAs` and `rel="me"` (section 8, item 6). To publish another repo later: scan it, have Ammaar flip it public, then set its switch to `true`.
    - **K (project diagrams): done and deployed 2026-10-01** (Cloudflare `bd2ad2cc`, section 7). Four featured cards, four diagrams.
-   - **K4 (screenshot retakes): done 2026-10-01 (`ef88c90`), not deployed** (section 7). The checklist is `docs/screenshots.md`. K4 fixed:
+   - **K4 (screenshot retakes): done and deployed 2026-10-01** (`ef88c90`, Cloudflare `1e3c4c5e`; section 7). The checklist is `docs/screenshots.md`. K4 fixed:
      - the trading-lab screenshot, which showed the old return chart ("$250 invested, 2015-2026", the strategy against SPY);
      - the Terraform screenshot, whose page showed `github.com/ammaarrehman/homelab` (a private repo, and GitHub links are off).
    - **Next, after K4 and before Phase 9: a separate privacy cleanup (not started, not part of K4).** The public `claude-intake-triage` repo's README screenshot `screenshots/sheet-output.png` shows a ZIP code and Ammaar's Google account avatar (found 2026-10-01 during K4 planning). It is a change to a public repo, so it needs Ammaar's approval of the fix before any edit.
