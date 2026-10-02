@@ -2,7 +2,7 @@
 
 For a fresh Claude Code session. Read this whole file first, then the two plan documents in section 2,
 then carry on from section 9. It is written to put you exactly where the last session left off.
-Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix and its deploy, and the K4 screenshot retakes and their deploy (`git log` for the exact state).
+Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, the audit fixes R1 to R8 and their deploy, and 2026-09-30 after the Phase 7 publication deploy and the Phase 8 foundation (C5, D11-A, D11-B) and its deploy; 2026-10-01 after the Phase 8 C4 fixes and their deploy, which close Phase 8, and after the Phase 7 K project diagrams and their deploy, and the `hands.js` fix and its deploy, and the K4 screenshot retakes and their deploy, and the triage repo's screenshot privacy cleanup (`git log` for the exact state).
 
 ---
 
@@ -20,9 +20,9 @@ Written 2026-09-27, updated 2026-09-28 after the whole-island art conversion, th
   - **GitHub is the source of truth.** gitlab.com/ammaarrehman is an automatic weekly mirror (Sundays
     10:00, launchd, `~/gitlab-mirror`). Never push to GitLab and never add GitLab remotes; the mirror
     overwrites GitLab. New GitHub repos are copied to GitLab as private projects on their own. (This
-    overrides handoff 3 C3's `git remote add gitlab`.) One exception so far: on 2026-09-29 Ammaar fast-forwarded
+    overrides handoff 3 C3's `git remote add gitlab`.) Two exceptions so far: on 2026-09-29 Ammaar fast-forwarded
     `trading-lab` and `claude-intake-triage` on GitLab by hand (no force, no remote) so they could go public
-    before the Sunday mirror. Don't repeat it without his OK.
+    before the Sunday mirror; on 2026-10-01 Claude fast-forwarded `claude-intake-triage` to `e07c933` the same way, with Ammaar's written OK, for the screenshot privacy cleanup. Don't repeat it without his OK.
   - **Public on GitLab since 2026-09-29:** `trading-lab` and `claude-intake-triage`. The mirror now publishes every
     GitHub commit on those two the next Sunday, unscanned: treat them as public repos. `homelab` and this repo stay private.
   - Ammaar's GitHub account is **flagged** (his repos 404 to the public). That's why repo links are off.
@@ -181,6 +181,15 @@ ship them, never commit them, and never name their sources anywhere in the site 
 | Local branch `gh-pages` (not pushed) | A redirect page for github.io, for when the GitHub flag clears (docs/hosting.md). |
 
 ## 7. What's done
+
+### `claude-intake-triage` screenshot privacy cleanup, 2026-10-01
+
+- Found during K4 planning; Ammaar approved each image before the change. The public repo's three README screenshots exposed: `sheet-output.png`, Ammaar's Google account avatar, the test row's ZIP (`21044`) and its test email; `form.png`, the avatar in the Forms header; `eval-results.png`, the Mac's user and host name in both prompt lines.
+- Fix, in the triage repo commit `e07c9335c9c8ce68d6a9387d720e11819fdf5f44` ("Privacy: clean public triage screenshots"), the three PNGs only: `sheet-output.png` cropped below the Sheets toolbar (the column headers, the Claude output columns, Human Review Required and Staff Status stay) with opaque bars over the email and ZIP; `form.png` cropped below the Forms header (every question stays); `eval-results.png` with opaque bars over the user and host name only (both runs' output unchanged). No replacement text. sRGB, and the files hold only image data (no EXIF, XMP or ICC). Outside the bars and crops, every pixel matches the originals. README unchanged.
+- Published: pushed to GitHub, then GitLab fast-forwarded from `50a1039` to `e07c933` (direct URL, no remote, no force; section 1). Both are at `e07c933`. The public GitLab README shows the cleaned images (byte-identical); GitHub's copies are identical through the API (GitHub 404s to the public, as for all of Ammaar's repos).
+- **History was intentionally not rewritten.** The earlier versions of all three files are still in both repos' history (`44ecef9` through `50a1039`), and GitLab's is public. Whether to remove them is a separate decision for Ammaar.
+- `e07c933`'s author and committer email is Ammaar's personal address from the Mac's global git config, the same address already on 7 of the 9 earlier commits there; the latest two used his GitHub noreply address. For future commits to public repos, check which address applies.
+- Not part of this: the repo's video and the Loom demo (section 9). The portfolio site doesn't use any of these images; it has no change.
 
 ### Phase 7 K4, project screenshot retakes, deployed 2026-10-01
 
@@ -364,7 +373,8 @@ Follow handoff 3's build order. Where it stands:
    - **K4 (screenshot retakes): done and deployed 2026-10-01** (`ef88c90`, Cloudflare `1e3c4c5e`; section 7). The checklist is `docs/screenshots.md`. K4 fixed:
      - the trading-lab screenshot, which showed the old return chart ("$250 invested, 2015-2026", the strategy against SPY);
      - the Terraform screenshot, whose page showed `github.com/ammaarrehman/homelab` (a private repo, and GitHub links are off).
-   - **Next, after K4 and before Phase 9: a separate privacy cleanup (not started, not part of K4).** The public `claude-intake-triage` repo's README screenshot `screenshots/sheet-output.png` shows a ZIP code and Ammaar's Google account avatar (found 2026-10-01 during K4 planning). It is a change to a public repo, so it needs Ammaar's approval of the fix before any edit.
+   - **Triage repo screenshot privacy cleanup: done 2026-10-01** (triage commit `e07c933`, on GitHub and GitLab; section 7). The three static README screenshots are clean; their earlier versions remain in the repo's history, not rewritten.
+   - **Next, before Phase 9: the triage repo's media review (read-only first).** The tracked video `Claude Intake Triage Assistant for Nonprofits.mp4` and the Loom demo (`loom.com/share/c43efcd9…`, linked from the triage README, the project card and the island desk) are not yet reviewed for the same exposures; nothing in them has been changed.
    - **L6 email:** on hold (decision 6).
 4. **Phase 8 (foundations):**
    - Handoff 2 C5: **done 2026-09-30** (section 7). `tools/scenarios.mjs` is where C4 and D11 scenarios go.
