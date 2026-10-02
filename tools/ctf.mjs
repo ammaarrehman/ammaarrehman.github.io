@@ -369,7 +369,7 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   check(name, `fence logs: reading fence.log finds no secret, and secrets reads exactly as in ${STALE}`, !newSecrets.length && JSON.stringify(cut(newOut, "secrets")) === JSON.stringify(cut(oldOut, "secrets")), JSON.stringify({ newSecrets, s: cut(newOut, "secrets") }));
   await freshCtx.close(); await oldCtx.close(); await fenceCtx.close();
   // shipped files: no flag{<address>} for any address in the log, and the table holds a hash, not an answer
-  const SHIPPED = ["js/world.js", "index.html", "404.html", "css/styles.css", ...readdirSync(new URL("../js/", import.meta.url)).map((f) => "js/" + f)];
+  const SHIPPED = ["js/world.js", "index.html", "404.html", "css/styles.css", ...readdirSync(new URL("../js/", import.meta.url), { recursive: true }).filter((f) => f.endsWith(".js")).map((f) => "js/" + f)];
   const wrapped = [...new Set(SHIPPED)].filter((f) => ips.some((ip) => readFileSync(new URL("../" + f, import.meta.url), "utf8").includes("flag{" + ip + "}")));
   const entry = /\{ id: "ctf-fence-logs"[^\n]*\n/.exec(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"));
   check(name, "fence logs: no shipped file holds flag{<any address in the log>}; the table entry holds a 64-hex hash and no address", !wrapped.length && !!entry && /h: "[0-9a-f]{64}"/.test(entry[0]) && !ips.some((ip) => entry[0].includes(ip)), JSON.stringify({ wrapped, entry: !!entry }));
@@ -453,7 +453,7 @@ for (const [name, type] of [["chromium", chromium], ["firefox", firefox], ["webk
   check(name, "radio static at 360 px: hint, write-up and board, no sideways scroll", fit2.over <= 0 && fit2.page <= 0, JSON.stringify(fit2));
   await r360.close();
   // shipped files: neither the decoded value nor its inside appears; the entry holds a hash
-  const shippedSrc = [...new Set(["js/world.js", "index.html", "404.html", "css/styles.css", ...readdirSync(new URL("../js/", import.meta.url)).map((f) => "js/" + f)])].map((f) => readFileSync(new URL("../" + f, import.meta.url), "utf8")).join("\n");
+  const shippedSrc = [...new Set(["js/world.js", "index.html", "404.html", "css/styles.css", ...readdirSync(new URL("../js/", import.meta.url), { recursive: true }).filter((f) => f.endsWith(".js")).map((f) => "js/" + f)])].map((f) => readFileSync(new URL("../" + f, import.meta.url), "utf8")).join("\n");
   const rEntry = /\{ id: "ctf-radio-static"[^\n]*\n/.exec(readFileSync(new URL("../js/world.js", import.meta.url), "utf8"));
   check(name, "radio static: no shipped file holds the decoded value or its inside; the entry holds a 64-hex hash", !!inner && !shippedSrc.includes(decoded) && !shippedSrc.includes(inner) && !!rEntry && /h: "[0-9a-f]{64}"/.test(rEntry[0]));
 
