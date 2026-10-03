@@ -198,7 +198,7 @@ pond, the river), `deep` 4, `low` 8, `ledge` N/E/S/W 16/32/64/128, `lava` 256, `
 can be walked when none of solid, shallow, deep or lava is set. `low`, the ledges and `climbable` are
 reserved for Phase 11 and unset.
 
-Map data (MAP-A, 2026-10-02): the home island's geography is authored data, `js/maps/home.js`, and
+Map data (MAP-A, 2026-10-02; live since 2026-10-03, cache `20261023`, the same island as before): the home island's geography is authored data, `js/maps/home.js`, and
 that file is its source of truth; nothing generates the island any more. Format 1. It loads
 synchronously just before the island (`audio.js`, then `js/maps/home.js`, then `world.js`, all with the
 same `?v=`) and registers `window.ISLAND_MAPS.home`. `decodeMap()` in `world.js` checks a map and returns
