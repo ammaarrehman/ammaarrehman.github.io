@@ -186,6 +186,27 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### MAP-B world plan approved, 2026-10-03 (design only)
+
+- Ammaar approved MAP-B r2.1:
+  - the home island's redesign, "Harbour Crescent": a 150 x 120 map with an island of about 138 x 103 tiles, about 10,250 land tiles, a two-mouth south-west delta, and the south harbour as the transport hub;
+  - its district layout and travel pacing;
+  - the satellite plan in `docs/game-design.md` ("The setting").
+- What's locked:
+  - **Exits:** exactly three, the south harbour, a restricted west service jetty and the north-west Ashpine rope bridge.
+  - **Ids and saves:** the id stays `home`; `SAVE_V` stays 2; when the new geography ships, an old saved position falls back to arrival.
+  - **Volcano:** the shoulder stays solid.
+  - **Buildings:** about 2 to 2.5 times today's footprints.
+  - **T. rex:** it stays on the home island in a small holding paddock until Ironwood exists.
+  - **How it's authored:** an authored source in `tools/` generates the map data.
+  - **Order:** B0 comes first. B0 moves today's remaining hard-coded positions into map data with exact parity and doesn't change the geography.
+- Not built:
+  - no 150 x 120 map;
+  - no satellite maps, ferries, boats or map switching;
+  - B0 hasn't started.
+- Production still runs the original 100 x 80 island.
+- The study files (schematics, checks, world chart) are local and untracked, in `tools/out/blockout/r2/` (`plan-r2.1.md`). They're not in git.
+
 ### MAP-A, the authored map foundation, 2026-10-02, deployed 2026-10-03
 
 - Context: Ammaar approved the P10-R island masterplan (concept 5, the hybrid: a 150 x 120 main island carrying the whole core game, with satellite islands as separate maps added only with the phases that need them) and, as its first step, MAP-A: turn today's procedural island into authored data that reproduces it exactly. No visible change. The masterplan's own document and any roadmap reordering are not written yet.
@@ -407,11 +428,11 @@ Follow handoff 3's build order. Where it stands:
    - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (**fixed 2026-09-30**, section 7). Both deployed 2026-10-01 (Cloudflare `bff274a4`). **Phase 8 is done**; only B2 below remains, deferred to Phase 12. Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
    - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). C4's cave transition (handoff 3 B2) is deferred to Phase 12: it can't be tested until the tunnel exists.
 5. **Phase 9:** the CTF (handoff 2 E1). **Done and deployed 2026-10-02** (Cloudflare `77077169`, cache `20261022`; section 7): the engine, the cave terminal's commands, slot 1 Fence Logs and slot 2 Radio Static. Deliberately not in Phase 9: the Scanner and slot 3 (Phase 11), the cave's tunnel and chamber, the B2 transition and slot 4 (Phase 12), Root, Server Key, slots 5 and 6, the CTF's full narrative home and any reward for all six (Phase 18).
-6. **Phase 10:** the art test-area stop (already reached; see step 2). Since then: P10-0 (visual reconnaissance) and P10-R (the island masterplan, concept 5 approved) were done, and MAP-A, the authored map foundation, is built and deployed 2026-10-03 (Cloudflare `b62884f1`, cache `20261023`; section 7). The 150 x 120 blockout hasn't started; how it fits the order below hasn't been rewritten here yet.
+6. **Phase 10:** the art test-area stop (already reached; see step 2). Since then: P10-0 (visual reconnaissance) and P10-R (the island masterplan, concept 5 approved) were done, and MAP-A, the authored map foundation, is built and deployed 2026-10-03 (Cloudflare `b62884f1`, cache `20261023`; section 7). Then the MAP-B world plan (r2.1) was approved 2026-10-03 (section 7). **MAP-B (B0, then the 150 x 120 home island) comes next, before any geography-dependent Phase 11 work**, and it takes over Phase 12's home island layout. B0 hasn't started.
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.
 8. **Phase 12:**
    - The map export (handoff 2 C1 step 1) and the regions plan. **Stop** for Ammaar's approval.
-   - The home island layout.
+   - The home island layout: now part of MAP-B (step 6).
    - The terminal cave's tunnel and chamber (E3; the entrance is done).
    - Interiors per E6.
 9. **Phase 13:** weather and events (Part I).

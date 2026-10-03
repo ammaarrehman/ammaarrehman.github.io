@@ -17,19 +17,30 @@ any film or franchise: no names, quotes, iconic scenes or creature designs.
 
 ## The setting: Mossgate Reserve
 
-A dinosaur reserve that robots run; pi is its newest intern. Rivers split the land into small regions,
-each its own habitat. Crossing a river is earned with a tool, a repair or a quest. All eight portfolio
-logs stay on the home island. The cyber metaphor lives only in NPC dialogue (regions are network
+A dinosaur reserve that robots run; pi is its newest intern. The home island holds the core game and
+its habitats; the other regions are separate islands, each its own habitat, and reaching one is earned
+with a tool, a repair or a quest. All eight portfolio logs stay on the home island. The cyber metaphor lives only in NPC dialogue (regions are network
 segments, crossings are gateways, the Field Guide is an asset inventory).
+
+World plan (MAP-B r2.1, approved by Ammaar 2026-10-03; design only, nothing built yet). The home
+island becomes "Harbour Crescent", about 138 x 103 tiles of island on a 150 x 120 map, with the south
+harbour as the reserve's transport hub. It has exactly three exits: the south harbour, a restricted
+service jetty in the west, and the north-west rope bridge to Ashpine. The satellites are conceptual:
+no satellite maps, ferries, boats or map switching exist. Production still runs the original 100 x 80
+home island.
 
 | Region | Where | Habitat | Crossing | Signature moment | Status |
 |---|---|---|---|---|---|
-| Home island | existing | three terraces | none | the portfolio | built (art test area in the new style) |
-| Cinder Reach | the volcano, expanded | lava, basalt, steam vents | a switchback trail from the highland hub | the summit view; vents launch pi to ledges | planned |
-| Hornfield | south-west, across the Ford | fern savanna | wade the Ford (slow) or its stepping stones | a herd crossing at dawn | planned |
-| Reedmarsh | east, across the delta | wetland, boardwalks | push a fallen log across the gap | the Parasaurolophus chorus at dusk | planned |
-| Ashpine Heights | north, over a gorge | cold conifer forest, mist | a rope bridge, mended after the Edge | T. rex footsteps you feel first | planned |
-| Server Key and the reef | offshore | data center, reef, wreck | boat | the CTF, the live homelab wall, diving | planned |
+| Home island | the core | Harbour Crescent: harbour, village, ops, commons, riverlands and delta, koi garden and lighthouse headland, research, highland and volcano | none | the portfolio | built as the original 100 x 80 island; the 150 x 120 redesign is approved, not built |
+| Cinder Reach | the home island's volcano, expanded | lava, basalt, steam vents | a switchback trail from the highland hub | the summit view; vents launch pi to ledges | planned |
+| Hornfield | north-east satellite, core reserve | large-herbivore savanna | public ferry from the south harbour | a herd crossing at dawn | planned |
+| Reedmarsh | east / south-east satellite, core reserve | wetland, boardwalks | public ferry from the south harbour | the Parasaurolophus chorus at dusk | planned |
+| Ashpine Heights | north-west, an adjacent mountain extension over a gorge | cold conifer forest, mist | a rope bridge from the north-west cape, mended after the Edge | T. rex footsteps you feel first | planned |
+| Ironwood Keep | south-west satellite, restricted reserve | predator keep, high security, research; the future main home of the large predators | a restricted service barge from the west jetty | the containment breach (Phase 17) | planned |
+| Server Key and the reef | remote, far south; restricted, late game | data center, reef, wreck | a restricted line from the south harbour | the CTF, the live homelab wall, diving | planned |
+
+Until Ironwood exists, the T. rex stays on the home island (in the redesign, a small holding paddock).
+Open sea is kept to the east, west and north for later islands.
 
 Secret crossing: at a narrow bend a Brachiosaurus lowers its neck to eat a cycad frond from pi, and pi
 walks across along its neck. Once, and it counts as a secret.
