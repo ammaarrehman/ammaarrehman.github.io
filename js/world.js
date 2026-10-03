@@ -82,7 +82,9 @@
      edges each system reads its own way, so they may be fractional); spawns (creatures in order: kind,
      start tile, roam area); routes (a start and stops, in order); places (goto spots by name; on the home
      island heli and helipad follow the helicopter, so its map has no spots for them). units: tiles, all of them, apart from the older
-     anchors.spawn, in world px. decoded, checked and copied; the game doesn't read them yet */
+     anchors.spawn, in world px. decoded, checked and copied. the home island builds its creatures (spawns
+     and roam areas), the welder's patrol, and the car's, rex's and the gardener's starts from them; the
+     rest it doesn't read yet */
   function decodeMap(M) {
     function bad(msg) { throw new Error(msg); }
     function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
@@ -336,6 +338,16 @@
   var MAP;
   try { MAP = decodeMap(window.ISLAND_MAPS && window.ISLAND_MAPS.home); }
   catch (e) { var err = new Error("pi's island: js/maps/home.js: " + e.message); if (window.console) console.error(err.message); throw err; }
+  // the placements are optional in a map, but this island's creatures, welder and actors are built from
+  // them, so home must carry them all
+  (function () {
+    var miss = [];
+    if (!MAP.spawns.length) miss.push("spawns");
+    if (!MAP.regions.roamAreas.length) miss.push("regions.roamAreas");
+    if (!MAP.routes["welder-patrol"] || !MAP.routes["welder-patrol"].start) miss.push("routes.welder-patrol (with a start)");
+    ["car", "rex", "gardener"].forEach(function (k) { if (!MAP.anchors[k]) miss.push("anchors." + k); });
+    if (miss.length) { var e2 = new Error("pi's island: js/maps/home.js has no " + miss.join(", ")); if (window.console) console.error(e2.message); throw e2; }
+  })();
   var SH = MAP.shapes;
   var MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock[0];
   function hash(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
@@ -1112,7 +1124,7 @@
 
   var SPAWN = { x: MAP.anchors.spawn[0], y: MAP.anchors.spawn[1] };
   var pi = { kaiju: !!save.evolved, x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
-  var rex = { x: 44 * T + 8, y: 62 * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
+  var rex = { x: MAP.anchors.rex[0] * T + 8, y: MAP.anchors.rex[1] * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
   var ptero = { on: false, x: 0, y: 0, vx: 0, next: 4 };
   var clouds = [0, 1, 2].map(function (i) { return { x: hash(i, 9) * MW * T, y: hash(9, i) * MH * T, w: 90 + i * 30, v: 5 + i * 2 }; });
   var egg = null;          // { t } while pi is hatching
@@ -1845,21 +1857,11 @@
   }
   var ROARS = { trex: 1, dilo: 1, pachy: 1 };
   var CALLS = { spino: "grunt", dilo: "screech", pachy: "snort", galli: "squeak", compy: "chirp", brachio: "hoot", trex: "grunt", raptor: "screech", trike: "snort", ankylo: "snort", stego: "grunt", para: "honkp", baby: "squeak", baby2: "squeak", robot: "chatter", roomba: "chatter" };
-  var HERD = [55, 52, 68, 60], PEN = [61, 31, 69, 37], REXPAD = [28, 44, 38, 53];
-  var critters = [
-    critter("brachio", 16, 36, [13, 32, 25, 44]), critter("brachio", 21, 42, [13, 32, 25, 44]),
-    critter("trex", 33, 48, REXPAD),
-    critter("raptor", 63, 33, PEN), critter("raptor", 66, 35, PEN), critter("raptor", 67, 32, PEN),
-    critter("stego", 58, 55, HERD), critter("trike", 62, 54, HERD), critter("trike", 65, 58, HERD), critter("ankylo", 57, 58, HERD),
-    critter("para", 76, 44, [72, 41, 84, 48]), critter("para", 80, 46, [72, 41, 84, 48]),
-    critter("spino", 20, 48, [17, 44, 26, 53]), critter("dilo", 30, 33, [26, 29, 36, 36]),
-    critter("pachy", 75, 34, [72, 31, 82, 38]), critter("pachy", 79, 35, [72, 31, 82, 38]),
-    critter("galli", 74, 46, [70, 42, 85, 49]), critter("galli", 78, 42, [70, 42, 85, 49]), critter("galli", 82, 44, [70, 42, 85, 49]), critter("galli", 73, 43, [70, 42, 85, 49]),
-    critter("compy", 33, 60, [29, 58, 38, 64]), critter("compy", 34, 61, [29, 58, 38, 64]), critter("compy", 32, 62, [29, 58, 38, 64]), critter("compy", 35, 60, [29, 58, 38, 64]), critter("compy", 31, 61, [29, 58, 38, 64]),
-    critter("baby", 60, 57, [56, 54, 66, 59]), critter("baby2", 63, 56, [56, 54, 66, 59]), critter("baby", 17, 40, [14, 36, 22, 43]),
-    critter("robot", 45, 61, [40, 59, 52, 63]), critter("robot", 30, 61, [27, 60, 40, 63]), critter("roomba", 47, 60, [44, 59, 49, 62]),
-    critter("cat", 65, 51, [62, 49, 72, 54]), critter("cat", 70, 52, [62, 49, 72, 54])
-  ];
+  // roam areas: one area per id in the map, built once. creatures naming the same id share that one
+  // object (a herd follows its leader by it, below); two ids are two objects even when their boxes match
+  var ROAM = {};
+  MAP.regions.roamAreas.forEach(function (r) { ROAM[r.id] = r.box.slice(); });
+  var critters = MAP.spawns.map(function (sp) { return critter(sp.kind, sp.at[0], sp.at[1], ROAM[sp.roam]); });
   // anything that spawned inside a tree or a wall steps out to the nearest open ground
   critters.forEach(function (c) {
     var tx = Math.floor(c.x / T), ty = Math.floor(c.y / T);
@@ -2011,15 +2013,21 @@
       a: ["...DDD....", "..MMMMM...", ".MEMMMEM..", ".MMMMMMM..", "..DDDDD...", "CCMMMMM...", "Cc.D.D....", "...D.D...."],
       b: ["...DDD....", "..MMMMM...", ".MEMMMEM..", ".MMMMMMM..", "..DDDDD...", "CCMMMMM...", "Cc..D.D...", "...D...D.."] }
   };
-  var DOCKPT = [DOCKX, dockY], DEPOTPT = [54, 60], VISITPT = [41, 60];
+  // the cargo stops: the dock, and the depot's and visitor centre's doorways. each stop is one object, and
+  // a cargo bot knows which stop it's at by which object its leg is
+  function building(id) { return BUILDINGS.filter(function (q) { return q.id === id; })[0]; }
+  function doorstep(b) { return [Math.floor(b.x0 + b.w / 2), b.y0 + b.h]; }
+  var DOCKPT = [DOCKX, dockY], DEPOTPT = doorstep(building("depot")), VISITPT = doorstep(building("visitor"));
+  var WELD = MAP.routes["welder-patrol"], GARD = MAP.anchors.gardener;
   function tileOf(o) { return [Math.floor(o.x / T), Math.floor(o.y / T)]; }
   var bots = [
     { kind: "cargo", x: DOCKPT[0] * T + 8, y: DOCKPT[1] * T + 10, legs: [DEPOTPT, VISITPT, DEPOTPT, DOCKPT], leg: 0, path: null, carry: true, wait: 1, face: 1, dist: 0 },
     { kind: "cargo", x: DEPOTPT[0] * T + 8, y: DEPOTPT[1] * T + 10, legs: [DOCKPT, DEPOTPT], leg: 0, path: null, carry: false, wait: 4, face: -1, dist: 0 },
-    { kind: "welder", x: 59 * T + 8, y: 39 * T + 10, spots: [[59, 34], [62, 39], [67, 39], [71, 34]], spot: 0, path: null, wait: 6, face: -1, dist: 0, work: 0 },
-    { kind: "gardener", x: 45 * T + 8, y: 62 * T + 10, path: null, wait: 2, face: 1, dist: 0, work: 0 }
+    { kind: "welder", x: WELD.start[0] * T + 8, y: WELD.start[1] * T + 10, spots: WELD.stops, spot: 0, path: null, wait: 6, face: -1, dist: 0, work: 0 },
+    { kind: "gardener", x: GARD[0] * T + 8, y: GARD[1] * T + 10, path: null, wait: 2, face: 1, dist: 0, work: 0 }
   ];
-  var pad = { x: 54.5 * T, y: 58 * T + 6, roof: 30 };
+  // the drones' pad: the depot's roof, at the middle of its top row (6 px down the sprite); 30 px up
+  var DEPOT = building("depot"), pad = { x: (DEPOT.x0 + DEPOT.w / 2) * T, y: DEPOT.y0 * T + 6, roof: 30 };
   var drones = [0, 1].map(function (i) { return { x: pad.x + i * 6, y: pad.y, z: pad.roof, state: "rest", wait: 2 + i * 5, tx: 0, ty: 0, carry: true, spin: 0 }; });
   var sparks = [];
   function botGo(b, goal) { b.path = bfs(tileOf(b), goal, true); if (b.path) sfx("servo", b.x, b.y); }
@@ -2247,7 +2255,7 @@
      lights on), a torque curve that fades toward top speed, brakes that bite, and grip: the
      tyres kill sideways slide, until you pull the handbrake (shift) and the back steps out into
      a drift, laying rubber on the ground. hit something and it bumps off it. */
-  var car = { x: 36 * T + 8, y: 62 * T + 8, a: Math.PI / 2, v: 0, vx: 0, vy: 0, driving: false, target: null, gear: "D", brake: false, skidT: 0 };
+  var car = { x: MAP.anchors.car[0] * T + 8, y: MAP.anchors.car[1] * T + 8, a: Math.PI / 2, v: 0, vx: 0, vy: 0, driving: false, target: null, gear: "D", brake: false, skidT: 0 };
   var skids = [];
   function carClear(x, y, a) {
     var fx = Math.sin(a), fy = -Math.cos(a), rx = Math.cos(a), ry = Math.sin(a);

@@ -14,10 +14,11 @@
    the alias graph (which creatures share an area object) is checked over every pair, apart from the
    numbers in the boxes.
 
-   Then the sensitivity proof: planted mutations of the working tree's js/world.js, served changed in
-   memory (nothing on disk changes), each of which must fail the checks it should and leave the ones it
-   shouldn't alone. Until B0 moves the values into home.js these edit the literals; afterwards they edit
-   the map data.
+   Then the sensitivity proof: planted mutations of the working tree's js/world.js or js/maps/home.js,
+   served changed in memory (nothing on disk changes), each of which must fail the checks it should and
+   leave the ones it shouldn't alone. Each edits wherever its value is authored now: the map data for
+   what B0 has moved (B0c: creatures and roam areas, the welder's route, the gardener, car and rex starts,
+   and the depot and visitor centre the cargo stops and drone pad come from), world.js for the rest.
 
      node tools/b0-parity.mjs                          715450d vs the working tree, then the mutations
      node tools/b0-parity.mjs --ref=HEAD --no-mutations
@@ -45,6 +46,7 @@ let refSrc;
 try { refSrc = execFileSync("git", ["show", `${REF}:js/world.js`], { cwd: ROOT, encoding: "utf8", stdio: ["ignore", "pipe", "pipe"] }); }
 catch (e) { console.error(`b0-parity: can't read js/world.js at ${REF}`); process.exit(2); }
 const curSrc = readFileSync(join(ROOT, "js/world.js"), "utf8");
+const curMap = readFileSync(join(ROOT, "js/maps/home.js"), "utf8");
 
 /* the hook: runs inside the island's closure and only reads, apart from the probes that say otherwise */
 const HOOK = String.raw`
@@ -165,12 +167,13 @@ function hooked(src) {
   return src.replace(ANCHOR, HOOK + ANCHOR);
 }
 
-/* planted mutations of the working tree's world.js, in memory. each edit must find its text exactly once */
+/* planted mutations of the working tree's world.js (src) or home.js (map), in memory. each edit must find
+   its text exactly once */
 const edit = (pairs) => (src) => pairs.reduce((s, [a, b]) => { const n = s.split(a).length - 1; if (n !== 1) throw new Error(`"${a}" found ${n} times`); return s.replace(a, b); }, src);
 const MUTATIONS = [
-  { name: "a creature spawn moves (the first brachiosaurus 16,36 to 17,36)", src: edit([['critter("brachio", 16, 36,', 'critter("brachio", 17, 36,']]),
+  { name: "a creature spawn moves (the first brachiosaurus 16,36 to 17,36)", map: edit([['{"kind":"brachio","at":[16,36]', '{"kind":"brachio","at":[17,36]']]),
     must: ["creatures.start", "actors.after"], keep: ["creatures.areas", "creatures.alias", "bots.start", "places.goto", "roar.zone", "firstVisit", "rex.wander"] },
-  { name: "a route point moves (the welder's stop 62,39 to 62,40)", src: edit([["[62, 39], [67, 39]", "[62, 40], [67, 39]"]]),
+  { name: "a route point moves (the welder's stop 62,39 to 62,40)", map: edit([['"stops":[[59,34],[62,39],', '"stops":[[59,34],[62,40],']]),
     must: ["bots.welder.route"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "bots.start", "places.goto", "roar.zone", "rex.wander"] },
   { name: "a zone edge moves (the roar zone's east edge 42 to 43 tiles)", src: edit([["pi.x < 42 * T && pi.x > 25 * T", "pi.x < 43 * T && pi.x > 25 * T"]]),
     must: ["roar.zone"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "bots.start", "places.goto", "firstVisit", "rex.wander"] },
@@ -179,23 +182,23 @@ const MUTATIONS = [
   { name: "the first-visit spot moves (50,61 to 51,61)", src: edit([["if (first) { pi.x = 50 * T + 8; pi.y = 61 * T + 10; if (!walkable(50, 61))", "if (first) { pi.x = 51 * T + 8; pi.y = 61 * T + 10; if (!walkable(51, 61))"]]),
     must: ["firstVisit"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "bots.start", "places.goto", "roar.zone", "rex.wander"] },
   { name: "two separate roam areas merge (the two parasaurolophus get one shared area, numbers unchanged)",
-    src: edit([["var HERD = [55, 52, 68, 60],", "var PARA_SHARED = [72, 41, 84, 48], HERD = [55, 52, 68, 60],"],
-               ['critter("para", 76, 44, [72, 41, 84, 48]), critter("para", 80, 46, [72, 41, 84, 48])', 'critter("para", 76, 44, PARA_SHARED), critter("para", 80, 46, PARA_SHARED)']]),
+    map: edit([['{"kind":"para","at":[80,46],"roam":"roam-06"}', '{"kind":"para","at":[80,46],"roam":"roam-05"}']]),
     must: ["creatures.alias"], keep: ["creatures.start", "creatures.areas", "bots.start", "places.goto", "roar.zone", "firstVisit", "rex.wander"] },
-  { name: "one shared roam area splits (the second raptor gets its own copy of the pen, numbers unchanged)", src: edit([['critter("raptor", 66, 35, PEN)', 'critter("raptor", 66, 35, PEN.slice())']]),
+  { name: "one shared roam area splits (the second raptor gets its own copy of the pen, numbers unchanged)", map: edit([['{"kind":"raptor","at":[66,35],"roam":"roam-03"}', '{"kind":"raptor","at":[66,35],"roam":"roam-28"}'],
+               ['{"id":"roam-27","box":[62,49,72,54]}', '{"id":"roam-27","box":[62,49,72,54]},{"id":"roam-28","box":[61,31,69,37]}']]),
     must: ["creatures.alias"], keep: ["creatures.start", "creatures.areas", "bots.start", "places.goto", "roar.zone", "firstVisit", "rex.wander"] },
   // and one for each other target, so every observation is shown to see its own source
   { name: "rex's wander area widens (12 to 13 columns)", src: edit([["var tx = 38 + Math.floor(rand() * 12)", "var tx = 38 + Math.floor(rand() * 13)"]]), must: ["rex.wander"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the gardener's beds widen (|tx - 46| < 12 to < 13)", src: edit([["Math.abs(p2.tx - 46) < 12", "Math.abs(p2.tx - 46) < 13"]]), must: ["gardener.beds"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the cockatiel trees' box moves (centre x 36 to 30)", src: edit([["Math.abs(p.tx - 36) < 9", "Math.abs(p.tx - 30) < 9"]]), must: ["perches"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the firefly area moves (x from 11 to 12)", src: edit([["fx0 = 11 + hash", "fx0 = 12 + hash"]]), must: ["fireflies"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the drone pad moves (x 54.5 to 55.5 tiles)", src: edit([["var pad = { x: 54.5 * T", "var pad = { x: 55.5 * T"]]), must: ["drones"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the car's start moves (36 to 37)", src: edit([["var car = { x: 36 * T + 8", "var car = { x: 37 * T + 8"]]), must: ["car.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "rex's start moves (44 to 45)", src: edit([["var rex = { x: 44 * T + 8", "var rex = { x: 45 * T + 8"]]), must: ["rex.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the drone pad moves (the depot's top row 58 to 59, so its roof; its doorway stays)", map: edit([['{"id":"depot","x0":53,"y0":58,"w":3,"h":2,', '{"id":"depot","x0":53,"y0":59,"w":3,"h":1,']]), must: ["drones"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the car's start moves (36 to 37)", map: edit([['"car":[36,62]', '"car":[37,62]']]), must: ["car.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "rex's start moves (44 to 45)", map: edit([['"rex":[44,62]', '"rex":[45,62]']]), must: ["rex.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the arena moves (48 to 49)", src: edit([["var ARENA = { x: 48 * T + 8", "var ARENA = { x: 49 * T + 8"]]), must: ["arena"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the core tap's goal moves (36,26 to 37,26)", src: edit([['hit.id === "core" ? [36, 26]', 'hit.id === "core" ? [37, 26]']]), must: ["core.tap"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "a cargo stop moves (the depot 54,60 to 54,61)", src: edit([["DEPOTPT = [54, 60]", "DEPOTPT = [54, 61]"]]), must: ["bots.cargo.legs"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the gardener's start moves (45 to 46)", src: edit([['kind: "gardener", x: 45 * T + 8', 'kind: "gardener", x: 46 * T + 8']]), must: ["bots.gardener.start", "bots.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "a cargo stop moves (the visitor centre 4 to 3 tiles wide, so its doorway 41,60 to 40,60)", map: edit([['{"id":"visitor","x0":39,"y0":58,"w":4,"h":2,', '{"id":"visitor","x0":39,"y0":58,"w":3,"h":2,']]), must: ["bots.cargo.legs"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the gardener's start moves (45 to 46)", map: edit([['"gardener":[45,62]', '"gardener":[46,62]']]), must: ["bots.gardener.start", "bots.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "goto heli resolves one tile further from the helicopter (+2 to +3)", src: edit([["p = [Math.round(heli.x / T) + 2", "p = [Math.round(heli.x / T) + 3"]]), must: ["places.heli"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] }
 ];
 
@@ -203,11 +206,12 @@ const PORT = 8900 + Math.floor(Math.random() * 90);
 const server = await serve(PORT);
 const URL0 = `http://localhost:${PORT}/?debug=1&step=1&seed=42&islandhour=11#island`;
 
-async function observe(browser, src) {
+async function observe(browser, src, map) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await ctx.newPage();
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
   await page.route(/\/js\/world\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: src }));
+  if (map) await page.route(/\/js\/maps\/home\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: map }));
   await page.goto(URL0);
   await page.waitForFunction(() => window.__b0 && window.__island && window.__island.getState().open, null, { timeout: 60000 });
   // the order is fixed: what the island opens with, then the seeded run, then the probes that move things
@@ -233,6 +237,14 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const d = differ(ref.obs, cur.obs), errs = [...ref.errors, ...cur.errors];
   console.log(`${name}: ${Object.keys(ref.obs).length} checks, ${REF} vs working tree: ${d.length ? "DIFFERS in " + d.join(", ") : "identical"}${errs.length ? "; page errors: " + errs.join(" | ") : ""}`);
   if (d.length || errs.length) failed = true;
+  // the drone pad and cargo stops come from the depot and visitor centre now: the working tree's must be
+  // the historical literals exactly (pad 54.5 * T, 58 * T + 6, roof 30; depot 54,60; visitor 41,60)
+  {
+    const dr = JSON.parse(cur.obs.drones), cg = JSON.parse(cur.obs["bots.cargo.legs"]);
+    const okPad = JSON.stringify(dr.pad) === JSON.stringify([54.5 * 16, 58 * 16 + 6, 30]), okStops = JSON.stringify([cg.depot, cg.visitor]) === "[[54,60],[41,60]]";
+    console.log(`  ${okPad && okStops ? "ok  " : "FAIL"} derived drone pad ${JSON.stringify(dr.pad)} and cargo stops depot ${JSON.stringify(cg.depot)}, visitor ${JSON.stringify(cg.visitor)} equal the historical literals; legs by identity ${JSON.stringify(cg.legs)}`);
+    if (!okPad || !okStops) failed = true;
+  }
   if (name === "chromium") {
     for (const [k, v] of Object.entries(ref.obs)) report.push(`    ${k.padEnd(20)} ${String(v.length).padStart(8)} chars  ${sha(v).slice(0, 16)}`);
     const A = JSON.parse(ref.obs["creatures.alias"]), C = JSON.parse(ref.obs["creatures.start"]), R = JSON.parse(ref.obs["creatures.areas"]);
@@ -242,11 +254,11 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     console.log(`  gardener beds: ${gb.length} props; core tap: wants ${JSON.stringify(core.want)}, path of ${core.path} ends at ${JSON.stringify(core.end)}; roar zone: ${roar.roarsInFine} roaring points on the fine grid`);
   }
   if (MUTATE) for (const m of MUTATIONS) {
-    let src; try { src = hooked(m.src(curSrc)); } catch (e) { console.log(`  MUTATION BROKEN ${m.name}: ${e.message}`); failed = true; continue; }
-    const mu = await observe(browser, src);
+    let src, map; try { src = hooked(m.src ? m.src(curSrc) : curSrc); map = m.map ? m.map(curMap) : null; } catch (e) { console.log(`  MUTATION BROKEN ${m.name}: ${e.message}`); failed = true; continue; }
+    const mu = await observe(browser, src, map);
     const dm = differ(ref.obs, mu.obs), missed = m.must.filter((k) => !dm.includes(k)), leaked = (m.keep || []).filter((k) => dm.includes(k));
     const ok = dm.length > 0 && !missed.length && !leaked.length && !mu.errors.length;
-    console.log(`  ${ok ? "caught" : "NOT AS EXPECTED"}  ${m.name}\n           failed: ${dm.join(", ") || "nothing"}${missed.length ? "\n           should have failed: " + missed.join(", ") : ""}${leaked.length ? "\n           should have stayed equal: " + leaked.join(", ") : ""}${mu.errors.length ? "\n           page errors: " + mu.errors.join(" | ") : ""}`);
+    console.log(`  ${ok ? "caught" : "NOT AS EXPECTED"}  ${m.map ? "[home.js] " : "[world.js]"} ${m.name}\n           failed: ${dm.join(", ") || "nothing"}${missed.length ? "\n           should have failed: " + missed.join(", ") : ""}${leaked.length ? "\n           should have stayed equal: " + leaked.join(", ") : ""}${mu.errors.length ? "\n           page errors: " + mu.errors.join(" | ") : ""}`);
     if (!ok) failed = true;
   }
   await browser.close();
