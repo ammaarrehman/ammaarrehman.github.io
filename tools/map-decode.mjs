@@ -1,0 +1,189 @@
+#!/usr/bin/env node
+/* map-decode (MAP-A3): decodeMap(), the island's map decoder, on synthetic maps, in each engine, through
+   the ?debug=1 API (the production function, not a copy). None of these maps ships; they are built here.
+   - valid: the real js/maps/home.js; a minimal 12 x 10 map with every optional field left out; a
+     representative one with props, regions, decals, woods and a source; a 150 x 120 one (decode only:
+     the format and decoder don't assume 100 x 80);
+   - decodeMap never changes what it's given: it decodes deep-frozen copies, and the data is the same after;
+   - invalid: one fault at a time, each refused with an error naming the field and the problem.
+
+     node tools/map-decode.mjs
+     ENGINES=chromium node tools/map-decode.mjs        (default chromium, webkit, firefox) */
+import { chromium, firefox, webkit } from "playwright";
+import { readFileSync } from "node:fs";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
+import vm from "node:vm";
+import { serve } from "./serve.mjs";
+
+const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
+const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
+const HOME = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(join(ROOT, "js/maps/home.js"), "utf8"), c); return c.window.ISLAND_MAPS.home; })();
+const T = 16;
+
+/* a small consistent map: grass on terrace 1, a dock, a helipad, a gate, a hut with its door, a sign; the
+   volcano sits off the map so no tile is under it */
+function synth(w, h, full) {
+  const row = (ch) => ch.repeat(w), set = (rows, x, y, ch) => { rows[y] = rows[y].slice(0, x) + ch + rows[y].slice(x + 1); };
+  const ground = Array.from({ length: h }, () => row("3")), height = Array.from({ length: h }, () => row("1")), coll = Array.from({ length: h }, () => row("0"));
+  const dock = [2, 4]; for (let y = 5; y <= 8; y++) { set(ground, 2, y, "6"); set(ground, 3, y, "6"); }
+  set(ground, w - 3, 2, "8");
+  const solid = (x, y) => set(coll, x, y, "1");
+  solid(3, 1); solid(7, 1);                                  // the gate's posts
+  solid(6, 4); solid(7, 4);                                  // the hut; its door opens onto 7,5
+  solid(1, 1);                                               // the sign
+  const M = {
+    format: 1, id: full ? "synthetic-full" : "synthetic", tile: T, w, h, ground, height,
+    coll: { values: [0, 1], rows: coll },
+    footBlock: [[6 * T + 3, 5 * T + 2, 4]],
+    shapes: {
+      coast: JSON.parse(JSON.stringify(HOME.shapes.coast)), terraces: JSON.parse(JSON.stringify(HOME.shapes.terraces)), pond: JSON.parse(JSON.stringify(HOME.shapes.pond)),
+      plaza: { type: "disc", x: 5.5, y: 6.5, r: 1.5 },
+      curves: [{ kind: "river", w: [1.4, 1.3], pts: [[1, 1], [4, 6]] }, { kind: "road", w: 1.2, pts: [[5, 6], [8, 6]] }],
+      volcano: { x: -400, y: -400, R: 60, H: 50, sq: 1.65, rc: 12 }
+    },
+    buildings: [{ id: "hut", x0: 6, y0: 4, w: 2, h: 1, room: "hut" }],
+    stations: { sign: [1, 1] },
+    anchors: { spawn: [5 * T + 8, 6 * T + 12], helipad: [w - 3, 2], dock, gate: [5, 1] },
+    props: []
+  };
+  if (full) {
+    M.source = "715450d4c6efca6a24f7cf21e64fdd25ad38eaba";
+    M.shapes.woods = [[3, 3, 2, 0.3]];
+    M.decals = { bones: [40, 40], tracks: { x: 1, dx: 1.3, y: 8.5, n: 4 } };
+    solid(9, 7); solid(8, 8);
+    for (let x = 0; x <= 2; x++) for (let y = h - 3; y <= h - 1; y++) if (x === 0 || x === 2 || y === h - 3 || y === h - 1) solid(x, y);
+    for (const [x, y] of [[8, 5], [9, 5], [10, 5], [8, 6], [8, 7], [10, 7]]) solid(x, y);      // the compound's walls (9,7 is the oak; 10,6 the gate)
+    M.regions = { paddocks: [["pen", 0, h - 3, 2, h - 1]], compound: { x0: 8, y0: 5, x1: 10, y1: 7, gate: [6] } };
+    M.props = [{ kind: "e:oak1", tx: 9, ty: 7, flip: true, ox: -2, oy: 1.5 }, { tx: 1, ty: 6, flip: false, ox: 0, oy: -0.5, kind: "e:fern0" }, { kind: "e:nest0", tx: 8, ty: 8, eggs: 3 }, { kind: "e:lilies0", tx: 4, ty: 7, flip: true, ox: -2, oy: 0, flat: true }];
+  }
+  return M;
+}
+const clone = (o) => JSON.parse(JSON.stringify(o));
+const edit = (fn) => { const M = clone(synth(12, 10, true)); fn(M); return M; };
+const setc = (rows, x, y, ch) => { rows[y] = rows[y].slice(0, x) + ch + rows[y].slice(x + 1); };
+const PY = 6 * T + 3;
+
+const INVALID = [
+  ["no map", undefined, /^no map/],
+  ["the map isn't an object", [1, 2], /^no map/],
+  ["an unknown top-level field", edit((M) => { M.colour = "red"; }), /^the map has an unknown field colour$/],
+  ["wrong format", edit((M) => { M.format = 2; }), /^format 2 isn't supported \(this code reads format 1\)$/],
+  ["invalid id", edit((M) => { M.id = "Home Island"; }), /^id must be a short lowercase name/],
+  ["source that isn't a commit", edit((M) => { M.source = "715450d"; }), /^source must be a 40-character git commit$/],
+  ["wrong tile size", edit((M) => { M.tile = 32; }), /^tile must be 16/],
+  ["zero width", edit((M) => { M.w = 0; }), /^w must be a whole number from 1 to 256$/],
+  ["negative height", edit((M) => { M.h = -10; }), /^h must be a whole number from 1 to 256$/],
+  ["fractional width", edit((M) => { M.w = 12.5; }), /^w must be a whole number from 1 to 256$/],
+  ["too wide (300)", edit((M) => { M.w = 300; }), /^w must be a whole number from 1 to 256$/],
+  ["ground: a row missing", edit((M) => { M.ground.pop(); }), /^ground must have 10 rows$/],
+  ["ground: a row too short", edit((M) => { M.ground[2] = M.ground[2].slice(1); }), /^ground row 2 must be 12 long, not 11$/],
+  ["ground: an unknown code", edit((M) => { setc(M.ground, 4, 0, "b"); }), /^ground row 0 has "b" at 4 \(0 to a\)$/],
+  ["height: 6", edit((M) => { setc(M.height, 3, 3, "6"); }), /^height row 3 has "6" at 3 \(0 to 5\)$/],
+  ["coll: missing", edit((M) => { delete M.coll; }), /^coll must be \{ values, rows \}$/],
+  ["coll: a value twice in the palette", edit((M) => { M.coll.values = [0, 0]; }), /^coll\.values has 0 twice$/],
+  ["coll: an unknown bit", edit((M) => { M.coll.values = [0, 2048]; }), /^coll\.values\[1\] must be a whole number from 0 to 1023$/],
+  ["coll: an empty palette", edit((M) => { M.coll.values = []; }), /^coll\.values must hold 1 to 36 values$/],
+  ["coll: an index past the palette", edit((M) => { setc(M.coll.rows, 5, 5, "2"); }), /^coll row 5 has "2" at 5 \(0 to 1\)$/],
+  ["footBlock: not a list", edit((M) => { M.footBlock = {}; }), /^footBlock must be a list$/],
+  ["footBlock: an entry with no runs", edit((M) => { M.footBlock = [[PY]]; }), /^footBlock entry 0 must be \[py, x0, n, \.\.\.\]$/],
+  ["footBlock: a half run", edit((M) => { M.footBlock = [[PY, 82, 4, 90]]; }), /^footBlock entry 0 must be \[py, x0, n, \.\.\.\]$/],
+  ["footBlock: overlapping runs", edit((M) => { M.footBlock = [[PY, 82, 4, 84, 2]]; }), /^footBlock row 99: the run at 84 overlaps or touches the one before/],
+  ["footBlock: touching runs", edit((M) => { M.footBlock = [[PY, 82, 4, 86, 2]]; }), /^footBlock row 99: the run at 86 overlaps or touches the one before/],
+  ["footBlock: runs out of order", edit((M) => { M.footBlock = [[PY, 90, 2, 82, 2]]; }), /^footBlock row 99: the run at 82 overlaps or touches the one before/],
+  ["footBlock: the same row twice", edit((M) => { M.footBlock = [[PY, 82, 2], [PY, 90, 2]]; }), /^footBlock rows must go up: row 99 comes after 99$/],
+  ["footBlock: rows going down", edit((M) => { M.footBlock = [[PY + 1, 82, 2], [PY, 90, 2]]; }), /^footBlock rows must go up: row 99 comes after 100$/],
+  ["footBlock: a run off the map", edit((M) => { M.footBlock = [[PY, 12 * T - 2, 4]]; }), /^footBlock row 99: the run at 190 runs off the map$/],
+  ["footBlock: a row off the map", edit((M) => { M.footBlock = [[10 * T, 82, 2]]; }), /^footBlock entry 0 row must be a whole number from 0 to 159$/],
+  ["footBlock: a zero-length run", edit((M) => { M.footBlock = [[PY, 82, 0]]; }), /^footBlock row 99 run length must be a whole number from 1 to 192$/],
+  ["footBlock: a fractional start", edit((M) => { M.footBlock = [[PY, 82.5, 2]]; }), /^footBlock row 99 run start must be a whole number/],
+  ["footBlock: a pixel coll already blocks (the hut)", edit((M) => { M.footBlock = [[4 * T + 2, 6 * T + 1, 2]]; }), /^footBlock pixel 97,66 is on tile 6,4, which coll already blocks$/],
+  ["a building off the map", edit((M) => { M.buildings[0].x0 = 11; }), /^building hut w must be a whole number from 1 to 1$/],
+  ["a building twice", edit((M) => { M.buildings.push(clone(M.buildings[0])); }), /^building hut appears twice$/],
+  ["a building with no id", edit((M) => { delete M.buildings[0].id; }), /^building 0 needs an id/],
+  ["a building that isn't solid", edit((M) => { setc(M.coll.rows, 7, 4, "0"); }), /^building hut: its footprint tile 7,4 isn't solid in coll$/],
+  ["a building whose door is blocked", edit((M) => { setc(M.coll.rows, 7, 5, "1"); }), /^building hut: its doorway 7,5 \(where pi comes out\) can't be walked$/],
+  ["a station off the map", edit((M) => { M.stations.sign = [12, 1]; }), /^station sign x must be a whole number from 0 to 11$/],
+  ["a station with a bad id", edit((M) => { M.stations["Sign Post"] = [1, 1]; }), /^station Sign Post: the id must be a short lowercase name$/],
+  ["a station on land that isn't solid", edit((M) => { M.stations.sign = [4, 4]; }), /^station sign stands on land at 4,4 but that tile isn't solid in coll$/],
+  ["spawn off the map", edit((M) => { M.anchors.spawn = [-1, 50]; }), /^anchors\.spawn \(world px\) is off the map$/],
+  ["spawn on a tile that can't be walked", edit((M) => { M.anchors.spawn = [6 * T + 8, 4 * T + 8]; }), /^anchors\.spawn is on a tile that can't be walked/],
+  ["helipad off the map", edit((M) => { M.anchors.helipad = [11, 2]; }), /^anchors\.helipad x must be a whole number from 1 to 10$/],
+  ["helipad not on a pad", edit((M) => { M.anchors.helipad = [5, 5]; }), /^anchors\.helipad 5,5 isn't on a pad tile in ground$/],
+  ["dock with no dock tiles", edit((M) => { M.anchors.dock = [5, 4]; }), /^anchors\.dock 5,4: the 2 x 4 tiles below it must be dock in ground$/],
+  ["gate off the map", edit((M) => { M.anchors.gate = [1, 1]; }), /^anchors\.gate x must be a whole number from 2 to 9$/],
+  ["gate with an open post", edit((M) => { setc(M.coll.rows, 7, 1, "0"); }), /^anchors\.gate 5,1: its two posts \(2 tiles either side\) must be solid in coll$/],
+  ["an unknown anchor", edit((M) => { M.anchors.ferry = [1, 1]; }), /^anchors has an unknown field ferry$/],
+  ["a paddock off the map", edit((M) => { M.regions.paddocks[0][3] = 12; }), /^regions\.paddocks\[0\] x1 must be a whole number from 1 to 11$/],
+  ["a paddock fence that isn't solid", edit((M) => { setc(M.coll.rows, 1, 9, "0"); }), /^regions\.paddocks\[0\] \(pen\): its fence tile 1,9 isn't solid in coll$/],
+  ["a compound wall that isn't solid", edit((M) => { setc(M.coll.rows, 8, 6, "0"); }), /^regions\.compound: its wall tile 8,6 isn't solid in coll$/],
+  ["a compound gate outside the compound", edit((M) => { M.regions.compound.gate = [9]; }), /^regions\.compound\.gate\[0\] must be a whole number from 5 to 7$/],
+  ["an unknown shape", edit((M) => { M.shapes.lake = {}; }), /^shapes has an unknown field lake$/],
+  ["an unknown shape type", edit((M) => { M.shapes.coast.type = "contour"; }), /^shapes\.coast\.type "contour" isn't a known type \(harmonic-blob\)$/],
+  ["a coast wave of one number", edit((M) => { M.shapes.coast.waves[1] = [2.2]; }), /^shapes\.coast\.waves\[1\] must be \[a, f\] or \[a, f, p\]$/],
+  ["a coast centre that isn't a number", edit((M) => { M.shapes.coast.c = [48, "39"]; }), /^shapes\.coast\.c\[1\] must be a finite number$/],
+  ["a coast ellipse of radius 0", edit((M) => { M.shapes.coast.union[0][2] = 0; }), /^shapes\.coast\.union\[0\] rx must be above 0$/],
+  ["one terrace", edit((M) => { M.shapes.terraces.pop(); }), /^shapes\.terraces must be a list of 2$/],
+  ["terraces the wrong way round", edit((M) => { M.shapes.terraces.reverse(); }), /^shapes\.terraces\[0\]\.level must be 2/],
+  ["a ramp with direction 0", edit((M) => { M.shapes.terraces[0].ramps[0][1] = 0; }), /^shapes\.terraces\[0\]\.ramps\[0\] direction must be 1 or -1$/],
+  ["a pond of negative radius", edit((M) => { M.shapes.pond.rx = -1; }), /^shapes\.pond\.rx must be above 0$/],
+  ["a plaza radius that isn't a number", edit((M) => { M.shapes.plaza.r = null; }), /^shapes\.plaza\.r must be a finite number$/],
+  ["a curve of an unknown kind", edit((M) => { M.shapes.curves[1].kind = "canal"; }), /^shapes\.curves\[1\]\.kind "canal" isn't a known kind \(river, road\)$/],
+  ["a curve of one point", edit((M) => { M.shapes.curves[1].pts = [[5, 6]]; }), /^shapes\.curves\[1\]\.pts needs at least 2 points$/],
+  ["a road before the river", edit((M) => { M.shapes.curves.reverse(); }), /^shapes\.curves\[1\]: rivers come before roads$/],
+  ["a volcano crater wider than the cone", edit((M) => { M.shapes.volcano.rc = 70; }), /^shapes\.volcano\.rc must be smaller than R$/],
+  ["a volcano over open ground", edit((M) => { M.shapes.volcano.x = 5 * T + 8; M.shapes.volcano.y = 6 * T + 8; }), /^tile \d+,\d+ is under the volcano but isn't solid in coll$/],
+  ["woods with a bad entry", edit((M) => { M.shapes.woods[0] = [3, 3]; }), /^shapes\.woods\[0\] must be a list of 4$/],
+  ["tracks with a fractional count", edit((M) => { M.decals.tracks.n = 2.5; }), /^decals\.tracks\.n must be a whole number from 0 to 1000$/],
+  ["a prop that isn't an object", edit((M) => { M.props[1] = "e:fern0"; }), /^prop 1 must be an object$/],
+  ["a prop with no kind", edit((M) => { delete M.props[0].kind; }), /^prop 0 needs a kind/],
+  ["a prop kind with a space", edit((M) => { M.props[0].kind = "e:oak 1"; }), /^prop 0 needs a kind/],
+  ["a prop off the map", edit((M) => { M.props[1].tx = 12; }), /^prop 1 \(e:fern0\) tx must be a whole number from 0 to 11$/],
+  ["a prop with a fractional tile", edit((M) => { M.props[1].ty = 6.5; }), /^prop 1 \(e:fern0\) ty must be a whole number from 0 to 9$/],
+  ["a prop with no tile", edit((M) => { delete M.props[1].ty; }), /^prop 1 \(e:fern0\) needs tx and ty$/],
+  ["a prop with an unknown field", edit((M) => { M.props[1].fliped = true; }), /^prop 1 \(e:fern0\) has an unknown field fliped$/],
+  ["a prop flip that isn't true or false", edit((M) => { M.props[0].flip = 1; }), /^prop 0 \(e:oak1\) flip must be true or false$/],
+  ["a prop offset of 40 px", edit((M) => { M.props[0].ox = 40; }), /^prop 0 \(e:oak1\) ox must be a number of px from -16 to 16$/],
+  ["a nest of 2.5 eggs", edit((M) => { M.props[2].eggs = 2.5; }), /^prop 2 \(e:nest0\) eggs must be a whole number from 0 to 9$/],
+  ["a tree on a tile that isn't solid", edit((M) => { M.props[0].tx = 4; }), /^prop 0 \(e:oak1\) at 4,7 stands in pi's way, but that tile isn't solid in coll$/]
+];
+
+const PORT = 9300 + Math.floor(Math.random() * 90), server = await serve(PORT);
+let failed = false, blocked = [];
+const check = (eng, what, ok, detail) => { console.log(`${ok ? "ok  " : "FAIL"} ${eng.padEnd(8)} ${what}${!ok && detail ? ": " + detail : ""}`); if (!ok) failed = true; };
+for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefox", firefox]]) {
+  if (!ENGINES.includes(name)) continue;
+  let browser;
+  try { browser = await type.launch(); } catch (e) { console.log(`BLOCKED ${name}: could not launch`); blocked.push(name); continue; }
+  const page = await browser.newPage();
+  const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+  await page.goto(`http://localhost:${PORT}/?debug=1&step=1#island`);
+  await page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 });
+  const dec = (m) => page.evaluate((x) => { try { return { ok: window.__island.decodeMap(x) }; } catch (e) { return { err: e.message }; } }, m);
+  // valid maps, each decoded from a deep-frozen copy (so a write would throw), and unchanged afterwards
+  const VALID = [["the real home map", HOME, { id: "home", w: 100, h: 80, footPixels: 3773, props: 753, buildings: 3, stations: 11, curves: 15 }],
+    ["minimal 12 x 10, optional fields left out", synth(12, 10, false), { w: 12, h: 10, footPixels: 4, props: 0, paddocks: 0, compound: false }],
+    ["representative 12 x 10 (props, regions, decals, woods, source)", synth(12, 10, true), { props: 4, paddocks: 1, compound: true, source: "715450d4c6efca6a24f7cf21e64fdd25ad38eaba" }],
+    ["150 x 120, decode only", synth(150, 120, true), { w: 150, h: 120, ground: 18000, footWords: 144000, props: 4 }]];
+  for (const [what, M, want] of VALID) {
+    const r = await page.evaluate((x) => {
+      const before = JSON.stringify(x);
+      (function freeze(o) { if (o && typeof o === "object") { Object.freeze(o); Object.values(o).forEach(freeze); } })(x);
+      try { const s = window.__island.decodeMap(x); return { s, same: JSON.stringify(x) === before }; } catch (e) { return { err: e.message }; }
+    }, M);
+    const ok = !r.err && r.same && Object.entries(want).every(([k, v]) => r.s[k] === v);
+    check(name, `valid: ${what}${r.s ? ` (${r.s.w} x ${r.s.h}, ${r.s.footPixels} footBlock px, ${r.s.props} props)` : ""}; input unchanged`, ok, r.err || JSON.stringify({ got: r.s, want, same: r.same }));
+  }
+  let n = 0;
+  for (const [what, M, re] of INVALID) {
+    const r = await dec(M);
+    const ok = !!r.err && re.test(r.err); n += ok ? 1 : 0;
+    check(name, `refused: ${what}  ->  "${r.err}"`, ok, r.err ? `wanted ${re}` : "it decoded");
+  }
+  check(name, `all ${INVALID.length} faulty maps refused, each naming the field`, n === INVALID.length);
+  check(name, "no page errors", !errors.length, errors.join(" | "));
+  await browser.close();
+}
+server.close();
+console.log(failed ? "\nFAILED" : `\nnothing failed${blocked.length ? "; blocked: " + blocked.join(", ") : ""}`);
+process.exit(failed ? 1 : blocked.length ? 2 : 0);

@@ -191,13 +191,57 @@ lowercase with hyphens, up to 32 characters, at most 64 per map. A v1 save migra
 lost (`tools/scenarios.mjs` tests it); a newer version is never written over. The fullest possible save
 is about 27 KB, under the 50 KB budget. A later phase that needs a richer value adds a v3 migration.
 
-Map layers (built 2026-09-30, Phase 8 D11-B): three typed arrays, one value per tile at `y * 100 + x`.
+Map layers (built 2026-09-30, Phase 8 D11-B): three typed arrays, one value per tile at `y * w + x`.
 `GROUND` (Uint8) holds the tile codes; `HEIGHT` (Uint8) the level, 0 to 5 (the home island uses the
 three terraces, 0 to 2); `COLL` (Uint16) collision bits: `solid` 1, `shallow` 2 (sea shallows, the
 pond, the river), `deep` 4, `low` 8, `ledge` N/E/S/W 16/32/64/128, `lava` 256, `climbable` 512. A tile
 can be walked when none of solid, shallow, deep or lava is set. `low`, the ledges and `climbable` are
-reserved for Phase 11 and unset. The builder writes the layers directly, and they are the only record of
-the map at runtime. Props stay a list; spawns and triggers come with the Phase 12 map export.
+reserved for Phase 11 and unset.
+
+Map data (MAP-A, 2026-10-02): the home island's geography is authored data, `js/maps/home.js`, and
+that file is its source of truth; nothing generates the island any more. Format 1. It loads
+synchronously just before the island (`audio.js`, then `js/maps/home.js`, then `world.js`, all with the
+same `?v=`) and registers `window.ISLAND_MAPS.home`. `decodeMap()` in `world.js` checks a map and returns
+the game's own copies (it never changes the registry); a map it refuses stops the island with a message
+naming the field, and the orb says the island didn't load (a retry works).
+
+- What the file holds: `id`, `source` (the commit it came from), `tile` (16), `w` and `h` (tiles, at most
+  256 x 256); the layers as one row string per tile row: `ground` (a hex digit per tile), `height` (0 to
+  5), `coll` (the final collision flags per tile, a base-36 index into `coll.values`); `footBlock`, extra
+  pixels where feet stop on tiles `coll` lets them onto, `[py, x0, n, x0, n, ...]` per pixel row, rows going
+  up, runs in order with gaps between them, inside the map and never on a tile `coll` already blocks
+  (decoded to one bit per pixel); `props`, every prop with its fields in order; `shapes`, what the ground
+  is painted from (coast, terrace edges, pond, plaza, river and road curves, volcano, woods) and
+  `decals` (bones, footprints); `buildings` (footprint, room), `stations` (outdoor landmarks' places; their
+  words stay in code), `anchors` (spawn in world px, helipad, dock, gate) and `regions` (paddocks, the
+  outpost compound).
+- Not in it: prose, creatures and their roam areas, NPC routes, `PLACES`, quests, the CTF, saves. They
+  stay in `world.js` until the blockout needs new positions for them.
+- Collision: gameplay collision = authored `coll` + authored `footBlock`. Feet stop where the tile's
+  `COLL` blocks or the pixel's `footBlock` bit is set, and nowhere else. The painted ground (`GK`) is a
+  picture only; it never decides where pi can stand (`tools/map-parity.mjs` repaints it and checks that
+  no blocked pixel, step, safe tile, landing or route moves).
+- Derived at runtime, not source: `GK` and the painter's noise, the woods' shade (`FO`), the water
+  distance, `FOAM`, the curve samples and their grid, `FALLS`, `DEPTH`, the fence and wall tiles, the
+  nests list, the minimap and full map, `STEPOK`, `SAFE`, `landTile` and `canLand`.
+- Consistency `decodeMap()` checks, the old generator's own rules: building footprints solid and their
+  doorways walkable; outdoor landmarks on land solid (the boat stands in the water); spawn on a tile pi can
+  walk; the helipad on a pad tile; the 2 x 4 dock tiles below the dock anchor; the gate's two posts solid;
+  paddock fences and the compound's walls solid where there's land; trees, nests, lamps, the outpost's kit
+  and crates on solid tiles; every tile under the volcano's cone solid. Cliff rims aren't checked:
+  Phase 11's ledges change that model.
+- Legacy shapes: the shape types (harmonic-blob, sine-edge, wobble-ellipse, disc, the curves) exist to
+  reproduce the original procedural island exactly. The redesigned 150 x 120 island is not bound to them.
+- More islands: the registry and format can hold others (`hornfield`, `ironwood`, `server-key` in the
+  masterplan), but only `home` exists, and the game doesn't switch maps.
+- Provenance: `tools/map-export.mjs` exported `home.js` from `js/world.js` at
+  `715450d4c6efca6a24f7cf21e64fdd25ad38eaba`, the last revision that generated the island (`--check`
+  compares a fresh export with the file). The tests: `tools/map-parity.mjs` (`715450d` against the working
+  tree, every layer, pixel, picture, cache and seeded behaviour; planted mutations of `home.js`; art apart
+  from collision; the load failing and recovering), `tools/map-decode.mjs` (`decodeMap()` on synthetic
+  maps, a 150 x 120 one among them, and every way of getting one wrong), and `tools/map-baseline.mjs
+  --rev=<rev> --check` (any revision against the D11-B fixture).
+- Saves: `SAVE_V` is still 2. MAP-A changed no save field and migrated nothing.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

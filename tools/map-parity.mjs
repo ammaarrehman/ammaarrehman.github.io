@@ -185,7 +185,14 @@ const MUTATIONS = [
       if (runs.some(([x0, n]) => x0 <= 848 && x0 + n >= 832)) throw new Error("row 648 already has a run at or next to 832 to 847");
       runs.push([832, 16]); runs.sort((a, b) => a[0] - b[0]); row.length = 1; runs.forEach(([x0, n]) => row.push(x0, n)); }),
     must: ["px.blocked", "cache.stepok"], keep: ["layer.ground", "layer.height", "layer.coll", "cache.safe", "cache.land", "px.kind", "img.ground", "img.mini", "props.exact"] },
-  { name: "one station coordinate (home.js: signpost x 44 to 45)", map: mapEdit((M) => { if (M.stations.sign[0] !== 44) throw new Error("signpost isn't at x 44"); M.stations.sign[0] = 45; }), must: ["stations"] },
+  // moving a landmark moves its solid tile with it (a landmark on land is something pi bumps into)
+  { name: "one station coordinate (home.js: signpost x 44 to 45, its solid tile with it)", map: mapEdit((M) => {
+      if (M.stations.sign[0] !== 44) throw new Error("signpost isn't at x 44");
+      M.stations.sign[0] = 45; const o = M.coll.values.indexOf(0).toString(36), c = M.coll.values.indexOf(1).toString(36);
+      setChar(M.coll.rows, 57, 44, c, o); setChar(M.coll.rows, 57, 45, o, c); }), must: ["stations", "layer.coll", "px.blocked"] },
+  // and moving it without its collision is an authoring mistake decodeMap refuses
+  { name: "a station moved without its collision (home.js: signpost x 44 to 45 only)", map: mapEdit((M) => { M.stations.sign[0] = 45; }),
+    refuse: /^pi's island: js\/maps\/home\.js: station sign stands on land at 45,57 but that tile isn't solid in coll$/ },
   { name: "one road coordinate (home.js: the tablet spur's end 51.6 to 51.61)", map: mapEdit((M) => { const c = M.shapes.curves.find((q) => JSON.stringify(q.pts) === "[[47.8,50.6],[51.6,51.4]]"); if (!c) throw new Error("no tablet spur"); c.pts[1][0] = 51.61; }), must: ["shape.curves", "px.kind", "img.ground"] },
   { name: "plaza radius (home.js: 2.7 to 2.71; changes painted dirt only, no tile or collision)", map: mapEdit((M) => { if (M.shapes.plaza.r !== 2.7) throw new Error("plaza r isn't 2.7"); M.shapes.plaza.r = 2.71; }), must: ["anchors", "px.kind", "img.ground"], keep: GAMEPLAY },
   // pi's first-visit start is the mailbox spot (50,61), not SPAWN, and SAFE floods from SPAWN's tile, so a
@@ -201,10 +208,14 @@ async function digest(browser, src, mapSrc) {
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await ctx.newPage();
   const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+  // the island opens, or the map is refused (decodeMap's error stops the build): either ends the wait
+  const refused = new Promise((ok) => page.on("pageerror", (e) => { if (/^pi's island: /.test(e.message)) ok(e.message); }));
   await page.route(/\/js\/world\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: src }));
   if (mapSrc) await page.route(/\/js\/maps\/home\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: mapSrc }));
   await page.goto(URL0);
-  await page.waitForFunction(() => window.__mp && window.__island && window.__island.getState().open, null, { timeout: 60000 });
+  const opened = page.waitForFunction(() => window.__mp && window.__island && window.__island.getState().open, null, { timeout: 60000 }).then(() => null);
+  const why = await Promise.race([opened, refused]);
+  if (why) { await ctx.close(); return { refused: why, out: {}, errors: [] }; }
   const reg0 = await page.evaluate(() => JSON.stringify(window.ISLAND_MAPS && window.ISLAND_MAPS.home));
   const names = await page.evaluate(() => window.__mp.build());
   const out = {};
@@ -249,7 +260,7 @@ async function loader(browser, how) {
   const back = await page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 30000 }).then(() => true, () => false);
   const after = await page.evaluate(() => ({ hint: document.querySelector(".orb-hint").textContent, enter: typeof window.islandEnter }));
   await ctx.close();
-  const expectErr = { blocked: [], unusable: ["pi's island: js/maps/home.js is missing or not a format 1 map"], malformed: ["pi's island: js/maps/home.js: ground row 3 isn't 100 long"] }[how];
+  const expectErr = { blocked: [], unusable: ["pi's island: js/maps/home.js: no map (window.ISLAND_MAPS has no entry for it)"], malformed: ["pi's island: js/maps/home.js: ground row 3 must be 100 long, not 99"] }[how];
   return { down, back, after, mapLoads, errors, ok: down.hint === FAILED && !down.busy && down.enter === "undefined" && down.api === "undefined" && back && after.hint !== FAILED && after.enter === "function" && mapLoads === 2 && JSON.stringify(errors) === JSON.stringify(expectErr) };
 }
 
@@ -277,7 +288,14 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   await cur.ctx.close();
   if (MUTATE) for (const m of MUTATIONS) {
     let src, mapSrc; try { src = hooked(curSrc); mapSrc = m.map(readFileSync(MAPFILE, "utf8")); } catch (e) { console.log(`  MUTATION BROKEN ${m.name}: ${e.message}`); failed = true; continue; }
-    const mu = await digest(browser, src, mapSrc), d = compare(ref, mu);
+    const mu = await digest(browser, src, mapSrc);
+    if (m.refuse || mu.refused) {
+      const ok = !!m.refuse && !!mu.refused && m.refuse.test(mu.refused);
+      console.log(`  ${ok ? "refused" : "NOT AS EXPECTED"}  ${m.name}\n           ${mu.refused ? "the island refused the map: " + mu.refused : "the island opened"}`);
+      if (!ok) failed = true;
+      continue;
+    }
+    const d = compare(ref, mu);
     const missed = m.must.filter((k) => !d.includes(k)), leaked = (m.keep || []).filter((k) => d.includes(k));
     const ok = d.length > 0 && !missed.length && !leaked.length && !mu.errors.length;
     console.log(`  ${ok ? "caught" : "NOT AS EXPECTED"}  ${m.name}\n           failed: ${d.join(", ") || "nothing"}${missed.length ? "\n           should have failed: " + missed.join(", ") : ""}${leaked.length ? "\n           should have stayed equal: " + leaked.join(", ") : ""}${mu.errors.length ? "\n           page errors: " + mu.errors.join(" | ") : ""}`);

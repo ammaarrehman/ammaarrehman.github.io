@@ -51,25 +51,231 @@
   }
 
   /* ════════ map ════════ */
-  /* the map's geometry is authored data, js/maps/home.js (MAP-A), loaded just before this file: the
-     size, the shapes the island is drawn from (coast, terrace edges, pond, plaza, river and roads,
-     volcano, woods), where the buildings, landmarks, helipad, dock and gate stand, the paddocks and the
-     outpost. the shape types reproduce the original island exactly. a missing or unusable file stops
-     the island here, before anything is built */
-  var MAP = window.ISLAND_MAPS && window.ISLAND_MAPS.home;
-  (function () {
-    function nums(a, n) { return Array.isArray(a) && a.length === n && a.every(function (v) { return typeof v === "number" && isFinite(v); }); }
-    var M = MAP, S = M && M.shapes, A = M && M.anchors, R = M && M.regions, ok = !!M && M.format === 1 && M.tile === 16 && M.w > 0 && M.w % 1 === 0 && M.h > 0 && M.h % 1 === 0 &&
-      !!S && !!S.coast && Array.isArray(S.coast.waves) && Array.isArray(S.coast.union) && Array.isArray(S.coast.cut) && Array.isArray(S.terraces) && S.terraces.length === 2 &&
-      S.terraces[0].level === 2 && S.terraces[1].level === 1 && !!S.pond && Array.isArray(S.pond.waves) && !!S.plaza && Array.isArray(S.curves) && S.curves.length > 0 &&
-      S.curves.every(function (c, i) { return (c.kind === "river" || c.kind === "road") && Array.isArray(c.pts) && c.pts.length > 1 && (c.kind === "road" || !S.curves.slice(0, i).some(function (d) { return d.kind === "road"; })); }) &&
-      !!S.volcano && Array.isArray(S.woods) && !!M.decals && !!M.decals.tracks && nums(M.decals.bones, 2) && Array.isArray(M.buildings) && !!M.stations &&
-      !!A && nums(A.spawn, 2) && nums(A.helipad, 2) && nums(A.dock, 2) && nums(A.gate, 2) && !!R && Array.isArray(R.paddocks) && !!R.compound;
-    if (!ok) { var e = new Error("pi's island: js/maps/home.js is missing or not a format 1 map"); if (window.console) console.error(e.message); throw e; }
-  })();
-  var SH = MAP.shapes;
-  var T = 16, MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock[0];
+  /* the map is authored data (MAP-A): js/maps/home.js, loaded just before this file, registers
+     ISLAND_MAPS.home, and decodeMap() below checks it and turns it into the game's own copies. the data
+     is the source of truth for the island's geography: the tile layers (ground, height), the collision
+     (the final per-tile flags, coll, and footBlock, the extra pixels where feet stop on tiles coll lets
+     them onto), the props, the shapes the ground is painted from, and where the buildings, landmarks,
+     helipad, dock, gate, paddocks and outpost stand. a map that doesn't decode stops the island here,
+     before anything is built, with a message that names what's wrong */
+  var T = 16;
   var DEEP = 0, SHAL = 1, SAND = 2, GRASS = 3, PATH = 4, POND = 5, DOCK = 6, LAVA = 7, PAD = 8, RIVER = 9, BRIDGE = 10;
+  /* the collision flags, per tile. a tile can be walked when none of SOLID, SHALLOW, DEEP or LAVA is set.
+     LOW, the ledges and CLIMBABLE are reserved for Phase 11 (jumping, heights) and nothing sets them yet */
+  var C_SOLID = 1, C_SHALLOW = 2, C_DEEP = 4, C_LOW = 8, C_LEDGE_N = 16, C_LEDGE_E = 32, C_LEDGE_S = 64, C_LEDGE_W = 128, C_LAVA = 256, C_CLIMB = 512;
+  var C_BLOCK = C_SOLID | C_SHALLOW | C_DEEP | C_LAVA, C_ALL = 1023;
+  /* the props that stand in pi's way: when the island was generated, each of these made its tile solid,
+     so the data must agree (undergrowth, pebbles, small rocks, lilies and the volcano's boulders never did) */
+  var BLOCKING_PROP = /^(e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern|baretree)\d*|e:nest0|lamp|mast|solar|generator|tank|tent|campfire|crates)$/;
+  /* decodeMap: one map's data (format 1) checked and decoded, or an Error naming the field and the
+     problem. it never changes what it's given: the layers become typed arrays, footBlock a bitset (one bit
+     per pixel), and everything else a copy (props keep their fields in their order).
+     the shape types (harmonic-blob, sine-edge, wobble-ellipse, disc, the curves, the volcano) are legacy
+     parity types: they reproduce the original procedural island exactly. a new island isn't bound to
+     them. the size is limited to 256 x 256 tiles, about the most a phone can paint as one canvas */
+  function decodeMap(M) {
+    function bad(msg) { throw new Error(msg); }
+    function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
+    function num(v, f) { if (typeof v !== "number" || !isFinite(v)) bad(f + " must be a finite number"); return v; }
+    function int(v, f, lo, hi) { if (typeof v !== "number" || v % 1 !== 0 || v < lo || v > hi) bad(f + " must be a whole number from " + lo + " to " + hi); return v; }
+    function pos(v, f) { if (num(v, f) <= 0) bad(f + " must be above 0"); return v; }
+    function arr(v, f, n) { if (!Array.isArray(v) || (n !== undefined && v.length !== n)) bad(f + " must be a list" + (n !== undefined ? " of " + n : "")); return v; }
+    function nums(v, f, n) { arr(v, f, n).forEach(function (q, i) { num(q, f + "[" + i + "]"); }); return v; }
+    function only(o, f, keys) { Object.keys(o).forEach(function (q) { if (keys.indexOf(q) < 0) bad(f + " has an unknown field " + q); }); }
+    function copy(o) { return JSON.parse(JSON.stringify(o)); }
+    if (!isObj(M)) bad("no map (window.ISLAND_MAPS has no entry for it)");
+    only(M, "the map", ["format", "id", "source", "tile", "w", "h", "ground", "height", "coll", "footBlock", "shapes", "decals", "buildings", "stations", "anchors", "regions", "props"]);
+    if (M.format !== 1) bad("format " + M.format + " isn't supported (this code reads format 1)");
+    if (typeof M.id !== "string" || !/^[a-z0-9][a-z0-9-]{0,31}$/.test(M.id)) bad("id must be a short lowercase name (a to z, 0 to 9, -)");
+    if (M.source !== undefined && (typeof M.source !== "string" || !/^[0-9a-f]{40}$/.test(M.source))) bad("source must be a 40-character git commit");
+    if (M.tile !== T) bad("tile must be " + T + " (px per tile in this engine)");
+    var w = int(M.w, "w", 1, 256), h = int(M.h, "h", 1, 256), PWm = w * T, PHm = h * T, D = { format: 1, id: M.id, source: M.source || null, w: w, h: h };
+    // the tile layers: a row string per tile row, a base-36 digit per tile
+    function layer(f, list, max) {
+      var out = new Uint8Array(w * h);
+      if (!Array.isArray(list) || list.length !== h) bad(f + " must have " + h + " rows");
+      for (var y = 0; y < h; y++) {
+        var row = list[y]; if (typeof row !== "string" || row.length !== w) bad(f + " row " + y + " must be " + w + " long" + (typeof row === "string" ? ", not " + row.length : ""));
+        for (var x = 0; x < w; x++) { var v = parseInt(row.charAt(x), 36); if (!(v <= max)) bad(f + " row " + y + " has " + JSON.stringify(row.charAt(x)) + " at " + x + " (0 to " + max.toString(36) + ")"); out[y * w + x] = v; }
+      }
+      return out;
+    }
+    D.ground = layer("ground", M.ground, BRIDGE);
+    D.height = layer("height", M.height, 5);
+    if (!isObj(M.coll)) bad("coll must be { values, rows }");
+    only(M.coll, "coll", ["values", "rows"]);
+    var vals = arr(M.coll.values, "coll.values");
+    if (!vals.length || vals.length > 36) bad("coll.values must hold 1 to 36 values");
+    vals.forEach(function (v, i) { int(v, "coll.values[" + i + "]", 0, C_ALL); if (vals.indexOf(v) !== i) bad("coll.values has " + v + " twice"); });
+    var ix = layer("coll", M.coll.rows, vals.length - 1);
+    D.coll = new Uint16Array(w * h);
+    for (var i = 0; i < ix.length; i++) D.coll[i] = vals[ix[i]];
+    function walk(x, y) { return x >= 0 && y >= 0 && x < w && y < h && !(D.coll[y * w + x] & C_BLOCK); }
+    function g(x, y) { return x >= 0 && y >= 0 && x < w && y < h ? D.ground[y * w + x] : -1; }
+    function solid(x, y) { return x >= 0 && y >= 0 && x < w && y < h && !!(D.coll[y * w + x] & C_SOLID); }
+    // footBlock: [py, x0, n, x0, n, ...] per pixel row, rows ascending, runs in order, apart, inside the
+    // map and only on tiles coll lets feet onto (so no pixel is listed twice or blocked twice)
+    D.foot = new Uint32Array((PWm * PHm + 31) >>> 5); D.footPixels = 0;
+    var lastY = -1;
+    arr(M.footBlock, "footBlock").forEach(function (r, k) {
+      if (!Array.isArray(r) || r.length < 3 || r.length % 2 !== 1) bad("footBlock entry " + k + " must be [py, x0, n, ...]");
+      var py = int(r[0], "footBlock entry " + k + " row", 0, PHm - 1);
+      if (py <= lastY) bad("footBlock rows must go up: row " + py + " comes after " + lastY);
+      lastY = py;
+      for (var j = 1, end = -1; j < r.length; j += 2) {
+        var x0 = int(r[j], "footBlock row " + py + " run start", 0, PWm - 1), n = int(r[j + 1], "footBlock row " + py + " run length", 1, PWm);
+        if (x0 <= end) bad("footBlock row " + py + ": the run at " + x0 + " overlaps or touches the one before (runs must be in order, with a gap)");
+        if (x0 + n > PWm) bad("footBlock row " + py + ": the run at " + x0 + " runs off the map");
+        for (var px = x0; px < x0 + n; px++) {
+          if (!walk((px / T) | 0, (py / T) | 0)) bad("footBlock pixel " + px + "," + py + " is on tile " + ((px / T) | 0) + "," + ((py / T) | 0) + ", which coll already blocks");
+          var b = py * PWm + px; D.foot[b >>> 5] |= 1 << (b & 31); D.footPixels++;
+        }
+        end = x0 + n;
+      }
+    });
+    // the shapes the ground is painted from
+    var S = M.shapes; if (!isObj(S)) bad("shapes is missing");
+    only(S, "shapes", ["coast", "terraces", "pond", "plaza", "curves", "volcano", "woods"]);
+    function waves(v, f) { arr(v, f).forEach(function (q, i) { if (!Array.isArray(q) || (q.length !== 2 && q.length !== 3)) bad(f + "[" + i + "] must be [a, f] or [a, f, p]"); nums(q, f + "[" + i + "]"); }); }
+    function shape(o, f, type, keys) {
+      if (!isObj(o)) bad(f + " is missing");
+      if (o.type !== type) bad(f + ".type " + JSON.stringify(o.type) + " isn't a known type (" + type + ")");
+      only(o, f, ["type"].concat(keys));
+    }
+    shape(S.coast, "shapes.coast", "harmonic-blob", ["c", "sx", "r", "waves", "union", "cut", "salt"]);
+    nums(S.coast.c, "shapes.coast.c", 2); pos(S.coast.sx, "shapes.coast.sx"); pos(S.coast.r, "shapes.coast.r"); waves(S.coast.waves, "shapes.coast.waves"); num(S.coast.salt, "shapes.coast.salt");
+    arr(S.coast.union, "shapes.coast.union").forEach(function (q, i) { nums(q, "shapes.coast.union[" + i + "]", 4); pos(q[2], "shapes.coast.union[" + i + "] rx"); pos(q[3], "shapes.coast.union[" + i + "] ry"); });
+    arr(S.coast.cut, "shapes.coast.cut").forEach(function (q, i) { nums(q, "shapes.coast.cut[" + i + "]", 5); pos(q[2], "shapes.coast.cut[" + i + "] rx"); pos(q[3], "shapes.coast.cut[" + i + "] ry"); });
+    arr(S.terraces, "shapes.terraces", 2).forEach(function (E, i) {
+      var f = "shapes.terraces[" + i + "]";
+      shape(E, f, "sine-edge", ["level", "base", "waves", "ramps", "slope", "salt"]);
+      if (E.level !== 2 - i) bad(f + ".level must be " + (2 - i) + " (the upper edge first, then the lower)");
+      num(E.base, f + ".base"); waves(E.waves, f + ".waves"); num(E.salt, f + ".salt");
+      if (E.ramps !== undefined) arr(E.ramps, f + ".ramps").forEach(function (q, k) { nums(q, f + ".ramps[" + k + "]", 3); if (q[1] !== 1 && q[1] !== -1) bad(f + ".ramps[" + k + "] direction must be 1 or -1"); });
+      if (E.slope !== undefined) nums(E.slope, f + ".slope", 2);
+    });
+    shape(S.pond, "shapes.pond", "wobble-ellipse", ["x", "y", "rx", "ry", "waves"]);
+    num(S.pond.x, "shapes.pond.x"); num(S.pond.y, "shapes.pond.y"); pos(S.pond.rx, "shapes.pond.rx"); pos(S.pond.ry, "shapes.pond.ry"); waves(S.pond.waves, "shapes.pond.waves");
+    shape(S.plaza, "shapes.plaza", "disc", ["x", "y", "r"]);
+    num(S.plaza.x, "shapes.plaza.x"); num(S.plaza.y, "shapes.plaza.y"); pos(S.plaza.r, "shapes.plaza.r");
+    var roadSeen = false;
+    arr(S.curves, "shapes.curves").forEach(function (c, i) {
+      var f = "shapes.curves[" + i + "]";
+      if (!isObj(c)) bad(f + " must be { kind, w, pts }");
+      only(c, f, ["kind", "w", "pts"]);
+      if (c.kind === "river") { if (roadSeen) bad(f + ": rivers come before roads"); nums(c.w, f + ".w", 2); }
+      else if (c.kind === "road") { roadSeen = true; pos(c.w, f + ".w"); }
+      else bad(f + ".kind " + JSON.stringify(c.kind) + " isn't a known kind (river, road)");
+      if (arr(c.pts, f + ".pts").length < 2) bad(f + ".pts needs at least 2 points");
+      c.pts.forEach(function (p, k) { nums(p, f + ".pts[" + k + "]", 2); });
+    });
+    if (!S.curves.length || S.curves[0].kind !== "river") bad("shapes.curves needs a river first");
+    var V = S.volcano; if (!isObj(V)) bad("shapes.volcano is missing");
+    only(V, "shapes.volcano", ["x", "y", "R", "H", "sq", "rc"]);
+    num(V.x, "shapes.volcano.x"); num(V.y, "shapes.volcano.y"); pos(V.R, "shapes.volcano.R"); pos(V.H, "shapes.volcano.H"); pos(V.sq, "shapes.volcano.sq"); pos(V.rc, "shapes.volcano.rc");
+    if (V.rc >= V.R) bad("shapes.volcano.rc must be smaller than R");
+    if (S.woods !== undefined) arr(S.woods, "shapes.woods").forEach(function (q, i) { nums(q, "shapes.woods[" + i + "]", 4); pos(q[2], "shapes.woods[" + i + "] radius"); });
+    D.shapes = copy(S); if (!D.shapes.woods) D.shapes.woods = [];
+    // decals, optional: the bones and the beach footprints
+    var De = M.decals === undefined ? {} : M.decals; if (!isObj(De)) bad("decals must be an object");
+    only(De, "decals", ["bones", "tracks"]);
+    if (De.bones !== undefined) nums(De.bones, "decals.bones", 2);
+    if (De.tracks !== undefined) { if (!isObj(De.tracks)) bad("decals.tracks must be { x, dx, y, n }"); only(De.tracks, "decals.tracks", ["x", "dx", "y", "n"]); num(De.tracks.x, "decals.tracks.x"); num(De.tracks.dx, "decals.tracks.dx"); num(De.tracks.y, "decals.tracks.y"); int(De.tracks.n, "decals.tracks.n", 0, 1000); }
+    D.decals = copy(De);
+    // where things stand
+    var ID = /^[a-z0-9][a-z0-9-]{0,31}$/, ids = {};
+    D.buildings = arr(M.buildings, "buildings").map(function (b, i) {
+      var f = "building " + i;
+      if (!isObj(b)) bad(f + " must be an object");
+      only(b, f, ["id", "x0", "y0", "w", "h", "room"]);
+      if (typeof b.id !== "string" || !ID.test(b.id)) bad(f + " needs an id (a short lowercase name)");
+      if (ids[b.id]) bad("building " + b.id + " appears twice");
+      ids[b.id] = 1; f = "building " + b.id;
+      int(b.x0, f + " x0", 0, w - 1); int(b.y0, f + " y0", 0, h - 1); int(b.w, f + " w", 1, w - b.x0); int(b.h, f + " h", 1, h - b.y0);
+      if (b.room !== undefined && (typeof b.room !== "string" || !ID.test(b.room))) bad(f + " room must be a short lowercase name");
+      for (var y = b.y0; y < b.y0 + b.h; y++) for (var x = b.x0; x < b.x0 + b.w; x++) if (!solid(x, y)) bad(f + ": its footprint tile " + x + "," + y + " isn't solid in coll");
+      var ex = Math.floor(b.x0 + b.w / 2), ey = b.y0 + b.h;                    // where pi comes out of the door
+      if (b.room && !walk(ex, ey)) bad(f + ": its doorway " + ex + "," + ey + " (where pi comes out) can't be walked");
+      return copy(b);
+    });
+    if (!isObj(M.stations)) bad("stations must be an object (id: [x, y])");
+    D.stations = {};
+    Object.keys(M.stations).forEach(function (sid) {
+      var p = M.stations[sid], f = "station " + sid;
+      if (!ID.test(sid)) bad(f + ": the id must be a short lowercase name");
+      nums(p, f, 2); int(p[0], f + " x", 0, w - 1); int(p[1], f + " y", 0, h - 1);
+      // a landmark on land was always something pi bumps into; one on the water (the boat) is in the water
+      var t = g(p[0], p[1]);
+      if (t !== DEEP && t !== SHAL && t !== POND && t !== RIVER && !solid(p[0], p[1])) bad(f + " stands on land at " + p[0] + "," + p[1] + " but that tile isn't solid in coll");
+      D.stations[sid] = [p[0], p[1]];
+    });
+    var A = M.anchors; if (!isObj(A)) bad("anchors is missing");
+    only(A, "anchors", ["spawn", "helipad", "dock", "gate"]);
+    nums(A.spawn, "anchors.spawn", 2); num(A.spawn[0], "anchors.spawn x");
+    if (A.spawn[0] < 0 || A.spawn[1] < 0 || A.spawn[0] >= PWm || A.spawn[1] >= PHm) bad("anchors.spawn (world px) is off the map");
+    if (!walk(Math.floor(A.spawn[0] / T), Math.floor(A.spawn[1] / T))) bad("anchors.spawn is on a tile that can't be walked (the safe ground floods from it)");
+    nums(A.helipad, "anchors.helipad", 2); int(A.helipad[0], "anchors.helipad x", 1, w - 2); int(A.helipad[1], "anchors.helipad y", 1, h - 2);
+    if (g(A.helipad[0], A.helipad[1]) !== PAD) bad("anchors.helipad " + A.helipad + " isn't on a pad tile in ground");
+    nums(A.dock, "anchors.dock", 2); int(A.dock[0], "anchors.dock x", 0, w - 2); int(A.dock[1], "anchors.dock y", 0, h - 5);
+    for (var dy = 1; dy <= 4; dy++) for (var dx = 0; dx <= 1; dx++) if (g(A.dock[0] + dx, A.dock[1] + dy) !== DOCK) bad("anchors.dock " + A.dock + ": the 2 x 4 tiles below it must be dock in ground");
+    nums(A.gate, "anchors.gate", 2); int(A.gate[0], "anchors.gate x", 2, w - 3); int(A.gate[1], "anchors.gate y", 0, h - 1);
+    if (!solid(A.gate[0] - 2, A.gate[1]) || !solid(A.gate[0] + 2, A.gate[1])) bad("anchors.gate " + A.gate + ": its two posts (2 tiles either side) must be solid in coll");
+    D.anchors = copy(A);
+    // regions, optional: the paddocks (their fences are solid) and the outpost compound (its walls are)
+    var R = M.regions === undefined ? {} : M.regions; if (!isObj(R)) bad("regions must be an object");
+    only(R, "regions", ["paddocks", "compound"]);
+    (R.paddocks === undefined ? [] : arr(R.paddocks, "regions.paddocks")).forEach(function (p, i) {
+      var f = "regions.paddocks[" + i + "]";
+      if (!Array.isArray(p) || p.length !== 5 || typeof p[0] !== "string" || !p[0]) bad(f + " must be [name, x0, y0, x1, y1]");
+      int(p[1], f + " x0", 0, w - 1); int(p[2], f + " y0", 0, h - 1); int(p[3], f + " x1", p[1] + 1, w - 1); int(p[4], f + " y1", p[2] + 1, h - 1);
+      for (var y = p[2]; y <= p[4]; y++) for (var x = p[1]; x <= p[3]; x++) {
+        var edge = x === p[1] || x === p[3] || y === p[2] || y === p[4], t = g(x, y);
+        if (edge && (t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE) && !solid(x, y)) bad(f + " (" + p[0] + "): its fence tile " + x + "," + y + " isn't solid in coll");
+      }
+    });
+    if (R.compound !== undefined) {
+      var Cp = R.compound, f2 = "regions.compound";
+      if (!isObj(Cp)) bad(f2 + " must be { x0, y0, x1, y1, gate }");
+      only(Cp, f2, ["x0", "y0", "x1", "y1", "gate"]);
+      int(Cp.x0, f2 + ".x0", 0, w - 1); int(Cp.y0, f2 + ".y0", 0, h - 1); int(Cp.x1, f2 + ".x1", Cp.x0 + 1, w - 1); int(Cp.y1, f2 + ".y1", Cp.y0 + 1, h - 1);
+      arr(Cp.gate, f2 + ".gate").forEach(function (gy, i) { int(gy, f2 + ".gate[" + i + "]", Cp.y0, Cp.y1); });
+      for (var cy = Cp.y0; cy <= Cp.y1; cy++) for (var cx = Cp.x0; cx <= Cp.x1; cx++) {     // its walls: the edge, where there's land and no path, but the gate
+        var ct = g(cx, cy);
+        if ((cx === Cp.x0 || cx === Cp.x1 || cy === Cp.y0 || cy === Cp.y1) && (ct === GRASS || ct === SAND || ct === PAD || ct === BRIDGE) && !(cx === Cp.x1 && Cp.gate.indexOf(cy) >= 0) && !solid(cx, cy)) bad(f2 + ": its wall tile " + cx + "," + cy + " isn't solid in coll");
+      }
+    }
+    D.regions = copy({ paddocks: R.paddocks || [], compound: R.compound || null });
+    // props, in their order, each a copy with its fields in their order
+    var PROP_KEYS = { kind: "string", tx: "tile", ty: "tile", flip: "boolean", ox: "offset", oy: "offset", sea: "boolean", flat: "boolean", eggs: "count" };
+    D.props = arr(M.props, "props").map(function (p, i) {
+      var f = "prop " + i;
+      if (!isObj(p)) bad(f + " must be an object");
+      if (typeof p.kind !== "string" || !/^(e:)?[a-z][a-z0-9_]*$/.test(p.kind)) bad(f + " needs a kind (a sprite name like e:oak1 or lamp)");
+      f = "prop " + i + " (" + p.kind + ")";
+      if (p.tx === undefined || p.ty === undefined) bad(f + " needs tx and ty");
+      Object.keys(p).forEach(function (q) {
+        var t = PROP_KEYS[q], v = p[q];
+        if (!t) bad(f + " has an unknown field " + q);
+        if (t === "boolean" && typeof v !== "boolean") bad(f + " " + q + " must be true or false");
+        if (t === "offset" && (typeof v !== "number" || !isFinite(v) || Math.abs(v) > 16)) bad(f + " " + q + " must be a number of px from -16 to 16");
+        if (t === "count") int(v, f + " " + q, 0, 9);
+      });
+      int(p.tx, f + " tx", 0, w - 1); int(p.ty, f + " ty", 0, h - 1);
+      if (BLOCKING_PROP.test(p.kind) && !solid(p.tx, p.ty)) bad(f + " at " + p.tx + "," + p.ty + " stands in pi's way, but that tile isn't solid in coll");
+      return copy(p);
+    });
+    // nobody climbs the volcano: every tile under its cone is solid
+    for (var vy = 0; vy < h; vy++) for (var vx = 0; vx < w; vx++) {
+      var u = vx * T + 8 - V.x, v2 = (vy * T + 8 - V.y) * V.sq;
+      if (Math.sqrt(u * u + v2 * v2) < V.R * 0.93 && !solid(vx, vy)) bad("tile " + vx + "," + vy + " is under the volcano but isn't solid in coll");
+    }
+    return D;
+  }
+  var MAP;
+  try { MAP = decodeMap(window.ISLAND_MAPS && window.ISLAND_MAPS.home); }
+  catch (e) { var err = new Error("pi's island: js/maps/home.js: " + e.message); if (window.console) console.error(err.message); throw err; }
+  var SH = MAP.shapes;
+  var MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock[0];
   function hash(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
   /* the island is built like a level, in three terraces. the highland across the north holds
      the volcano, the watchtower, the cave and, far to the west, the old shrine. a cliff band
@@ -107,19 +313,9 @@
   function tier(x, y) { return y < hiEdge(x) ? 2 : y < midEdge(x) ? 1 : 0; }
   /* the map is three layers, one value per tile, at index y * MW + x (Phase 8, D11-B), all authored in
      js/maps/home.js: GROUND, the tile codes above; HEIGHT, the terrace (0 to 5; the island uses 0 to 2
-     today); and COLL, the collision flags (below). each is decoded into the game's own array, so
-     nothing the game does changes the registry's data. a layer that doesn't decode stops the island */
-  function mapFail(msg) { var e = new Error("pi's island: js/maps/home.js: " + msg); if (window.console) console.error(e.message); throw e; }
-  function layer(name, list, max, Arr) {
-    var out = new (Arr || Uint8Array)(MW * MH);
-    if (!Array.isArray(list) || list.length !== MH) mapFail(name + " needs " + MH + " rows");
-    for (var ry = 0; ry < MH; ry++) {
-      var row = list[ry]; if (typeof row !== "string" || row.length !== MW) mapFail(name + " row " + ry + " isn't " + MW + " long");
-      for (var rx = 0; rx < MW; rx++) { var v = parseInt(row.charAt(rx), 36); if (!(v <= max)) mapFail(name + " row " + ry + " has a bad value at " + rx); out[ry * MW + rx] = v; }
-    }
-    return out;
-  }
-  var GROUND = layer("ground", MAP.ground, BRIDGE), x, y;
+     today); and COLL, the collision flags (below). decodeMap made each the game's own array, so nothing
+     the game does changes the registry's data */
+  var GROUND = MAP.ground, x, y;
   function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : GROUND[y * MW + x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
@@ -179,7 +375,7 @@
   });
 
   // height: which terrace each tile of ground (and water on the ground) sits on
-  var HEIGHT = layer("height", MAP.height, 5);
+  var HEIGHT = MAP.height;
   // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
   // (x, y) is the centre of its footprint; squash flattens the footprint front to back
   var VOLC = { x: SH.volcano.x, y: SH.volcano.y, R: SH.volcano.R, H: SH.volcano.H, sq: SH.volcano.sq, rc: SH.volcano.rc };
@@ -294,12 +490,12 @@
   // what can't be walked through is already in COLL
   var GATE = { x: MAP.anchors.gate[0], y: MAP.anchors.gate[1] };
   var PADDOCKS = MAP.regions.paddocks.map(function (p) { return { name: p[0], x0: p[1], y0: p[2], x1: p[3], y1: p[4] }; });
-  var COMPOUND = MAP.regions.compound;
+  var COMPOUND = MAP.regions.compound;                                  // or null: no outpost
   var fence = {}, wall = {};
   PADDOCKS.forEach(function (p) {
     for (y = p.y0; y <= p.y1; y++) for (x = p.x0; x <= p.x1; x++) if ((x === p.x0 || x === p.x1 || y === p.y0 || y === p.y1) && land(at(x, y))) fence[k(x, y)] = 1;
   });
-  for (y = COMPOUND.y0; y <= COMPOUND.y1; y++) for (x = COMPOUND.x0; x <= COMPOUND.x1; x++) {
+  if (COMPOUND) for (y = COMPOUND.y0; y <= COMPOUND.y1; y++) for (x = COMPOUND.x0; x <= COMPOUND.x1; x++) {
     if (!(x === COMPOUND.x0 || x === COMPOUND.x1 || y === COMPOUND.y0 || y === COMPOUND.y1) || !land(at(x, y)) || at(x, y) === PATH || (x === COMPOUND.x1 && COMPOUND.gate.indexOf(y) >= 0)) continue;
     wall[k(x, y)] = 1;
   }
@@ -316,51 +512,19 @@
     return v;
   }
   /* the props: trees, palms, ferns, rocks, nests, lamps, the outpost's kit, crates. static, y-sorted with
-     everything else, authored in the data, each copied so the game's own list is its own. TALL is every
+     everything else, authored in the data (decodeMap copied them, so the list is the game's own). TALL is every
      tree pi can walk behind */
   var TALL = /^e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern)/;
-  if (!Array.isArray(MAP.props)) mapFail("no props");
-  var props = MAP.props.map(function (p, i) {
-    if (!p || typeof p.kind !== "string" || !(p.tx >= 0 && p.tx < MW && p.ty >= 0 && p.ty < MH)) mapFail("prop " + i + " is bad");
-    return JSON.parse(JSON.stringify(p));
-  });
+  var props = MAP.props;
   var nests = props.filter(function (p) { return p.kind === "e:nest0"; });     // each with a clutch of speckled eggs
-  /* the collision layer, authored: a tile can be walked when none of SOLID, SHALLOW, DEEP or LAVA is set.
-     LOW, the ledges and CLIMBABLE are reserved for Phase 11 (jumping, heights) and nothing sets them yet */
-  var C_SOLID = 1, C_SHALLOW = 2, C_DEEP = 4, C_LOW = 8, C_LEDGE_N = 16, C_LEDGE_E = 32, C_LEDGE_S = 64, C_LEDGE_W = 128, C_LAVA = 256, C_CLIMB = 512;
-  var C_BLOCK = C_SOLID | C_SHALLOW | C_DEEP | C_LAVA;
-  var COLL = (function () {
-    var C = MAP.coll, vals = C && C.values;
-    if (!Array.isArray(vals) || !vals.length || vals.length > 36 || !vals.every(function (v) { return v >= 0 && v < 1024 && v % 1 === 0; })) mapFail("coll.values is bad");
-    var ix = layer("coll", C.rows, vals.length - 1), out = new Uint16Array(MW * MH);
-    for (var i = 0; i < out.length; i++) out[i] = vals[ix[i]];
-    return out;
-  })();
+  var COLL = MAP.coll;                                                  // the collision layer, authored (the flags are above)
   function walkable(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH && !(COLL[y * MW + x] & C_BLOCK); }
   /* footBlock, authored: the pixels where feet stop on tiles COLL lets them onto (the river's, pond's and
      sea's wandering edges, a bridge's rails excepted). the data holds runs per pixel row; here they are one
      bit per pixel. so where feet stop is COLL and footBlock, nothing else: the painted ground (GK, below)
      is only a picture */
   var PW = MW * T, PH = MH * T;
-  var FOOT = (function () {
-    var bits = new Uint32Array((PW * PH + 31) >>> 5), lastY = -1;
-    if (!Array.isArray(MAP.footBlock)) mapFail("no footBlock");
-    MAP.footBlock.forEach(function (r) {
-      var py = r && r[0];
-      if (!Array.isArray(r) || r.length < 3 || r.length % 2 !== 1 || !(py > lastY && py < PH && py % 1 === 0)) mapFail("footBlock row " + py + " is bad");
-      lastY = py;
-      for (var i = 1, end = -1; i < r.length; i += 2) {
-        var x0 = r[i], n = r[i + 1];
-        if (!(x0 % 1 === 0 && n % 1 === 0 && n >= 1 && x0 > end && x0 + n <= PW)) mapFail("footBlock row " + py + " has a bad run at " + x0);
-        for (var px = x0; px < x0 + n; px++) {
-          if (!walkable((px / T) | 0, (py / T) | 0)) mapFail("footBlock " + px + "," + py + " is on a tile COLL already blocks");
-          var b = py * PW + px; bits[b >>> 5] |= 1 << (b & 31);
-        }
-        end = x0 + n;
-      }
-    });
-    return bits;
-  })();
+  var FOOT = MAP.foot;
   function solidPx(px, py) {
     var tx = Math.floor(px / T), ty = Math.floor(py / T);
     if (!walkable(tx, ty)) return true;
@@ -708,12 +872,12 @@
     r(hx0 - 7, hy0 - 8, 3, 16, "#f4f4f4"); r(hx0 + 4, hy0 - 8, 3, 16, "#f4f4f4"); r(hx0 - 4, hy0 - 1, 8, 3, "#f4f4f4");
 
     // bones in the t-rex paddock, and three-toed tracks along the south beach
-    (function bones(bx, by) {
+    if (MAP.decals.bones) (function bones(bx, by) {
       for (var b = 0; b < 6; b++) { r(bx + b * 3, by, 1, 6, "#d9cfb8"); r(bx + b * 3, by, 1, 1, "#f2ead8"); }
       r(bx - 1, by + 3, 18, 1, "#c8bea8"); r(bx + 17, by + 2, 6, 3, "#e8e0cc"); r(bx + 21, by + 1, 5, 4, "#e8e0cc"); r(bx + 22, by + 2, 1, 1, "#3a3024"); r(bx + 24, by + 4, 2, 1, "#c8bea8");
       r(bx - 10, by + 3, 9, 1, "#c8bea8"); r(bx - 12, by + 4, 3, 1, "#c8bea8");
-    })(MAP.decals.bones[0], MAP.decals.bones[1]);
-    var TRK = MAP.decals.tracks;
+    }).apply(null, MAP.decals.bones);
+    var TRK = MAP.decals.tracks || { x: 0, dx: 0, y: 0, n: 0 };
     for (var ft = 0; ft < TRK.n; ft++) {
       var fx0 = Math.round((TRK.x + ft * TRK.dx) * T + (ft % 2) * 6), fy0 = Math.round((TRK.y + Math.sin(ft * 0.6) * 0.5) * T);
       if (kAt(fx0, fy0) !== KS) continue;
@@ -4591,6 +4755,12 @@
       return out;
     },
     walkTo: function (tx, ty, loose) { pi.path = piPath([tx, ty], !!loose); pi.want = null; return pi.path ? pi.path.length : null; },   // what a tap on that tile does                                          // where feet stop, in world px
+    // decodeMap on any map's data (synthetic ones in the tests): a summary of what it decoded, or its error
+    decodeMap: function (o) {
+      var d = decodeMap(o);
+      return { id: d.id, w: d.w, h: d.h, source: d.source, ground: d.ground.length, height: d.height.length, coll: d.coll.length, footWords: d.foot.length, footPixels: d.footPixels,
+               props: d.props.length, buildings: d.buildings.length, stations: Object.keys(d.stations).length, curves: d.shapes.curves.length, paddocks: d.regions.paddocks.length, compound: !!d.regions.compound };
+    },
     // the map layers (copies), one value per tile at y * w + x
     layers: function () {
       return { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
