@@ -166,9 +166,9 @@
       if (island) return;
       island = 1;
       var failed = function () { island = 0; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = "[ the island didn't load. try again ]"; };
-      script("js/audio.js?v=20261022", function () {
-        script("js/maps/home.js?v=20261022", function () {
-          script("js/world.js?v=20261022", function () {
+      script("js/audio.js?v=20261023", function () {
+        script("js/maps/home.js?v=20261023", function () {
+          script("js/world.js?v=20261023", function () {
             if (!window.islandEnter) { failed(); return; }           // it loaded but couldn't build (say, a broken map)
             island = 2; orbBtn.removeAttribute("aria-busy"); if (hint) hint.textContent = hint0;
             if (go) window.islandEnter();
