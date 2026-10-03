@@ -105,12 +105,21 @@
   function hiEdge(x) { return edgeAt(SH.terraces[0], x); }
   function midEdge(x) { return edgeAt(SH.terraces[1], x); }
   function tier(x, y) { return y < hiEdge(x) ? 2 : y < midEdge(x) ? 1 : 0; }
-  /* the map is three layers, one value per tile, at index y * MW + x (Phase 8, D11-B):
-     GROUND, the tile codes above; HEIGHT, the terrace (0 to 5; the island uses 0 to 2 today); and
-     COLL, collision flags (below the planting). the builder writes them directly, so there is no
-     second copy of the map to drift */
-  var GROUND = new Uint8Array(MW * MH), x, y;
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { var cv0 = coast(x + 0.5, y + 0.5); GROUND[y * MW + x] = cv0 > 1.12 ? DEEP : cv0 > 1 ? SHAL : cv0 > 0.925 ? SAND : GRASS; }
+  /* the map is three layers, one value per tile, at index y * MW + x (Phase 8, D11-B), all authored in
+     js/maps/home.js: GROUND, the tile codes above; HEIGHT, the terrace (0 to 5; the island uses 0 to 2
+     today); and COLL, the collision flags (below). each is decoded into the game's own array, so
+     nothing the game does changes the registry's data. a layer that doesn't decode stops the island */
+  function mapFail(msg) { var e = new Error("pi's island: js/maps/home.js: " + msg); if (window.console) console.error(e.message); throw e; }
+  function layer(name, list, max, Arr) {
+    var out = new (Arr || Uint8Array)(MW * MH);
+    if (!Array.isArray(list) || list.length !== MH) mapFail(name + " needs " + MH + " rows");
+    for (var ry = 0; ry < MH; ry++) {
+      var row = list[ry]; if (typeof row !== "string" || row.length !== MW) mapFail(name + " row " + ry + " isn't " + MW + " long");
+      for (var rx = 0; rx < MW; rx++) { var v = parseInt(row.charAt(rx), 36); if (!(v <= max)) mapFail(name + " row " + ry + " has a bad value at " + rx); out[ry * MW + rx] = v; }
+    }
+    return out;
+  }
+  var GROUND = layer("ground", MAP.ground, BRIDGE), x, y;
   function at(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? DEEP : GROUND[y * MW + x]; }
   function land(t) { return t === GRASS || t === SAND || t === PATH || t === PAD || t === BRIDGE; }
   function wet(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
@@ -129,7 +138,6 @@
     for (var i = 0; i < SH.pond.waves.length; i++) r = wave(r, SH.pond.waves[i], a);
     return Math.sqrt(dx * dx + dy * dy) / r;
   }
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (GROUND[y * MW + x] === GRASS && pondF(x + 0.5, y + 0.5) < 1) GROUND[y * MW + x] = POND;
   // roads and the river are smooth curves (catmull-rom through a few points), not grid lines
   function spline(pts, fn) {
     for (var i = 0; i < pts.length - 1; i++) {
@@ -143,33 +151,21 @@
     var e = pts[pts.length - 1]; fn(e[0], e[1], 1);
   }
   var CURVES = { river: [], road: [] };                               // every sample along them, for the ground painter
-  function carve(pts, width, paint, kind) {
-    spline(pts, function (fx, fy, q) {
-      var wd = typeof width === "function" ? width(q) : width, r0 = Math.ceil(wd);
-      CURVES[kind].push([fx, fy, wd / 2]);
-      for (var j = -r0; j <= r0; j++) for (var i = -r0; i <= r0; i++) {
-        var tx = Math.floor(fx) + i, ty = Math.floor(fy) + j;
-        if (tx < 0 || ty < 0 || tx >= MW || ty >= MH) continue;
-        if (Math.hypot(tx + 0.5 - fx, ty + 0.5 - fy) <= wd / 2) paint(tx, ty);
-      }
-    });
+  function carve(pts, width, kind) {
+    spline(pts, function (fx, fy, q) { var wd = typeof width === "function" ? width(q) : width; CURVES[kind].push([fx, fy, wd / 2]); });
   }
-  /* the river first, then the village square, then the roads (the data keeps them in that order): the
-     village to the clearing, up past the gate to the highland, the watchtower, the cave, west over the
-     river to the brachio meadow, the old trail into the woods, east past the garden along the headland,
-     the raptor pen, the t-rex viewpoint, the garden, the coast road to the outpost, the helipad, the
-     dock, the stone tablet */
+  /* the river and the roads, in the data's order (the river first): the village to the clearing, up
+     past the gate to the highland, the watchtower, the cave, west over the river to the brachio meadow,
+     the old trail into the woods, east past the garden along the headland, the raptor pen, the t-rex
+     viewpoint, the garden, the coast road to the outpost, the helipad, the dock, the stone tablet.
+     their tiles are in GROUND already; the curves are what the painter draws them from */
   var RIVERS = SH.curves.filter(function (c) { return c.kind === "river"; }), ROADS = SH.curves.filter(function (c) { return c.kind === "road"; });
   var RIVER_PTS = RIVERS[0].pts;
-  RIVERS.forEach(function (c) { carve(c.pts, function (q) { return c.w[0] + q * c.w[1]; }, function (tx, ty) { if (GROUND[ty * MW + tx] === GRASS || GROUND[ty * MW + tx] === SAND) GROUND[ty * MW + tx] = RIVER; }, "river"); });
-  function road(pts, width) { carve(pts, width, function (tx, ty) { var m = GROUND[ty * MW + tx]; if (m === GRASS || m === SAND) GROUND[ty * MW + tx] = PATH; else if (m === RIVER) GROUND[ty * MW + tx] = BRIDGE; }, "road"); }
+  RIVERS.forEach(function (c) { carve(c.pts, function (q) { return c.w[0] + q * c.w[1]; }, "river"); });
+  ROADS.forEach(function (c) { carve(c.pts, c.w, "road"); });
   var PLAZA = { x: SH.plaza.x, y: SH.plaza.y, r: SH.plaza.r };       // the village square, by the harbour
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (Math.hypot(x + 0.5 - PLAZA.x, y + 0.5 - PLAZA.y) < PLAZA.r && land(at(x, y))) GROUND[y * MW + x] = PATH;
   var dockY = MAP.anchors.dock[1];                                     // the last tile of land before the dock
-  ROADS.forEach(function (c) { road(c.pts, c.w); });
-  for (y = dockY + 1; y <= dockY + 4; y++) { GROUND[y * MW + DOCKX] = DOCK; GROUND[y * MW + DOCKX + 1] = DOCK; }
   var HELI = { x: MAP.anchors.helipad[0], y: MAP.anchors.helipad[1] }; // the helipad, 3x3 tiles
-  for (y = HELI.y - 1; y <= HELI.y + 1; y++) for (x = HELI.x - 1; x <= HELI.x + 1; x++) if (land(at(x, y))) GROUND[y * MW + x] = PAD;
   // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost. where
   // each stands and the room behind its door are map data; the names and words are here
   var BUILDINGS = [
@@ -183,15 +179,13 @@
   });
 
   // height: which terrace each tile of ground (and water on the ground) sits on
-  var HEIGHT = new Uint8Array(MW * MH);
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) { var tl = GROUND[y * MW + x]; HEIGHT[y * MW + x] = tl === GRASS || tl === PATH || tl === RIVER || tl === BRIDGE || tl === POND || tl === PAD ? tier(x + 0.5, y + 0.5) : 0; }
+  var HEIGHT = layer("height", MAP.height, 5);
   // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
   // (x, y) is the centre of its footprint; squash flattens the footprint front to back
   var VOLC = { x: SH.volcano.x, y: SH.volcano.y, R: SH.volcano.R, H: SH.volcano.H, sq: SH.volcano.sq, rc: SH.volcano.rc };
   function volcD(wx, wy) { var u = wx - VOLC.x, v = (wy - VOLC.y) * VOLC.sq; return Math.sqrt(u * u + v * v); }
   var RIMH = Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H;
   function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : HEIGHT[y * MW + x]; }
-  function rim(x, y) { var l = lvl(x, y); return lvl(x + 1, y) !== l || lvl(x - 1, y) !== l || lvl(x, y + 1) !== l || lvl(x, y - 1) !== l; }
   // the waterfalls: wherever the river runs off a cliff
   var FALLS = [];
   (function () {
@@ -293,38 +287,23 @@
   save.logs.forEach(function (k2) { if (typeof k2 === "string") found[k2] = 1; });
 
   /* ════════ collision ════════ */
-  var solid = {}, fence = {};
   function k(x, y) { return x + "," + y; }
-  OUT.forEach(function (s) {
-    if (s.id === "boat") return;
-    solid[k(s.x, s.y)] = 1;
-    if (s.wide) { solid[k(s.x - 1, s.y)] = 1; solid[k(s.x + 1, s.y)] = 1; }
-  });
-  function nearStation(x, y) {
-    for (var i = 0; i < OUT.length; i++) { var s = OUT[i]; if (Math.abs(s.x - x) <= 1 && y >= s.y - 2 && y <= s.y + 1) return true; }
-    return false;
-  }
   function near(x, y, r, fn) { for (var j = -r; j <= r; j++) for (var i = -r; i <= r; i++) if (fn(x + i, y + j)) return true; return false; }
-  // cliffs: tiles where the ground changes level can't be walked, except where a path makes stairs
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (GROUND[y * MW + x] !== PATH && (GROUND[y * MW + x] === GRASS || GROUND[y * MW + x] === SAND) && rim(x, y)) solid[k(x, y)] = 1;
-  // nobody climbs the volcano
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) if (volcD(x * T + 8, y * T + 8) < VOLC.R * 0.93) solid[k(x, y)] = 1;
-  // the park gate over the north road, and the electric fences around the paddocks
+  // the park gate over the north road, the electric fences around the paddocks and the outpost's sandbag
+  // walls: where they stand is map data, the fence and wall tiles (drawn as sprites) follow from it, and
+  // what can't be walked through is already in COLL
   var GATE = { x: MAP.anchors.gate[0], y: MAP.anchors.gate[1] };
-  solid[k(GATE.x - 2, GATE.y)] = 1; solid[k(GATE.x + 2, GATE.y)] = 1;
   var PADDOCKS = MAP.regions.paddocks.map(function (p) { return { name: p[0], x0: p[1], y0: p[2], x1: p[3], y1: p[4] }; });
+  var COMPOUND = MAP.regions.compound;
+  var fence = {}, wall = {};
   PADDOCKS.forEach(function (p) {
-    for (y = p.y0; y <= p.y1; y++) for (x = p.x0; x <= p.x1; x++) {
-      if ((x === p.x0 || x === p.x1 || y === p.y0 || y === p.y1) && land(at(x, y))) { fence[k(x, y)] = 1; solid[k(x, y)] = 1; }
-    }
+    for (y = p.y0; y <= p.y1; y++) for (x = p.x0; x <= p.x1; x++) if ((x === p.x0 || x === p.x1 || y === p.y0 || y === p.y1) && land(at(x, y))) fence[k(x, y)] = 1;
   });
-  function inPaddock(x, y) { return PADDOCKS.some(function (p) { return x > p.x0 && x < p.x1 && y > p.y0 && y < p.y1; }); }
-  BUILDINGS.forEach(function (bd) { for (y = bd.y0; y < bd.y0 + bd.h; y++) for (x = bd.x0; x < bd.x0 + bd.w; x++) solid[k(x, y)] = 1; });
-  function inBuilding(x, y) { return BUILDINGS.some(function (bd) { return x >= bd.x0 - 1 && x <= bd.x0 + bd.w && y >= bd.y0 - 2 && y <= bd.y0 + bd.h; }); }
-  /* planting, the way a level artist would: forests are solid masses from a low-frequency
-     noise field (so they read as woods, not a scatter), trees inside them are jittered off the
-     grid, ferns and tall grass only grow along forest edges and water, and meadows stay open
-     with a lone tree here and there. boulders gather under the cliffs and round the volcano. */
+  for (y = COMPOUND.y0; y <= COMPOUND.y1; y++) for (x = COMPOUND.x0; x <= COMPOUND.x1; x++) {
+    if (!(x === COMPOUND.x0 || x === COMPOUND.x1 || y === COMPOUND.y0 || y === COMPOUND.y1) || !land(at(x, y)) || at(x, y) === PATH || (x === COMPOUND.x1 && COMPOUND.gate.indexOf(y) >= 0)) continue;
+    wall[k(x, y)] = 1;
+  }
+  /* the woods' shade on the ground: a low-frequency noise field, raised round the woods the data names */
   function fbm(x, y) {
     var v = 0, a2 = 1, f = 0.07, n = 0;
     for (var o = 0; o < 3; o++) { v += a2 * (Math.sin(x * f + o * 1.7) * Math.cos(y * f * 1.13 + o * 2.3) + Math.sin((x + y) * f * 0.7 + o)); n += a2 * 2; a2 *= 0.5; f *= 2.1; }
@@ -336,131 +315,57 @@
     FOREST_BIAS.forEach(function (fb) { v += fb[3] * Math.max(0, 1 - Math.hypot(x - fb[0], y - fb[1]) / fb[2]); });
     return v;
   }
-  var CLEAR = [[46.5, 60, 6], [48.5, 43.5, 6.2], [18, 38, 4], [61, 56, 5.5], [67, 50, 4], [65, 34, 4], [33, 48.5, 4.5], [61, 62, 3], [78, 44, 4], [58, 22, 2.5], [41, 20.5, 2], [48, 33, 2.5], [89, 37, 2.5], [77, 34, 3], [22, 61, 5]];
-  var COMPOUND = MAP.regions.compound;
-  function inCompound(x, y) { return x >= COMPOUND.x0 && x <= COMPOUND.x1 && y >= COMPOUND.y0 - 1 && y <= COMPOUND.y1; }
-  function clearing(x, y) { return inCompound(x, y) || Math.hypot(x - 21, y - 21.5) < 1.7 || CLEAR.some(function (c) { return Math.hypot(x - c[0], y - c[1]) < c[2]; }); }
-  var props = [];     // trees, palms, ferns, rocks, nests: static, y-sorted with everything else
-  /* trees by terrace (D1 rule 6). species grow in stands (a slow noise picks the stand), variants
-     by hash. the lowland: palms, buttressed figs, tall tree ferns. the meadows: oak, birch, ginkgo
-     and the odd monkey-puzzle. the highland: monkey-puzzle, dawn redwood, ginkgo. birches by the
-     water above the beach. TALL is every tree pi can walk behind */
+  /* the props: trees, palms, ferns, rocks, nests, lamps, the outpost's kit, crates. static, y-sorted with
+     everything else, authored in the data, each copied so the game's own list is its own. TALL is every
+     tree pi can walk behind */
   var TALL = /^e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern)/;
-  function epick(base, n, h) { return "e:" + base + Math.min(n - 1, Math.floor(h * 97 % n)); }
-  var VARIANTS = { oak: 3, birch: 2, ginkgo: 2, mpuzzle: 3, redwood: 2, palm: 3, fig: 2, tallfern: 2 };
-  function stand(x, y, list) {                                   // each stand is a wobbly cell about 5 tiles across; a quarter of its trees are the next species
-    var cx = Math.floor((x + fbm(x * 0.3, y * 0.3) * 3) / 5), cy = Math.floor((y + fbm(y * 0.3 + 9, x * 0.3) * 3) / 5);
-    var i = Math.floor(hash(cx * 17 + 3, cy * 31 + 7) * list.length);
-    return list[hash(x * 3 + 1, y * 5 + 2) < 0.25 ? (i + 1) % list.length : i];
-  }
-  function treeFor(x, y, inF, h) {
-    var b = tier(x + 0.5, y + 0.5), sp;
-    if (b === 0) {
-      sp = at(x, y) === SAND || coast(x + 0.5, y + 0.5) > 0.88 ? "palm" : stand(x, y, inF ? ["fig", "tallfern", "palm"] : ["fig", "palm", "tallfern"]);
-      if (sp === "fig" && near(x, y, 1, function (a2, b2) { return solid[k(a2, b2)]; })) sp = "tallfern";      // the figs need room
-    } else if (nearWater(x, y, 2)) sp = "birch";
-    else if (b === 2) sp = stand(x, y, inF ? ["mpuzzle", "redwood", "ginkgo"] : ["mpuzzle", "ginkgo"]);
-    else sp = stand(x, y, inF ? ["oak", "birch", "oak", "ginkgo", "mpuzzle"] : ["oak", "ginkgo"]);
-    return epick(sp, VARIANTS[sp], h);
-  }
-  // under the trees and along the edges: tree ferns, cycads, bushes, magnolia, fern clumps; horsetails
-  // and reeds by the water; boulders at the foot of the cliffs and pebbles by the paths
-  function plantUnder(x, y, edge, inF, h2) {
-    var wetNear = nearWater(x, y, 1), tr = tier(x + 0.5, y + 0.5), p = { tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 3), oy: jit(x, y, 7) / 3 };
-    var drift = fbm(x * 1.1 + 70, y * 1.1 + 20);                    // plants gather in drifts, not a scatter
-    if (lvl(x, y - 2) > lvl(x, y) && lvl(x, y - 1) === lvl(x, y) && h2 < 0.22) { p.kind = epick("rock2_", 5, h2); solid[k(x, y)] = 1; }   // boulders at the foot of the cliffs
-    else if (wetNear && h2 < 0.2) p.kind = drift > 0.12 ? epick("reeds", 3, h2) : h2 < 0.1 ? "e:horsetail0" : undefined;
-    // the woods and their edges (clearings and paddocks stay open)
-    else if ((inF ? h2 < 0.34 : edge && h2 < 0.17) && !clearing(x, y) && !(inPaddock(x, y) && h2 > 0.08)) p.kind = tr === 2 ? (h2 < 0.1 ? epick("cycad", 2, h2) : h2 < 0.18 ? "e:horsetail0" : epick("fern", 2, h2))    // the highland: cooler, no flowers
-      : h2 < 0.08 ? epick("tfern", 2, h2) : h2 < 0.14 ? epick("cycad", 2, h2) : h2 < 0.2 && tr === 1 ? "e:magnolia0" : h2 < 0.27 ? epick("bush", 2, h2) : epick("fern", 2, h2);
-    else if (!inF && tr < 2 && fbm(x * 2.3 + 40, y * 2.3) > 0.25 && h2 < 0.36) { p.kind = epick("tallgrass", 3, h2); p.oy = jit(x, y, 6) / 2; }   // tall grass in drifts across the open ground
-    else if (drift > 0.35 && h2 < 0.14 && !clearing(x, y)) p.kind = epick("fern", 2, h2);   // a few fern drifts out in the open
-    else if (near(x, y, 1, function (a2, b2) { return at(a2, b2) === PATH; }) && h2 < 0.12) p.kind = h2 < 0.06 ? epick("pebbles", 2, h2) : epick("rock0_", 5, h2);
-    else if (rim(x, y + 1) && h2 < 0.1) { p.kind = epick("pebbles", 2, h2); p.oy = 0; }
-    else if (h2 < 0.025) p.kind = epick("rock1_", 5, h2);
-    if (p.kind) props.push(p);
-  }
-  function busy(a, b) { var q = at(a, b); return q === PATH || q === POND || q === PAD || q === DOCK || q === LAVA || q === RIVER || q === BRIDGE || fence[k(a, b)] || nearStation(a, b) || inBuilding(a, b) || Math.abs(a - GATE.x) <= 3 && Math.abs(b - GATE.y) <= 1; }
-  function nearWater(a, b, r) { return near(a, b, r, function (i, j) { var q = at(i, j); return q === RIVER || q === POND; }); }
-  function jit(x, y, n) { return Math.round((hash(x * n, y * 3 + n) - 0.5) * 8); }
-  for (y = 1; y < MH - 1; y++) for (x = 1; x < MW - 1; x++) {
-    var t = GROUND[y * MW + x], h = hash(x, y);
-    if (volcD(x * T + 8, y * T + 8) < VOLC.R + 6) {       // boulders ring the volcano's foot
-      if (t === GRASS && volcD(x * T + 8, y * T + 8) > VOLC.R * 0.93 && h < 0.28 && !busy(x, y) && !solid[k(x, y)]) props.push({ kind: h < 0.06 ? epick("rock2_", 5, h) : h < 0.14 ? epick("rock1_", 5, h) : epick("pebbles", 2, h), tx: x, ty: y, flip: h < 0.1, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 });
-      continue;
-    }
-    if (t === GRASS && !solid[k(x, y)]) {
-      var F = forest(x, y), edge = F > 0.12 && F < 0.26, inF = F >= 0.26;
-      var dense = inF ? 0.82 : edge ? 0.18 : 0.025;
-      if (inPaddock(x, y)) dense *= 0.3;
-      if (!clearing(x, y) && h < dense && !near(x, y, 1, busy)) {
-        var kind = treeFor(x, y, inF, h);
-        props.push({ kind: kind, tx: x, ty: y, flip: hash(y, x) < 0.5, ox: jit(x, y, 1), oy: jit(x, y, 2) / 2 }); solid[k(x, y)] = 1;
-        continue;
-      }
-      var h2 = hash(x * 7, y * 13);
-      if (busy(x, y)) continue;
-      plantUnder(x, y, edge, inF, h2);
-    } else if (t === SAND && h < 0.11 && !solid[k(x, y)]) {
-      if (near(x, y, 1, function (a2, b2) { return busy(a2, b2) || solid[k(a2, b2)]; })) continue;
-      props.push({ kind: epick("palm", 3, h), tx: x, ty: y, flip: h < 0.055, ox: jit(x, y, 1), oy: 0 }); solid[k(x, y)] = 1;
-    } else if (t === SHAL && h < 0.02 && Math.abs(x - DOCKX) > 3) {
-      props.push({ kind: epick("rock1_", 5, h * 50), tx: x, ty: y, flip: h < 0.01, sea: true });      // rocks in the shallows, the surf round them
-    }
-  }
-  // the cave's surroundings (ref-6): the hillside is solid, two bare trees and some stones beside it
-  (function () {
-    var cs = STATIONS.filter(function (q) { return q.id === "cave"; })[0]; if (!cs) return;
-    for (var yy = cs.y - 2; yy <= cs.y - 1; yy++) for (var xx = cs.x - 2; xx <= cs.x + 2; xx++) solid[k(xx, yy)] = 1;
-    solid[k(cs.x - 2, cs.y)] = 1; solid[k(cs.x + 2, cs.y)] = 1;
-    [["e:baretree0", cs.x - 4, cs.y], ["e:baretree1", cs.x + 4, cs.y - 1], ["e:rock0_1", cs.x - 3, cs.y + 1], ["e:rock0_3", cs.x + 3, cs.y + 1], ["e:rock1_2", cs.x + 5, cs.y + 1]].forEach(function (q) {
-      if (walkable0(q[1], q[2])) { props.push({ kind: q[0], tx: q[1], ty: q[2], flip: hash(q[1], q[2]) < 0.5, ox: 0, oy: 0 }); if (/tree/.test(q[0])) solid[k(q[1], q[2])] = 1; }
-    });
-  })();
-  // lily pads: a few clusters on the pond, clear of the middle
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
-    if (GROUND[y * MW + x] !== POND) continue;
-    var pf0 = pondF(x + 0.5, y + 0.5);
-    if (pf0 > 0.35 && pf0 < 0.85 && fbm(x * 1.7 + 11, y * 1.7) > 0.05 && hash(x * 5, y * 11) < 0.5) props.push({ kind: epick("lilies", 3, hash(y, x)), tx: x, ty: y, flip: hash(x, y) < 0.5, ox: jit(x, y, 2), oy: 0, flat: true });
-  }
-  // nests in the meadow, each with a clutch of speckled eggs
-  var nests = [[57, 55], [63, 57], [66, 54], [15, 39]].filter(function (n) { return walkable0(n[0], n[1]); }).map(function (n) {
-    solid[k(n[0], n[1])] = 1; var p = { kind: "e:nest0", tx: n[0], ty: n[1], eggs: 2 + ((hash(n[0], n[1]) * 3) | 0) }; props.push(p); return p;
+  if (!Array.isArray(MAP.props)) mapFail("no props");
+  var props = MAP.props.map(function (p, i) {
+    if (!p || typeof p.kind !== "string" || !(p.tx >= 0 && p.tx < MW && p.ty >= 0 && p.ty < MH)) mapFail("prop " + i + " is bad");
+    return JSON.parse(JSON.stringify(p));
   });
-  function walkable0(x, y) { return land(at(x, y)) && at(x, y) !== PATH && !solid[k(x, y)]; }
-  [[43, 59], [50, 60], [43, 62], [50, 63], [46, 33], [51, 33], [53, 62], [26, 40]].forEach(function (l) {
-    if (land(at(l[0], l[1])) && at(l[0], l[1]) !== PATH && at(l[0], l[1]) !== BRIDGE && !solid[k(l[0], l[1])]) { props.push({ kind: "lamp", tx: l[0], ty: l[1] }); solid[k(l[0], l[1])] = 1; }
-  });
-  // the outpost: sandbag walls with a gate facing the helipad, and a yard kitted for living off-grid
-  var wall = {};
-  for (y = COMPOUND.y0; y <= COMPOUND.y1; y++) for (x = COMPOUND.x0; x <= COMPOUND.x1; x++) {
-    var edge2 = x === COMPOUND.x0 || x === COMPOUND.x1 || y === COMPOUND.y0 || y === COMPOUND.y1;
-    if (!edge2 || !land(at(x, y)) || at(x, y) === PATH || (x === COMPOUND.x1 && COMPOUND.gate.indexOf(y) >= 0)) continue;
-    wall[k(x, y)] = 1; solid[k(x, y)] = 1;
-  }
-  [["mast", 18, 61], ["solar", 18, 63], ["solar", 19, 63], ["generator", 24, 58], ["tank", 26, 58], ["tent", 22, 63], ["campfire", 21, 62], ["crates", 27, 64], ["lamp", 27, 58], ["lamp", 18, 59]].forEach(function (q) {
-    if (walkable0(q[1], q[2])) { props.push({ kind: q[0], tx: q[1], ty: q[2] }); solid[k(q[1], q[2])] = 1; }
-  });
-  // crates stacked by the depot and on the dock
-  [[56, 60], [56, 59], [52, 60], [DOCKX - 1, dockY]].forEach(function (c2) { if (walkable0(c2[0], c2[1])) { props.push({ kind: "crates", tx: c2[0], ty: c2[1] }); solid[k(c2[0], c2[1])] = 1; } });
-  /* the collision layer. built once from the tile types and everything planted above, then it is
-     the only record: the solid set was the builder's scratchpad and is dropped. a tile can be walked
-     when none of SOLID, SHALLOW, DEEP or LAVA is set. LOW, the ledges and CLIMBABLE are reserved for
-     Phase 11 (jumping, heights) and nothing sets them yet */
+  var nests = props.filter(function (p) { return p.kind === "e:nest0"; });     // each with a clutch of speckled eggs
+  /* the collision layer, authored: a tile can be walked when none of SOLID, SHALLOW, DEEP or LAVA is set.
+     LOW, the ledges and CLIMBABLE are reserved for Phase 11 (jumping, heights) and nothing sets them yet */
   var C_SOLID = 1, C_SHALLOW = 2, C_DEEP = 4, C_LOW = 8, C_LEDGE_N = 16, C_LEDGE_E = 32, C_LEDGE_S = 64, C_LEDGE_W = 128, C_LAVA = 256, C_CLIMB = 512;
   var C_BLOCK = C_SOLID | C_SHALLOW | C_DEEP | C_LAVA;
-  var COLL = new Uint16Array(MW * MH);
-  for (y = 0; y < MH; y++) for (x = 0; x < MW; x++) {
-    var ct = GROUND[y * MW + x];
-    COLL[y * MW + x] = (solid[k(x, y)] ? C_SOLID : 0) | (ct === DEEP ? C_DEEP : 0) | (ct === SHAL || ct === POND || ct === RIVER ? C_SHALLOW : 0) | (ct === LAVA ? C_LAVA : 0);
-  }
-  solid = null;
+  var COLL = (function () {
+    var C = MAP.coll, vals = C && C.values;
+    if (!Array.isArray(vals) || !vals.length || vals.length > 36 || !vals.every(function (v) { return v >= 0 && v < 1024 && v % 1 === 0; })) mapFail("coll.values is bad");
+    var ix = layer("coll", C.rows, vals.length - 1), out = new Uint16Array(MW * MH);
+    for (var i = 0; i < out.length; i++) out[i] = vals[ix[i]];
+    return out;
+  })();
   function walkable(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH && !(COLL[y * MW + x] & C_BLOCK); }
-  // feet stop at painted water too: the ground's edges wander off the tiles, so a walkable tile can
-  // hold a few pixels of river (the ground painter's GK, below; bridges and the dock are always dry)
+  /* footBlock, authored: the pixels where feet stop on tiles COLL lets them onto (the river's, pond's and
+     sea's wandering edges, a bridge's rails excepted). the data holds runs per pixel row; here they are one
+     bit per pixel. so where feet stop is COLL and footBlock, nothing else: the painted ground (GK, below)
+     is only a picture */
+  var PW = MW * T, PH = MH * T;
+  var FOOT = (function () {
+    var bits = new Uint32Array((PW * PH + 31) >>> 5), lastY = -1;
+    if (!Array.isArray(MAP.footBlock)) mapFail("no footBlock");
+    MAP.footBlock.forEach(function (r) {
+      var py = r && r[0];
+      if (!Array.isArray(r) || r.length < 3 || r.length % 2 !== 1 || !(py > lastY && py < PH && py % 1 === 0)) mapFail("footBlock row " + py + " is bad");
+      lastY = py;
+      for (var i = 1, end = -1; i < r.length; i += 2) {
+        var x0 = r[i], n = r[i + 1];
+        if (!(x0 % 1 === 0 && n % 1 === 0 && n >= 1 && x0 > end && x0 + n <= PW)) mapFail("footBlock row " + py + " has a bad run at " + x0);
+        for (var px = x0; px < x0 + n; px++) {
+          if (!walkable((px / T) | 0, (py / T) | 0)) mapFail("footBlock " + px + "," + py + " is on a tile COLL already blocks");
+          var b = py * PW + px; bits[b >>> 5] |= 1 << (b & 31);
+        }
+        end = x0 + n;
+      }
+    });
+    return bits;
+  })();
   function solidPx(px, py) {
-    var tx = Math.floor(px / T), ty = Math.floor(py / T), tt = at(tx, ty);
-    return !walkable(tx, ty) || (GK && tt !== BRIDGE && tt !== DOCK && kAt(Math.floor(px), Math.floor(py)) === KW);
+    var tx = Math.floor(px / T), ty = Math.floor(py / T);
+    if (!walkable(tx, ty)) return true;
+    var b = Math.floor(py) * PW + Math.floor(px);
+    return (FOOT[b >>> 5] >>> (b & 31) & 1) === 1;
   }
 
   /* ════════ sprites (drawn once into little canvases) ════════ */
@@ -508,8 +413,7 @@
      it. water has a pale rim along every edge, is lighter in the shallows and shows stones under
      the surface near the banks; the sea deepens with the distance from shore. flowers, clover,
      pebbles and twigs grow in drifts. GK keeps each pixel's kind so the game can ask later (the
-     foam, the glints) */
-  var PW = MW * T, PH = MH * T;
+     foam, the glints). it's a picture only: where feet stop is COLL and footBlock, above */
   var KG = 1, KD = 2, KS = 3, KW = 4;
   var GK = new Uint8Array(PW * PH);
   function kAt(px, py) { return px < 0 || py < 0 || px >= PW || py >= PH ? KW : GK[py * PW + px]; }
@@ -895,11 +799,6 @@
       (FOAM[ti] = FOAM[ti] || []).push(px, py, Math.sign(WD[i + 1] - WD[i - 1]), Math.sign(WD[i + PW] - WD[i - PW]));
     }
     WD = null;                                                   // 4 MB we don't need any more
-    // a walkable tile painted as water where it matters, in the middle, is water: route round it
-    for (var ty = 0; ty < MH; ty++) for (var tx = 0; tx < MW; tx++) {
-      var tt = GROUND[ty * MW + tx];
-      if (tt !== BRIDGE && tt !== DOCK && walkable(tx, ty) && GK[(ty * T + 8) * PW + tx * T + 8] === KW) COLL[ty * MW + tx] |= C_SOLID;
-    }
   })();
 
   /* ════════ actors ════════ */
@@ -1310,12 +1209,12 @@
   });
 
   /* pi's paths also check pi's real feet (C4-1). a tile can be walkable while the spot the path
-     follower aims for in it (its centre, 10 px down) sits too close to painted water for pi's
+     follower aims for in it (its centre, 10 px down) sits too close to blocked pixels (footBlock) for pi's
      8 px feet, so pi would stop short and give up. so pi only steps from one tile to the next
      when move() can walk pi from one aim spot to the other, at walking and at running speed, the
      way the follower does; the first step is tried from where pi really stands. the map and
      walkable() don't change; each answer is worked out on first use and kept. that cache assumes
-     the collision (COLL and the painted water) never changes once the island is built: anything
+     the collision (COLL and footBlock) never changes once the island is built: anything
      that changes what can be walked at runtime (a later phase's gates, bridges, moving obstacles) must
      clear STEPOK or replace it */
   var STEPOK = new Uint8Array(MW * MH * 4);                          // per tile and direction: 0 not known yet, 1 yes, 2 no
