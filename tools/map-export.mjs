@@ -22,7 +22,17 @@
      from, and evaluated from the data they must equal the old functions bit for bit at every point
      the game samples them.
 
-   Nothing else: no prose, no ctf data, no creatures, routes, PLACES or quests.
+   - B0, the placements the game still kept as literals: the creature spawns in order (kind, the start
+     tile as passed to critter(), and the roam area object itself, so creatures that share one area object
+     share one roam-area record and every other area gets its own, even where two boxes match); the
+     welder's patrol; the car, rex, the gardener, the first-visit spot and the arena as tiles; the goto
+     places that have a fixed spot (heli and helipad follow the helicopter and have none); and five zones
+     (the t-rex's roar, the fireflies, rex's meadow, the gardener's beds, the cockatiel trees). The ones
+     the game reads as variables are read from the running island; the ones that are only literals in
+     code are written out below and the reference must hold that exact code. Derived, not stored: the
+     cargo stops (the depot and visitor centre doorways) and the drone pad (the depot's roof).
+
+   Nothing else: no prose, no ctf data, no creature behaviour, quests or the core tap's goal.
 
      node tools/map-export.mjs            export, check, write js/maps/home.js
      node tools/map-export.mjs --check    export and check, compare with the file, write nothing
@@ -72,7 +82,18 @@ const ASSUME = [
   "var fx0 = Math.round((30 + ft * 1.3) * T + (ft % 2) * 6), fy0 = Math.round((65.4 + Math.sin(ft * 0.6) * 0.5) * T);",
   "return !walkable(tx, ty) || (GK && tt !== BRIDGE && tt !== DOCK && kAt(Math.floor(px), Math.floor(py)) === KW);",
   "var SPAWN = { x: 46 * T + 8, y: 60 * T + 12 };",
-  "var C_SOLID = 1, C_SHALLOW = 2, C_DEEP = 4, C_LOW = 8, C_LEDGE_N = 16, C_LEDGE_E = 32, C_LEDGE_S = 64, C_LEDGE_W = 128, C_LAVA = 256, C_CLIMB = 512;"
+  "var C_SOLID = 1, C_SHALLOW = 2, C_DEEP = 4, C_LOW = 8, C_LEDGE_N = 16, C_LEDGE_E = 32, C_LEDGE_S = 64, C_LEDGE_W = 128, C_LAVA = 256, C_CLIMB = 512;",
+  // B0: placements that exist only as literals in code
+  "if (first) { pi.x = 50 * T + 8; pi.y = 61 * T + 10; if (!walkable(50, 61)) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }",
+  "pi.x < 42 * T && pi.x > 25 * T && pi.y > 41.5 * T && pi.y < 56 * T",
+  "var fx0 = 11 + hash(fi, 71) * 18, fy0 = 30 + hash(71, fi) * 20;",
+  "var tx = 38 + Math.floor(rand() * 12), ty = 60 + Math.floor(rand() * 3);",
+  "Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8",
+  "Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8",
+  // and what stays code (B0 keeps the core tap's goal as it is; the drone pad and cargo stops are derived)
+  'hit.id === "core" ? [36, 26]',
+  "var pad = { x: 54.5 * T, y: 58 * T + 6, roof: 30 };",
+  "var DOCKPT = [DOCKX, dockY], DEPOTPT = [54, 60], VISITPT = [41, 60];"
 ];
 const missing = ASSUME.filter((s) => !src.includes(s));
 if (missing.length) fail(`${REF} no longer matches what this exporter assumes:\n  ` + missing.join("\n  "));
@@ -89,6 +110,15 @@ const SHAPES = {
   riverWidth: [1.4, 1.3]
 };
 const DECALS = { bones: [498, 804], tracks: { x: 30, dx: 1.3, y: 65.4, n: 11 } };
+/* B0: the zones and the first-visit spot, written out from the code above. a zone is [x0, y0, x1, y1] in
+   tiles; how its edges count stays with the system reading it:
+   - trex-roar: pi strictly inside, in world px (x > 25 T, x < 42 T, y > 41.5 T, y < 56 T)
+   - fireflies: x0 + hash * (x1 - x0), y0 + hash * (y1 - y0) (11 + hash * 18, 30 + hash * 20)
+   - rex-meadow: whole tiles x0 to x1, y0 to y1 (38 + floor(rand * 12), 60 + floor(rand * 3))
+   - gardener-beds, cockatiel-trees: props on whole tiles x0 to x1, y0 to y1 (|tx - 46| < 12, |ty - 58| < 8;
+     |tx - 36| < 9, |ty - 29| < 8) */
+const ZONES = { "trex-roar": [25, 41.5, 42, 56], "fireflies": [11, 30, 29, 50], "rex-meadow": [38, 60, 49, 62], "gardener-beds": [35, 51, 57, 65], "cockatiel-trees": [28, 22, 44, 36] };
+const FIRST_VISIT = [50, 61];
 
 /* the evaluators: the data-driven form of each old function, in the same operations in the same order.
    a wave [a, f, p] adds a * sin(x * f + p); [a, f] adds a * sin(x * f) */
@@ -174,7 +204,8 @@ const MARK = "  /* ════════ map ════════ */";
 const CARVE = "  function carve(pts, width, paint, kind) {";
 const PRECOLL = "  var C_SOLID = 1,";
 const ANCHOR = "  if (DEBUG) window.__island = {";
-for (const a of [MARK, CARVE, PRECOLL, ANCHOR]) if (!src.includes(a)) fail(`${REF}: hook point missing: ${a.trim()}`);
+const CRITTER = "  function critter(kind, tx, ty, area) {";
+for (const a of [MARK, CARVE, PRECOLL, ANCHOR, CRITTER]) if (!src.includes(a)) fail(`${REF}: hook point missing: ${a.trim()}`);
 
 const HOOK = String.raw`
   window.__mx = (function () {
@@ -218,6 +249,25 @@ const HOOK = String.raw`
           paddocks: PADDOCKS.map(function (p) { return [p.name, p.x0, p.y0, p.x1, p.y1]; }), compound: COMPOUND,
           prose: STATIONS.map(function (s) { return s.text || ""; }).concat(BUILDINGS.map(function (b) { return b.text || ""; })),
           stats: { blockedFoot: blockedFoot, runs: foot.reduce(function (n, r) { return n + (r.length - 1) / 2; }, 0), rows: foot.length, bridgeDock: bd }
+        };
+        // B0: the spawns as critter() was called, with roam areas grouped by the area objects themselves
+        var areas = [], sp = X.spawns || [];
+        out.b0 = {
+          spawns: sp.map(function (a, i) {
+            var k = areas.indexOf(a[3]); if (k < 0) { k = areas.length; areas.push(a[3]); }
+            return { kind: a[0], at: [a[1], a[2]], area: k, sameAsCritter: critters[i] && critters[i].kind === a[0] && critters[i].area === a[3] };
+          }),
+          critters: critters.length,
+          pairs: (function () { var m = ""; for (var i = 0; i < critters.length; i++) for (var j = i + 1; j < critters.length; j++) m += critters[i].area === critters[j].area ? "1" : "0"; return m; })(),
+          boxes: areas.map(function (a) { return a.slice(); }),
+          px: { car: [car.x, car.y], rex: [rex.x, rex.y], arena: [ARENA.x, ARENA.y], welder: bots.filter(function (b) { return b.kind === "welder"; }).map(function (b) { return [b.x, b.y]; })[0],
+                gardener: bots.filter(function (b) { return b.kind === "gardener"; }).map(function (b) { return [b.x, b.y]; })[0] },
+          spots: bots.filter(function (b) { return b.kind === "welder"; })[0].spots,
+          places: Object.keys(PLACES).map(function (k) { return [k, PLACES[k]]; }),
+          cargo: { depot: DEPOTPT, visitor: VISITPT, legsShareStops: bots.filter(function (b) { return b.kind === "cargo"; }).every(function (b) { return b.legs.every(function (l) { return l === DOCKPT || l === DEPOTPT || l === VISITPT; }); }) },
+          pad: [pad.x, pad.y, pad.roof],
+          gardenerBeds: props.map(function (p, i) { return Math.abs(p.tx - 46) < 12 && Math.abs(p.ty - 58) < 8 ? i : -1; }).filter(function (i) { return i >= 0; }),
+          cockatielTrees: props.map(function (p, i) { return Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8 ? i : -1; }).filter(function (i) { return i >= 0; })
         };
         return out;
       },
@@ -285,6 +335,7 @@ const hooked = src
   .replace(MARK, "  window.__mapExport = { carves: [] };\n" + MARK)
   .replace(CARVE, CARVE + "\n    window.__mapExport.carves.push([kind, JSON.parse(JSON.stringify(pts)), typeof width === \"function\" ? String(width) : width]);")
   .replace(PRECOLL, "  window.__mapExport.propsBuilt = JSON.stringify(props);\n" + PRECOLL)
+  .replace(CRITTER, CRITTER + "\n    window.__mapExport.spawns = window.__mapExport.spawns || []; window.__mapExport.spawns.push([kind, tx, ty, area]);")
   .replace(ANCHOR, HOOK + ANCHOR);
 
 /* assembling the data from what was read */
@@ -294,6 +345,11 @@ function assemble(R) {
     return { kind, w, pts };
   });
   const st = {}; R.stations.forEach(([id, x, y]) => { st[id] = [x, y]; });
+  // B0: world px back to the tiles the code wrote them from (each actor has its own px offset, which
+  // stays in code); anything that isn't a whole tile means the assumption is wrong
+  const B = R.b0, tile = (p, ox, oy, what) => { const t = [(p[0] - ox) / 16, (p[1] - oy) / 16]; if (!t.every(Number.isInteger)) fail(`${what} ${J(p)} isn't a whole tile at offset ${ox},${oy}`); return t; };
+  const roam = (k) => "roam-" + String(k).padStart(2, "0");                  // by first appearance in spawn order
+  const places = {}; B.places.forEach(([k, v]) => { if (Array.isArray(v) && k !== "heli" && k !== "helipad") places[k] = v; });
   return {
     format: 1, id: "home", source: SOURCE, tile: R.tile, w: R.w, h: R.h,
     ground: R.ground, height: R.height, coll: R.coll, footBlock: R.footBlock,
@@ -306,8 +362,12 @@ function assemble(R) {
     },
     decals: DECALS,
     buildings: R.buildings, stations: st,
-    anchors: { spawn: R.spawn, helipad: R.helipad, dock: R.dock, gate: R.gate },
-    regions: { paddocks: R.paddocks, compound: R.compound },
+    anchors: { spawn: R.spawn, helipad: R.helipad, dock: R.dock, gate: R.gate, car: tile(B.px.car, 8, 8, "car"), rex: tile(B.px.rex, 8, 10, "rex"),
+               gardener: tile(B.px.gardener, 8, 10, "gardener"), firstVisit: FIRST_VISIT, arena: tile(B.px.arena, 8, 8, "arena") },
+    regions: { paddocks: R.paddocks, compound: R.compound, roamAreas: B.boxes.map((box, k) => ({ id: roam(k), box })), zones: ZONES },
+    spawns: B.spawns.map((c) => ({ kind: c.kind, at: c.at, roam: roam(c.area) })),
+    routes: { "welder-patrol": { start: tile(B.px.welder, 8, 10, "welder"), stops: B.spots } },
+    places,
     props: R.props
   };
 }
@@ -318,13 +378,18 @@ function write(M) {
   const list = (a, ind) => "[\n" + a.map((x) => ind + J(x)).join(",\n") + "\n  ]";
   const lines = [
     "/* pi's island: the home map, format 1. Generated by tools/map-export.mjs from js/world.js at " + REF + ";",
-    "   regenerate it rather than edit it by hand. Geometry only: the prose, creatures, routes and ctf stay in",
-    "   js/world.js. ground: a hex digit per tile (0 deep, 1 shallow, 2 sand, 3 grass, 4 path, 5 pond, 6 dock,",
-    "   7 lava, 8 pad, 9 river, a bridge). height: the terrace, 0 to 5. coll: the final collision flags per tile,",
+    "   regenerate it rather than edit it by hand. Geometry and placements only: the prose, creature",
+    "   behaviour and ctf stay in js/world.js. ground: a hex digit per tile (0 deep, 1 shallow, 2 sand,",
+    "   3 grass, 4 path, 5 pond, 6 dock, 7 lava, 8 pad, 9 river, a bridge). height: the terrace, 0 to 5.",
+    "   coll: the final collision flags per tile,",
     "   a base-36 index into coll.values. footBlock: extra pixels where feet stop on tiles coll lets them onto,",
     "   one entry per pixel row: [py, x0, n, x0, n, ...]; feet stop where coll blocks the tile or footBlock",
     "   has the pixel. shapes: what the ground painter draws from; these types reproduce the original island",
-    "   exactly and are legacy parity types, not how a new island has to be authored. */",
+    "   exactly and are legacy parity types, not how a new island has to be authored. placements, in tiles",
+    "   (anchors.spawn alone is in world px): anchors; regions.roamAreas, one record per roam area (creatures",
+    "   naming the same id share one area; two ids are two areas even when their boxes match); regions.zones,",
+    "   [x0, y0, x1, y1], each edge read by its own system; spawns, the creatures in order; routes, a start",
+    "   and stops in order; places, goto spots (heli and helipad follow the helicopter). */",
     "(window.ISLAND_MAPS = window.ISLAND_MAPS || {}).home = {",
     `  "format": ${M.format}, "id": ${J(M.id)}, "source": ${J(M.source)}, "tile": ${M.tile}, "w": ${M.w}, "h": ${M.h},`,
     `  "ground": ${list(M.ground, "    ")},`,
@@ -344,13 +409,21 @@ function write(M) {
     `  "buildings": ${list(M.buildings, "    ")},`,
     `  "stations": ${J(M.stations)},`,
     `  "anchors": ${J(M.anchors)},`,
-    `  "regions": ${J(M.regions)},`,
+    `  "regions": {`,
+    `    "paddocks": ${J(M.regions.paddocks)}, "compound": ${J(M.regions.compound)},`,
+    `    "roamAreas": ${list(M.regions.roamAreas, "      ").replace(/\n  \]$/, "\n    ]")},`,
+    `    "zones": ${J(M.regions.zones)}`,
+    `  },`,
+    `  "spawns": ${list(M.spawns, "    ")},`,
+    `  "routes": ${J(M.routes)},`,
+    `  "places": ${J(M.places)},`,
     `  "props": ${list(M.props, "    ")}`,
     "};",
     ""
   ];
   return lines.join("\n");
 }
+function props(M) { return M.props; }
 function load(text) {             // the file back into an object, the way a page would run it
   const ctx = { window: {} }; vm.runInNewContext(text, ctx); return ctx.window.ISLAND_MAPS.home;
 }
@@ -412,6 +485,28 @@ const nonLayer = J({ ...M, ground: [], height: [], coll: { values: M.coll.values
 check(!/flag\{|ctf|[0-9a-f]{64}/i.test(nonLayer) && !/flag\{/i.test(text), "no flag{, ctf or 64-hex strings outside the layer rows (and no flag{ anywhere)");
 check(!/[—]/.test(text), "no em dashes");
 
+/* B0: the home island's placements, against the reference island itself */
+const B = results.R.b0, pairsOf = (sp) => { let m = ""; for (let i = 0; i < sp.length; i++) for (let j = i + 1; j < sp.length; j++) m += sp[i].roam === sp[j].roam ? "1" : "0"; return m; };
+check(M.spawns.length === 33 && B.critters === 33 && B.spawns.every((c) => c.sameAsCritter), "spawns: 33, in the order critter() was called, each the creature the island built");
+check(M.regions.roamAreas.length === 28, "roam areas: 28 records, one per area object", String(M.regions.roamAreas.length));
+check(pairsOf(M.spawns) === B.pairs, `roam areas: which spawns share an area is the reference's own alias graph (${B.pairs.length} pairs)`);
+const groups = {}; M.spawns.forEach((c, i) => (groups[c.roam] = groups[c.roam] || []).push(i));
+check(J(groups[M.spawns[3].roam]) === "[3,4,5]" && J(groups[M.spawns[6].roam]) === "[6,7,8,9]" && Object.values(groups).filter((g) => g.length > 1).length === 2, "roam areas: the raptors share one record, the herd plain's four another, and no other spawns share");
+const boxKeys = M.regions.roamAreas.map((r) => J(r.box)), dupBoxes = boxKeys.filter((k, i) => boxKeys.indexOf(k) !== i).length;
+check(dupBoxes > 0 && new Set(M.regions.roamAreas.map((r) => r.id)).size === 28, `roam areas: matching boxes stay separate records (${dupBoxes} records repeat an earlier box)`);
+check(M.spawns.every((c) => J(c.at) === J([B.spawns[M.spawns.indexOf(c)].at[0], B.spawns[M.spawns.indexOf(c)].at[1]])) && M.regions.roamAreas.every((r, k) => J(r.box) === J(B.boxes[k])), "spawns and roam boxes: exactly the numbers critter() was given");
+check(J(M.routes) === J({ "welder-patrol": { start: [59, 39], stops: [[59, 34], [62, 39], [67, 39], [71, 34]] } }), "routes: the welder's patrol, start and stops in order", J(M.routes));
+check(J(M.regions.zones) === J(ZONES), "zones: as written out (41.5 kept)", J(M.regions.zones));
+const gb = props(M).map((p, i) => p.tx >= 35 && p.tx <= 57 && p.ty >= 51 && p.ty <= 65 ? i : -1).filter((i) => i >= 0), ct = props(M).map((p, i) => p.tx >= 28 && p.tx <= 44 && p.ty >= 22 && p.ty <= 36 ? i : -1).filter((i) => i >= 0);
+check(J(gb) === J(B.gardenerBeds) && J(ct) === J(B.cockatielTrees), `zones: the gardener's beds (${gb.length} props) and the cockatiel trees (${ct.length}) pick the same props as the old tests`);
+check(J(M.places) === J({ pond: [69, 45], gate: [48, 35], plaza: [46, 60], car: [37, 61], paddock: [41, 51], raptors: [64, 40], volcano: [48, 25], outpost: [26, 61], shrine: [21, 23], clearing: [48, 43] }), "places: the ten fixed goto spots, in the game's order", J(M.places));
+check(!("heli" in M.places) && !("helipad" in M.places) && B.places.some(([k]) => k === "heli") && B.places.some(([k]) => k === "helipad"), "places: heli and helipad have no fixed spot (the game keeps the names)");
+check(J([M.anchors.car, M.anchors.rex, M.anchors.gardener, M.anchors.firstVisit, M.anchors.arena]) === J([[36, 62], [44, 62], [45, 62], [50, 61], [48, 43]]), "anchors: car, rex, gardener, firstVisit, arena", J(M.anchors));
+check(J(M.anchors.arena) !== J([36, 26]) && J(M.anchors.arena) !== J([36, 25]) && !/\[36,2[56]\]/.test(J({ a: M.anchors, r: M.routes, p: M.places, z: M.regions.zones })), "the core tap's old goal (36,26) is nowhere in the data; the arena is where the fight is");
+const dep = M.buildings.find((b) => b.id === "depot"), vis = M.buildings.find((b) => b.id === "visitor"), door = (b) => [Math.floor(b.x0 + b.w / 2), b.y0 + b.h];
+check(J(door(dep)) === J(B.cargo.depot) && J(door(vis)) === J(B.cargo.visitor) && B.cargo.legsShareStops, "derived, not stored: the cargo stops are the depot and visitor doorways, and every cargo leg is one of the stop objects", J(B.cargo));
+check(B.pad[0] === (dep.x0 + dep.w / 2) * 16 && B.pad[1] === dep.y0 * 16 + 6 && B.pad[2] === 30, "derived, not stored: the drone pad is the depot's roof (centre x, top row + 6 px, roof 30)", J(B.pad));
+
 /* footBlock: how it could be stored, measured, so the choice is on numbers */
 const S = results.stats, PW = M.w * M.tile, PH = M.h * M.tile;
 const bits = new Uint8Array(PW * PH / 8); M.footBlock.forEach((r) => { for (let i = 1; i < r.length; i += 2) for (let x = r[i]; x < r[i] + r[i + 1]; x++) { const p = r[0] * PW + x; bits[p >> 3] |= 1 << (p & 7); } });
@@ -425,7 +520,7 @@ const enc = {
 };
 console.log(`\nfootBlock: ${S.blockedFoot} pixels, ${S.runs} runs on ${S.rows} pixel rows, ${Object.keys(tileMasks).length} tiles`);
 for (const [k, v] of Object.entries(enc)) console.log(`  ${k.padEnd(44)} ${String(v.length).padStart(7)} bytes raw, ${String(gzipSync(v, { level: 9 }).length).padStart(6)} gzip`);
-const parts = { ground: M.ground, height: M.height, coll: M.coll, footBlock: M.footBlock, shapes: M.shapes, props: M.props };
+const parts = { ground: M.ground, height: M.height, coll: M.coll, footBlock: M.footBlock, shapes: M.shapes, props: M.props, b0: { a: M.anchors, r: M.regions, s: M.spawns, ro: M.routes, p: M.places } };
 console.log(`home.js: ${text.length} bytes raw, ${gzipSync(text, { level: 9 }).length} gzip; parts (JSON): ` + Object.entries(parts).map(([k, v]) => `${k} ${J(v).length}`).join(", "));
 console.log(`${problems.length ? "FAIL" : "PASS"} in ${((Date.now() - t0) / 1000).toFixed(1)} s`);
 if (problems.length) process.exit(1);

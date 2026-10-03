@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /* map-decode (MAP-A3): decodeMap(), the island's map decoder, on synthetic maps, in each engine, through
    the ?debug=1 API (the production function, not a copy). None of these maps ships; they are built here.
-   - valid: the real js/maps/home.js; a minimal 12 x 10 map with every optional field left out; a
-     representative one with props, regions, decals, woods and a source; a 150 x 120 one (decode only:
-     the format and decoder don't assume 100 x 80);
+   - valid: the real js/maps/home.js; a minimal 12 x 10 map with every optional field left out (the B0
+     placements too: a map carries only the systems it has); a representative one with props, regions,
+     decals, woods, a source and the B0 placements (anchors, roam areas, two of them with the same box,
+     zones with a fractional edge, spawns, a route, places); a 150 x 120 one (decode only: the format and
+     decoder don't assume 100 x 80);
    - decodeMap never changes what it's given: it decodes deep-frozen copies, and the data is the same after;
    - invalid: one fault at a time, each refused with an error naming the field and the problem.
 
@@ -56,6 +58,13 @@ function synth(w, h, full) {
     for (const [x, y] of [[8, 5], [9, 5], [10, 5], [8, 6], [8, 7], [10, 7]]) solid(x, y);      // the compound's walls (9,7 is the oak; 10,6 the gate)
     M.regions = { paddocks: [["pen", 0, h - 3, 2, h - 1]], compound: { x0: 8, y0: 5, x1: 10, y1: 7, gate: [6] } };
     M.props = [{ kind: "e:oak1", tx: 9, ty: 7, flip: true, ox: -2, oy: 1.5 }, { tx: 1, ty: 6, flip: false, ox: 0, oy: -0.5, kind: "e:fern0" }, { kind: "e:nest0", tx: 8, ty: 8, eggs: 3 }, { kind: "e:lilies0", tx: 4, ty: 7, flip: true, ox: -2, oy: 0, flat: true }];
+    // B0 placements: two roam areas with the same box stay two areas; a zone edge may be fractional, or the map's edge
+    Object.assign(M.anchors, { car: [8, 3], rex: [4, 6], gardener: [5, 7], firstVisit: [5, 6], arena: [6, 7] });
+    M.regions.roamAreas = [{ id: "pen-a", box: [0, 7, 2, 9] }, { id: "meadow-1", box: [4, 5, 8, 8] }, { id: "meadow-2", box: [4, 5, 8, 8] }];
+    M.regions.zones = { roar: [1, 6.5, 4, 9], flies: [0, 0, 12, 10] };
+    M.spawns = [{ kind: "trex", at: [1, 8], roam: "pen-a" }, { kind: "para", at: [5, 6], roam: "meadow-1" }, { kind: "para", at: [6, 6], roam: "meadow-2" }, { kind: "stego", at: [7, 6], roam: "meadow-1" }];
+    M.routes = { patrol: { start: [5, 6], stops: [[4, 6], [8, 7]] } };
+    M.places = { plaza: [5, 6], gate: [5, 2] };
   }
   return M;
 }
@@ -145,7 +154,41 @@ const INVALID = [
   ["a prop flip that isn't true or false", edit((M) => { M.props[0].flip = 1; }), /^prop 0 \(e:oak1\) flip must be true or false$/],
   ["a prop offset of 40 px", edit((M) => { M.props[0].ox = 40; }), /^prop 0 \(e:oak1\) ox must be a number of px from -16 to 16$/],
   ["a nest of 2.5 eggs", edit((M) => { M.props[2].eggs = 2.5; }), /^prop 2 \(e:nest0\) eggs must be a whole number from 0 to 9$/],
-  ["a tree on a tile that isn't solid", edit((M) => { M.props[0].tx = 4; }), /^prop 0 \(e:oak1\) at 4,7 stands in pi's way, but that tile isn't solid in coll$/]
+  ["a tree on a tile that isn't solid", edit((M) => { M.props[0].tx = 4; }), /^prop 0 \(e:oak1\) at 4,7 stands in pi's way, but that tile isn't solid in coll$/],
+  // B0 placements
+  ["spawns that aren't a list", edit((M) => { M.spawns = {}; }), /^spawns must be a list$/],
+  ["a spawn that isn't an object", edit((M) => { M.spawns[0] = "trex"; }), /^spawns\[0\] must be \{ kind, at, roam \}$/],
+  ["a spawn with an unknown field", edit((M) => { M.spawns[0].speed = 1; }), /^spawns\[0\] has an unknown field speed$/],
+  ["a spawn of an unknown creature", edit((M) => { M.spawns[1].kind = "unicorn"; }), /^spawns\[1\]\.kind "unicorn" isn't a known creature$/],
+  ["a spawn off the map", edit((M) => { M.spawns[0].at = [12, 8]; }), /^spawns\[0\]\.at x must be a whole number from 0 to 11$/],
+  ["a spawn on a fractional tile", edit((M) => { M.spawns[0].at = [1, 8.5]; }), /^spawns\[0\]\.at y must be a whole number from 0 to 9$/],
+  ["a spawn naming a roam area that isn't there", edit((M) => { M.spawns[2].roam = "meadow-9"; }), /^spawns\[2\]\.roam "meadow-9" isn't in regions\.roamAreas$/],
+  ["a spawn with no roam area", edit((M) => { delete M.spawns[3].roam; }), /^spawns\[3\]\.roam undefined isn't in regions\.roamAreas$/],
+  ["a roam area id twice", edit((M) => { M.regions.roamAreas[2].id = "meadow-1"; }), /^regions\.roamAreas: meadow-1 appears twice$/],
+  ["a roam area with no id", edit((M) => { delete M.regions.roamAreas[0].id; }), /^regions\.roamAreas\[0\] needs an id/],
+  ["a roam area with an unknown field", edit((M) => { M.regions.roamAreas[0].herd = true; }), /^regions\.roamAreas\[0\] has an unknown field herd$/],
+  ["a roam box off the map", edit((M) => { M.regions.roamAreas[0].box = [0, 7, 2, 10]; }), /^regions\.roamAreas pen-a y1 must be a whole number from 7 to 9$/],
+  ["a roam box inside out", edit((M) => { M.regions.roamAreas[1].box = [4, 5, 3, 8]; }), /^regions\.roamAreas meadow-1 x1 must be a whole number from 4 to 11$/],
+  ["a roam box of three numbers", edit((M) => { M.regions.roamAreas[1].box = [4, 5, 8]; }), /^regions\.roamAreas meadow-1 box must be a list of 4$/],
+  ["zones that aren't an object", edit((M) => { M.regions.zones = [[1, 1, 2, 2]]; }), /^regions\.zones must be an object/],
+  ["a zone of three numbers", edit((M) => { M.regions.zones.roar = [1, 6.5, 4]; }), /^regions\.zones\.roar must be a list of 4$/],
+  ["a zone edge that isn't a number", edit((M) => { M.regions.zones.roar = [1, "6.5", 4, 9]; }), /^regions\.zones\.roar\[1\] must be a finite number$/],
+  ["a zone past the map's edge", edit((M) => { M.regions.zones.roar = [1, 6.5, 4, 10.5]; }), /^regions\.zones\.roar must lie inside the map \(0 to 12, 0 to 10\)$/],
+  ["a zone inside out", edit((M) => { M.regions.zones.roar = [4, 6.5, 1, 9]; }), /^regions\.zones\.roar must have x0 <= x1 and y0 <= y1$/],
+  ["a zone with a bad id", edit((M) => { M.regions.zones["Roar Zone"] = [1, 1, 2, 2]; }), /^regions\.zones\.Roar Zone: the id must be a short lowercase name$/],
+  ["a route of one stop", edit((M) => { M.routes.patrol.stops = [[4, 6]]; }), /^routes\.patrol\.stops needs at least 2 stops$/],
+  ["a route stop off the map", edit((M) => { M.routes.patrol.stops[1] = [12, 7]; }), /^routes\.patrol\.stops\[1\] x must be a whole number from 0 to 11$/],
+  ["a route start that isn't a tile", edit((M) => { M.routes.patrol.start = [5]; }), /^routes\.patrol\.start must be a list of 2$/],
+  ["a route with an unknown field", edit((M) => { M.routes.patrol.loop = true; }), /^routes\.patrol has an unknown field loop$/],
+  ["a route with no stops", edit((M) => { delete M.routes.patrol.stops; }), /^routes\.patrol\.stops must be a list$/],
+  ["a route with a bad id", edit((M) => { M.routes["Patrol A"] = M.routes.patrol; }), /^routes\.Patrol A: the id must be a short lowercase name$/],
+  ["a place that isn't a tile", edit((M) => { M.places.plaza = [5]; }), /^places\.plaza must be a list of 2$/],
+  ["a place off the map", edit((M) => { M.places.plaza = [5, 10]; }), /^places\.plaza y must be a whole number from 0 to 9$/],
+  ["a place with a bad name", edit((M) => { M.places["Town Square"] = [5, 6]; }), /^places\.Town Square: the name must be a short lowercase name$/],
+  ["a car anchor off the map", edit((M) => { M.anchors.car = [12, 3]; }), /^anchors\.car x must be a whole number from 0 to 11$/],
+  ["an arena anchor of one number", edit((M) => { M.anchors.arena = [6]; }), /^anchors\.arena must be a list of 2$/],
+  ["a first-visit anchor on a fractional tile", edit((M) => { M.anchors.firstVisit = [5.5, 6]; }), /^anchors\.firstVisit x must be a whole number from 0 to 11$/],
+  ["a rex anchor that isn't a number", edit((M) => { M.anchors.rex = [4, null]; }), /^anchors\.rex\[1\] must be a finite number$/]
 ];
 
 const PORT = 9300 + Math.floor(Math.random() * 90), server = await serve(PORT);
@@ -161,9 +204,14 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   await page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 });
   const dec = (m) => page.evaluate((x) => { try { return { ok: window.__island.decodeMap(x) }; } catch (e) { return { err: e.message }; } }, m);
   // valid maps, each decoded from a deep-frozen copy (so a write would throw), and unchanged afterwards
-  const VALID = [["the real home map", HOME, { id: "home", w: 100, h: 80, footPixels: 3773, props: 753, buildings: 3, stations: 11, curves: 15 }],
-    ["minimal 12 x 10, optional fields left out", synth(12, 10, false), { w: 12, h: 10, footPixels: 4, props: 0, paddocks: 0, compound: false }],
-    ["representative 12 x 10 (props, regions, decals, woods, source)", synth(12, 10, true), { props: 4, paddocks: 1, compound: true, source: "715450d4c6efca6a24f7cf21e64fdd25ad38eaba" }],
+  const VALID = [["the real home map", HOME, { id: "home", w: 100, h: 80, footPixels: 3773, props: 753, buildings: 3, stations: 11, curves: 15, spawns: 33, creatureKinds: true,
+      roamAreas: (v) => v.length === 28 && new Set(v.map((r) => r.split(":")[0])).size === 28 && new Set(v.map((r) => r.split(":")[1])).size < 28,
+      zones: ["trex-roar", "fireflies", "rex-meadow", "gardener-beds", "cockatiel-trees"], routes: ["welder-patrol"], places: ["pond", "gate", "plaza", "car", "paddock", "raptors", "volcano", "outpost", "shrine", "clearing"],
+      anchors: ["spawn", "helipad", "dock", "gate", "car", "rex", "gardener", "firstVisit", "arena"] }],
+    ["minimal 12 x 10, optional fields left out (no placements either)", synth(12, 10, false), { w: 12, h: 10, footPixels: 4, props: 0, paddocks: 0, compound: false, spawns: 0, roamAreas: [], zones: [], routes: [], places: [], anchors: ["spawn", "helipad", "dock", "gate"] }],
+    ["representative 12 x 10 (props, regions, decals, woods, source, placements; two roam areas share a box and stay two)", synth(12, 10, true), { props: 4, paddocks: 1, compound: true, source: "715450d4c6efca6a24f7cf21e64fdd25ad38eaba",
+      spawns: 4, roamAreas: ["pen-a:0,7,2,9", "meadow-1:4,5,8,8", "meadow-2:4,5,8,8"], zones: ["roar", "flies"], routes: ["patrol"], places: ["plaza", "gate"] }],
+    ["a static helipad place (an ordinary name to the format; only the home map leaves heli and helipad out)", edit((M) => { M.places.helipad = [5, 6]; M.places.heli = [6, 6]; }), { places: ["plaza", "gate", "helipad", "heli"] }],
     ["150 x 120, decode only", synth(150, 120, true), { w: 150, h: 120, ground: 18000, footWords: 144000, props: 4 }]];
   for (const [what, M, want] of VALID) {
     const r = await page.evaluate((x) => {
@@ -171,7 +219,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       (function freeze(o) { if (o && typeof o === "object") { Object.freeze(o); Object.values(o).forEach(freeze); } })(x);
       try { const s = window.__island.decodeMap(x); return { s, same: JSON.stringify(x) === before }; } catch (e) { return { err: e.message }; }
     }, M);
-    const ok = !r.err && r.same && Object.entries(want).every(([k, v]) => r.s[k] === v);
+    const ok = !r.err && r.same && Object.entries(want).every(([k, v]) => typeof v === "function" ? v(r.s[k]) : Array.isArray(v) ? JSON.stringify(r.s[k]) === JSON.stringify(v) : r.s[k] === v);
     check(name, `valid: ${what}${r.s ? ` (${r.s.w} x ${r.s.h}, ${r.s.footPixels} footBlock px, ${r.s.props} props)` : ""}; input unchanged`, ok, r.err || JSON.stringify({ got: r.s, want, same: r.same }));
   }
   let n = 0;

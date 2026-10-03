@@ -67,12 +67,22 @@
   /* the props that stand in pi's way: when the island was generated, each of these made its tile solid,
      so the data must agree (undergrowth, pebbles, small rocks, lilies and the volcano's boulders never did) */
   var BLOCKING_PROP = /^(e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern|baretree)\d*|e:nest0|lamp|mast|solar|generator|tank|tent|campfire|crates)$/;
+  /* the creature kinds a spawn may name: the keys of DINOS, which is built further down (the ?debug=1
+     decodeMap summary says whether the two still agree) */
+  var CREATURE_KINDS = ["brachio", "trex", "stego", "trike", "para", "raptor", "ankylo", "baby", "spino", "dilo", "pachy", "galli", "compy", "baby2", "robot", "roomba", "cat"];
   /* decodeMap: one map's data (format 1) checked and decoded, or an Error naming the field and the
      problem. it never changes what it's given: the layers become typed arrays, footBlock a bitset (one bit
      per pixel), and everything else a copy (props keep their fields in their order).
      the shape types (harmonic-blob, sine-edge, wobble-ellipse, disc, the curves, the volcano) are legacy
      parity types: they reproduce the original procedural island exactly. a new island isn't bound to
-     them. the size is limited to 256 x 256 tiles, about the most a phone can paint as one canvas */
+     them. the size is limited to 256 x 256 tiles, about the most a phone can paint as one canvas.
+     placements (B0), each optional, so a map carries only the systems it has: anchors.car, rex, gardener,
+     firstVisit and arena; regions.roamAreas (one record per roam area: creatures naming the same id share
+     one area, and two ids are two areas even when their boxes match); regions.zones (named boxes whose
+     edges each system reads its own way, so they may be fractional); spawns (creatures in order: kind,
+     start tile, roam area); routes (a start and stops, in order); places (goto spots by name; on the home
+     island heli and helipad follow the helicopter, so its map has no spots for them). units: tiles, all of them, apart from the older
+     anchors.spawn, in world px. decoded, checked and copied; the game doesn't read them yet */
   function decodeMap(M) {
     function bad(msg) { throw new Error(msg); }
     function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
@@ -84,7 +94,7 @@
     function only(o, f, keys) { Object.keys(o).forEach(function (q) { if (keys.indexOf(q) < 0) bad(f + " has an unknown field " + q); }); }
     function copy(o) { return JSON.parse(JSON.stringify(o)); }
     if (!isObj(M)) bad("no map (window.ISLAND_MAPS has no entry for it)");
-    only(M, "the map", ["format", "id", "source", "tile", "w", "h", "ground", "height", "coll", "footBlock", "shapes", "decals", "buildings", "stations", "anchors", "regions", "props"]);
+    only(M, "the map", ["format", "id", "source", "tile", "w", "h", "ground", "height", "coll", "footBlock", "shapes", "decals", "buildings", "stations", "anchors", "regions", "spawns", "routes", "places", "props"]);
     if (M.format !== 1) bad("format " + M.format + " isn't supported (this code reads format 1)");
     if (typeof M.id !== "string" || !/^[a-z0-9][a-z0-9-]{0,31}$/.test(M.id)) bad("id must be a short lowercase name (a to z, 0 to 9, -)");
     if (M.source !== undefined && (typeof M.source !== "string" || !/^[0-9a-f]{40}$/.test(M.source))) bad("source must be a 40-character git commit");
@@ -210,7 +220,7 @@
       D.stations[sid] = [p[0], p[1]];
     });
     var A = M.anchors; if (!isObj(A)) bad("anchors is missing");
-    only(A, "anchors", ["spawn", "helipad", "dock", "gate"]);
+    only(A, "anchors", ["spawn", "helipad", "dock", "gate", "car", "rex", "gardener", "firstVisit", "arena"]);
     nums(A.spawn, "anchors.spawn", 2); num(A.spawn[0], "anchors.spawn x");
     if (A.spawn[0] < 0 || A.spawn[1] < 0 || A.spawn[0] >= PWm || A.spawn[1] >= PHm) bad("anchors.spawn (world px) is off the map");
     if (!walk(Math.floor(A.spawn[0] / T), Math.floor(A.spawn[1] / T))) bad("anchors.spawn is on a tile that can't be walked (the safe ground floods from it)");
@@ -220,10 +230,12 @@
     for (var dy = 1; dy <= 4; dy++) for (var dx = 0; dx <= 1; dx++) if (g(A.dock[0] + dx, A.dock[1] + dy) !== DOCK) bad("anchors.dock " + A.dock + ": the 2 x 4 tiles below it must be dock in ground");
     nums(A.gate, "anchors.gate", 2); int(A.gate[0], "anchors.gate x", 2, w - 3); int(A.gate[1], "anchors.gate y", 0, h - 1);
     if (!solid(A.gate[0] - 2, A.gate[1]) || !solid(A.gate[0] + 2, A.gate[1])) bad("anchors.gate " + A.gate + ": its two posts (2 tiles either side) must be solid in coll");
+    function tileAt(p, f) { nums(p, f, 2); int(p[0], f + " x", 0, w - 1); int(p[1], f + " y", 0, h - 1); return p; }
+    ["car", "rex", "gardener", "firstVisit", "arena"].forEach(function (k) { if (A[k] !== undefined) tileAt(A[k], "anchors." + k); });
     D.anchors = copy(A);
     // regions, optional: the paddocks (their fences are solid) and the outpost compound (its walls are)
     var R = M.regions === undefined ? {} : M.regions; if (!isObj(R)) bad("regions must be an object");
-    only(R, "regions", ["paddocks", "compound"]);
+    only(R, "regions", ["paddocks", "compound", "roamAreas", "zones"]);
     (R.paddocks === undefined ? [] : arr(R.paddocks, "regions.paddocks")).forEach(function (p, i) {
       var f = "regions.paddocks[" + i + "]";
       if (!Array.isArray(p) || p.length !== 5 || typeof p[0] !== "string" || !p[0]) bad(f + " must be [name, x0, y0, x1, y1]");
@@ -244,7 +256,57 @@
         if ((cx === Cp.x0 || cx === Cp.x1 || cy === Cp.y0 || cy === Cp.y1) && (ct === GRASS || ct === SAND || ct === PAD || ct === BRIDGE) && !(cx === Cp.x1 && Cp.gate.indexOf(cy) >= 0) && !solid(cx, cy)) bad(f2 + ": its wall tile " + cx + "," + cy + " isn't solid in coll");
       }
     }
-    D.regions = copy({ paddocks: R.paddocks || [], compound: R.compound || null });
+    // roam areas: a record per area, ids unique; matching boxes stay separate records (separate areas)
+    var roamIds = {};
+    (R.roamAreas === undefined ? [] : arr(R.roamAreas, "regions.roamAreas")).forEach(function (r, i) {
+      var f = "regions.roamAreas[" + i + "]";
+      if (!isObj(r)) bad(f + " must be { id, box }");
+      only(r, f, ["id", "box"]);
+      if (typeof r.id !== "string" || !ID.test(r.id)) bad(f + " needs an id (a short lowercase name)");
+      if (roamIds[r.id]) bad("regions.roamAreas: " + r.id + " appears twice");
+      roamIds[r.id] = 1; f = "regions.roamAreas " + r.id;
+      nums(r.box, f + " box", 4); int(r.box[0], f + " x0", 0, w - 1); int(r.box[1], f + " y0", 0, h - 1); int(r.box[2], f + " x1", r.box[0], w - 1); int(r.box[3], f + " y1", r.box[1], h - 1);
+    });
+    // zones: named boxes [x0, y0, x1, y1] in tiles, inside the map; whether an edge is in or out is up to
+    // the system reading it, so any finite edges will do
+    var Z = R.zones === undefined ? {} : R.zones; if (!isObj(Z)) bad("regions.zones must be an object (id: [x0, y0, x1, y1])");
+    Object.keys(Z).forEach(function (zid) {
+      var z = Z[zid], f = "regions.zones." + zid;
+      if (!ID.test(zid)) bad(f + ": the id must be a short lowercase name");
+      nums(z, f, 4);
+      if (z[0] < 0 || z[1] < 0 || z[2] > w || z[3] > h) bad(f + " must lie inside the map (0 to " + w + ", 0 to " + h + ")");
+      if (z[2] < z[0] || z[3] < z[1]) bad(f + " must have x0 <= x1 and y0 <= y1");
+    });
+    D.regions = copy({ paddocks: R.paddocks || [], compound: R.compound || null, roamAreas: R.roamAreas || [], zones: Z });
+    // spawns, in order: each a creature kind, its start tile and the roam area it keeps to
+    D.spawns = (M.spawns === undefined ? [] : arr(M.spawns, "spawns")).map(function (c, i) {
+      var f = "spawns[" + i + "]";
+      if (!isObj(c)) bad(f + " must be { kind, at, roam }");
+      only(c, f, ["kind", "at", "roam"]);
+      if (CREATURE_KINDS.indexOf(c.kind) < 0) bad(f + ".kind " + JSON.stringify(c.kind) + " isn't a known creature");
+      tileAt(c.at, f + ".at");
+      if (typeof c.roam !== "string" || !roamIds[c.roam]) bad(f + ".roam " + JSON.stringify(c.roam) + " isn't in regions.roamAreas");
+      return copy(c);
+    });
+    // routes: a start (optional) and at least two stops, in order
+    var Ro = M.routes === undefined ? {} : M.routes; if (!isObj(Ro)) bad("routes must be an object (id: { start, stops })");
+    Object.keys(Ro).forEach(function (rid) {
+      var r = Ro[rid], f = "routes." + rid;
+      if (!ID.test(rid)) bad(f + ": the id must be a short lowercase name");
+      if (!isObj(r)) bad(f + " must be { start, stops }");
+      only(r, f, ["start", "stops"]);
+      if (r.start !== undefined) tileAt(r.start, f + ".start");
+      if (arr(r.stops, f + ".stops").length < 2) bad(f + ".stops needs at least 2 stops");
+      r.stops.forEach(function (p, k) { tileAt(p, f + ".stops[" + k + "]"); });
+    });
+    D.routes = copy(Ro);
+    // places: goto spots by name, each a tile
+    var Pl = M.places === undefined ? {} : M.places; if (!isObj(Pl)) bad("places must be an object (name: [x, y])");
+    Object.keys(Pl).forEach(function (nm) {
+      if (!ID.test(nm)) bad("places." + nm + ": the name must be a short lowercase name");
+      tileAt(Pl[nm], "places." + nm);
+    });
+    D.places = copy(Pl);
     // props, in their order, each a copy with its fields in their order
     var PROP_KEYS = { kind: "string", tx: "tile", ty: "tile", flip: "boolean", ox: "offset", oy: "offset", sea: "boolean", flat: "boolean", eggs: "count" };
     D.props = arr(M.props, "props").map(function (p, i) {
@@ -4759,7 +4821,9 @@
     decodeMap: function (o) {
       var d = decodeMap(o);
       return { id: d.id, w: d.w, h: d.h, source: d.source, ground: d.ground.length, height: d.height.length, coll: d.coll.length, footWords: d.foot.length, footPixels: d.footPixels,
-               props: d.props.length, buildings: d.buildings.length, stations: Object.keys(d.stations).length, curves: d.shapes.curves.length, paddocks: d.regions.paddocks.length, compound: !!d.regions.compound };
+               props: d.props.length, buildings: d.buildings.length, stations: Object.keys(d.stations).length, curves: d.shapes.curves.length, paddocks: d.regions.paddocks.length, compound: !!d.regions.compound,
+               spawns: d.spawns.length, roamAreas: d.regions.roamAreas.map(function (r) { return r.id + ":" + r.box.join(","); }), zones: Object.keys(d.regions.zones), routes: Object.keys(d.routes), places: Object.keys(d.places),
+               anchors: Object.keys(d.anchors), creatureKinds: CREATURE_KINDS.join() === Object.keys(DINOS).join() };
     },
     // the map layers (copies), one value per tile at y * w + x
     layers: function () {
