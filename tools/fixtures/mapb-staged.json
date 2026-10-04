@@ -1,0 +1,38 @@
+{
+  "about": "The accepted current build of the staged MAP-B home island (tools/maps/staged/home.js). map-lint compares every build with it; change it only with node tools/map-lint.mjs --accept --reason=\"...\". The approved r2.1 record is tools/fixtures/mapb-r21.json, which is frozen and never written by any tool.",
+  "accepted": {
+    "stage": "B1a",
+    "w": 150,
+    "h": 120,
+    "landTiles": 10257,
+    "shallowTiles": 1967,
+    "deepTiles": 5776,
+    "landBox": {
+      "x0": 6,
+      "y0": 5,
+      "x1": 143,
+      "y1": 107
+    },
+    "digests": {
+      "land": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
+      "ground": "62409a0f0a93e39218bcf61c3f14516414aaf7bd5f7ed8583f80c1671f89f20a:150x120",
+      "height": "a449143636d0c1e40605ef04ba2415d4b249ced9cac2ce491aafd20f45d300c8:150x120",
+      "coll": "f914a214ec2edcd63f6f9e2cc42eb9ad6400de597b839344627eb9d45bec0b7b:150x120",
+      "coast": "5cae1fc25c55c5fbe59dc0eac06357e3d23d203fcdbc84ab6da30ded474541f2"
+    },
+    "driftFromR21": {
+      "tiles": 0,
+      "sha256": null
+    }
+  },
+  "history": [
+    {
+      "n": 1,
+      "stage": "B1a",
+      "reason": "the first accepted build: the approved r2.1 Harbour Crescent coast and sea, exactly the frozen mask",
+      "landTiles": 10257,
+      "driftFromR21Tiles": 0,
+      "landSha256": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d"
+    }
+  ]
+}
