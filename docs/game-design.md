@@ -247,7 +247,7 @@ naming the field, and the orb says the island didn't load (a retry works).
     anchors, places, the arena, core-approach and first-visit anchors, the five zones).
 - Not in it: prose, creature kinds and behaviour, quests, the CTF, saves, station-backed goto names, and
   offsets and art constants (the car's heading, the drone roof height, the orb field).
-- The core approach (after B0, not deployed yet): through B0, tapping the core after the orb fight sent
+- The core approach (fixed after B0; live since 2026-10-03, cache `20261025`): through B0, tapping the core after the orb fight sent
   pi toward 36,25 / 36,26 (where the arena used to be, before it moved to 48,43 in `a28541f`), and the
   path ended at 36,27, nowhere near the fight. Now the tap plans toward `anchors.coreApproach`, 48,44,
   the authored target: one row south of the arena, the side the core has always been used from, on open
