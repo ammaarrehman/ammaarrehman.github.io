@@ -651,7 +651,7 @@
     Object.keys(PROPS).forEach(function (n) { var e = PROPS[n]; SPR[n].getContext("2d").drawImage(PROPS_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); });
     if (skinCache) { skinCache.forEach(function (e) { Object.keys(e).forEach(function (k2) { freeCanvas(e[k2]); }); }); skinCache.clear(); }   // nothing reskinned from the empty canvases
   };
-  PROPS_IMG.src = "img/atlas/props.png?v=20261024";
+  PROPS_IMG.src = "img/atlas/props.png?v=20261025";
 
   /* ════════ ground, drawn once (handoff 3, D1) ════════
      pixel by pixel, into one buffer. every pixel is grass, dirt, sand or water, decided from a
@@ -1810,10 +1810,10 @@
       c.getContext("2d").drawImage(ENV_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); SPR["e:" + n] = c;
     });
   };
-  ENV_IMG.src = "img/atlas/env.png?v=20261024";
+  ENV_IMG.src = "img/atlas/env.png?v=20261025";
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261024";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261025";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
