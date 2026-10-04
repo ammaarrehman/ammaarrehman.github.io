@@ -226,7 +226,7 @@ naming the field, and the orb says the island didn't load (a retry works).
   `decals` (bones, footprints); `buildings` (footprint, room), `stations` (outdoor landmarks' places; their
   words stay in code), `anchors` (spawn in world px, helipad, dock, gate) and `regions` (paddocks, the
   outpost compound).
-- Placements (B0, 2026-10-03; committed, not deployed): where things start and roam, in tiles, also in
+- Placements (B0, 2026-10-03; live since 2026-10-03, cache `20261024`): where things start and roam, in tiles, also in
   `home.js`, so no exterior home position is duplicated in `world.js`:
   - `spawns`, the 33 creatures in order (kind, start tile, roam id), and `regions.roamAreas`, one record
     per roam area. Creatures naming the same id share one area object (the herd follows its leader by
