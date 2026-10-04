@@ -28,6 +28,13 @@ export function hermiteLoop(pts, n) {
   return out;
 }
 
+/* an ellipse as a polygon of n corners, starting at angle 0 (the study's, operation for operation) */
+export function ellipsePoly(cx, cy, rx, ry, n) {
+  const out = [];
+  for (let i = 0; i < n; i++) out.push([cx + rx * Math.cos(2 * Math.PI * i / n), cy + ry * Math.sin(2 * Math.PI * i / n)]);
+  return out;
+}
+
 /* even-odd: is (x, y) inside the closed polygon */
 export function inside(poly, x, y) {
   let c = false;

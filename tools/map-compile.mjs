@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* map-compile (MAP-B B1a): compiles the authored source of the redesigned home island,
+/* map-compile (MAP-B B1): compiles the authored source of the redesigned home island,
    tools/maps/home.src.mjs, into the staged map, tools/maps/staged/home.js.
 
    STAGED. The output is a draft of map format 2 and nothing in the game reads it: js/world.js reads
@@ -11,10 +11,16 @@
    Deterministic: no randomness, no clock, keys in a fixed order, fixed curve sampling, so two runs give
    the same bytes. The source's own SHA-256 is written into the output, so a stale staged file is caught.
 
-   What B1a compiles: the canvas, the coast (land is every tile whose centre is inside the closed coast
-   spline), and the sea (shallow within sea.shallowWithin steps of land, deep beyond). Land is ground 3
-   (grass) and height 0 until B1b adds levels and beaches. The exits, sea lanes and satellites in the
-   source are metadata for tools/map-lint.mjs; nothing is built from them yet.
+   What it compiles:
+   - B1a (locked): the canvas, the coast (land is every tile whose centre is inside the closed coast
+     spline), and the sea (shallow within sea.shallowWithin steps of land, deep beyond);
+   - B1b: the levels (each land tile takes the highest level of the elevation regions its centre is in,
+     else 0), the beach (the coastal band of levels 0 and 1 becomes sand at level 0), the solid regions
+     (the volcano mass), and the cliff rims: wherever walkable land meets land a level lower, the higher
+     tile is solid, unless both tiles are inside one ramp and are that ramp's two levels. So a level can
+     change only inside a ramp, one level at a time.
+   The exits, sea lanes and satellites in the source are metadata for tools/map-lint.mjs; nothing is
+   built from them yet.
 
      node tools/map-compile.mjs            compile and write tools/maps/staged/home.js
      node tools/map-compile.mjs --check    compile and compare with the tracked file, write nothing
@@ -25,13 +31,13 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, realpathSync } from
 import { createHash } from "node:crypto";
 import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { hermiteLoop, raster, stepsFrom } from "./maps/geom.mjs";
+import { hermiteLoop, ellipsePoly, inside, raster, stepsFrom } from "./maps/geom.mjs";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE_PATH = join(ROOT, "tools/maps/home.src.mjs");
 export const STAGED_PATH = join(ROOT, "tools/maps/staged/home.js");
 export const PREVIEW_DIR = join(ROOT, "tools/out/mapb");
-export const STAGE = "B1a";
+export const STAGE = "B1b";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /* ════════ the source: schema and the coordinate convention ════════ */
@@ -48,7 +54,7 @@ export function validateSource(src) {
   const int = (v, f, lo, hi) => { if (typeof v !== "number" || !Number.isInteger(v) || v < lo || v > hi) bad(`${f} must be a whole number from ${lo} to ${hi}, not ${JSON.stringify(v)}`); };
   const str = (v, f) => { if (typeof v !== "string" || !v) bad(`${f} must be text`); };
   const id = (v, f) => { if (typeof v !== "string" || !ID.test(v)) bad(`${f} must be an id (lowercase words joined by hyphens), not ${JSON.stringify(v)}`); };
-  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "features", "exits", "seaLanes", "satellites"]);
+  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "features", "exits", "seaLanes", "satellites"]);
   if (src.schema !== "mapb-source-1") bad(`schema must be "mapb-source-1"`);
   if (src.id !== "home") bad(`id must be "home" (the redesigned island keeps the home id)`);
   int(src.w, "w", 1, 256); int(src.h, "h", 1, 256);
@@ -102,6 +108,60 @@ export function validateSource(src) {
   });
   only(src.sea, "sea", ["shallowWithin"]);
   int(src.sea.shallowWithin, "sea.shallowWithin", 0, 20);
+  // elevation: regions (an outline or an ellipse, each with its level 0 to 3), the beach, the ramps
+  const E = src.elevation;
+  only(E, "elevation", ["regions", "beach", "ramps"]);
+  if (!Array.isArray(E.regions) || !E.regions.length) bad("elevation.regions must be a list");
+  const rIds = new Set();
+  E.regions.forEach((r, i) => {
+    const f = `elevation.regions[${i}]${r && r.id ? " (" + r.id + ")" : ""}`;
+    only(r, f, ["id", "level", "solid", "reservedFor", "outline", "ellipse"], ["id", "level"]);
+    id(r.id, `${f}.id`);
+    if (rIds.has(r.id)) bad(`elevation region ${r.id} appears twice`);
+    rIds.add(r.id);
+    int(r.level, `${f}.level`, 0, 3);
+    if (r.solid !== undefined && r.solid !== true) bad(`${f}.solid is true or left out`);
+    if (r.solid && (typeof r.reservedFor !== "string" || !r.reservedFor)) bad(`${f}: a solid region says what it's kept for (reservedFor)`);
+    if (!r.solid && r.reservedFor !== undefined) bad(`${f}.reservedFor only goes with solid: true`);
+    if ((r.outline === undefined) === (r.ellipse === undefined)) bad(`${f} needs exactly one of outline or ellipse`);
+    if (r.outline) {
+      only(r.outline, `${f}.outline`, ["samplesPerSegment", "points"]);
+      if (![4, 8, 16, 32].includes(r.outline.samplesPerSegment)) bad(`${f}.outline.samplesPerSegment must be 4, 8, 16 or 32`);
+      if (!Array.isArray(r.outline.points) || r.outline.points.length < 3) bad(`${f}.outline needs at least 3 points`);
+      r.outline.points.forEach((p, k) => {
+        const g = `${f}.outline.points[${k}]${p && p.id ? " (" + p.id + ")" : ""}`;
+        only(p, g, ["id", "x", "y", "corner"], ["id", "x", "y"]);
+        id(p.id, `${g}.id`);
+        if (pointIds.has(p.id)) bad(`point ${p.id} appears twice (point ids are unique across the whole file)`);
+        pointIds.add(p.id);
+        for (const [k2, hi] of [["x", W], ["y", H]]) if (typeof p[k2] !== "number" || !Number.isFinite(p[k2]) || p[k2] < -10 || p[k2] > hi + 10) bad(`${g}.${k2} must be a position from -10 to ${hi + 10} (an outline may run up to 10 tiles off the map), not ${JSON.stringify(p[k2])}`);
+        if (p.corner !== undefined && p.corner !== true) bad(`${g}.corner is true or left out`);
+      });
+    } else {
+      only(r.ellipse, `${f}.ellipse`, ["cx", "cy", "rx", "ry", "sides"]);
+      for (const k2 of ["cx", "cy", "rx", "ry"]) if (typeof r.ellipse[k2] !== "number" || !Number.isFinite(r.ellipse[k2])) bad(`${f}.ellipse.${k2} must be a number`);
+      if (r.ellipse.cx < 0 || r.ellipse.cx > W || r.ellipse.cy < 0 || r.ellipse.cy > H) bad(`${f}.ellipse centre must be on the map`);
+      if (!(r.ellipse.rx > 0 && r.ellipse.ry > 0)) bad(`${f}.ellipse radii must be above 0`);
+      int(r.ellipse.sides, `${f}.ellipse.sides`, 8, 256);
+    }
+  });
+  only(E.beach, "elevation.beach", ["level0Within", "level1Within"]);
+  int(E.beach.level0Within, "elevation.beach.level0Within", 0, 10); int(E.beach.level1Within, "elevation.beach.level1Within", 0, 10);
+  if (!Array.isArray(E.ramps)) bad("elevation.ramps must be a list");
+  const rampIds = new Set(), rampNums = new Set();
+  E.ramps.forEach((r, i) => {
+    const f = `elevation.ramps[${i}]${r && r.id ? " (" + r.id + ")" : ""}`;
+    only(r, f, ["id", "number", "levels", "rampBox"]);
+    id(r.id, `${f}.id`);
+    if (rampIds.has(r.id)) bad(`ramp ${r.id} appears twice`);
+    rampIds.add(r.id);
+    int(r.number, `${f}.number`, 1, 99);
+    if (rampNums.has(r.number)) bad(`ramp number ${r.number} appears twice`);
+    rampNums.add(r.number);
+    if (!Array.isArray(r.levels) || r.levels.length !== 2) bad(`${f}.levels must be [lower, upper]`);
+    int(r.levels[0], `${f}.levels[0]`, 0, 3); int(r.levels[1], `${f}.levels[1]`, 0, 3);
+    if (r.levels[0] >= r.levels[1]) bad(`${f}.levels must be [lower, upper], lower first`);
+  });
   // features: tiles that must be land or sea, and the points that shape them
   const fIds = new Set();
   if (!Array.isArray(src.features)) bad("features must be a list");
@@ -112,7 +172,7 @@ export function validateSource(src) {
     if (fIds.has(ft.id)) bad(`feature ${ft.id} appears twice`);
     fIds.add(ft.id);
     if (!Array.isArray(ft.points) || !ft.points.length) bad(`feature ${ft.id}: points must name at least one coast point`);
-    ft.points.forEach((q) => { if (!pointIds.has(q)) bad(`feature ${ft.id}: no coast point ${q}`); });
+    ft.points.forEach((q) => { if (!src.coast.points.some((p) => p.id === q)) bad(`feature ${ft.id}: no coast point ${q}`); });
     if (!ft.landTiles.length && !ft.seaTiles.length) bad(`feature ${ft.id} needs at least one land or sea tile`);
   });
   // the exits: exactly three, each concept in its own field
@@ -121,7 +181,7 @@ export function validateSource(src) {
   only(src.exits.west, "exits.west", ["leadsTo", "jettyBox", "routeMarkerTile"]);
   only(src.exits.northwest, "exits.northwest", ["leadsTo", "capePoint", "landingBox", "routeMarkerTile"]);
   for (const e of ["south", "west", "northwest"]) str(src.exits[e].leadsTo, `exits.${e}.leadsTo`);
-  if (!pointIds.has(src.exits.northwest.capePoint)) bad(`exits.northwest.capePoint: no coast point ${src.exits.northwest.capePoint}`);
+  if (!src.coast.points.some((p) => p.id === src.exits.northwest.capePoint)) bad(`exits.northwest.capePoint: no coast point ${src.exits.northwest.capePoint}`);
   // sea lanes and satellites
   const lIds = new Set();
   if (!Array.isArray(src.seaLanes)) bad("seaLanes must be a list");
@@ -143,8 +203,14 @@ export function validateSource(src) {
 }
 
 /* ════════ compile ════════ */
-export const GROUND = { deep: 0, shallow: 1, land: 3 };          // the format's ground codes (land stays grass until B1b)
-export const COLL = { none: 0, shallow: 2, deep: 4 };             // the game's collision flags: C_SHALLOW 2, C_DEEP 4
+export const GROUND = { deep: 0, shallow: 1, sand: 2, land: 3 }; // the format's ground codes (land is grass, the beach sand)
+export const COLL = { none: 0, solid: 1, shallow: 2, deep: 4 };   // the game's collision flags: C_SOLID 1, C_SHALLOW 2, C_DEEP 4
+export const WHY = { none: 0, rim: 1, blocked: 2 };                 // why a land tile is solid: a cliff rim, or a solid region
+/* a region's polygon: an outline's spline samples, or an ellipse's corners */
+export function regionPoly(r) {
+  return r.outline ? hermiteLoop(r.outline.points.map((p) => [p.x, p.y, p.corner ? 0 : 1]), r.outline.samplesPerSegment)
+    : ellipsePoly(r.ellipse.cx, r.ellipse.cy, r.ellipse.rx, r.ellipse.ry, r.ellipse.sides);
+}
 export function compile(src, sourceSha256) {
   validateSource(src);
   const W = src.w, H = src.h, n = src.coast.samplesPerSegment;
@@ -152,19 +218,49 @@ export function compile(src, sourceSha256) {
   const samples = hermiteLoop(pts, n);
   const land = raster(samples, W, H);
   const steps = stepsFrom(land, W, H);
-  const ground = new Uint8Array(W * H), coll = new Uint16Array(W * H), height = new Uint8Array(W * H);
+  const ground = new Uint8Array(W * H), coll = new Uint16Array(W * H), height = new Uint8Array(W * H), why = new Uint8Array(W * H);
   for (let i = 0; i < W * H; i++) {
     if (land[i]) { ground[i] = GROUND.land; coll[i] = COLL.none; }
     else if (steps[i] <= src.sea.shallowWithin) { ground[i] = GROUND.shallow; coll[i] = COLL.shallow; }
     else { ground[i] = GROUND.deep; coll[i] = COLL.deep; }
   }
-  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, steps, sourceSha256 };
+  // B1b. the levels: the highest region each land tile's centre is in
+  const E = src.elevation, polys = E.regions.map(regionPoly), inRegion = E.regions.map(() => new Uint8Array(W * H));
+  E.regions.forEach((r, k) => { const g = raster(polys[k], W, H); for (let i = 0; i < W * H; i++) if (land[i] && g[i]) { inRegion[k][i] = 1; if (r.level > height[i]) height[i] = r.level; } });
+  // the beach: the coastal band of levels 0 and 1 is sand, at level 0
+  const fromSea = stepsFrom(land.map((v) => 1 - v), W, H);
+  for (let i = 0; i < W * H; i++) if (land[i] && height[i] < 2 && fromSea[i] <= (height[i] === 0 ? E.beach.level0Within : E.beach.level1Within)) { ground[i] = GROUND.sand; height[i] = 0; }
+  // solid regions (the volcano mass): blocked ground
+  E.regions.forEach((r, k) => { if (r.solid) for (let i = 0; i < W * H; i++) if (inRegion[k][i]) { coll[i] = COLL.solid; why[i] = WHY.blocked; } });
+  // cliff rims: the higher of two neighbouring land tiles is solid unless both are inside one ramp, as its two levels
+  const rampOf = new Int16Array(W * H).fill(-1);
+  E.ramps.forEach((r, k) => { const b = r.rampBox; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (rampOf[y * W + x] < 0) rampOf[y * W + x] = k; });
+  const rampJoins = (a, b) => rampOf[a] >= 0 && rampOf[a] === rampOf[b] && E.ramps[rampOf[a]].levels[0] === height[b] && E.ramps[rampOf[a]].levels[1] === height[a];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    const a = y * W + x;
+    if (!land[a] || coll[a] & COLL.solid) continue;
+    for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
+      if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
+      const b = ny * W + nx;
+      if (land[b] && height[b] < height[a] && !rampJoins(a, b)) { coll[a] = COLL.solid; why[a] = WHY.rim; break; }
+    }
+  }
+  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, sourceSha256 };
 }
 
 /* the staged file's text. Everything that decides a byte is here, in a fixed order */
-export function serialize(m) {
+export function serialize(m, src) {
   const rows = (arr, ch) => { const out = []; for (let y = 0; y < m.h; y++) { let r = ""; for (let x = 0; x < m.w; x++) r += ch(arr[y * m.w + x]); out.push(`    "${r}"`); } return out.join(",\n"); };
-  const values = [COLL.none, COLL.shallow, COLL.deep];
+  const values = [COLL.none, COLL.solid, COLL.shallow, COLL.deep];
+  const E = src.elevation;
+  const levels = E.regions.map((r) => {
+    const o = { id: r.id, level: r.level };
+    if (r.solid) o.solid = true;
+    if (r.outline) { o.type = "hermite-loop"; o.samplesPerSegment = r.outline.samplesPerSegment; o.pts = r.outline.points.map((p) => [p.x, p.y, p.corner ? 0 : 1]); }
+    else { o.type = "ellipse"; o.cx = r.ellipse.cx; o.cy = r.ellipse.cy; o.rx = r.ellipse.rx; o.ry = r.ellipse.ry; o.sides = r.ellipse.sides; }
+    return o;
+  });
+  const ramps = E.ramps.map((r) => ({ id: r.id, levels: r.levels, x0: r.rampBox.x0, y0: r.rampBox.y0, x1: r.rampBox.x1, y1: r.rampBox.y1 }));
   const num = (v) => JSON.stringify(v);
   return [
     `/* STAGED MAP-B home island ("Harbour Crescent", r2.1), stage ${STAGE}. Generated by tools/map-compile.mjs from`,
@@ -172,10 +268,13 @@ export function serialize(m) {
     `   format 2, which the game can't read yet (js/world.js reads format 1; format 2 support begins in B2). It`,
     `   registers window.ISLAND_MAPS_STAGED, never window.ISLAND_MAPS, it is never loaded by a page, and tools/`,
     `   is never deployed. Production runs the 100 x 80 island in js/maps/home.js until an approved switch-over.`,
-    `   ground: a hex digit per tile (0 deep, 1 shallow, 3 land; land is grass until B1b adds levels, beaches and`,
-    `   water bodies). height: 0 everywhere until B1b. coll: a base-36 index into coll.values (the game's flags:`,
-    `   2 shallow, 4 deep). footBlock: none yet. shapes.coast: the closed Hermite spline the land is filled from,`,
-    `   [x, y, tangent] per control point (tangent 0 at a corner), samplesPerSegment samples per segment. */`,
+    `   ground: a hex digit per tile (0 deep, 1 shallow, 2 sand (the beach), 3 grass). height: the level, 0 to 3 (sea`,
+    `   0). coll: a base-36 index into coll.values (the game's flags: 1 solid, the cliff rims and the volcano mass;`,
+    `   2 shallow; 4 deep). footBlock: none yet. shapes.coast: the closed Hermite spline the land is filled from,`,
+    `   [x, y, tangent] per control point (tangent 0 at a corner), samplesPerSegment samples per segment.`,
+    `   shapes.levels: the elevation regions in order (a land tile takes the highest level it is in, then the`,
+    `   beach rule makes the coastal band of levels 0 and 1 sand at level 0); shapes.beach: that rule;`,
+    `   shapes.ramps: the only places a level changes, inclusive tile boxes (x0..x1, y0..y1) and their two levels. */`,
     `(window.ISLAND_MAPS_STAGED = window.ISLAND_MAPS_STAGED || {}).home = {`,
     `  "format": 2, "staged": true, "runtimeSupported": false, "stage": ${num(STAGE)}, "id": ${num(m.id)}, "generator": "tools/map-compile.mjs",`,
     `  "source": "tools/maps/home.src.mjs", "sourceSha256": ${num(m.sourceSha256)}, "tile": ${m.tile}, "w": ${m.w}, "h": ${m.h},`,
@@ -184,7 +283,10 @@ export function serialize(m) {
     `  "coll": { "values": ${num(values)}, "rows": [`, rows(m.coll, (v) => values.indexOf(v).toString(36)), `  ] },`,
     `  "footBlock": [],`,
     `  "shapes": {`,
-    `    "coast": { "type": "hermite-loop", "samplesPerSegment": ${m.n}, "pts": ${num(m.pts)} }`,
+    `    "coast": { "type": "hermite-loop", "samplesPerSegment": ${m.n}, "pts": ${num(m.pts)} },`,
+    `    "levels": [`, levels.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
+    `    "beach": ${num(E.beach)},`,
+    `    "ramps": [`, ramps.map((o) => `      ${num(o)}`).join(",\n"), `    ]`,
     `  }`,
     `};`,
     ``
@@ -218,7 +320,11 @@ export async function loadSource(path = SOURCE_PATH) {
 }
 
 /* ════════ review images (tools/out/mapb/, ignored) ════════ */
-const COLOR = { deep: "#1e4062", shallow: "#346c8c", land: "#709c5c" };
+const COLOR = { deep: "#1e4062", shallow: "#346c8c", land: "#709c5c", sand: "#d8c48e" };
+const LEVEL = ["#a8c97a", "#5f9a4e", "#9a7f5c", "#c9b8e8"];        // levels 0 to 3: pale green, green, brown, lavender
+// orientation labels for the previews only (district bounds come in B1e; nothing reads these)
+const ORIENT = [["harbour", 79, 79], ["village", 46, 86], ["ops", 112, 86], ["commons", 76, 52], ["riverlands", 44, 47], ["delta", 17, 80],
+  ["koi garden", 109, 63], ["headland", 136, 44], ["research", 116, 19], ["highland", 40, 21], ["volcano", 72, 15], ["shrine knoll", 13, 19], ["brachio meadow", 20, 42]];
 function tilesSvg(m, P, ox, oy, colorOf) {
   let s = "";
   for (let y = 0; y < m.h; y++) {
@@ -232,7 +338,8 @@ function tilesSvg(m, P, ox, oy, colorOf) {
   }
   return s;
 }
-const terrainColor = (m) => (i) => m.land[i] ? COLOR.land : m.ground[i] === GROUND.shallow ? COLOR.shallow : COLOR.deep;
+const terrainColor = (m) => (i) => m.land[i] ? (m.ground[i] === GROUND.sand ? COLOR.sand : COLOR.land) : m.ground[i] === GROUND.shallow ? COLOR.shallow : COLOR.deep;
+const levelColor = (m) => (i) => m.land[i] ? LEVEL[m.height[i]] : m.ground[i] === GROUND.shallow ? "#2c5068" : "#1c3550";
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 function frame(w, h, title, body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" font-family="Helvetica, Arial, sans-serif"><rect width="${w}" height="${h}" fill="#14161c"/>` +
@@ -257,7 +364,7 @@ export function previewSvgs(m, src, r21) {
   // 1. clean terrain
   {
     const P = 6, w = m.w * P + 2 * M, h = m.h * P + T0 + M;
-    out["terrain"] = frame(w, h, "MAP-B B1a terrain: land, shallow sea, deep sea (6 px a tile)", tilesSvg(m, P, M, T0, terrainColor(m)));
+    out["terrain"] = frame(w, h, "MAP-B terrain: grass, beach, shallow sea, deep sea (6 px a tile)", tilesSvg(m, P, M, T0, terrainColor(m)));
   }
   // 2. coast with numbered, named control points
   {
@@ -321,6 +428,70 @@ export function previewSvgs(m, src, r21) {
     }
     out["exits-lanes"] = frame(w, h, "MAP-B B1a exits, sea lanes (dashed), feature checks (green ring: land; white: sea); numbers on tile edges", b);
   }
+  /* B1b: elevation */
+  const label = (x, y, t, fill, size = 11) => `<text x="${x}" y="${y}" fill="${fill}" font-size="${size}" font-weight="bold" stroke="#111" stroke-width="3" paint-order="stroke">${esc(t)}</text>`;
+  const legend = (x, y, rows) => rows.map(([c, t], k) => `<rect x="${x}" y="${y + k * 18}" width="12" height="12" fill="${c}" stroke="#111"/><text x="${x + 18}" y="${y + k * 18 + 11}" fill="#ddd" font-size="12">${esc(t)}</text>`).join("");
+  const counts = [0, 1, 2, 3].map((l) => { let n = 0; for (let i = 0; i < m.w * m.h; i++) if (m.land[i] && m.height[i] === l) n++; return n; });
+  const lvLegend = [[LEVEL[0], `level 0: lowland and beaches (${counts[0]} tiles)`], [LEVEL[1], `level 1: meadow terrace (${counts[1]})`], [LEVEL[2], `level 2: highland, headland plateau (${counts[2]})`], [LEVEL[3], `level 3: volcano mass, shrine knoll (${counts[3]})`]];
+  // 6. the four levels, with orientation labels
+  {
+    const P = 8, legW = 330, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, levelColor(m));
+    for (const [t, x, y] of ORIENT) b += `<text x="${M + x * P}" y="${T0 + y * P}" fill="#fff" font-size="12" font-weight="bold" text-anchor="middle" stroke="#111" stroke-width="3" paint-order="stroke">${esc(t)}</text>`;
+    b += legend(M * 2 + m.w * P - 20, T0, lvLegend) + `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 90}" fill="#aaa" font-size="11">place names: orientation only (districts come in B1e)</text>`;
+    out["elevation"] = frame(w, h, "MAP-B B1b elevation: the four levels (8 px a tile)", b);
+  }
+  // 7. levels with the coast and the named elevation outlines
+  {
+    const P = 8, legW = 330, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, levelColor(m));
+    b += `<polygon points="${m.samples.map((p) => `${(M + p[0] * P).toFixed(2)},${(T0 + p[1] * P).toFixed(2)}`).join(" ")}" fill="none" stroke="#ffe08a" stroke-width="1.6"/>`;
+    b += `<clipPath id="map"><rect x="${M}" y="${T0}" width="${m.w * P}" height="${m.h * P}"/></clipPath><g clip-path="url(#map)">`;
+    src.elevation.regions.forEach((r, k) => {
+      const col = ["#ffffff", "#ff9f6b", "#ff9f6b", "#e0d0ff", "#e0d0ff"][k] || "#fff";
+      b += `<polygon points="${m.polys[k].map((p) => `${(M + p[0] * P).toFixed(2)},${(T0 + p[1] * P).toFixed(2)}`).join(" ")}" fill="none" stroke="${col}" stroke-width="1.4" stroke-dasharray="6 3"/>`;
+      if (r.outline) for (const p of r.outline.points) if (p.x >= 0 && p.x <= m.w && p.y >= 0 && p.y <= m.h) b += `<circle cx="${M + p.x * P}" cy="${T0 + p.y * P}" r="3" fill="${col}" stroke="#111"/>`;
+    });
+    b += `</g>`;
+    for (const r of src.elevation.regions) {
+      const at = r.ellipse ? [r.ellipse.cx, r.ellipse.cy - r.ellipse.ry - 0.6] : r.id === "meadow-terrace" ? [52, 66] : r.id === "highland" ? [40, 31] : [137, 37.6];
+      b += label(M + at[0] * P - 30, T0 + at[1] * P, r.id + ` (level ${r.level}${r.solid ? ", solid" : ""})`, "#fff", 11);
+    }
+    b += legend(M * 2 + m.w * P - 20, T0, lvLegend.concat([["#ffe08a", "the coast (locked, B1a)"], ["#ffffff", "meadow-terrace outline"], ["#ff9f6b", "highland and headland-plateau outlines"], ["#e0d0ff", "level-3 ellipses"]]));
+    b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 160}" fill="#aaa" font-size="11">dots: named outline points (in home.src.mjs)</text>`;
+    out["elevation-coast"] = frame(w, h, "MAP-B B1b elevation with the coast and the named outlines the levels are filled from", b);
+  }
+  // 8. the eight ramps
+  {
+    const P = 8, legW = 360, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, (i) => m.coll[i] & COLL.solid && m.land[i] ? "#3a2c28" : levelColor(m)(i));
+    for (const r of src.elevation.ramps) {
+      const bx = r.rampBox;
+      b += `<rect x="${M + bx.x0 * P}" y="${T0 + bx.y0 * P}" width="${(bx.x1 - bx.x0 + 1) * P}" height="${(bx.y1 - bx.y0 + 1) * P}" fill="rgba(80,255,160,0.18)" stroke="#50ffa0" stroke-width="2"/>`;
+      b += `<circle cx="${M + (bx.x0 + bx.x1 + 1) / 2 * P}" cy="${T0 + (bx.y0 + bx.y1 + 1) / 2 * P}" r="9" fill="#50ffa0" stroke="#111"/><text x="${M + (bx.x0 + bx.x1 + 1) / 2 * P}" y="${T0 + (bx.y0 + bx.y1 + 1) / 2 * P + 4}" fill="#111" font-size="12" font-weight="bold" text-anchor="middle">${r.number}</text>`;
+    }
+    const lx = M * 2 + m.w * P - 20;
+    b += legend(lx, T0, lvLegend.concat([["#3a2c28", "solid: cliff rims and the volcano mass"], ["#50ffa0", "ramp (the only level changes)"]]));
+    src.elevation.ramps.forEach((r, k) => { const bx = r.rampBox; b += `<text x="${lx}" y="${T0 + 130 + k * 18}" fill="#bfffd9" font-size="12">${r.number}. ${esc(r.id)}: levels ${r.levels[0]}-${r.levels[1]}, x ${bx.x0}-${bx.x1}, y ${bx.y0}-${bx.y1}</text>`; });
+    out["ramps"] = frame(w, h, "MAP-B B1b: the eight ramps (inclusive tile boxes), the only places a level changes", b);
+  }
+  // 9. collision: walkable ground by level, cliff rims, the blocked volcano, the sea
+  {
+    const P = 8, legW = 330, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    const shade = ["#cfe3b0", "#9cc78a", "#c2ae92", "#e3d9f5"];
+    let rims = 0, blocked = 0;
+    for (let i = 0; i < m.w * m.h; i++) { if (m.why[i] === WHY.rim) rims++; else if (m.why[i] === WHY.blocked) blocked++; }
+    const col = (i) => {
+      if (!m.land[i]) return m.coll[i] & COLL.shallow ? "#2c5068" : "#1c3550";
+      if (m.why[i] === WHY.rim) return "#d2442f";
+      if (m.why[i] === WHY.blocked) return "#2b2b33";
+      return shade[m.height[i]];
+    };
+    let b = tilesSvg(m, P, M, T0, col);
+    b += legend(M * 2 + m.w * P - 20, T0, [[shade[0], "walkable, level 0"], [shade[1], "walkable, level 1"], [shade[2], "walkable, level 2"], [shade[3], "walkable, level 3 (shrine knoll)"],
+      ["#d2442f", `cliff rim, solid (${rims} tiles)`], ["#2b2b33", `volcano mass, solid (${blocked} tiles)`], ["#2c5068", "shallow sea (flag 2)"], ["#1c3550", "deep sea (flag 4)"]]);
+    out["collision"] = frame(w, h, "MAP-B B1b collision: walkable ground, cliff rims and the blocked volcano mass (8 px a tile)", b);
+  }
   return out;
 }
 async function writePreviews(m, src) {
@@ -348,7 +519,7 @@ if (import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const { src, sourceSha256 } = await loadSource();
   const m = compile(src, sourceSha256);
-  const text = serialize(m);
+  const text = serialize(m, src);
   if (args.includes("--stdout")) process.stdout.write(text);
   else if (args.includes("--check")) {
     const cur = existsSync(STAGED_PATH) ? readFileSync(STAGED_PATH, "utf8") : null;

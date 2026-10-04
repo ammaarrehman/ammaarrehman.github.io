@@ -4,16 +4,18 @@
 
    STAGED. Nothing in the game reads this file or its output yet. Production still runs the original
    100 x 80 island from js/maps/home.js; the game learns the new map format in B2, and the switch-over is
-   a separate, approved release later. B1a holds only the canvas, the coast, the sea, and metadata for the
-   three future exits and the open sea the satellites need. Elevation, beaches, rivers, paths, docks,
-   buildings and everything else come in later batches; this file must not hold them yet (the compiler
-   refuses unknown sections).
+   a separate, approved release later. It holds the canvas, the coast and the sea (B1a, locked), the four
+   levels, the beach and the eight ramps (B1b), and metadata for the three future exits and the open sea
+   the satellites need. Rivers, ponds, paths, docks, buildings and everything else come in later batches;
+   this file must not hold them yet (the compiler refuses unknown sections).
 
    Coordinates (one convention for the whole file; tools/map-lint.mjs enforces it):
    - Tile space. Tile (tx, ty) is the square [tx, tx + 1) x [ty, ty + 1); its centre is (tx + 0.5, ty + 0.5).
      The map is w x h = 150 x 120 tiles, so tiles are x 0 to 149 and y 0 to 119.
    - Control points (coast.points) are positions, not tiles: { id, x, y } with x in [0, 150] and y in
-     [0, 120], decimals allowed. A tile is land when its centre is inside the closed coast curve.
+     [0, 120], decimals allowed. A tile is land when its centre is inside the closed coast curve. Elevation
+     outline points are positions too, and may lie up to 10 tiles off the map (see elevation).
+   - Point ids are unique across the whole file, so any point can be named on its own.
    - A field named ...Tile is one tile: [x, y], whole numbers, x 0 to 149, y 0 to 119.
    - A field named ...Tiles is a list of tiles.
    - A field named ...Box is an INCLUSIVE tile box: { x0, y0, x1, y1 }, whole numbers, both corners
@@ -140,6 +142,93 @@ export default {
 
   /* the sea: shallow within this many steps (diagonals count as one) of land, deep beyond */
   sea: { shallowWithin: 3 },
+
+  /* elevation (B1b): four levels, 0 to 3. Every land tile starts at level 0; each region below lifts the
+     land tiles whose centre is inside it to its level, and where regions overlap the highest wins. Then
+     the beach rule drops the coastal band back to level 0. Level changes happen only inside a ramp: any
+     other place where walkable ground would meet ground a level lower, the higher tile is a cliff rim and
+     solid. A region marked solid is blocked ground.
+     - level 0, the lowland: the harbour, the village, ops, the delta, and every beach;
+     - level 1, the meadow terrace: the commons, the riverlands, the koi garden;
+     - level 2, the highland and the headland plateau: research, the cave approach, the lighthouse;
+     - level 3: the volcano mass (solid, kept for Cinder Reach) and the shrine knoll (walkable, by its stairs).
+     Outline points are positions like the coast's, but may lie up to 10 tiles off the map (x -10 to 160,
+     y -10 to 130), so a terrace can run off the edge; only map tiles are filled. An outline is a closed
+     Hermite spline like the coast, all smooth unless a point says corner: true. An ellipse is filled as
+     a polygon of `sides` corners. Ramp boxes are inclusive tile boxes, like every ...Box in this file */
+  elevation: {
+    regions: [
+      { id: "meadow-terrace", level: 1, outline: { samplesPerSegment: 8, points: [
+        // the terrace runs off the map to the north, east and west; its south edge, east to west, is the
+        // cliff above the lowland (the harbour, the village, ops and the delta)
+        { id: "meadow-off-map-north-west", x: -5, y: -5 },
+        { id: "meadow-off-map-north-east", x: 155, y: -5 },
+        { id: "meadow-off-map-east", x: 155, y: 72 },
+        { id: "meadow-edge-east-coast", x: 134, y: 73 },
+        { id: "meadow-edge-ops", x: 120, y: 72.5 },
+        { id: "meadow-edge-depot", x: 106, y: 72 },
+        { id: "meadow-edge-service-road", x: 98, y: 70.5 },
+        { id: "meadow-edge-harbour-east", x: 90, y: 67.5 },
+        { id: "meadow-edge-main-path", x: 80, y: 66 },
+        { id: "meadow-edge-harbour-west", x: 70, y: 66.5 },
+        { id: "meadow-edge-village-east", x: 62, y: 68.5 },
+        { id: "meadow-edge-village", x: 54, y: 70 },
+        { id: "meadow-edge-village-west", x: 44, y: 70 },
+        { id: "meadow-edge-delta-trail", x: 38, y: 67.5 },
+        { id: "meadow-edge-riverlands-south", x: 33, y: 62 },
+        { id: "meadow-edge-west-cove", x: 28, y: 58 },
+        { id: "meadow-edge-west-coast", x: 20, y: 57 },
+        { id: "meadow-off-map-west", x: -5, y: 57 }
+      ] } },
+      { id: "highland", level: 2, outline: { samplesPerSegment: 8, points: [
+        // the highland runs off the map to the north; its south edge, east to west, is the cliff above
+        // the meadow terrace
+        { id: "highland-off-map-north-west", x: -5, y: -5 },
+        { id: "highland-off-map-north-east", x: 155, y: -5 },
+        { id: "highland-off-map-east", x: 155, y: 30 },
+        { id: "highland-edge-lantern-cove", x: 122, y: 30 },
+        { id: "highland-edge-research-gate", x: 112, y: 31 },
+        { id: "highland-edge-service-road", x: 102, y: 33.5 },
+        { id: "highland-edge-tower", x: 94, y: 36 },
+        { id: "highland-edge-galli", x: 84, y: 37 },
+        { id: "highland-edge-park-gate", x: 76, y: 36.5 },
+        { id: "highland-edge-cave", x: 68, y: 35.5 },
+        { id: "highland-edge-spino", x: 58, y: 34 },
+        { id: "highland-edge-upper-falls", x: 50, y: 31.5 },
+        { id: "highland-edge-river", x: 44, y: 29 },
+        { id: "highland-edge-pachy", x: 36, y: 27.5 },
+        { id: "highland-edge-brachio", x: 26, y: 27.5 },
+        { id: "highland-edge-west", x: 14, y: 28 },
+        { id: "highland-off-map-west", x: -5, y: 30 }
+      ] } },
+      { id: "headland-plateau", level: 2, outline: { samplesPerSegment: 8, points: [
+        // the lighthouse headland's raised top
+        { id: "headland-plateau-north-west", x: 132, y: 38.5 },
+        { id: "headland-plateau-north", x: 140, y: 38.5 },
+        { id: "headland-plateau-tip", x: 146, y: 42.5 },
+        { id: "headland-plateau-south-east", x: 144, y: 48.5 },
+        { id: "headland-plateau-south", x: 137, y: 49.5 },
+        { id: "headland-plateau-south-west", x: 132, y: 47 }
+      ] } },
+      { id: "volcano-mass", level: 3, solid: true, reservedFor: "Cinder Reach (a later phase opens it)", ellipse: { cx: 72, cy: 15, rx: 14, ry: 10, sides: 48 } },
+      { id: "shrine-knoll", level: 3, ellipse: { cx: 13, cy: 21, rx: 6.5, ry: 4.5, sides: 48 } }
+    ],
+    /* the beach: a land tile at level 0 within level0Within steps of the sea, or at level 1 within
+       level1Within, is beach (sand) at level 0. Levels 2 and 3 meet the sea as sea cliffs, with no beach */
+    beach: { level0Within: 2, level1Within: 1 },
+    /* the eight ramps, the only places a level changes. Boxes are inclusive (the study wrote them
+       half-open, x0 <= x < x1, so each one's x1 and y1 here are the study's minus 1) */
+    ramps: [
+      { id: "main-path", number: 1, levels: [0, 1], rampBox: { x0: 73, y0: 63, x1: 79, y1: 67 } },
+      { id: "park-gate", number: 2, levels: [1, 2], rampBox: { x0: 71, y0: 34, x1: 77, y1: 39 } },
+      { id: "shrine-stairs", number: 3, levels: [2, 3], rampBox: { x0: 13, y0: 22, x1: 19, y1: 26 } },
+      { id: "service-road-lower", number: 4, levels: [0, 1], rampBox: { x0: 94, y0: 67, x1: 100, y1: 73 } },
+      { id: "service-road-upper", number: 5, levels: [1, 2], rampBox: { x0: 97, y0: 30, x1: 104, y1: 36 } },
+      { id: "headland-stairs", number: 6, levels: [1, 2], rampBox: { x0: 128, y0: 40, x1: 132, y1: 46 } },
+      { id: "lantern-cove-steps", number: 7, levels: [0, 1], rampBox: { x0: 124, y0: 32, x1: 129, y1: 37 } },
+      { id: "riverlands-delta-trail", number: 8, levels: [0, 1], rampBox: { x0: 27, y0: 60, x1: 37, y1: 70 } }
+    ]
+  },
 
   /* named features, each checked by tiles that must be land or sea (map-lint). points: the control
      points that shape it, so a check that fails says which points to look at */
