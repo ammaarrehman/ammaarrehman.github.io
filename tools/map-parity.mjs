@@ -50,6 +50,14 @@ const HOOK = String.raw`
     function plain(o) { return JSON.parse(JSON.stringify(o, function (k, v) { return k.charAt(0) === "_" || (v && v.getContext) ? undefined : v; })); }
     var parts = {};
     function put(name, bytes, raw) { parts[name] = { bytes: bytes, raw: raw }; }
+    function dynamicPlace(k) {
+      var v = PLACES[k];
+      if (v === 1 || typeof v === "string" && STATIONS.some(function (q) { return q.id === v; })) return false;      // a station
+      var keep = [heli.x, heli.y, pi.x, pi.y, pi.path, camF.x], at = [];
+      [[30 * T + 8, 50 * T + 8], [70 * T + 8, 47 * T + 8]].forEach(function (h) { heli.x = h[0]; heli.y = h[1]; goto(k); at.push(pi.x + "," + pi.y); });
+      heli.x = keep[0]; heli.y = keep[1]; pi.x = keep[2]; pi.y = keep[3]; pi.path = keep[4]; camF.x = keep[5];
+      return at[0] !== at[1];
+    }
     function build() {
       var px, py, i, PWv = MW * T, PHv = MH * T;
       put("dims", txt(JSON.stringify([T, MW, MH, PW, PH, CX, CY, DOCKX, dockY])));
@@ -98,7 +106,10 @@ const HOOK = String.raw`
       put("cache.canland8", Uint8Array.from(CL));
       // the creatures, the bots, the car and pi as the island starts (after spawning out of walls)
       put("actors.start", txt(JSON.stringify({ critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), bots: bots.map(function (b) { return [b.kind, b.x, b.y]; }), car: [car.x, car.y, car.a], rex: [rex.x, rex.y], heli: [heli.x, heli.y], pi: [pi.x, pi.y] })));
-      put("places", txt(JSON.stringify(PLACES)));
+      // the goto table: every name in order with its value, apart from a name goto resolves to the parked
+      // helicopter (heli, helipad), whose value goto never reads: that one is "<dynamic-helicopter>",
+      // decided by parking the helicopter in two places and seeing goto follow it
+      put("places", txt(JSON.stringify(Object.keys(PLACES).map(function (k) { return [k, dynamicPlace(k) ? "<dynamic-helicopter>" : PLACES[k]]; }))));
       put("rooms", txt(sorted({ rooms: plain(ROOMS), doors: DOORS })));
       return Object.keys(parts);
     }

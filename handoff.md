@@ -186,6 +186,19 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### B0, map placement data, 2026-10-03 (committed, not deployed)
+
+- What: the home island's remaining hard-coded positions moved from `world.js` into `js/maps/home.js`, with exact parity and no visible change. `docs/game-design.md` ("Technical", map data) has the sections and rules.
+  - Authored now: creature spawns and roam areas (one record per area object; matching boxes stay separate records, so identity is kept), the welder's route, the car, rex, gardener, first-visit and arena anchors, the static goto places and five zones.
+  - Derived from the authored buildings: the cargo stops and the drone pad.
+  - `heli` and `helipad` stay dynamic goto names with no static coordinate (the dead `59,62` is gone).
+  - The big map's size follows the map (3 px a tile: 300 x 240 now, 450 x 360 at 150 x 120).
+  - The placement sections are optional in the format; the home island requires its own and stops with a message naming any that's missing.
+- Commits: B0a the parity harness `tools/b0-parity.mjs` (`80fd911`); B0b the schema, decoder and export (`b795d32`; `home.js` 99,667 bytes, 12,985 gzipped); B0c creatures, roam areas, bots, drones, car and rex from the data (`8cce475`); B0d places, zones, arena and first visit (`ecbb809`); B0e removed the dead heli coordinate, derived the big-map size, made `map-parity.mjs`'s places check compare heli and helipad as dynamic places, and these docs.
+- Parity: `b0-parity.mjs` 22 of 22 identical with `715450d` in Chromium and WebKit, 19 of 19 mutations caught in each (17 edit `home.js`; 2 edit `world.js` on purpose: the core tap's goal and goto heli's offset). `map-parity.mjs` 37 of 37, `map-baseline.mjs --check` matches; no fixture changed.
+- Kept on purpose: the core-tap bug (pi heads for 36,25 / 36,26, the old arena, and ends at 36,27; the arena moved to 48,43 in `a28541f`). Fix it separately, after the B0 release or just before MAP-B, with an authored arena approach point. `CX` / `CY` are dead; their cleanup (with the exporter and parity tools that read them) is deferred.
+- Not done: the B0 release (its own invisible release: cache bump and deploy, with Ammaar's go-ahead). Production is still the 100 x 80 island; the 150 x 120 map isn't generated or switched in. `SAVE_V` is still 2.
+
 ### MAP-B world plan approved, 2026-10-03 (design only)
 
 - Ammaar approved MAP-B r2.1:
@@ -203,7 +216,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - Not built:
   - no 150 x 120 map;
   - no satellite maps, ferries, boats or map switching;
-  - B0 hasn't started.
+  - B0 was built next (above); it's committed, not deployed.
 - Production still runs the original 100 x 80 island.
 - The study files (schematics, checks, world chart) are local and untracked, in `tools/out/blockout/r2/` (`plan-r2.1.md`). They're not in git.
 
@@ -428,7 +441,7 @@ Follow handoff 3's build order. Where it stands:
    - C4: a fresh bug hunt on the island as it is now, with the C5 scenario tools (handoff 2's list is lost; don't recreate it from memory). Found and approved: C4-1 pi's paths stop short at river and pond banks (**fixed 2026-09-30**, section 7); C4-2 the helicopter can land in, and a reload can restore pi into, walkable pockets cut off from the island (**fixed 2026-09-30**, section 7). Both deployed 2026-10-01 (Cloudflare `bff274a4`). **Phase 8 is done**; only B2 below remains, deferred to Phase 12. Handoff 3 B2's cave transition waits for the Phase 12 tunnel.
    - D11: split in two. **D11-A save v2: done 2026-09-30** (section 7). **D11-B map data layers: done 2026-09-30** (section 7). All three deployed 2026-09-30 (Cloudflare `591b3f45`). C4's cave transition (handoff 3 B2) is deferred to Phase 12: it can't be tested until the tunnel exists.
 5. **Phase 9:** the CTF (handoff 2 E1). **Done and deployed 2026-10-02** (Cloudflare `77077169`, cache `20261022`; section 7): the engine, the cave terminal's commands, slot 1 Fence Logs and slot 2 Radio Static. Deliberately not in Phase 9: the Scanner and slot 3 (Phase 11), the cave's tunnel and chamber, the B2 transition and slot 4 (Phase 12), Root, Server Key, slots 5 and 6, the CTF's full narrative home and any reward for all six (Phase 18).
-6. **Phase 10:** the art test-area stop (already reached; see step 2). Since then: P10-0 (visual reconnaissance) and P10-R (the island masterplan, concept 5 approved) were done, and MAP-A, the authored map foundation, is built and deployed 2026-10-03 (Cloudflare `b62884f1`, cache `20261023`; section 7). Then the MAP-B world plan (r2.1) was approved 2026-10-03 (section 7). **MAP-B (B0, then the 150 x 120 home island) comes next, before any geography-dependent Phase 11 work**, and it takes over Phase 12's home island layout. B0 hasn't started.
+6. **Phase 10:** the art test-area stop (already reached; see step 2). Since then: P10-0 (visual reconnaissance) and P10-R (the island masterplan, concept 5 approved) were done, and MAP-A, the authored map foundation, is built and deployed 2026-10-03 (Cloudflare `b62884f1`, cache `20261023`; section 7). Then the MAP-B world plan (r2.1) was approved 2026-10-03 (section 7). **MAP-B (B0, then the 150 x 120 home island) comes next, before any geography-dependent Phase 11 work**, and it takes over Phase 12's home island layout. B0 is built and committed (section 7), not deployed yet; then the core-tap fix, then the 150 x 120 island.
 7. **Phase 11:** movement (F1 to F5): heights, jumping and falling, crouch and stealth (the caged Utahraptors are the stealth tutorial), sprint and stamina, swimming, the volcano with lava and respawn, the new key bindings.
 8. **Phase 12:**
    - The map export (handoff 2 C1 step 1) and the regions plan. **Stop** for Ammaar's approval.

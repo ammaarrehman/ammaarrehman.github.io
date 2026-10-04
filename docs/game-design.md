@@ -226,8 +226,31 @@ naming the field, and the orb says the island didn't load (a retry works).
   `decals` (bones, footprints); `buildings` (footprint, room), `stations` (outdoor landmarks' places; their
   words stay in code), `anchors` (spawn in world px, helipad, dock, gate) and `regions` (paddocks, the
   outpost compound).
-- Not in it: prose, creatures and their roam areas, NPC routes, `PLACES`, quests, the CTF, saves. They
-  stay in `world.js` until the blockout needs new positions for them.
+- Placements (B0, 2026-10-03; committed, not deployed): where things start and roam, in tiles, also in
+  `home.js`, so no exterior home position is duplicated in `world.js`:
+  - `spawns`, the 33 creatures in order (kind, start tile, roam id), and `regions.roamAreas`, one record
+    per roam area. Creatures naming the same id share one area object (the herd follows its leader by
+    that identity: the raptors share one, the herd plain's four another); two ids are two objects even
+    when their boxes match, so 28 records for 33 creatures, 12 of them repeating a box.
+  - `routes` (the welder's patrol: start and stops); `anchors.car`, `rex`, `gardener`, `firstVisit` and
+    `arena`.
+  - `places`, the goto spots with a fixed tile, in listing order. `heli` and `helipad` stay goto names
+    but have no spot: goto sends pi to wherever the helicopter is parked.
+  - `regions.zones`: `trex-roar` (pi strictly inside; edges may be fractional, 41.5), `rex-meadow`,
+    `gardener-beds` and `cockatiel-trees` (whole tiles, both edges in), `fireflies` (spread over the box).
+    Each system reads its zone's edges its own way; the format has no shared edge rule.
+  - Derived, not stored: the cargo stops are the depot's and visitor centre's doorways
+    (`floor(x0 + w / 2), y0 + h`), each one object the cargo legs compare by identity; the drone pad is the
+    depot's roof (its middle, top row + 6 px, 30 px up). The big map is 3 px a tile, so 300 x 240 now.
+  - Optional in the format (`decodeMap()` accepts a map without them), required by the home island: it
+    stops with a message naming what's missing (spawns, roam areas, the welder's route, the actor
+    anchors, places, the arena and first-visit anchors, the five zones).
+- Not in it: prose, creature kinds and behaviour, quests, the CTF, saves, station-backed goto names, and
+  offsets and art constants (the car's heading, the drone roof height, the orb field).
+- Known, kept on purpose through B0: tapping the core after the orb fight sends pi toward 36,25 / 36,26
+  (where the arena used to be, before it moved to 48,43 in `a28541f`); the path ends at 36,27, nowhere
+  near the fight. A separate fix will give the map an authored arena approach point. `CX` / `CY` in
+  `world.js` are dead (only the tools read them); removing them is later cleanup.
 - Collision: gameplay collision = authored `coll` + authored `footBlock`. Feet stop where the tile's
   `COLL` blocks or the pixel's `footBlock` bit is set, and nowhere else. The painted ground (`GK`) is a
   picture only; it never decides where pi can stand (`tools/map-parity.mjs` repaints it and checks that
@@ -252,7 +275,13 @@ naming the field, and the orb says the island didn't load (a retry works).
   from collision; the load failing and recovering), `tools/map-decode.mjs` (`decodeMap()` on synthetic
   maps, a 150 x 120 one among them, and every way of getting one wrong), and `tools/map-baseline.mjs
   --rev=<rev> --check` (any revision against the D11-B fixture).
-- Saves: `SAVE_V` is still 2. MAP-A changed no save field and migrated nothing.
+- B0's tests: `tools/b0-parity.mjs` (`715450d` against the working tree: every placement, the roam-area
+  identity graph, the cargo-stop identities, the drone pad, a 3,000-step seeded run, goto with the
+  helicopter parked in three places, the roar zone on a 4 px grid, rex's wander, the gardener's beds, the
+  core tap; 19 planted mutations, 17 of `home.js` and 2 of `world.js`, the core tap's goal and goto heli).
+- Saves: `SAVE_V` is still 2. MAP-A and B0 changed no save field and migrated nothing.
+- Geography: production is still the original 100 x 80 island. The 150 x 120 MAP-B island hasn't been
+  generated or switched in.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

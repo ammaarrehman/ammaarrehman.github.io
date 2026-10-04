@@ -2786,19 +2786,18 @@
   function setPrompt() { tPs.textContent = sudoTries >= 0 ? "[sudo] password for pi:" : "pi@island:~$"; tIn.type = sudoTries >= 0 ? "password" : "text"; }
   // goto spots: the stations (1 is the station of that name, a string another station), then the map's
   // places in its order, with heli and helipad second among them, as they always were listed. those two
-  // have no spot of their own: goto sends pi to wherever the helicopter is parked, and never reads HELI_GOTO
-  // (the value they have always carried, kept so the place table itself is unchanged)
-  var HELI_GOTO = [59, 62];
+  // have no spot of their own (PARKED marks them): goto sends pi to wherever the helicopter is parked
+  var PARKED = "parked helicopter";
   var PLACES = { rack: 1, desk: 1, uplink: 1, tower: 1, lighthouse: 1, macbook: 1, tablet: 1, mailbox: 1, sign: 1, boat: 1, dock: "boat" };
   Object.keys(MAP.places).forEach(function (nm, i) {
-    if (i === 1) { PLACES.helipad = HELI_GOTO; PLACES.heli = HELI_GOTO; }
+    if (i === 1) { PLACES.helipad = PARKED; PLACES.heli = PARKED; }
     PLACES[nm] = MAP.places[nm];
   });
-  if (!PLACES.heli) { PLACES.helipad = HELI_GOTO; PLACES.heli = HELI_GOTO; }
+  if (!PLACES.heli) { PLACES.helipad = PARKED; PLACES.heli = PARKED; }
   function goto(name) {
     var p = PLACES[name], tx, ty;
     if (!p) return false;
-    if (name === "heli" || name === "helipad") p = [Math.round(heli.x / T) + 2, Math.round(heli.y / T)];     // wherever it was last set down
+    if (p === PARKED) p = [Math.round(heli.x / T) + 2, Math.round(heli.y / T)];     // wherever it was last set down
     if (p === 1 || typeof p === "string") {
       var s = STATIONS.filter(function (q) { return q.id === (p === 1 ? name : p); })[0];
       if (s.room) { if (!room || room.id !== s.room) { if (room) exitRoom(); enterRoom(s.room, [s.x, s.y + 1]); } else { pi.x = s.x * T + 8; pi.y = (s.y + 1) * T + 10; } return true; }
@@ -4253,9 +4252,10 @@
      whole-number scale; found landmarks are named, the rest are "?". pick a found one (click it,
      or from the list) and pi travels there */
   var bigMap = null, mapEl = root.querySelector(".w-map"), mapCv = mapEl && mapEl.querySelector("canvas"), mapK = 1, mapPts = [];
+  var MAPPX = 3, MAPW = MW * MAPPX, MAPH = MH * MAPPX;     // the big map: 3 px a tile, so its size follows the island's
   function mapOpen() { return mapEl && !mapEl.hidden; }
   function buildBigMap() {
-    bigMap = mkCanvas(); bigMap.width = MW * 3; bigMap.height = MH * 3;
+    bigMap = mkCanvas(); bigMap.width = MAPW; bigMap.height = MAPH;
     var g = bigMap.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
     g.drawImage(ground, 0, 0, bigMap.width, bigMap.height);
     g.drawImage(volc.canvas, volc.ox / T * 3, volc.oy / T * 3, volc.canvas.width / T * 3, volc.canvas.height / T * 3);
@@ -4266,23 +4266,23 @@
   }
   function paintMap() {
     if (!bigMap) buildBigMap();
-    var aw = Math.max(300, Math.min(W - 40, 1200)), ah = Math.max(240, H - 230);
-    mapK = Math.max(1, Math.floor(Math.min(aw / 300, ah / 240)));
-    var cw = 300 * mapK, ch = 240 * mapK;
+    var aw = Math.max(MAPW, Math.min(W - 40, 1200)), ah = Math.max(MAPH, H - 230);
+    mapK = Math.max(1, Math.floor(Math.min(aw / MAPW, ah / MAPH)));
+    var cw = MAPW * mapK, ch = MAPH * mapK;
     mapCv.style.width = cw + "px"; mapCv.style.height = ch + "px"; mapCv.width = Math.floor(cw * dpr); mapCv.height = Math.floor(ch * dpr);
     var g = mapCv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = false;
     g.drawImage(bigMap, 0, 0, cw, ch);
     g.font = "700 11px 'Cascadia Mono', monospace"; g.textAlign = "center"; g.textBaseline = "bottom";
     mapPts = [];
     STATIONS.filter(function (q) { return q.found; }).forEach(function (q) {
-      var sp = mapSpot(q), x = sp.x * 3 * mapK, y = sp.y * 3 * mapK, f = !!found[q.id];
+      var sp = mapSpot(q), x = sp.x * MAPPX * mapK, y = sp.y * MAPPX * mapK, f = !!found[q.id];
       g.fillStyle = f ? "#4DD6E8" : "#0a0a0a"; g.fillRect(x - 4, y - 4, 8, 8); g.strokeStyle = f ? "#0a0a0a" : "#f4f4f4"; g.lineWidth = 1.5; g.strokeRect(x - 4, y - 4, 8, 8);
       var lbl = f ? q.name.replace(/^(the|a|an) /, "") : "?", w0 = g.measureText(lbl).width + 8;
       var ly = sp.below ? y + 22 : y - 8;
       g.fillStyle = "rgba(10,10,10,.85)"; g.fillRect(x - w0 / 2, ly - 14, w0, 15); g.fillStyle = f ? "#f4f4f4" : "#9a9a9a"; g.fillText(lbl, x, ly);
       mapPts.push({ id: q.id, x: x, y: y, f: f });
     });
-    var px = pi.x / T * 3 * mapK, py = pi.y / T * 3 * mapK;                       // pi
+    var px = pi.x / T * MAPPX * mapK, py = pi.y / T * MAPPX * mapK;                       // pi
     g.fillStyle = "#f454a6"; g.beginPath(); g.arc(px, py, 4, 0, 6.283); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
     var nav = mapEl.querySelector(".w-lm"); nav.innerHTML = "";
     STATIONS.filter(function (q) { return q.found; }).forEach(function (q) {
