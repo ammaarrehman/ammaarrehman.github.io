@@ -82,9 +82,8 @@
      edges each system reads its own way, so they may be fractional); spawns (creatures in order: kind,
      start tile, roam area); routes (a start and stops, in order); places (goto spots by name; on the home
      island heli and helipad follow the helicopter, so its map has no spots for them). units: tiles, all of them, apart from the older
-     anchors.spawn, in world px. decoded, checked and copied. the home island builds its creatures (spawns
-     and roam areas), the welder's patrol, and the car's, rex's and the gardener's starts from them; the
-     rest it doesn't read yet */
+     anchors.spawn, in world px. decoded, checked and copied; the home island builds its creatures, bots,
+     car, rex, goto spots, zones, arena and first-visit spot from them */
   function decodeMap(M) {
     function bad(msg) { throw new Error(msg); }
     function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
@@ -338,10 +337,13 @@
   var MAP;
   try { MAP = decodeMap(window.ISLAND_MAPS && window.ISLAND_MAPS.home); }
   catch (e) { var err = new Error("pi's island: js/maps/home.js: " + e.message); if (window.console) console.error(err.message); throw err; }
-  // the placements are optional in a map, but this island's creatures, welder and actors are built from
-  // them, so home must carry them all
+  // the placements are optional in a map, but this island's creatures, welder, actors, goto spots, zones,
+  // arena and first-visit spot are built from them, so home must carry them all
   (function () {
     var miss = [];
+    if (!Object.keys(MAP.places).length) miss.push("places");
+    ["arena", "firstVisit"].forEach(function (k) { if (!MAP.anchors[k]) miss.push("anchors." + k); });
+    ["rex-meadow", "trex-roar", "gardener-beds", "cockatiel-trees", "fireflies"].forEach(function (k) { if (!MAP.regions.zones[k]) miss.push("regions.zones." + k); });
     if (!MAP.spawns.length) miss.push("spawns");
     if (!MAP.regions.roamAreas.length) miss.push("regions.roamAreas");
     if (!MAP.routes["welder-patrol"] || !MAP.routes["welder-patrol"].start) miss.push("routes.welder-patrol (with a start)");
@@ -350,6 +352,7 @@
   })();
   var SH = MAP.shapes;
   var MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock[0];
+  var ZONES = MAP.regions.zones;      // named boxes in tiles; each system below reads its edges its own way
   function hash(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
   /* the island is built like a level, in three terraces. the highland across the north holds
      the volcano, the watchtower, the cave and, far to the west, the old shrine. a cliff band
@@ -2017,6 +2020,7 @@
   // a cargo bot knows which stop it's at by which object its leg is
   function building(id) { return BUILDINGS.filter(function (q) { return q.id === id; })[0]; }
   function doorstep(b) { return [Math.floor(b.x0 + b.w / 2), b.y0 + b.h]; }
+  function inBox(p, z) { return p.tx >= z[0] && p.tx <= z[2] && p.ty >= z[1] && p.ty <= z[3]; }   // a prop's tile, edges in
   var DOCKPT = [DOCKX, dockY], DEPOTPT = doorstep(building("depot")), VISITPT = doorstep(building("visitor"));
   var WELD = MAP.routes["welder-patrol"], GARD = MAP.anchors.gardener;
   function tileOf(o) { return [Math.floor(o.x / T), Math.floor(o.y / T)]; }
@@ -2072,7 +2076,7 @@
         if (stepBot(b, dt, 14)) { b.wait = 8 + rand() * 6; b.work = b.wait; b.face = 1; }
       } else if (b.kind === "gardener") {
         if (!b.path) {
-          var near2 = props.filter(function (p2) { return /^e:(fern|cycad|bush|magnolia|tallgrass)/.test(p2.kind) && Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8; });
+          var near2 = props.filter(function (p2) { return /^e:(fern|cycad|bush|magnolia|tallgrass)/.test(p2.kind) && inBox(p2, ZONES["gardener-beds"]); });
           var pick = near2[(rand() * near2.length) | 0];
           if (pick) botGo(b, [pick.tx, pick.ty + 1]);
           if (!b.path) { b.wait = 2; return; }
@@ -2135,7 +2139,7 @@
   (function () {
     function top(id) { var s = STATIONS.filter(function (q) { return q.id === id; })[0]; return { x: s.x * T + 8, y: s.y * T + 17 - SPR[id].height, gy: s.y * T + 16 }; }
     ["sign", "mailbox", "tablet", "uplink"].forEach(function (id) { perches.push(top(id)); });
-    props.filter(function (p) { return /^e:(oak|birch|ginkgo)/.test(p.kind) && Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8; }).slice(0, 6).forEach(function (p) {
+    props.filter(function (p) { return /^e:(oak|birch|ginkgo)/.test(p.kind) && inBox(p, ZONES["cockatiel-trees"]); }).slice(0, 6).forEach(function (p) {
       perches.push({ x: p.tx * T + 8 + (p.ox || 0), y: p.ty * T + 16 - ENV[p.kind.slice(2)][3] + 4, gy: p.ty * T + 15 });
     });
   })();
@@ -2780,7 +2784,17 @@
     });
   }
   function setPrompt() { tPs.textContent = sudoTries >= 0 ? "[sudo] password for pi:" : "pi@island:~$"; tIn.type = sudoTries >= 0 ? "password" : "text"; }
-  var PLACES = { rack: 1, desk: 1, uplink: 1, tower: 1, lighthouse: 1, macbook: 1, tablet: 1, mailbox: 1, sign: 1, boat: 1, dock: "boat", pond: [69, 45], helipad: [59, 62], heli: [59, 62], gate: [48, 35], plaza: [46, 60], car: [37, 61], paddock: [41, 51], raptors: [64, 40], volcano: [48, 25], outpost: [26, 61], shrine: [21, 23], clearing: [48, 43] };
+  // goto spots: the stations (1 is the station of that name, a string another station), then the map's
+  // places in its order, with heli and helipad second among them, as they always were listed. those two
+  // have no spot of their own: goto sends pi to wherever the helicopter is parked, and never reads HELI_GOTO
+  // (the value they have always carried, kept so the place table itself is unchanged)
+  var HELI_GOTO = [59, 62];
+  var PLACES = { rack: 1, desk: 1, uplink: 1, tower: 1, lighthouse: 1, macbook: 1, tablet: 1, mailbox: 1, sign: 1, boat: 1, dock: "boat" };
+  Object.keys(MAP.places).forEach(function (nm, i) {
+    if (i === 1) { PLACES.helipad = HELI_GOTO; PLACES.heli = HELI_GOTO; }
+    PLACES[nm] = MAP.places[nm];
+  });
+  if (!PLACES.heli) { PLACES.helipad = HELI_GOTO; PLACES.heli = HELI_GOTO; }
   function goto(name) {
     var p = PLACES[name], tx, ty;
     if (!p) return false;
@@ -3087,11 +3101,13 @@
     if (!birds[0].fly) { var n = (birds[0].perch + 3) % perches.length; fly(birds[0], n, 0); fly(birds[1], n, 0.2); }
   }
   var roarTag = null;
+  // the t-rex roars when pi is strictly inside its zone (edges out; they may be fractional) and close by
+  function piInside(z) { return pi.x < z[2] * T && pi.x > z[0] * T && pi.y > z[1] * T && pi.y < z[3] * T; }
   function updateLife(dt) {
     skyT -= dt; if (skyT <= 0) { readSky(); skyT = 30; }
     critters.forEach(function (c) { updateCritter(c, dt); });
     updateBirds(dt); updateKoi(dt); updateCar(dt); updateHeli(dt); updateVolcano(dt); updateBots(dt);
-    if (trex.cd <= 0 && !aboard() && !room && pi.x < 42 * T && pi.x > 25 * T && pi.y > 41.5 * T && pi.y < 56 * T && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
+    if (trex.cd <= 0 && !aboard() && !room && piInside(ZONES["trex-roar"]) && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
     if (roarTag) { roarTag.t -= dt; if (roarTag.t <= 0) roarTag = null; }
   }
 
@@ -3099,7 +3115,7 @@
      the island darkens, five orbs fall out of the sky, and they fight for
      control of the site. the last one standing takes the core, and runs the
      orbs on the page for the rest of the session. walk up to it for a rematch. */
-  var ARENA = { x: 48 * T + 8, y: 43 * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
+  var ARENA = { x: MAP.anchors.arena[0] * T + 8, y: MAP.anchors.arena[1] * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
   var RIVALS = ["eclipse", "bone", "halo", "fog", "void"];
   var POWER = { eclipse: 1.7, bone: 1.2, halo: 1.1, fog: 0.9, void: 1.0 };
   var rift = null, pendingRift = false, orbCache = {};
@@ -4122,7 +4138,8 @@
     // rex wanders the meadow
     rex.wait -= dt;
     if (rex.wait <= 0 && !rex.tx) {
-      var tx = 38 + Math.floor(rand() * 12), ty = 60 + Math.floor(rand() * 3);
+      var rm = ZONES["rex-meadow"];                                    // whole tiles, both edges in
+      var tx = rm[0] + Math.floor(rand() * (rm[2] - rm[0] + 1)), ty = rm[1] + Math.floor(rand() * (rm[3] - rm[1] + 1));
       if (walkable(tx, ty)) { rex.tx = tx * T + 8; rex.ty = ty * T + 10; }
     }
     if (rex.tx) {
@@ -4212,7 +4229,8 @@
   }
   /* fireflies over the brachio meadow at night */
   var FLIES = [];
-  for (var fi = 0; fi < 38; fi++) { var fx0 = 11 + hash(fi, 71) * 18, fy0 = 30 + hash(71, fi) * 20; if (land(at(Math.floor(fx0), Math.floor(fy0)))) FLIES.push({ x: fx0 * T, y: fy0 * T, ph: hash(fi, 5) * 6.283, r: 6 + hash(fi, 9) * 10 }); }
+  var FZ = ZONES.fireflies;           // spread over the box, x0 to x1 and y0 to y1
+  for (var fi = 0; fi < 38; fi++) { var fx0 = FZ[0] + hash(fi, 71) * (FZ[2] - FZ[0]), fy0 = FZ[1] + hash(71, fi) * (FZ[3] - FZ[1]); if (land(at(Math.floor(fx0), Math.floor(fy0)))) FLIES.push({ x: fx0 * T, y: fy0 * T, ph: hash(fi, 5) * 6.283, r: 6 + hash(fi, 9) * 10 }); }
   function drawFlies() {
     if (sky.dark < 0.5 || REAL !== "dino") return;
     var a0 = Math.min(1, (sky.dark - 0.5) * 3);
@@ -5019,7 +5037,8 @@
       first = !save.hatched; save.hatched = true; writeSave();
       egg = first && !REDUCED ? { t: 0 } : null;
       pi.x = SPAWN.x; pi.y = SPAWN.y; pi.vx = pi.vy = 0; pi.path = null; keys = {};
-      if (first) { pi.x = 50 * T + 8; pi.y = 61 * T + 10; if (!walkable(50, 61)) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }   // the mailbox is on screen
+      var fv = MAP.anchors.firstVisit;
+      if (first) { pi.x = fv[0] * T + 8; pi.y = fv[1] * T + 10; if (!walkable(fv[0], fv[1])) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }   // the mailbox is on screen
       hintFrom = { x: pi.x, y: pi.y }; sinceLog = 0;
       var lp = save.lastPos;                                            // back where pi left off
       if (!first && lp && safeTile(Math.floor(lp[0] / T), Math.floor(lp[1] / T))) { pi.x = lp[0]; pi.y = lp[1]; }   // only on safe ground (C4-2)

@@ -17,8 +17,9 @@
    Then the sensitivity proof: planted mutations of the working tree's js/world.js or js/maps/home.js,
    served changed in memory (nothing on disk changes), each of which must fail the checks it should and
    leave the ones it shouldn't alone. Each edits wherever its value is authored now: the map data for
-   what B0 has moved (B0c: creatures and roam areas, the welder's route, the gardener, car and rex starts,
-   and the depot and visitor centre the cargo stops and drone pad come from), world.js for the rest.
+   what B0 has moved (creatures and roam areas, the welder's route, the gardener, car and rex starts, the
+   depot and visitor centre the cargo stops and drone pad come from, goto places, the zones, the arena and
+   the first-visit spot), world.js for the two that stay code: the core tap's old goal and goto heli.
 
      node tools/b0-parity.mjs                          715450d vs the working tree, then the mutations
      node tools/b0-parity.mjs --ref=HEAD --no-mutations
@@ -175,11 +176,11 @@ const MUTATIONS = [
     must: ["creatures.start", "actors.after"], keep: ["creatures.areas", "creatures.alias", "bots.start", "places.goto", "roar.zone", "firstVisit", "rex.wander"] },
   { name: "a route point moves (the welder's stop 62,39 to 62,40)", map: edit([['"stops":[[59,34],[62,39],', '"stops":[[59,34],[62,40],']]),
     must: ["bots.welder.route"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "bots.start", "places.goto", "roar.zone", "rex.wander"] },
-  { name: "a zone edge moves (the roar zone's east edge 42 to 43 tiles)", src: edit([["pi.x < 42 * T && pi.x > 25 * T", "pi.x < 43 * T && pi.x > 25 * T"]]),
+  { name: "a zone edge moves (the roar zone's east edge 42 to 43 tiles, 41.5 kept)", map: edit([['"trex-roar":[25,41.5,42,56]', '"trex-roar":[25,41.5,43,56]']]),
     must: ["roar.zone"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "bots.start", "places.goto", "firstVisit", "rex.wander"] },
-  { name: "a static place moves (goto plaza 46,60 to 47,60)", src: edit([["plaza: [46, 60]", "plaza: [47, 60]"]]),
+  { name: "a static place moves (goto plaza 46,60 to 47,60)", map: edit([['"plaza":[46,60]', '"plaza":[47,60]']]),
     must: ["places.goto"], keep: ["creatures.start", "creatures.alias", "bots.start", "roar.zone", "places.heli", "places.terminal", "rex.wander"] },
-  { name: "the first-visit spot moves (50,61 to 51,61)", src: edit([["if (first) { pi.x = 50 * T + 8; pi.y = 61 * T + 10; if (!walkable(50, 61))", "if (first) { pi.x = 51 * T + 8; pi.y = 61 * T + 10; if (!walkable(51, 61))"]]),
+  { name: "the first-visit spot moves (50,61 to 51,61)", map: edit([['"firstVisit":[50,61]', '"firstVisit":[51,61]']]),
     must: ["firstVisit"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "bots.start", "places.goto", "roar.zone", "rex.wander"] },
   { name: "two separate roam areas merge (the two parasaurolophus get one shared area, numbers unchanged)",
     map: edit([['{"kind":"para","at":[80,46],"roam":"roam-06"}', '{"kind":"para","at":[80,46],"roam":"roam-05"}']]),
@@ -188,14 +189,14 @@ const MUTATIONS = [
                ['{"id":"roam-27","box":[62,49,72,54]}', '{"id":"roam-27","box":[62,49,72,54]},{"id":"roam-28","box":[61,31,69,37]}']]),
     must: ["creatures.alias"], keep: ["creatures.start", "creatures.areas", "bots.start", "places.goto", "roar.zone", "firstVisit", "rex.wander"] },
   // and one for each other target, so every observation is shown to see its own source
-  { name: "rex's wander area widens (12 to 13 columns)", src: edit([["var tx = 38 + Math.floor(rand() * 12)", "var tx = 38 + Math.floor(rand() * 13)"]]), must: ["rex.wander"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the gardener's beds widen (|tx - 46| < 12 to < 13)", src: edit([["Math.abs(p2.tx - 46) < 12", "Math.abs(p2.tx - 46) < 13"]]), must: ["gardener.beds"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the cockatiel trees' box moves (centre x 36 to 30)", src: edit([["Math.abs(p.tx - 36) < 9", "Math.abs(p.tx - 30) < 9"]]), must: ["perches"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the firefly area moves (x from 11 to 12)", src: edit([["fx0 = 11 + hash", "fx0 = 12 + hash"]]), must: ["fireflies"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "rex's wander area widens (12 to 13 columns, 38-49 to 38-50)", map: edit([['"rex-meadow":[38,60,49,62]', '"rex-meadow":[38,60,50,62]']]), must: ["rex.wander"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the gardener's beds widen a column each side (35-57 to 34-58)", map: edit([['"gardener-beds":[35,51,57,65]', '"gardener-beds":[34,51,58,65]']]), must: ["gardener.beds"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the cockatiel trees' box moves (x 28-44 to 22-38)", map: edit([['"cockatiel-trees":[28,22,44,36]', '"cockatiel-trees":[22,22,38,36]']]), must: ["perches"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the firefly area moves (x 11-29 to 12-30)", map: edit([['"fireflies":[11,30,29,50]', '"fireflies":[12,30,30,50]']]), must: ["fireflies"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the drone pad moves (the depot's top row 58 to 59, so its roof; its doorway stays)", map: edit([['{"id":"depot","x0":53,"y0":58,"w":3,"h":2,', '{"id":"depot","x0":53,"y0":59,"w":3,"h":1,']]), must: ["drones"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the car's start moves (36 to 37)", map: edit([['"car":[36,62]', '"car":[37,62]']]), must: ["car.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "rex's start moves (44 to 45)", map: edit([['"rex":[44,62]', '"rex":[45,62]']]), must: ["rex.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the arena moves (48 to 49)", src: edit([["var ARENA = { x: 48 * T + 8", "var ARENA = { x: 49 * T + 8"]]), must: ["arena"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the arena moves (48 to 49)", map: edit([['"arena":[48,43]', '"arena":[49,43]']]), must: ["arena"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the core tap's goal moves (36,26 to 37,26)", src: edit([['hit.id === "core" ? [36, 26]', 'hit.id === "core" ? [37, 26]']]), must: ["core.tap"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "a cargo stop moves (the visitor centre 4 to 3 tiles wide, so its doorway 41,60 to 40,60)", map: edit([['{"id":"visitor","x0":39,"y0":58,"w":4,"h":2,', '{"id":"visitor","x0":39,"y0":58,"w":3,"h":2,']]), must: ["bots.cargo.legs"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the gardener's start moves (45 to 46)", map: edit([['"gardener":[45,62]', '"gardener":[46,62]']]), must: ["bots.gardener.start", "bots.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
