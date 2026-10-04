@@ -77,13 +77,14 @@
      parity types: they reproduce the original procedural island exactly. a new island isn't bound to
      them. the size is limited to 256 x 256 tiles, about the most a phone can paint as one canvas.
      placements (B0), each optional, so a map carries only the systems it has: anchors.car, rex, gardener,
-     firstVisit and arena; regions.roamAreas (one record per roam area: creatures naming the same id share
+     firstVisit, arena and coreApproach (the target a tap on the core plans toward; the loose landmark planner may stop pi on a
+     tile next to it. walkable, on or next to the arena); regions.roamAreas (one record per roam area: creatures naming the same id share
      one area, and two ids are two areas even when their boxes match); regions.zones (named boxes whose
      edges each system reads its own way, so they may be fractional); spawns (creatures in order: kind,
      start tile, roam area); routes (a start and stops, in order); places (goto spots by name; on the home
      island heli and helipad follow the helicopter, so its map has no spots for them). units: tiles, all of them, apart from the older
      anchors.spawn, in world px. decoded, checked and copied; the home island builds its creatures, bots,
-     car, rex, goto spots, zones, arena and first-visit spot from them */
+     car, rex, goto spots, zones, arena, core approach and first-visit spot from them */
   function decodeMap(M) {
     function bad(msg) { throw new Error(msg); }
     function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
@@ -221,7 +222,7 @@
       D.stations[sid] = [p[0], p[1]];
     });
     var A = M.anchors; if (!isObj(A)) bad("anchors is missing");
-    only(A, "anchors", ["spawn", "helipad", "dock", "gate", "car", "rex", "gardener", "firstVisit", "arena"]);
+    only(A, "anchors", ["spawn", "helipad", "dock", "gate", "car", "rex", "gardener", "firstVisit", "arena", "coreApproach"]);
     nums(A.spawn, "anchors.spawn", 2); num(A.spawn[0], "anchors.spawn x");
     if (A.spawn[0] < 0 || A.spawn[1] < 0 || A.spawn[0] >= PWm || A.spawn[1] >= PHm) bad("anchors.spawn (world px) is off the map");
     if (!walk(Math.floor(A.spawn[0] / T), Math.floor(A.spawn[1] / T))) bad("anchors.spawn is on a tile that can't be walked (the safe ground floods from it)");
@@ -232,7 +233,13 @@
     nums(A.gate, "anchors.gate", 2); int(A.gate[0], "anchors.gate x", 2, w - 3); int(A.gate[1], "anchors.gate y", 0, h - 1);
     if (!solid(A.gate[0] - 2, A.gate[1]) || !solid(A.gate[0] + 2, A.gate[1])) bad("anchors.gate " + A.gate + ": its two posts (2 tiles either side) must be solid in coll");
     function tileAt(p, f) { nums(p, f, 2); int(p[0], f + " x", 0, w - 1); int(p[1], f + " y", 0, h - 1); return p; }
-    ["car", "rex", "gardener", "firstVisit", "arena"].forEach(function (k) { if (A[k] !== undefined) tileAt(A[k], "anchors." + k); });
+    ["car", "rex", "gardener", "firstVisit", "arena", "coreApproach"].forEach(function (k) { if (A[k] !== undefined) tileAt(A[k], "anchors." + k); });
+    // the core floats over the arena, so the target pi heads for to use it moves with the arena: on or next to it
+    if (A.coreApproach !== undefined) {
+      if (A.arena === undefined) bad("anchors.coreApproach needs anchors.arena");
+      if (Math.max(Math.abs(A.coreApproach[0] - A.arena[0]), Math.abs(A.coreApproach[1] - A.arena[1])) > 1) bad("anchors.coreApproach " + A.coreApproach + " isn't next to anchors.arena " + A.arena);
+      if (!walk(A.coreApproach[0], A.coreApproach[1])) bad("anchors.coreApproach " + A.coreApproach + " is on a tile that can't be walked");
+    }
     D.anchors = copy(A);
     // regions, optional: the paddocks (their fences are solid) and the outpost compound (its walls are)
     var R = M.regions === undefined ? {} : M.regions; if (!isObj(R)) bad("regions must be an object");
@@ -338,11 +345,11 @@
   try { MAP = decodeMap(window.ISLAND_MAPS && window.ISLAND_MAPS.home); }
   catch (e) { var err = new Error("pi's island: js/maps/home.js: " + e.message); if (window.console) console.error(err.message); throw err; }
   // the placements are optional in a map, but this island's creatures, welder, actors, goto spots, zones,
-  // arena and first-visit spot are built from them, so home must carry them all
+  // arena, core approach and first-visit spot are built from them, so home must carry them all
   (function () {
     var miss = [];
     if (!Object.keys(MAP.places).length) miss.push("places");
-    ["arena", "firstVisit"].forEach(function (k) { if (!MAP.anchors[k]) miss.push("anchors." + k); });
+    ["arena", "coreApproach", "firstVisit"].forEach(function (k) { if (!MAP.anchors[k]) miss.push("anchors." + k); });
     ["rex-meadow", "trex-roar", "gardener-beds", "cockatiel-trees", "fireflies"].forEach(function (k) { if (!MAP.regions.zones[k]) miss.push("regions.zones." + k); });
     if (!MAP.spawns.length) miss.push("spawns");
     if (!MAP.regions.roamAreas.length) miss.push("regions.roamAreas");
@@ -1439,10 +1446,10 @@
     if (!hit && Math.hypot(wx - car.x, wy - car.y) < 12) hit = { id: "car", gx: Math.floor(car.x / T), gy: Math.floor(car.y / T) };
     if (!hit && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
     if (!hit) critters.forEach(function (c) { if (!hit && Math.hypot(wx - c.x, wy - c.y + 5) < 10) hit = { id: "critter", ref: c, gx: Math.floor(c.x / T), gy: Math.floor(c.y / T) }; });
-    if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: 36, y: 25 };
+    if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: MAP.anchors.coreApproach[0], y: MAP.anchors.coreApproach[1] };
     if (e.pointerType === "touch" && !joy && !car.driving && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (hit) {
-      var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [36, 26] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
+      var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [hit.x, hit.y] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
       pi.path = piPath(goal, true); pi.want = hit;
     } else {
       pi.path = piPath([tx, ty], false); pi.want = null;

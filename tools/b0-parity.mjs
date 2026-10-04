@@ -18,8 +18,18 @@
    served changed in memory (nothing on disk changes), each of which must fail the checks it should and
    leave the ones it shouldn't alone. Each edits wherever its value is authored now: the map data for
    what B0 has moved (creatures and roam areas, the welder's route, the gardener, car and rex starts, the
-   depot and visitor centre the cargo stops and drone pad come from, goto places, the zones, the arena and
-   the first-visit spot), world.js for the two that stay code: the core tap's old goal and goto heli.
+   depot and visitor centre the cargo stops and drone pad come from, goto places, the zones, the arena, the
+   first-visit spot and the core approach), world.js for the one that stays code: goto heli.
+
+   The core tap is the one check that no longer matches the reference: there its goal was a stale literal
+   (36,26) left from an older arena, and it now targets the authored anchors.coreApproach. So core.tap is
+   left out of the reference comparison and has an expected result of its own, read from js/maps/home.js:
+   pi wants the core at the approach tile (the authored target), and the path ends wherever the existing
+   loose landmark planner stops: on the target or a tile next to it, not necessarily on it. A dedicated
+   regression then taps from four sides, checks with a separate exact path (not the tap's) that the target
+   can be reached on foot, moves only the approach (the tap follows it), moves only the arena (the
+   island refuses to load: the approach must stay next to the arena) and checks that world.js holds no
+   core destination literal.
 
      node tools/b0-parity.mjs                          715450d vs the working tree, then the mutations
      node tools/b0-parity.mjs --ref=HEAD --no-mutations
@@ -33,6 +43,7 @@ import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { createHash } from "node:crypto";
+import vm from "node:vm";
 import { serve } from "./serve.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
@@ -48,6 +59,8 @@ try { refSrc = execFileSync("git", ["show", `${REF}:js/world.js`], { cwd: ROOT, 
 catch (e) { console.error(`b0-parity: can't read js/world.js at ${REF}`); process.exit(2); }
 const curSrc = readFileSync(join(ROOT, "js/world.js"), "utf8");
 const curMap = readFileSync(join(ROOT, "js/maps/home.js"), "utf8");
+const HOME = (() => { const c = { window: {} }; vm.runInNewContext(curMap, c); return c.window.ISLAND_MAPS.home; })();
+const APPROACH = HOME.anchors.coreApproach;
 
 /* the hook: runs inside the island's closure and only reads, apart from the probes that say otherwise */
 const HOOK = String.raw`
@@ -144,13 +157,14 @@ const HOOK = String.raw`
       },
       // the core tap after the fight: a real pointerdown on the core above the arena while an orb reigns
       // (rift stood in by its phase alone); where pi is sent and what it will do on arrival
-      core: function () {
+      core: function (from) {
         var keep = { rift: rift, egg: egg, pr: promptRect, mr: mapRect, pi: px(pi) }, E = S * zoom;
-        rift = { phase: "reign" }; egg = null; promptRect = null; mapRect = null; pi.x = ARENA.x; pi.y = ARENA.y + 40; pi.path = null; pi.want = null;
+        rift = { phase: "reign" }; egg = null; promptRect = null; mapRect = null; pi.x = ARENA.x + (from ? from[0] : 0); pi.y = ARENA.y + (from ? from[1] : 40); pi.path = null; pi.want = null;
         cv.dispatchEvent(new PointerEvent("pointerdown", { clientX: (ARENA.x - camX) * E, clientY: (ARENA.y - 34 - camY) * E, pointerId: 7, pointerType: "mouse", bubbles: true }));
         var r = { want: pi.want ? [pi.want.id, pi.want.x, pi.want.y] : null, path: pi.path ? pi.path.length : null, end: pi.path && pi.path.length ? pi.path[pi.path.length - 1] : null };
+        if (from) { var st = pi.want ? piPath([pi.want.x, pi.want.y], false) : null; r.strict = st && st.length ? st[st.length - 1] : null; }
         rift = keep.rift; egg = keep.egg; promptRect = keep.pr; mapRect = keep.mr; pi.x = keep.pi[0]; pi.y = keep.pi[1]; pi.path = null; pi.want = null;
-        return { "core.tap": J(r) };
+        return from ? r : { "core.tap": J(r) };
       },
       // every actor after the seeded run
       actors: function () {
@@ -197,7 +211,7 @@ const MUTATIONS = [
   { name: "the car's start moves (36 to 37)", map: edit([['"car":[36,62]', '"car":[37,62]']]), must: ["car.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "rex's start moves (44 to 45)", map: edit([['"rex":[44,62]', '"rex":[45,62]']]), must: ["rex.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the arena moves (48 to 49)", map: edit([['"arena":[48,43]', '"arena":[49,43]']]), must: ["arena"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
-  { name: "the core tap's goal moves (36,26 to 37,26)", src: edit([['hit.id === "core" ? [36, 26]', 'hit.id === "core" ? [37, 26]']]), must: ["core.tap"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
+  { name: "the core approach moves (48,44 to 49,44)", map: edit([['"coreApproach":[48,44]', '"coreApproach":[49,44]']]), must: ["core.tap"], keep: ["arena", "creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "a cargo stop moves (the visitor centre 4 to 3 tiles wide, so its doorway 41,60 to 40,60)", map: edit([['{"id":"visitor","x0":39,"y0":58,"w":4,"h":2,', '{"id":"visitor","x0":39,"y0":58,"w":3,"h":2,']]), must: ["bots.cargo.legs"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "the gardener's start moves (45 to 46)", map: edit([['"gardener":[45,62]', '"gardener":[46,62]']]), must: ["bots.gardener.start", "bots.start"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] },
   { name: "goto heli resolves one tile further from the helicopter (+2 to +3)", src: edit([["p = [Math.round(heli.x / T) + 2", "p = [Math.round(heli.x / T) + 3"]]), must: ["places.heli"], keep: ["creatures.start", "creatures.areas", "creatures.alias", "firstVisit"] }
@@ -227,6 +241,26 @@ async function observe(browser, src, map) {
 }
 const sha = (s) => createHash("sha256").update(s).digest("hex");
 const differ = (a, b) => Object.keys(a).filter((k) => a[k] !== b[k]);
+const near = (p, q) => !!p && !!q && Math.abs(p[0] - q[0]) + Math.abs(p[1] - q[1]) <= 1;
+
+/* the core regression: taps on the core from four sides (south, north, east, west of the arena, in world
+   px), or the island refusing to load; src and map as observe() takes them */
+const SIDES = [["south", [0, 40]], ["north", [0, -56]], ["east", [96, 16]], ["west", [-96, 16]]];
+async function coreTaps(browser, src, map) {
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
+  const page = await ctx.newPage();
+  const errors = []; page.on("pageerror", (e) => errors.push(e.message));
+  await page.route(/\/js\/world\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: src }));
+  if (map) await page.route(/\/js\/maps\/home\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: map }));
+  await page.goto(URL0);
+  let taps = null;
+  try {
+    await page.waitForFunction(() => window.__b0 && window.__island && window.__island.getState().open, null, { timeout: 15000 });
+    taps = await page.evaluate((sides) => sides.map(([n, f]) => [n, window.__b0.core(f)]), SIDES);
+  } catch (e) { if (!errors.length) errors.push("didn't open: " + e.message.split("\n")[0]); }
+  await ctx.close();
+  return { taps, errors };
+}
 
 const t0 = Date.now(); let failed = false, blocked = false; const report = [];
 for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefox", firefox]]) {
@@ -235,9 +269,18 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   try { browser = await type.launch(); } catch (e) { console.log(`BLOCKED ${name}: could not launch (${e.message.split("\n")[0]})`); blocked = true; continue; }
   const te = Date.now();
   const ref = await observe(browser, hooked(refSrc)), cur = await observe(browser, hooked(curSrc));
-  const d = differ(ref.obs, cur.obs), errs = [...ref.errors, ...cur.errors];
-  console.log(`${name}: ${Object.keys(ref.obs).length} checks, ${REF} vs working tree: ${d.length ? "DIFFERS in " + d.join(", ") : "identical"}${errs.length ? "; page errors: " + errs.join(" | ") : ""}`);
+  const d = differ(ref.obs, cur.obs).filter((k) => k !== "core.tap"), errs = [...ref.errors, ...cur.errors];
+  console.log(`${name}: ${Object.keys(ref.obs).length - 1} checks, ${REF} vs working tree: ${d.length ? "DIFFERS in " + d.join(", ") : "identical"}${errs.length ? "; page errors: " + errs.join(" | ") : ""} (core.tap checked on its own below)`);
   if (d.length || errs.length) failed = true;
+  // core.tap: the reference's stale goal is replaced by anchors.coreApproach; what it must be now
+  {
+    const was = JSON.parse(ref.obs["core.tap"]), now = JSON.parse(cur.obs["core.tap"]);
+    const ok = JSON.stringify(now.want) === JSON.stringify(["core", ...APPROACH]) && near(now.end, APPROACH) && now.path > 0 && cur.obs["core.tap"] !== ref.obs["core.tap"];
+    console.log(`  ${ok ? "ok  " : "FAIL"} core.tap: wants ${JSON.stringify(now.want)} (anchors.coreApproach ${JSON.stringify(APPROACH)}), path of ${now.path} ends at ${JSON.stringify(now.end)}, on or next to it; ${REF} wanted ${JSON.stringify(was.want)} and ended at ${JSON.stringify(was.end)}`);
+    if (!ok) failed = true;
+  }
+  // what a mutation is compared with: the reference, and the core tap as just checked
+  const expected = { ...ref.obs, "core.tap": cur.obs["core.tap"] };
   // the drone pad and cargo stops come from the depot and visitor centre now: the working tree's must be
   // the historical literals exactly (pad 54.5 * T, 58 * T + 6, roof 30; depot 54,60; visitor 41,60)
   {
@@ -257,10 +300,27 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   if (MUTATE) for (const m of MUTATIONS) {
     let src, map; try { src = hooked(m.src ? m.src(curSrc) : curSrc); map = m.map ? m.map(curMap) : null; } catch (e) { console.log(`  MUTATION BROKEN ${m.name}: ${e.message}`); failed = true; continue; }
     const mu = await observe(browser, src, map);
-    const dm = differ(ref.obs, mu.obs), missed = m.must.filter((k) => !dm.includes(k)), leaked = (m.keep || []).filter((k) => dm.includes(k));
+    const dm = differ(expected, mu.obs), missed = m.must.filter((k) => !dm.includes(k)), leaked = (m.keep || []).filter((k) => dm.includes(k));
     const ok = dm.length > 0 && !missed.length && !leaked.length && !mu.errors.length;
     console.log(`  ${ok ? "caught" : "NOT AS EXPECTED"}  ${m.map ? "[home.js] " : "[world.js]"} ${m.name}\n           failed: ${dm.join(", ") || "nothing"}${missed.length ? "\n           should have failed: " + missed.join(", ") : ""}${leaked.length ? "\n           should have stayed equal: " + leaked.join(", ") : ""}${mu.errors.length ? "\n           page errors: " + mu.errors.join(" | ") : ""}`);
     if (!ok) failed = true;
+  }
+  // the core regression
+  {
+    const say = (ok, msg) => { console.log(`  ${ok ? "ok  " : "FAIL"} core regression: ${msg}`); if (!ok) failed = true; };
+    const base = await coreTaps(browser, hooked(curSrc));
+    say(!base.errors.length && base.taps && base.taps.every(([, t]) => JSON.stringify(t.want) === JSON.stringify(["core", ...APPROACH]) && near(t.end, APPROACH) && JSON.stringify(t.strict) === JSON.stringify(APPROACH)),
+      `tapped from four sides, pi plans toward ${JSON.stringify(APPROACH)} each time and the loose path stops on or next to it; an exact path (a separate check) reaches it: ${base.taps ? base.taps.map(([n, t]) => `${n} path ${t.path} stops ${JSON.stringify(t.end)}, exact path ends ${JSON.stringify(t.strict)}`).join("; ") : base.errors.join(" | ")}`);
+    const to = [APPROACH[0] + 1, APPROACH[1]];
+    const moved = await coreTaps(browser, hooked(curSrc), edit([[`"coreApproach":${JSON.stringify(APPROACH)}`, `"coreApproach":${JSON.stringify(to)}`]])(curMap));
+    say(!moved.errors.length && moved.taps && moved.taps.every(([, t]) => JSON.stringify(t.want) === JSON.stringify(["core", ...to]) && near(t.end, to) && JSON.stringify(t.strict) === JSON.stringify(to)),
+      `only the approach moved (to ${JSON.stringify(to)}): the tap plans toward it instead: ${moved.taps ? moved.taps.map(([n, t]) => `${n} stops ${JSON.stringify(t.end)}, exact path ends ${JSON.stringify(t.strict)}`).join("; ") : moved.errors.join(" | ")}`);
+    const arena = HOME.anchors.arena, far = [arena[0] + 4, arena[1]];
+    const left = await coreTaps(browser, hooked(curSrc), edit([[`"arena":${JSON.stringify(arena)}`, `"arena":${JSON.stringify(far)}`]])(curMap));
+    const want = `anchors.coreApproach ${APPROACH} isn't next to anchors.arena ${far}`;
+    say(!left.taps && left.errors.some((e) => e.includes(want)), `only the arena moved (to ${JSON.stringify(far)}): the island refuses to load, not leaving the core's approach behind: ${JSON.stringify(left.errors)}`);
+    const lits = [/hit = \{ id: "core", x: \d/, /"core" \? \[\d/, /\[36, 2[56]\]/, /x: 36, y: 25/].filter((re) => re.test(curSrc));
+    say(!lits.length && curSrc.includes('hit = { id: "core", x: MAP.anchors.coreApproach[0], y: MAP.anchors.coreApproach[1] }'), `world.js has no core destination literal (36,25 / 36,26 or any other) and reads anchors.coreApproach${lits.length ? ": found " + lits.join(", ") : ""}`);
   }
   await browser.close();
   console.log(`  ${name} took ${((Date.now() - te) / 1000).toFixed(1)} s`);

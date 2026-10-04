@@ -32,7 +32,13 @@
      code are written out below and the reference must hold that exact code. Derived, not stored: the
      cargo stops (the depot and visitor centre doorways) and the drone pad (the depot's roof).
 
-   Nothing else: no prose, no ctf data, no creature behaviour, quests or the core tap's goal.
+   - After B0, one placement that is authored here and doesn't come from the reference: the core approach
+     (anchors.coreApproach), the target a tap on the core plans toward (the loose landmark planner may stop pi
+     on a tile next to it). At the reference that goal is a stale
+     literal (36,26) left over from when the arena was at 36,25; it is one row south of the arena, the side
+     the core is used from, and is written out below for the arena where it is now.
+
+   Nothing else: no prose, no ctf data, no creature behaviour or quests.
 
      node tools/map-export.mjs            export, check, write js/maps/home.js
      node tools/map-export.mjs --check    export and check, compare with the file, write nothing
@@ -90,7 +96,8 @@ const ASSUME = [
   "var tx = 38 + Math.floor(rand() * 12), ty = 60 + Math.floor(rand() * 3);",
   "Math.abs(p2.tx - 46) < 12 && Math.abs(p2.ty - 58) < 8",
   "Math.abs(p.tx - 36) < 9 && Math.abs(p.ty - 29) < 8",
-  // and what stays code (B0 keeps the core tap's goal as it is; the drone pad and cargo stops are derived)
+  // and what stayed code: the core tap's stale goal (anchors.coreApproach, written out below, replaces it);
+  // the drone pad and cargo stops (derived)
   'hit.id === "core" ? [36, 26]',
   "var pad = { x: 54.5 * T, y: 58 * T + 6, roof: 30 };",
   "var DOCKPT = [DOCKX, dockY], DEPOTPT = [54, 60], VISITPT = [41, 60];"
@@ -119,6 +126,10 @@ const DECALS = { bones: [498, 804], tracks: { x: 30, dx: 1.3, y: 65.4, n: 11 } }
      |tx - 36| < 9, |ty - 29| < 8) */
 const ZONES = { "trex-roar": [25, 41.5, 42, 56], "fireflies": [11, 30, 29, 50], "rex-meadow": [38, 60, 49, 62], "gardener-beds": [35, 51, 57, 65], "cockatiel-trees": [28, 22, 44, 36] };
 const FIRST_VISIT = [50, 61];
+/* the core approach: the target pi heads for to use the core (pi may stop next to it, as at any landmark). the core floats 34 px over the arena's centre
+   (48,43) and is used from the south, as it always was (arena 28,19, goal 28,20; arena 36,25, goal 36,26);
+   the clearing round it is open grass */
+const CORE_APPROACH = [48, 44];
 
 /* the evaluators: the data-driven form of each old function, in the same operations in the same order.
    a wave [a, f, p] adds a * sin(x * f + p); [a, f] adds a * sin(x * f) */
@@ -363,7 +374,7 @@ function assemble(R) {
     decals: DECALS,
     buildings: R.buildings, stations: st,
     anchors: { spawn: R.spawn, helipad: R.helipad, dock: R.dock, gate: R.gate, car: tile(B.px.car, 8, 8, "car"), rex: tile(B.px.rex, 8, 10, "rex"),
-               gardener: tile(B.px.gardener, 8, 10, "gardener"), firstVisit: FIRST_VISIT, arena: tile(B.px.arena, 8, 8, "arena") },
+               gardener: tile(B.px.gardener, 8, 10, "gardener"), firstVisit: FIRST_VISIT, arena: tile(B.px.arena, 8, 8, "arena"), coreApproach: CORE_APPROACH },
     regions: { paddocks: R.paddocks, compound: R.compound, roamAreas: B.boxes.map((box, k) => ({ id: roam(k), box })), zones: ZONES },
     spawns: B.spawns.map((c) => ({ kind: c.kind, at: c.at, roam: roam(c.area) })),
     routes: { "welder-patrol": { start: tile(B.px.welder, 8, 10, "welder"), stops: B.spots } },
@@ -503,6 +514,11 @@ check(J(M.places) === J({ pond: [69, 45], gate: [48, 35], plaza: [46, 60], car: 
 check(!("heli" in M.places) && !("helipad" in M.places) && B.places.some(([k]) => k === "heli") && B.places.some(([k]) => k === "helipad"), "places: heli and helipad have no fixed spot (the game keeps the names)");
 check(J([M.anchors.car, M.anchors.rex, M.anchors.gardener, M.anchors.firstVisit, M.anchors.arena]) === J([[36, 62], [44, 62], [45, 62], [50, 61], [48, 43]]), "anchors: car, rex, gardener, firstVisit, arena", J(M.anchors));
 check(J(M.anchors.arena) !== J([36, 26]) && J(M.anchors.arena) !== J([36, 25]) && !/\[36,2[56]\]/.test(J({ a: M.anchors, r: M.routes, p: M.places, z: M.regions.zones })), "the core tap's old goal (36,26) is nowhere in the data; the arena is where the fight is");
+{
+  const ca = M.anchors.coreApproach, ar = M.anchors.arena;
+  check(J(ca) === J([ar[0], ar[1] + 1]) && (M.coll.values[parseInt(M.coll.rows[ca[1]][ca[0]], 36)] & (1 | 2 | 4 | 256)) === 0,
+    "anchors.coreApproach: one row south of the arena, on a tile feet can walk", J({ coreApproach: ca, arena: ar }));
+}
 const dep = M.buildings.find((b) => b.id === "depot"), vis = M.buildings.find((b) => b.id === "visitor"), door = (b) => [Math.floor(b.x0 + b.w / 2), b.y0 + b.h];
 check(J(door(dep)) === J(B.cargo.depot) && J(door(vis)) === J(B.cargo.visitor) && B.cargo.legsShareStops, "derived, not stored: the cargo stops are the depot and visitor doorways, and every cargo leg is one of the stop objects", J(B.cargo));
 check(B.pad[0] === (dep.x0 + dep.w / 2) * 16 && B.pad[1] === dep.y0 * 16 + 6 && B.pad[2] === 30, "derived, not stored: the drone pad is the depot's roof (centre x, top row + 6 px, roof 30)", J(B.pad));

@@ -244,13 +244,18 @@ naming the field, and the orb says the island didn't load (a retry works).
     depot's roof (its middle, top row + 6 px, 30 px up). The big map is 3 px a tile, so 300 x 240 now.
   - Optional in the format (`decodeMap()` accepts a map without them), required by the home island: it
     stops with a message naming what's missing (spawns, roam areas, the welder's route, the actor
-    anchors, places, the arena and first-visit anchors, the five zones).
+    anchors, places, the arena, core-approach and first-visit anchors, the five zones).
 - Not in it: prose, creature kinds and behaviour, quests, the CTF, saves, station-backed goto names, and
   offsets and art constants (the car's heading, the drone roof height, the orb field).
-- Known, kept on purpose through B0: tapping the core after the orb fight sends pi toward 36,25 / 36,26
-  (where the arena used to be, before it moved to 48,43 in `a28541f`); the path ends at 36,27, nowhere
-  near the fight. A separate fix will give the map an authored arena approach point. `CX` / `CY` in
-  `world.js` are dead (only the tools read them); removing them is later cleanup.
+- The core approach (after B0, not deployed yet): through B0, tapping the core after the orb fight sent
+  pi toward 36,25 / 36,26 (where the arena used to be, before it moved to 48,43 in `a28541f`), and the
+  path ended at 36,27, nowhere near the fight. Now the tap plans toward `anchors.coreApproach`, 48,44,
+  the authored target: one row south of the arena, the side the core has always been used from, on open
+  grass. It's optional in the format, required by the home island, and `decodeMap()` refuses one that
+  can't be walked or isn't on or next to the arena, so the arena can't move without it. The tap still
+  plans loosely, as for every landmark: pi stops wherever that planner validly stops, on the target or a
+  tile next to it (not necessarily on 48,44). `CX` / `CY` in `world.js` are dead (only the tools read
+  them); removing them is later cleanup.
 - Collision: gameplay collision = authored `coll` + authored `footBlock`. Feet stop where the tile's
   `COLL` blocks or the pixel's `footBlock` bit is set, and nowhere else. The painted ground (`GK`) is a
   picture only; it never decides where pi can stand (`tools/map-parity.mjs` repaints it and checks that
@@ -278,7 +283,9 @@ naming the field, and the orb says the island didn't load (a retry works).
 - B0's tests: `tools/b0-parity.mjs` (`715450d` against the working tree: every placement, the roam-area
   identity graph, the cargo-stop identities, the drone pad, a 3,000-step seeded run, goto with the
   helicopter parked in three places, the roar zone on a 4 px grid, rex's wander, the gardener's beds, the
-  core tap; 19 planted mutations, 17 of `home.js` and 2 of `world.js`, the core tap's goal and goto heli).
+  core tap; 19 planted mutations, 18 of `home.js` and 1 of `world.js`, goto heli). The core tap is checked
+  against `anchors.coreApproach`, not the reference, with its own regression (four sides, the approach moved,
+  the arena moved alone, no literal left in `world.js`).
 - Saves: `SAVE_V` is still 2. MAP-A and B0 changed no save field and migrated nothing.
 - Geography: production is still the original 100 x 80 island. The 150 x 120 MAP-B island hasn't been
   generated or switched in.

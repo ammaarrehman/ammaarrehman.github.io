@@ -7,7 +7,8 @@
      zones with a fractional edge, spawns, a route, places); a 150 x 120 one (decode only: the format and
      decoder don't assume 100 x 80);
    - decodeMap never changes what it's given: it decodes deep-frozen copies, and the data is the same after;
-   - invalid: one fault at a time, each refused with an error naming the field and the problem.
+   - invalid: one fault at a time, each refused with an error naming the field and the problem (the core
+     approach among them: it must be walkable and on or next to the arena, so the arena can't move without it).
 
      node tools/map-decode.mjs
      ENGINES=chromium node tools/map-decode.mjs        (default chromium, webkit, firefox) */
@@ -59,7 +60,7 @@ function synth(w, h, full) {
     M.regions = { paddocks: [["pen", 0, h - 3, 2, h - 1]], compound: { x0: 8, y0: 5, x1: 10, y1: 7, gate: [6] } };
     M.props = [{ kind: "e:oak1", tx: 9, ty: 7, flip: true, ox: -2, oy: 1.5 }, { tx: 1, ty: 6, flip: false, ox: 0, oy: -0.5, kind: "e:fern0" }, { kind: "e:nest0", tx: 8, ty: 8, eggs: 3 }, { kind: "e:lilies0", tx: 4, ty: 7, flip: true, ox: -2, oy: 0, flat: true }];
     // B0 placements: two roam areas with the same box stay two areas; a zone edge may be fractional, or the map's edge
-    Object.assign(M.anchors, { car: [8, 3], rex: [4, 6], gardener: [5, 7], firstVisit: [5, 6], arena: [6, 7] });
+    Object.assign(M.anchors, { car: [8, 3], rex: [4, 6], gardener: [5, 7], firstVisit: [5, 6], arena: [6, 7], coreApproach: [6, 8] });
     M.regions.roamAreas = [{ id: "pen-a", box: [0, 7, 2, 9] }, { id: "meadow-1", box: [4, 5, 8, 8] }, { id: "meadow-2", box: [4, 5, 8, 8] }];
     M.regions.zones = { roar: [1, 6.5, 4, 9], flies: [0, 0, 12, 10] };
     M.spawns = [{ kind: "trex", at: [1, 8], roam: "pen-a" }, { kind: "para", at: [5, 6], roam: "meadow-1" }, { kind: "para", at: [6, 6], roam: "meadow-2" }, { kind: "stego", at: [7, 6], roam: "meadow-1" }];
@@ -188,7 +189,11 @@ const INVALID = [
   ["a car anchor off the map", edit((M) => { M.anchors.car = [12, 3]; }), /^anchors\.car x must be a whole number from 0 to 11$/],
   ["an arena anchor of one number", edit((M) => { M.anchors.arena = [6]; }), /^anchors\.arena must be a list of 2$/],
   ["a first-visit anchor on a fractional tile", edit((M) => { M.anchors.firstVisit = [5.5, 6]; }), /^anchors\.firstVisit x must be a whole number from 0 to 11$/],
-  ["a rex anchor that isn't a number", edit((M) => { M.anchors.rex = [4, null]; }), /^anchors\.rex\[1\] must be a finite number$/]
+  ["a rex anchor that isn't a number", edit((M) => { M.anchors.rex = [4, null]; }), /^anchors\.rex\[1\] must be a finite number$/],
+  ["a core approach on a fractional tile", edit((M) => { M.anchors.coreApproach = [6, 8.5]; }), /^anchors\.coreApproach y must be a whole number from 0 to 9$/],
+  ["a core approach with no arena", edit((M) => { delete M.anchors.arena; }), /^anchors\.coreApproach needs anchors\.arena$/],
+  ["a core approach left behind by the arena (arena 6,7 moved to 3,7)", edit((M) => { M.anchors.arena = [3, 7]; }), /^anchors\.coreApproach 6,8 isn't next to anchors\.arena 3,7$/],
+  ["a core approach on a blocked tile", edit((M) => { setc(M.coll.rows, 6, 8, "1"); }), /^anchors\.coreApproach 6,8 is on a tile that can't be walked$/]
 ];
 
 const PORT = 9300 + Math.floor(Math.random() * 90), server = await serve(PORT);
@@ -207,7 +212,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const VALID = [["the real home map", HOME, { id: "home", w: 100, h: 80, footPixels: 3773, props: 753, buildings: 3, stations: 11, curves: 15, spawns: 33, creatureKinds: true,
       roamAreas: (v) => v.length === 28 && new Set(v.map((r) => r.split(":")[0])).size === 28 && new Set(v.map((r) => r.split(":")[1])).size < 28,
       zones: ["trex-roar", "fireflies", "rex-meadow", "gardener-beds", "cockatiel-trees"], routes: ["welder-patrol"], places: ["pond", "gate", "plaza", "car", "paddock", "raptors", "volcano", "outpost", "shrine", "clearing"],
-      anchors: ["spawn", "helipad", "dock", "gate", "car", "rex", "gardener", "firstVisit", "arena"] }],
+      anchors: ["spawn", "helipad", "dock", "gate", "car", "rex", "gardener", "firstVisit", "arena", "coreApproach"] }],
     ["minimal 12 x 10, optional fields left out (no placements either)", synth(12, 10, false), { w: 12, h: 10, footPixels: 4, props: 0, paddocks: 0, compound: false, spawns: 0, roamAreas: [], zones: [], routes: [], places: [], anchors: ["spawn", "helipad", "dock", "gate"] }],
     ["representative 12 x 10 (props, regions, decals, woods, source, placements; two roam areas share a box and stay two)", synth(12, 10, true), { props: 4, paddocks: 1, compound: true, source: "715450d4c6efca6a24f7cf21e64fdd25ad38eaba",
       spawns: 4, roamAreas: ["pen-a:0,7,2,9", "meadow-1:4,5,8,8", "meadow-2:4,5,8,8"], zones: ["roar", "flies"], routes: ["patrol"], places: ["plaza", "gate"] }],

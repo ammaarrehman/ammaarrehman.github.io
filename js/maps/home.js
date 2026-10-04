@@ -820,7 +820,7 @@
     {"id":"depot","x0":53,"y0":58,"w":3,"h":2,"room":"depot"}
   ],
   "stations": {"sign":[44,57],"uplink":[25,63],"tower":[58,21],"lighthouse":[89,37],"macbook":[66,53],"tablet":[52,50],"mailbox":[54,63],"drink":[50,58],"shrine":[21,21],"cave":[41,20],"boat":[53,66]},
-  "anchors": {"spawn":[744,972],"helipad":[61,62],"dock":[51,63],"gate":[48,33],"car":[36,62],"rex":[44,62],"gardener":[45,62],"firstVisit":[50,61],"arena":[48,43]},
+  "anchors": {"spawn":[744,972],"helipad":[61,62],"dock":[51,63],"gate":[48,33],"car":[36,62],"rex":[44,62],"gardener":[45,62],"firstVisit":[50,61],"arena":[48,43],"coreApproach":[48,44]},
   "regions": {
     "paddocks": [["t-rex paddock",27,43,39,54],["raptor pen",60,30,70,38]], "compound": {"x0":17,"y0":57,"x1":28,"y1":65,"gate":[60,61,62]},
     "roamAreas": [
