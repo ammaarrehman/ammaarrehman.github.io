@@ -124,7 +124,7 @@ ship them, never commit them, and never name their sources anywhere in the site 
 - **Deploy:**
   - `node tools/deploy.mjs --dry-run` builds `.deploy/` from the allowlist and checks it. `node tools/deploy.mjs` builds, checks, deploys with wrangler (already logged in via `npx wrangler login`) and smoke-tests the live site. `node tools/deploy.mjs --check` runs only the live checks.
   - If the live checks fail with `ENOTFOUND`, this Mac's DNS cache is stale; check with `dig ammaarrehman.com @1.1.1.1`, or use `curl --resolve ammaarrehman.com:443:104.21.52.117`.
-- **Cache version:** every script and CSS reference carries `?v=`. It's currently `20261023`. Bump it everywhere together (`index.html`, `js/site.js`, `js/world.js`) whenever a script, the CSS or a baked image changes. Nine places in `index.html`.
+- **Cache version:** every script and CSS reference carries `?v=`. It's currently `20261024`. Bump it everywhere together (`index.html`, `js/site.js`, `js/world.js`) whenever a script, the CSS or a baked image changes. Nine places in `index.html`.
 - **Audit and tests** (in `tools/`; run `npm install` and `npx playwright install` once):
   - `node audit.mjs` covers A2, A3, A6, A7 and A9 across Chromium, WebKit and Firefox, five sizes, axe, keyboard, reduced motion and links. Add `--only=a3,a9` or `--offline` to narrow it.
   - `node lighthouse.mjs`: add `--local`, or `--resolve=104.21.52.117` when the DNS cache is stale.
