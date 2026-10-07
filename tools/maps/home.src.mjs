@@ -6,9 +6,10 @@
    100 x 80 island from js/maps/home.js; the game learns the new map format in B2, and the switch-over is
    a separate, approved release later. It holds the canvas, the coast and the sea (B1a, locked), the four
    levels, the beach and the eight ramps (B1b, locked), the river, the ponds and the volcano's terrain
-   (B1c, locked), the corridors, bridges, plazas, docks and helipad (B1d), and metadata for the three
-   future exits and the open sea the satellites need. Districts, buildings and everything else come in
-   later batches; this file must not hold them yet (the compiler refuses unknown sections).
+   (B1c, locked), the corridors, bridges, plazas, docks and helipad (B1d, locked), the planning metadata:
+   districts, reserves, habitats and planning markers (B1e; no tile comes from them), and metadata for the
+   three future exits and the open sea the satellites need. Buildings, walls, fences, props, creatures and
+   everything else are B3's; this file must not hold them (the compiler refuses unknown sections).
 
    Coordinates (one convention for the whole file; tools/map-lint.mjs enforces it):
    - Tile space. Tile (tx, ty) is the square [tx, tx + 1) x [ty, ty + 1); its centre is (tx + 0.5, ty + 0.5).
@@ -300,7 +301,9 @@ export default {
      water or lava, and never change a level. Plazas pave the grass and beach inside them. The large
      natural areas (the commons, the riverlands, the koi garden and headland, the highland) stay open:
      only these lines cross them. Short local trails (door stubs, the koi garden loop, the fence walks)
-     are the approved study's, kept so the network is exact; B3 may refine them.
+     are the approved study's, kept so the network is exact; B3 may refine them. Thin diagonal trails can
+     touch only at tile corners in this raster (approved for B1): B2's painter must visually verify that
+     trails render as continuous strokes from these lines.
      routeEnds: the places the corridors exist to join, each a tile; map-lint walks to every one from the
      arrival and reports the times. Not districts (B1e). */
   corridors: {
@@ -375,6 +378,107 @@ export default {
      over land or water. The helipad is pad. Nothing else: no east pier, no south-east slip */
   infrastructure: {
     helipadBox: { x0: 101, y0: 93, x1: 105, y1: 97 }
+  },
+
+  /* ════════ B1e: planning metadata. None of it changes a tile: it says where later content belongs and
+     checks that the room is there. B3 turns the reserves into buildings, walls, fences and landmarks.
+     Nothing below is written into the staged map (it is not runtime data). ════════ */
+
+  /* the eight districts: organising areas, not collision; they may overlap where they meet. Each box is
+     the approved study's, converted from its half-open rectangle (x1 and y1 here are the study's minus 1),
+     so the koi garden and headland district ends at x1 = 149. levels: the levels the district spans.
+     hubs: the district's named centres, each a walkable tile reachable from the arrival */
+  districts: [
+    { id: "harbour-arrival", levels: [0], districtBox: { x0: 64, y0: 66, x1: 97, y1: 107 }, hubs: [{ id: "arrival-plaza", hubTile: [79, 79] }] },
+    { id: "village-services", levels: [0], districtBox: { x0: 22, y0: 68, x1: 65, y1: 105 }, hubs: [{ id: "village-square", hubTile: [48, 85] }] },
+    { id: "ops-security", levels: [0], districtBox: { x0: 94, y0: 72, x1: 131, y1: 103 }, hubs: [{ id: "ops-service-yard", hubTile: [104, 86] }] },
+    { id: "meadow-commons", levels: [1], districtBox: { x0: 62, y0: 38, x1: 99, y1: 65 }, hubs: [{ id: "commons", hubTile: [76, 54] }] },
+    { id: "riverlands-delta", levels: [0, 1], districtBox: { x0: 5, y0: 28, x1: 61, y1: 99 }, hubs: [{ id: "brachio-meadow", hubTile: [18, 44] }, { id: "delta-wetland", hubTile: [15, 78] }] },
+    { id: "koi-garden-headland", levels: [1, 2], districtBox: { x0: 100, y0: 32, x1: 149, y1: 71 }, hubs: [{ id: "koi-garden", hubTile: [108, 68] }, { id: "lighthouse", hubTile: [140, 45] }] },
+    { id: "research-security", levels: [2], districtBox: { x0: 99, y0: 2, x1: 131, y1: 29 }, hubs: [{ id: "research-forecourt", hubTile: [110, 26] }] },
+    { id: "highland-volcano-cave", levels: [2, 3], districtBox: { x0: 5, y0: 1, x1: 98, y1: 36 }, hubs: [{ id: "highland-junction", hubTile: [73, 33] }, { id: "cave", hubTile: [66, 25] }, { id: "shrine", hubTile: [14, 20] }] }
+  ],
+
+  /* reserves: four kinds, never treated alike.
+     - footprints: a future building's or landmark's body, exclusive (no two overlap). Each is free land on
+       one level: no water, lava, cliff rim, ramp, bridge, dock or paving, with walkable frontage on its front
+       side for a door. Sizes are the approved targets (the study's, but the visitor centre 9 x 5 not 10 x 5,
+       the ranger HQ / depot 7 x 4 not 8 x 5, the lighthouse base 2 x 2 not 3 x 3, as approved).
+     - compounds: a broader area later content goes inside (paths may cross it). walled: B3 builds a wall
+       round its edge with openings at gateTiles (the study's).
+     - openSpaces: areas that must stay clear (every tile walkable, no footprint or wall in them). clearField
+       is an ellipse tested at tile centres, ((x + 0.5 - cx) / rx)^2 + ((y + 0.5 - cy) / ry)^2 <= 1 (the study's).
+     - markers: single places later systems use (a cave mouth and its approach, gates, a trailhead) */
+  reserves: {
+    footprints: [
+      { id: "visitor-centre", kind: "building", front: "south", footprintBox: { x0: 80, y0: 69, x1: 88, y1: 73 } },
+      { id: "ferry-terminal", kind: "building", front: "south", sameAs: "exits.south.ferryTerminalReserveBox" },
+      { id: "ranger-hq-depot", kind: "building", front: "south", footprintBox: { x0: 101, y0: 73, x1: 107, y1: 76 } },
+      { id: "bunker", kind: "building", front: "south", inCompound: "bunker-compound", footprintBox: { x0: 113, y0: 79, x1: 119, y1: 82 } },
+      { id: "research-station", kind: "building", front: "south", footprintBox: { x0: 108, y0: 21, x1: 115, y1: 24 } },
+      { id: "raptor-house", kind: "building", front: "south", footprintBox: { x0: 121, y0: 20, x1: 125, y1: 21 } },
+      { id: "workshop", kind: "building", front: "south", footprintBox: { x0: 60, y0: 84, x1: 65, y1: 87 } },
+      { id: "post-office", kind: "building", front: "south", footprintBox: { x0: 44, y0: 77, x1: 48, y1: 80 } },
+      { id: "cafe", kind: "building", front: "south", footprintBox: { x0: 55, y0: 77, x1: 59, y1: 79 } },
+      { id: "keeper-cottage", kind: "building", front: "south", footprintBox: { x0: 134, y0: 40, x1: 137, y1: 41 } },
+      { id: "koi-pavilion", kind: "building", front: "south", inCompound: "koi-garden", footprintBox: { x0: 113, y0: 66, x1: 116, y1: 68 } },
+      { id: "lighthouse", kind: "landmark", front: "south", footprintBox: { x0: 139, y0: 42, x1: 140, y1: 43 } },   // the base; the sprite stands much taller
+      { id: "tower", kind: "landmark", front: "south", footprintBox: { x0: 94, y0: 25, x1: 96, y1: 27 } }
+    ],
+    compounds: [
+      { id: "bunker-compound", walled: true, compoundBox: { x0: 109, y0: 76, x1: 124, y1: 89 }, gateTiles: [[109, 84], [109, 85], [109, 86]] },
+      { id: "koi-garden", walled: true, compoundBox: { x0: 103, y0: 54, x1: 119, y1: 70 }, gateTiles: [[110, 54], [111, 54], [112, 54], [103, 61], [103, 62], [119, 63], [119, 64]] },
+      // the study's four 4 x 3 cottages (x30-33 y87-89, x36-39 y92-94, x44-47 y96-98, x52-55 y96-98), kept as one area until B3
+      { id: "cottage-row", walled: false, compoundBox: { x0: 30, y0: 87, x1: 55, y1: 98 } }
+    ],
+    openSpaces: [
+      { id: "rift-arena", centreTile: [76, 56], clearField: { cx: 76.5, cy: 56.5, rx: 10.6, ry: 5.75 } }   // the orb fight's clear ground in the commons
+    ],
+    markers: [
+      { id: "cave-mouth", markerTile: [66, 24], approachTile: [66, 25] },          // outside the solid volcano, off the cave spur; the cave is a later phase
+      { id: "volcano-trailhead", markerTile: [83, 25] },                          // where Cinder Reach will start; the volcano stays sealed
+      { id: "park-gate", markerTile: [74, 38] },                                  // the main walk's gate between the commons and the highland
+      { id: "research-gate", markerTile: [101, 29] },                             // the research road's gate into the secure shoulder
+      { id: "shrine", markerTile: [14, 19], approachTile: [14, 20] }              // the study's 3 x 3 base (x13-15, y17-19) would cover three cliff-rim tiles; B3 sizes and places it
+    ]
+  },
+
+  /* habitats: ecological planning regions only. No fence, wall, roam area, spawn or creature comes from
+     them. planningLabels say what each is for. Herbivore spaces stay open and natural; predators are
+     contained later (B3). The T. rex holding paddock is temporary: its long-term home is Ironwood Keep.
+     Each is an outline (a closed smooth Hermite through named points, like the coast) or an inclusive box */
+  habitats: [
+    { id: "holding-paddock", containment: "contained", planningLabels: ["temporary predator holding (T. rex, until Ironwood)", "double fence, high security"], outline: { samplesPerSegment: 8, points: [
+      { id: "holding-paddock-west", x: 107, y: 13 }, { id: "holding-paddock-north", x: 112, y: 10.5 }, { id: "holding-paddock-north-east", x: 117, y: 11 },
+      { id: "holding-paddock-east", x: 118, y: 16 }, { id: "holding-paddock-south", x: 113, y: 17.5 }, { id: "holding-paddock-south-west", x: 107, y: 17 }] } },
+    { id: "raptor-yard", containment: "contained", planningLabels: ["raptor research yard", "fence and roof netting"], habitatBox: { x0: 119, y0: 10, x1: 127, y1: 17 } },
+    { id: "riverlands-range", containment: "open", planningLabels: ["herd range: stegosaur, triceratops, ankylosaur, nests", "river west, cliff south, hedgerow east"], outline: { samplesPerSegment: 8, points: [
+      { id: "riverlands-range-north-west", x: 41, y: 41.5 }, { id: "riverlands-range-north-east", x: 56, y: 40.5 }, { id: "riverlands-range-east", x: 60, y: 47 },
+      { id: "riverlands-range-south-east", x: 58, y: 60 }, { id: "riverlands-range-south", x: 48, y: 64 }, { id: "riverlands-range-south-west", x: 40, y: 60 }, { id: "riverlands-range-west", x: 38.5, y: 50 }] } },
+    { id: "brachio-meadow", containment: "open", planningLabels: ["brachiosaur meadow", "river east, coast west, cliff north, cove south"], outline: { samplesPerSegment: 8, points: [
+      { id: "brachio-meadow-north-west", x: 11, y: 33 }, { id: "brachio-meadow-north", x: 24, y: 30.5 }, { id: "brachio-meadow-north-east", x: 31, y: 35 },
+      { id: "brachio-meadow-east", x: 31, y: 44 }, { id: "brachio-meadow-south-east", x: 24, y: 54 }, { id: "brachio-meadow-south-west", x: 13, y: 54 }, { id: "brachio-meadow-west", x: 10.5, y: 44 }] } },
+    { id: "spino-reach", containment: "open", planningLabels: ["spinosaur reach", "the river below the falls"], outline: { samplesPerSegment: 8, points: [
+      { id: "spino-reach-west", x: 37, y: 31 }, { id: "spino-reach-north", x: 45, y: 30.5 }, { id: "spino-reach-east", x: 47, y: 36 }, { id: "spino-reach-south", x: 42, y: 40 }, { id: "spino-reach-south-west", x: 36, y: 37 }] } },
+    { id: "delta-wetland", containment: "open", planningLabels: ["parasaurolophus wetland", "river east, coast west, lagoon"], outline: { samplesPerSegment: 8, points: [
+      { id: "delta-wetland-west", x: 14, y: 73.5 }, { id: "delta-wetland-north", x: 20, y: 71 }, { id: "delta-wetland-east", x: 23, y: 76 }, { id: "delta-wetland-south", x: 19, y: 81 }, { id: "delta-wetland-south-west", x: 14.5, y: 80 }] } },
+    { id: "galli-meadow", containment: "open", planningLabels: ["gallimimus meadow"], outline: { samplesPerSegment: 8, points: [
+      { id: "galli-meadow-north-west", x: 84, y: 40 }, { id: "galli-meadow-north-east", x: 95, y: 40.5 }, { id: "galli-meadow-south-east", x: 96, y: 49 }, { id: "galli-meadow-south-west", x: 85, y: 49.5 }] } },
+    { id: "pachy-heath", containment: "open", planningLabels: ["pachycephalosaur heath"], outline: { samplesPerSegment: 8, points: [
+      { id: "pachy-heath-west", x: 35, y: 15 }, { id: "pachy-heath-north", x: 43, y: 14.5 }, { id: "pachy-heath-east", x: 47, y: 19 }, { id: "pachy-heath-south-east", x: 46, y: 23 }, { id: "pachy-heath-south-west", x: 36, y: 24 }] } },
+    { id: "dilo-strip", containment: "open", planningLabels: ["dilophosaur strip"], outline: { samplesPerSegment: 8, points: [
+      { id: "dilo-strip-north-west", x: 88, y: 13 }, { id: "dilo-strip-north-east", x: 94, y: 13.5 }, { id: "dilo-strip-south-east", x: 96, y: 21 }, { id: "dilo-strip-south-west", x: 89, y: 22.5 }] } },
+    { id: "koi-garden", containment: "walled garden", planningLabels: ["koi garden: the cats and the koi", "walled, two gates (the koi-garden compound)"], habitatBox: { x0: 104, y0: 55, x1: 117, y1: 68 } },
+    { id: "village-gardens", containment: "open", planningLabels: ["village gardens: compsognathus"], habitatBox: { x0: 26, y0: 90, x1: 34, y1: 97 } }
+  ],
+
+  /* planning and test markers only, never runtime data: the study's log targets, which the all-logs tour
+     (the 331-tile scale check) walks between. The logs themselves are B3's */
+  planningMarkers: {
+    logSites: [
+      { id: "mailbox", siteTile: [50, 82] }, { id: "tablet", siteTile: [82, 49] }, { id: "rack-desk-bunker", siteTile: [116, 83] }, { id: "uplink", siteTile: [121, 82] },
+      { id: "macbook", siteTile: [106, 58] }, { id: "tower", siteTile: [95, 28] }, { id: "lighthouse", siteTile: [140, 45] }
+    ]
   },
 
   /* named features, each checked by tiles that must be land or sea (map-lint). points: the control

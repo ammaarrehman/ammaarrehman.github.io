@@ -1,7 +1,7 @@
 {
   "about": "The accepted current build of the staged MAP-B home island (tools/maps/staged/home.js). map-lint compares every build with it; change it only with node tools/map-lint.mjs --accept --reason=\"...\". The approved r2.1 record is tools/fixtures/mapb-r21.json, which is frozen and never written by any tool.",
   "accepted": {
-    "stage": "B1d",
+    "stage": "B1e",
     "w": 150,
     "h": 120,
     "landTiles": 10257,
@@ -97,6 +97,23 @@
       "n": 4,
       "stage": "B1d",
       "reason": "B1d: the approved r2.1 corridors, plazas, three bridges, harbour quay and ferry pier, west service jetty, north-west bridgehead trail and helipad; the whole ground is the frozen study's final ground",
+      "landTiles": 10257,
+      "levelTiles": [
+        3413,
+        4111,
+        2225,
+        508
+      ],
+      "driftFromR21Tiles": 0,
+      "levelDriftFromR21Tiles": 0,
+      "waterDriftFromR21Tiles": 0,
+      "landSha256": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
+      "levelsSha256": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64"
+    },
+    {
+      "n": 5,
+      "stage": "B1e",
+      "reason": "B1e: planning metadata only (districts, reserves, habitats, planning log sites); no tile, level, collision or shape changed from B1d",
       "landTiles": 10257,
       "levelTiles": [
         3413,

@@ -14,6 +14,9 @@
    What it compiles:
    - B1a (locked): the canvas, the coast (land is every tile whose centre is inside the closed coast
      spline), and the sea (shallow within sea.shallowWithin steps of land, deep beyond);
+   - B1e: nothing. The districts, reserves, habitats and planning markers are planning metadata: the
+     compiler checks them and leaves every tile as B1d made it, and none of them is written into the
+     staged map (map-lint checks them, and draws them in the previews);
    - B1d: the corridors and the infrastructure, in the study's order: the plazas pave grass and beach;
      the paths pave grass and beach within their class's half-width of their polyline, and turn river
      under them into bridge (walkable); the docks (the quay, the ferry pier, the west jetty, from the
@@ -46,7 +49,7 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE_PATH = join(ROOT, "tools/maps/home.src.mjs");
 export const STAGED_PATH = join(ROOT, "tools/maps/staged/home.js");
 export const PREVIEW_DIR = join(ROOT, "tools/out/mapb");
-export const STAGE = "B1d";
+export const STAGE = "B1e";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /* ════════ the source: schema and the coordinate convention ════════ */
@@ -63,7 +66,7 @@ export function validateSource(src) {
   const int = (v, f, lo, hi) => { if (typeof v !== "number" || !Number.isInteger(v) || v < lo || v > hi) bad(`${f} must be a whole number from ${lo} to ${hi}, not ${JSON.stringify(v)}`); };
   const str = (v, f) => { if (typeof v !== "string" || !v) bad(`${f} must be text`); };
   const id = (v, f) => { if (typeof v !== "string" || !ID.test(v)) bad(`${f} must be an id (lowercase words joined by hyphens), not ${JSON.stringify(v)}`); };
-  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "water", "corridors", "infrastructure", "features", "exits", "seaLanes", "satellites"]);
+  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "water", "corridors", "infrastructure", "districts", "reserves", "habitats", "planningMarkers", "features", "exits", "seaLanes", "satellites"]);
   if (src.schema !== "mapb-source-1") bad(`schema must be "mapb-source-1"`);
   if (src.id !== "home") bad(`id must be "home" (the redesigned island keeps the home id)`);
   int(src.w, "w", 1, 256); int(src.h, "h", 1, 256);
@@ -252,6 +255,59 @@ export function validateSource(src) {
   const reIds = new Set();                                          // route ends name destinations, in their own namespace
   C.routeEnds.forEach((r, i) => { only(r, `corridors.routeEnds[${i}]`, ["id", "endTile"]); id(r.id, `corridors.routeEnds[${i}].id`); if (reIds.has(r.id)) bad(`route end ${r.id} appears twice`); reIds.add(r.id); });
   only(src.infrastructure, "infrastructure", ["helipadBox"]);
+  // B1e planning metadata: ids unique within each list
+  const uniq = (list, f) => { const seen = new Set(); list.forEach((q, i) => { id(q.id, `${f}[${i}].id`); if (seen.has(q.id)) bad(`${f}: ${q.id} appears twice`); seen.add(q.id); }); };
+  if (!Array.isArray(src.districts)) bad("districts must be a list");
+  uniq(src.districts, "districts");
+  src.districts.forEach((d, i) => {
+    const f = `districts[${i}] (${d.id})`;
+    only(d, f, ["id", "levels", "districtBox", "hubs"]);
+    if (!Array.isArray(d.levels) || !d.levels.length) bad(`${f}.levels must list the levels it spans`);
+    d.levels.forEach((l, k) => int(l, `${f}.levels[${k}]`, 0, 3));
+    if (!Array.isArray(d.hubs) || !d.hubs.length) bad(`${f} needs at least one hub`);
+    uniq(d.hubs, `${f}.hubs`); d.hubs.forEach((h, k) => only(h, `${f}.hubs[${k}]`, ["id", "hubTile"]));
+  });
+  const R = src.reserves;
+  only(R, "reserves", ["footprints", "compounds", "openSpaces", "markers"]);
+  for (const k2 of ["footprints", "compounds", "openSpaces", "markers"]) { if (!Array.isArray(R[k2])) bad(`reserves.${k2} must be a list`); uniq(R[k2], `reserves.${k2}`); }
+  const compIds = new Set(R.compounds.map((c) => c.id));
+  R.footprints.forEach((fp, i) => {
+    const f = `reserves.footprints[${i}] (${fp.id})`;
+    only(fp, f, ["id", "kind", "front", "inCompound", "footprintBox", "sameAs"], ["id", "kind", "front"]);
+    if (!["building", "landmark"].includes(fp.kind)) bad(`${f}.kind must be building or landmark`);
+    if (!["north", "south", "east", "west"].includes(fp.front)) bad(`${f}.front must be north, south, east or west`);
+    if ((fp.footprintBox === undefined) === (fp.sameAs === undefined)) bad(`${f} needs exactly one of footprintBox or sameAs`);
+    if (fp.sameAs !== undefined && fp.sameAs !== "exits.south.ferryTerminalReserveBox") bad(`${f}.sameAs can only be "exits.south.ferryTerminalReserveBox"`);
+    if (fp.inCompound !== undefined && !compIds.has(fp.inCompound)) bad(`${f}.inCompound: no compound ${fp.inCompound}`);
+  });
+  R.compounds.forEach((c, i) => { const f = `reserves.compounds[${i}] (${c.id})`; only(c, f, ["id", "walled", "compoundBox", "gateTiles"], ["id", "walled", "compoundBox"]); if (typeof c.walled !== "boolean") bad(`${f}.walled must be true or false`); if (!c.walled && c.gateTiles) bad(`${f}: gateTiles only go with walled: true`); });
+  R.openSpaces.forEach((o, i) => {
+    const f = `reserves.openSpaces[${i}] (${o.id})`;
+    only(o, f, ["id", "centreTile", "clearField"]);
+    only(o.clearField, `${f}.clearField`, ["cx", "cy", "rx", "ry"]);
+    for (const k2 of ["cx", "cy", "rx", "ry"]) if (typeof o.clearField[k2] !== "number" || !Number.isFinite(o.clearField[k2])) bad(`${f}.clearField.${k2} must be a number`);
+    if (!(o.clearField.rx > 0 && o.clearField.ry > 0)) bad(`${f}.clearField radii must be above 0`);
+  });
+  R.markers.forEach((mk, i) => only(mk, `reserves.markers[${i}] (${mk.id})`, ["id", "markerTile", "approachTile"], ["id", "markerTile"]));
+  if (!Array.isArray(src.habitats)) bad("habitats must be a list");
+  uniq(src.habitats, "habitats");
+  src.habitats.forEach((h, i) => {
+    const f = `habitats[${i}] (${h.id})`;
+    only(h, f, ["id", "containment", "planningLabels", "outline", "habitatBox"], ["id", "containment", "planningLabels"]);
+    if (!["open", "contained", "walled garden"].includes(h.containment)) bad(`${f}.containment must be open, contained or walled garden`);
+    if (!Array.isArray(h.planningLabels) || !h.planningLabels.length || h.planningLabels.some((t) => typeof t !== "string" || !t)) bad(`${f}.planningLabels must be a list of text`);
+    if ((h.outline === undefined) === (h.habitatBox === undefined)) bad(`${f} needs exactly one of outline or habitatBox`);
+    if (h.outline) {
+      only(h.outline, `${f}.outline`, ["samplesPerSegment", "points"]);
+      if (![4, 8, 16, 32].includes(h.outline.samplesPerSegment)) bad(`${f}.outline.samplesPerSegment must be 4, 8, 16 or 32`);
+      if (!Array.isArray(h.outline.points) || h.outline.points.length < 3) bad(`${f}.outline needs at least 3 points`);
+      h.outline.points.forEach((p, k) => onMapPoint(p, `${f}.outline.points[${k}]`));
+    }
+  });
+  only(src.planningMarkers, "planningMarkers", ["logSites"]);
+  if (!Array.isArray(src.planningMarkers.logSites)) bad("planningMarkers.logSites must be a list");
+  uniq(src.planningMarkers.logSites, "planningMarkers.logSites");
+  src.planningMarkers.logSites.forEach((l, i) => only(l, `planningMarkers.logSites[${i}]`, ["id", "siteTile"]));
   // features: tiles that must be land or sea, and the points that shape them
   const fIds = new Set();
   if (!Array.isArray(src.features)) bad("features must be a list");
@@ -861,6 +917,88 @@ export function previewSvgs(m, src, r21) {
     m.falls.forEach((f) => { const cx = f.tiles.reduce((a, t) => a + t[0], 0) / f.tiles.length + 0.5, cy = f.tiles.reduce((a, t) => a + t[1], 0) / f.tiles.length + 0.5; b += `<circle cx="${M + cx * P}" cy="${T0 + cy * P}" r="7" fill="none" stroke="#fff" stroke-width="2"/>`; });
     b += legend(M * 2 + m.w * P - 20, T0, [["#9db87e", "level 0"], ["#6f9a5a", "level 1"], ["#9a845f", "level 2"], ["#b8acd2", "level 3"], ["#5a4038", "cliff rim"]].concat(infraLegend, [[WCOL.river, "river"], [WCOL.pond, "still water"], [WCOL.lava, "lava"], ["#ff5fd2", "pink rings: the three exits"], ["#ffffff", "white rings: the two waterfalls"]]));
     out["blockout"] = frame(w, h, "MAP-B B1d blockout: terrain, water, corridors, harbour, jetty, bridgehead and helipad (staged; nothing in the game reads it yet)", b);
+  }
+
+  /* B1e: planning */
+  const DCOL = { "harbour-arrival": "#ffd166", "village-services": "#ef8a8a", "ops-security": "#96a0ff", "meadow-commons": "#fff08a", "riverlands-delta": "#78dcc8", "koi-garden-headland": "#ff96dc", "research-security": "#ff6e6e", "highland-volcano-cave": "#c8beff" };
+  const dimmed = (i) => { const c = fullColor(i); return c; };
+  const rectSvg = (P, ox, oy, b, stroke, fill, dash, wdt = 2) => `<rect x="${ox + b.x0 * P}" y="${oy + b.y0 * P}" width="${(b.x1 - b.x0 + 1) * P}" height="${(b.y1 - b.y0 + 1) * P}" fill="${fill}" stroke="${stroke}" stroke-width="${wdt}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  const fbx = (fp) => fp.sameAs ? src.exits.south.ferryTerminalReserveBox : fp.footprintBox;
+  // 22. districts and hubs
+  {
+    const P = 8, legW = 400, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, dimmed) + `<rect x="${M}" y="${T0}" width="${m.w * P}" height="${m.h * P}" fill="#000" fill-opacity="0.25"/>`;
+    for (const d of src.districts) b += rectSvg(P, M, T0, d.districtBox, DCOL[d.id], DCOL[d.id] + "22", "", 2.5) + label(M + d.districtBox.x0 * P + 4, T0 + d.districtBox.y0 * P + 14, d.id, DCOL[d.id], 12);
+    for (const d of src.districts) for (const hb of d.hubs) b += `<circle cx="${M + (hb.hubTile[0] + 0.5) * P}" cy="${T0 + (hb.hubTile[1] + 0.5) * P}" r="6" fill="${DCOL[d.id]}" stroke="#111" stroke-width="2"/>` + label(M + (hb.hubTile[0] + 1.5) * P + 2, T0 + (hb.hubTile[1] + 0.5) * P + 4, hb.id, "#fff", 10);
+    b += legend(M * 2 + m.w * P - 20, T0, src.districts.map((d) => [DCOL[d.id], `${d.id}: x ${d.districtBox.x0}-${d.districtBox.x1}, y ${d.districtBox.y0}-${d.districtBox.y1}, level ${d.levels.join("/")}`]));
+    b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 160}" fill="#aaa" font-size="11">inclusive boxes (the study's half-open ones, minus 1); they overlap where</text><text x="${M * 2 + m.w * P - 20}" y="${T0 + 174}" fill="#aaa" font-size="11">districts meet; dots: the hubs. Not collision</text>`;
+    out["districts"] = frame(w, h, "MAP-B B1e districts and hubs (planning only)", b);
+  }
+  // 23. reserves: footprints, compounds, open spaces, markers
+  {
+    const P = 8, legW = 400, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, fullColor) + `<rect x="${M}" y="${T0}" width="${m.w * P}" height="${m.h * P}" fill="#000" fill-opacity="0.2"/>`;
+    for (const o of src.reserves.openSpaces) { const f = o.clearField; b += `<ellipse cx="${M + f.cx * P}" cy="${T0 + f.cy * P}" rx="${f.rx * P}" ry="${f.ry * P}" fill="#7dffb0" fill-opacity="0.18" stroke="#7dffb0" stroke-width="2" stroke-dasharray="6 3"/>` + label(M + (f.cx - f.rx + 1) * P, T0 + (f.cy - f.ry) * P - 4, o.id + " (keep clear)", "#7dffb0", 11); }
+    for (const c of src.reserves.compounds) { b += rectSvg(P, M, T0, c.compoundBox, c.walled ? "#ff9f43" : "#ffd166", "none", c.walled ? "" : "5 3", 2.5) + label(M + c.compoundBox.x0 * P + 2, T0 + (c.compoundBox.y1 + 1) * P + 12, c.id + (c.walled ? " (walled, B3)" : ""), c.walled ? "#ff9f43" : "#ffd166", 10);
+      for (const [x, y] of c.gateTiles || []) b += `<rect x="${M + x * P + 1}" y="${T0 + y * P + 1}" width="${P - 2}" height="${P - 2}" fill="#50ffa0" stroke="#111"/>`; }
+    for (const fp of src.reserves.footprints) { const bx = fbx(fp); b += rectSvg(P, M, T0, bx, "#ffffff", fp.kind === "landmark" ? "#c8a0ff" : "#ffffff", "", 1.5).replace(`fill="#ffffff"`, `fill="#ffffff" fill-opacity="0.75"`).replace(`fill="#c8a0ff"`, `fill="#c8a0ff" fill-opacity="0.85"`) + label(M + (bx.x1 + 1) * P + 2, T0 + bx.y0 * P + 9, fp.id, "#fff", 10); }
+    for (const q of src.reserves.markers) { const [x, y] = q.markerTile; b += `<path d="M ${M + (x + 0.5) * P} ${T0 + y * P - 2} l 6 10 l -12 0 z" fill="#ff5fd2" stroke="#111"/>` + label(M + (x + 1.5) * P + 2, T0 + (y + 0.5) * P + 4, q.id, "#ffb3ee", 10); }
+    b += legend(M * 2 + m.w * P - 20, T0, [["#ffffff", "building footprint (exclusive; free land, one level)"], ["#c8a0ff", "landmark base (lighthouse, tower)"], ["#ff9f43", "walled compound (walls are B3's)"], ["#50ffa0", "a gate in a compound's wall line"], ["#ffd166", "dashed: an open compound (the cottage row)"], ["#7dffb0", "open space, kept clear (the rift arena)"], ["#ff5fd2", "marker (cave mouth, trailhead, gates, shrine)"]]);
+    src.reserves.footprints.forEach((fp, k) => { const bx = fbx(fp); b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 150 + k * 16}" fill="#ddd" font-size="11">${esc(fp.id)}: ${bx.x1 - bx.x0 + 1} x ${bx.y1 - bx.y0 + 1}, x ${bx.x0}-${bx.x1}, y ${bx.y0}-${bx.y1}</text>`; });
+    out["reserves"] = frame(w, h, "MAP-B B1e reserves over the B1d blockout: footprints, compounds, open space and markers (nothing built; still walkable)", b);
+  }
+  // 24. habitats
+  {
+    const P = 8, legW = 420, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, fullColor) + `<rect x="${M}" y="${T0}" width="${m.w * P}" height="${m.h * P}" fill="#000" fill-opacity="0.3"/>`;
+    const HC = { open: "#7dffb0", contained: "#ff5f5f", "walled garden": "#ff96dc" };
+    for (const hb of src.habitats) {
+      const col = HC[hb.containment];
+      if (hb.outline) { const poly = hermiteLoop(hb.outline.points.map((p) => [p.x, p.y, p.corner ? 0 : 1]), hb.outline.samplesPerSegment); b += `<polygon points="${poly.map((p) => `${(M + p[0] * P).toFixed(1)},${(T0 + p[1] * P).toFixed(1)}`).join(" ")}" fill="${col}" fill-opacity="0.22" stroke="${col}" stroke-width="2"/>`; }
+      else b += rectSvg(P, M, T0, hb.habitatBox, col, col + "38", "", 2);
+      const at = hb.outline ? [hb.outline.points.reduce((a, p) => a + p.x, 0) / hb.outline.points.length, hb.outline.points.reduce((a, p) => a + p.y, 0) / hb.outline.points.length] : [(hb.habitatBox.x0 + hb.habitatBox.x1) / 2, (hb.habitatBox.y0 + hb.habitatBox.y1) / 2];
+      b += `<text x="${M + at[0] * P}" y="${T0 + at[1] * P}" fill="#fff" font-size="11" font-weight="bold" text-anchor="middle" stroke="#111" stroke-width="3" paint-order="stroke">${esc(hb.id)}</text>`;
+    }
+    b += legend(M * 2 + m.w * P - 20, T0, [[HC.open, "open (herbivores; natural edges)"], [HC.contained, "contained later (B3): predator holding, raptor yard"], [HC["walled garden"], "walled garden (the koi garden)"]]);
+    src.habitats.forEach((hb, k) => { b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 72 + k * 30}" fill="#ddd" font-size="11" font-weight="bold">${esc(hb.id)}</text><text x="${M * 2 + m.w * P - 20}" y="${T0 + 86 + k * 30}" fill="#aaa" font-size="10">${esc(hb.planningLabels.join("; "))}</text>`; });
+    out["habitats"] = frame(w, h, "MAP-B B1e habitats: planning regions only (no fences, roam areas or creatures); the T. rex holding paddock is temporary until Ironwood", b);
+  }
+  // 25. scale: route ends, travel times, the planning log sites and the tour
+  {
+    const P = 8, legW = 420, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    const walkT = (i) => (m.land[i] || m.ground[i] === GROUND.dock) && !(m.coll[i] & 7);
+    const bfs = (from) => { const D = new Int32Array(m.w * m.h).fill(-1), q = [from]; D[from] = 0; for (let k = 0; k < q.length; k++) { const i = q[k], x = i % m.w, y = (i - x) / m.w; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * m.w + nx; if (nx >= 0 && ny >= 0 && nx < m.w && ny < m.h && D[j] < 0 && walkT(j)) { D[j] = D[i] + 1; q.push(j); } } } return D; };
+    const A = src.corridors.routeEnds.find((r) => r.id === "arrival").endTile, a0 = A[1] * m.w + A[0];
+    let b = tilesSvg(m, P, M, T0, fullColor) + `<rect x="${M}" y="${T0}" width="${m.w * P}" height="${m.h * P}" fill="#000" fill-opacity="0.35"/>`;
+    // the tour: nearest log site each time, its walk drawn
+    let cur = a0, tour = 0; const left = src.planningMarkers.logSites.map((l) => [l.id, l.siteTile[1] * m.w + l.siteTile[0]]), legs = [];
+    while (left.length) { const D = bfs(cur); left.sort((p, q) => D[p[1]] - D[q[1]]); const [id, t] = left.shift(); tour += D[t];
+      // walk back along the distances to draw the leg
+      const pts = [t]; let c = t; while (c !== cur) { const x = c % m.w, y = (c - x) / m.w; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * m.w + nx; if (D[j] === D[c] - 1 && D[j] >= 0) { c = j; break; } } pts.push(c); }
+      legs.push([id, D[t], pts]); cur = t; }
+    for (const [, , pts] of legs) b += `<polyline points="${pts.map((i) => `${M + (i % m.w + 0.5) * P},${T0 + ((i / m.w | 0) + 0.5) * P}`).join(" ")}" fill="none" stroke="#ffd166" stroke-width="2.5" stroke-opacity="0.9"/>`;
+    const D0 = bfs(a0);
+    for (const r of src.corridors.routeEnds) { const [x, y] = r.endTile, d = D0[y * m.w + x]; b += `<circle cx="${M + (x + 0.5) * P}" cy="${T0 + (y + 0.5) * P}" r="4" fill="#fff" stroke="#111"/>` + label(M + (x + 1.2) * P, T0 + (y + 0.5) * P - 5, `${r.id}${r.id === "arrival" ? "" : ` ${d} (${(d / (54 / 14.9)).toFixed(0)} s)`}`, "#fff", 9); }
+    for (const l of src.planningMarkers.logSites) { const [x, y] = l.siteTile; b += `<rect x="${M + x * P - 1}" y="${T0 + y * P - 1}" width="${P + 2}" height="${P + 2}" fill="#ffd166" stroke="#111" stroke-width="2"/>`; }
+    let far = 0; for (const d of D0) if (d > far) far = d;
+    b += legend(M * 2 + m.w * P - 20, T0, [["#ffd166", "the all-logs tour (nearest log site each time)"], ["#ffffff", "route ends: tiles (walking seconds) from the arrival"]]);
+    [`all-logs tour ${tour} tiles: ${Math.round(tour / (54 / 14.9))} s walking, ${Math.round(tour / (54 / 9.3))} s running`, "approved: about 331 tiles, 91 s and 57 s", `longest walk from the arrival ${far} tiles, ${Math.round(far / (54 / 14.9))} s (approved about 37 s)`, "order: " + legs.slice(0, 4).map(([id, d]) => `${id} (+${d})`).join(", ") + ",", "   " + legs.slice(4).map(([id, d]) => `${id} (+${d})`).join(", "), "log sites are planning markers only (the study's targets); the logs are B3's"]
+      .forEach((t, k) => { b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 60 + k * 18}" fill="#ddd" font-size="11">${esc(t)}</text>`; });
+    out["scale"] = frame(w, h, "MAP-B B1e scale: route ends, the planning log sites and the all-logs tour at walking speed", b);
+  }
+  // 26. the whole B1 blockout, with districts, hubs and reserves
+  {
+    const P = 8, legW = 400, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, fullColor);
+    for (const d of src.districts) b += rectSvg(P, M, T0, d.districtBox, DCOL[d.id], "none", "4 4", 1.5);
+    for (const c of src.reserves.compounds.filter((q) => q.walled)) b += rectSvg(P, M, T0, c.compoundBox, "#ff9f43", "none", "", 2);
+    for (const fp of src.reserves.footprints) b += rectSvg(P, M, T0, fbx(fp), "#111", fp.kind === "landmark" ? "#c8a0ff" : "#ffffff", "", 1);
+    for (const o of src.reserves.openSpaces) { const f = o.clearField; b += `<ellipse cx="${M + f.cx * P}" cy="${T0 + f.cy * P}" rx="${f.rx * P}" ry="${f.ry * P}" fill="none" stroke="#7dffb0" stroke-width="1.5" stroke-dasharray="5 3"/>`; }
+    for (const d of src.districts) { b += label(M + d.districtBox.x0 * P + 4, T0 + d.districtBox.y0 * P + 13, d.id, DCOL[d.id], 11); for (const hb of d.hubs) b += `<circle cx="${M + (hb.hubTile[0] + 0.5) * P}" cy="${T0 + (hb.hubTile[1] + 0.5) * P}" r="4" fill="${DCOL[d.id]}" stroke="#111" stroke-width="1.5"/>`; }
+    const S = src.exits.south, Wx = src.exits.west, N = src.exits.northwest;
+    for (const [t, lbl] of [[S.routeMarkerTile, "south exit"], [Wx.routeMarkerTile, "west exit"], [N.routeMarkerTile, "NW exit"]]) b += `<circle cx="${M + (t[0] + 0.5) * P}" cy="${T0 + (t[1] + 0.5) * P}" r="8" fill="none" stroke="#ff5fd2" stroke-width="3"/>` + label(M + (t[0] + 1.5) * P + 2, T0 + (t[1] + 0.5) * P + 4, lbl, "#ffb3ee", 11);
+    b += legend(M * 2 + m.w * P - 20, T0, [["#9db87e", "level 0"], ["#6f9a5a", "level 1"], ["#9a845f", "level 2"], ["#b8acd2", "level 3"], [WCOL.river, "river"], [WCOL.pond, "still water"], [ICOL.main, "paths (by class)"], [ICOL.dock, "docks"], [ICOL.pad, "helipad"], ["#ffffff", "building footprints"], ["#c8a0ff", "landmark bases"], ["#ff9f43", "walled compounds"], ["#7dffb0", "the rift arena (clear)"], ["#ffd166", "dashed: districts (hub dots)"], ["#ff5fd2", "the three exits"]]);
+    out["blockout-final"] = frame(w, h, "MAP-B B1 blockout, complete: terrain, water, corridors and infrastructure, with districts, hubs and reserves (staged)", b);
   }
   return out;
 }

@@ -41,6 +41,16 @@
    the open sea; the north-west bridgehead is walkable and reachable on the cape; the helipad is in the
    ops area on level 0; no path, plaza, dock or pad lies on a cliff rim; every route end is reachable from
    the arrival, each within a fifth of its approved walk, with the travel times and an all-logs tour reported.
+   B1e adds, for the planning metadata (districts, reserves, habitats, planning markers): it matches the
+   frozen r2.1 plan (tools/fixtures/mapb-r21-plan.json), bar the approved size changes; the staged map's
+   body is byte for byte B1d's (no tile, level, collision or shape came from planning); eight districts,
+   each hub on land, walkable, reachable and on one of its levels; every footprint its approved size, on
+   free land on one level (no water, lava, rim, ramp, paving, bridge or dock), apart from every other
+   footprint, the exits and the open spaces, with walkable frontage; walls only cross paths at their
+   gates; the rift arena clear; the cave mouth outside the sealed volcano with a reachable approach; the
+   lighthouse on the level-2 headland; habitats apart, on land, the contained ones in research; and, if
+   every reserve were made solid, every destination still reachable (the projected walkable count is
+   reported against the study's 8,693).
    - then self-tests: each guard is broken on purpose (in memory, or in tools/out/) and must fail.
 
    The frozen r2.1 fixture is never rewritten by any tool; this file checks it against hashes in its own
@@ -57,12 +67,13 @@ import { createHash } from "node:crypto";
 import { join } from "node:path";
 import vm from "node:vm";
 import { ROOT, SOURCE_PATH, STAGED_PATH, STAGE, loadSource, compile, serialize, guardOut, regionPoly, GROUND, COLL, WHY } from "./map-compile.mjs";
-import { selfIntersections, flood, raster } from "./maps/geom.mjs";
+import { selfIntersections, flood, raster, hermiteLoop } from "./maps/geom.mjs";
 
 const R21_PATH = join(ROOT, "tools/fixtures/mapb-r21.json");
 const R21_LEVELS_PATH = join(ROOT, "tools/fixtures/mapb-r21-levels.json");
 const R21_WATER_PATH = join(ROOT, "tools/fixtures/mapb-r21-water.json");
 const R21_INFRA_PATH = join(ROOT, "tools/fixtures/mapb-r21-infra.json");
+const R21_PLAN_PATH = join(ROOT, "tools/fixtures/mapb-r21-plan.json");
 export const ACCEPTED_PATH = join(ROOT, "tools/fixtures/mapb-staged.json");
 const PROD_MAP = join(ROOT, "js/maps/home.js");
 // the frozen r2.1 record's own hashes: changing the fixture without changing this code fails the lint
@@ -86,8 +97,19 @@ const WALK_TPS = 54 / 14.9, RUN_TPS = 54 / 9.3;
 // rest are the first B1d build's, equal to the study's network). A route may not grow or shrink by more than a fifth
 const ROUTE_TILES = { "village-square": 37, "ops-service-yard": 32, "commons": 28, "riverlands": 63, "brachio-meadow": 96, "delta-wetland": 65, "koi-garden": 40,
   "lighthouse-headland": 95, "research-forecourt": 84, "highland-junction": 52, "cave": 67, "shrine": 124, "nw-bridgehead": 128, "west-jetty": 72, "helipad": 40, "ferry-pier-end": 17 };
-// the study's log targets, for the sanity tour only (the logs themselves are B3's)
-const LOG_SITES = { mailbox: [50, 82], tablet: [82, 49], "rack/desk (bunker)": [116, 83], uplink: [121, 82], macbook: [106, 58], tower: [95, 28], lighthouse: [140, 45] };
+const R21_PLAN_SHA256 = "ba6ed85e08d9690205e5c48952e382e5d32975421eb8a0b143cda2d98dbfd3c3";
+// the staged map from its ground layer on, as B1d committed it (b87ed37): planning metadata may not change a byte of it
+const B1D_BODY_SHA256 = "d92ef8c70007cec016e72afba873d20565f86712aeb365e71d36db69f84f8df5";
+// the approved footprint sizes [w, h] (the study's, but the visitor centre, the ranger HQ / depot and the lighthouse base as approved)
+const FOOT_SIZE = { "visitor-centre": [9, 5], "ferry-terminal": [6, 4], "ranger-hq-depot": [7, 4], "bunker": [7, 4], "research-station": [8, 4], "raptor-house": [5, 2], "workshop": [6, 4],
+  "post-office": [5, 4], "cafe": [5, 3], "keeper-cottage": [4, 2], "koi-pavilion": [4, 3], "lighthouse": [2, 2], "tower": [3, 3] };
+// the study's buildings and landmark bases by footprint id; the approved changes keep the study's top-left corner
+const STUDY_FOOT = { "visitor-centre": "visitor", "ranger-hq-depot": "depot", "bunker": "bunker", "ferry-terminal": "ferry terminal", "workshop": "workshop", "post-office": "post office", "cafe": "cafe",
+  "research-station": "research station", "raptor-house": "raptor house", "keeper-cottage": "keeper's cottage", "koi-pavilion": "koi pavilion" };
+const STUDY_HUB = { "arrival plaza": "arrival-plaza", "village square": "village-square", "commons": "commons", "ops service yard": "ops-service-yard", "koi garden": "koi-garden", "lighthouse": "lighthouse",
+  "research forecourt": "research-forecourt", "highland junction": "highland-junction", "cave": "cave", "shrine": "shrine", "brachio meadow": "brachio-meadow", "delta wetland": "delta-wetland" };
+const STUDY_LOG = { mailbox: "mailbox", tablet: "tablet", "rack/desk (bunker)": "rack-desk-bunker", uplink: "uplink", macbook: "macbook", tower: "tower", lighthouse: "lighthouse" };
+const DISTRICT_IDS = ["harbour-arrival", "village-services", "ops-security", "meadow-commons", "riverlands-delta", "koi-garden-headland", "research-security", "highland-volcano-cave"];
 // the approved ops area (the study's ops district, inclusive), where the helipad must stand until B1e defines districts
 const OPS_AREA = { x0: 94, y0: 72, x1: 131, y1: 103 };
 // the water codes of the frozen fixture, by the source's ids
@@ -139,7 +161,7 @@ function drift(m, r21) {
 }
 
 /* ════════ the checks on a build (pure: the self-tests run them on broken copies) ════════ */
-export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted }) {
+export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }) {
   const out = [], add = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   const W = m.w, H = m.h, isLand = (x, y) => x >= 0 && y >= 0 && x < W && y < H && m.land[y * W + x] === 1;
   const sum = summary(m), acc = accepted && accepted.accepted, intended = acc && acc.driftFromR21 && acc.driftFromR21.tiles > 0 ? acc : null;
@@ -697,11 +719,202 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted
       rows.push(`${r.id} ${d} (${(d / WALK_TPS).toFixed(1)} s)`);
     }
     add("routes", bad.length === 0, bad.length ? bad.join("; ") : `from the arrival, in tiles and walking seconds: ${rows.join(", ")}`);
-    let cur = arrival[1] * W + arrival[0], tour = 0; const left = Object.entries(LOG_SITES), order = [];
+    let cur = arrival[1] * W + arrival[0], tour = 0; const left = src.planningMarkers.logSites.map((l) => [l.id, l.siteTile]), order = [];
     while (left.length) { const D = dist(cur); left.sort((a, b) => D[a[1][1] * W + a[1][0]] - D[b[1][1] * W + b[1][0]]); const [nm, [x, y]] = left.shift(); tour += D[y * W + x]; cur = y * W + x; order.push(nm); }
     let far = 0; for (let i = 0; i < W * H; i++) if (A[i] > far) far = A[i];
     const ok = tour >= 331 * 0.85 && tour <= 331 * 1.15 && far >= 134 * 0.85 && far <= 134 * 1.15;
-    add("travel-sanity", ok, `all-logs tour (the study's log sites; the logs are B3's) ${tour} tiles, ${Math.round(tour / WALK_TPS)} s walking, ${Math.round(tour / RUN_TPS)} s running (approved about 331, 91 s, 57 s); longest walk from the arrival ${far} tiles, ${Math.round(far / WALK_TPS)} s (approved about 134, 37 s); order ${order.join(", ")}`);
+    add("travel-sanity", ok, `all-logs tour (the planning log sites, the study's; the logs are B3's) ${tour} tiles, ${Math.round(tour / WALK_TPS)} s walking, ${Math.round(tour / RUN_TPS)} s running (approved about 331, 91 s, 57 s); longest walk from the arrival ${far} tiles, ${Math.round(far / WALK_TPS)} s (approved about 134, 37 s); order ${order.join(", ")}`);
+  }
+
+  /* ════════ B1e: planning metadata ════════ */
+  const P = r21Plan.plan || {}, Rv = src.reserves;
+  {
+    const ps = sha256(JSON.stringify(r21Plan.plan));
+    add("r21-plan-fixture-frozen", ps === R21_PLAN_SHA256 && r21Plan.planSha256 === R21_PLAN_SHA256, `plan sha ${ps.slice(0, 16)} (code expects ${R21_PLAN_SHA256.slice(0, 16)})`);
+    const text = serialize(m, src), body = text.slice(text.indexOf('  "ground": ['));
+    const bs = sha256(body);
+    add("b1d-geometry-locked", bs === B1D_BODY_SHA256, `the staged map from its ground layer on is ${bs === B1D_BODY_SHA256 ? "byte for byte B1d's" : "NOT B1d's"} (sha256 ${bs.slice(0, 16)}): ground, levels, collision and every shape; planning changed no tile`);
+  }
+  const boxTiles = (b) => { const t = []; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) t.push(y * W + x); return t; };
+  const conv = (b) => ({ x0: b[0], y0: b[1], x1: b[2] - 1, y1: b[3] - 1 });                   // a study half-open rectangle, inclusive
+  const same = (a, b) => a.x0 === b.x0 && a.y0 === b.y0 && a.x1 === b.x1 && a.y1 === b.y1;
+  const fbox = (fp) => fp.sameAs ? src.exits.south.ferryTerminalReserveBox : fp.footprintBox;
+  const ringOf = (c) => { const g = new Set((c.gateTiles || []).map(([x, y]) => y * W + x)), t = []; const b = c.compoundBox; for (const i of boxTiles(b)) { const x = i % W, y = (i - x) / W; if ((x === b.x0 || x === b.x1 || y === b.y0 || y === b.y1) && !g.has(i)) t.push(i); } return t; };
+  // the districts and their hubs
+  {
+    const bad = [], ids = src.districts.map((d) => d.id);
+    if (JSON.stringify(ids) !== JSON.stringify(DISTRICT_IDS)) bad.push(`the districts are ${ids.join(", ")}, not the eight approved (${DISTRICT_IDS.join(", ")})`);
+    (P.districtsHalfOpen || []).forEach(([nm, b], k) => { const d = src.districts[k]; if (d && !same(d.districtBox, conv(b))) bad.push(`${d.id}'s box isn't the study's ${nm} (${b.join(",")} half-open)`); });
+    const hubs = {};
+    for (const d of src.districts) for (const h of d.hubs) {
+      const [x, y] = h.hubTile, i = y * W + x, b = d.districtBox; hubs[h.id] = h.hubTile;
+      if (x < b.x0 || x > b.x1 || y < b.y0 || y > b.y1) bad.push(`hub ${h.id} is outside ${d.id}`);
+      if (!m.land[i]) bad.push(`hub ${h.id} is in the sea`); else if (!walk(i) || !byColl[i]) bad.push(`hub ${h.id} isn't walkable and reachable`);
+      else if (!d.levels.includes(m.height[i])) bad.push(`hub ${h.id} is on level ${m.height[i]}, not one of ${d.id}'s (${d.levels.join(",")})`);
+    }
+    for (const [nm, t] of Object.entries(P.hubs || {})) { const h = hubs[STUDY_HUB[nm]]; if (!h || h[0] !== t[0] || h[1] !== t[1]) bad.push(`hub ${STUDY_HUB[nm]} isn't the study's ${nm} ${t}`); }
+    add("districts", bad.length === 0, bad.length ? bad.join("; ") : `8 districts, each the study's box made inclusive; ${Object.keys(hubs).length} hubs, the study's, each on land, walkable, reachable and inside its district on one of its levels`);
+  }
+  // the footprints: approved size, the study's place, free land on one level, frontage
+  const footTiles = {};
+  {
+    const bad = [], info = [];
+    const exitsBoxes = [["arrival plaza", src.exits.south.arrivalPlazaBox], ["quay", src.exits.south.quayBox], ["ferry pier", src.exits.south.ferryPierBox], ["west jetty", src.exits.west.jettyBox], ["bridgehead", src.exits.northwest.landingBox], ["helipad", src.infrastructure.helipadBox]];
+    const studyB = Object.fromEntries((P.buildings || []).map((b) => [b[0], { x0: b[1], y0: b[2], x1: b[1] + b[3] - 1, y1: b[2] + b[4] - 1 }]));
+    const studyF = Object.fromEntries(Object.entries(P.landmarkBases || {}).map(([k, b]) => [k, { x0: b[0], y0: b[1], x1: b[0] + b[2] - 1, y1: b[1] + b[3] - 1 }]));
+    const ends = new Set(src.corridors.routeEnds.map((r) => r.endTile[1] * W + r.endTile[0]).concat(src.planningMarkers.logSites.map((l) => l.siteTile[1] * W + l.siteTile[0])));
+    for (const fp of Rv.footprints) {
+      const b = fbox(fp), t = boxTiles(b), sz = FOOT_SIZE[fp.id], nm = fp.id;
+      footTiles[nm] = t;
+      if (!sz) { bad.push(`${nm} has no approved size`); continue; }
+      if (b.x1 - b.x0 + 1 !== sz[0] || b.y1 - b.y0 + 1 !== sz[1]) bad.push(`${nm} is ${b.x1 - b.x0 + 1} x ${b.y1 - b.y0 + 1}, not the approved ${sz[0]} x ${sz[1]}`);
+      const st = STUDY_FOOT[nm] ? studyB[STUDY_FOOT[nm]] : studyF[nm];
+      if (st && (st.x0 !== b.x0 || st.y0 !== b.y0)) bad.push(`${nm} isn't at the study's corner ${st.x0},${st.y0}`);
+      const lv = new Set(); let notFree = 0, ramp = 0;
+      for (const i of t) { lv.add(m.height[i]); if (!m.land[i] || !(m.ground[i] === GROUND.land || m.ground[i] === GROUND.sand) || (m.coll[i] & COLL.solid)) notFree++; if (rampAt(i % W, (i - i % W) / W) >= 0) ramp++; if (ends.has(i)) bad.push(`${nm} covers a route end or log site at ${i % W},${(i / W) | 0}`); }
+      if (notFree) bad.push(`${nm}: ${notFree} tile(s) aren't free land (water, lava, rim, solid, paving, bridge or dock)`);
+      if (lv.size !== 1) bad.push(`${nm} spans levels ${[...lv].join(",")}`);
+      if (ramp) bad.push(`${nm} covers ${ramp} ramp tile(s)`);
+      for (const [en, eb] of exitsBoxes) if (t.some((i) => inB(i, eb)) && !(fp.sameAs && en === "arrival plaza" && false)) bad.push(`${nm} overlaps the ${en}`);
+      const front = fp.front === "south" ? boxTiles({ x0: b.x0, y0: b.y1 + 1, x1: b.x1, y1: b.y1 + 1 }) : fp.front === "north" ? boxTiles({ x0: b.x0, y0: b.y0 - 1, x1: b.x1, y1: b.y0 - 1 }) : fp.front === "east" ? boxTiles({ x0: b.x1 + 1, y0: b.y0, x1: b.x1 + 1, y1: b.y1 }) : boxTiles({ x0: b.x0 - 1, y0: b.y0, x1: b.x0 - 1, y1: b.y1 });
+      const fr = front.filter((i) => walk(i) && byColl[i]).length;
+      if (fr < Math.min(2, front.length)) bad.push(`${nm} has ${fr} reachable frontage tile(s) on its ${fp.front} side`);
+      if (fp.inCompound) { const c = Rv.compounds.find((q) => q.id === fp.inCompound); if (t.some((i) => !inB(i, c.compoundBox))) bad.push(`${nm} isn't inside ${c.id}`); }
+      info.push(`${nm} ${sz[0]}x${sz[1]} at x${b.x0}-${b.x1} y${b.y0}-${b.y1} level ${[...lv][0]}, frontage ${fr}`);
+    }
+    add("footprints-free", bad.length === 0, bad.length ? bad.join("; ") : `${Rv.footprints.length} footprints, approved sizes at the study's corners, on free land on one level, off ramps, paving and the exits, each with reachable frontage: ${info.join("; ")}`);
+  }
+  // exclusive: no two footprints overlap; none on a wall ring, in an open space, or in the cottage plots' area unless inside its own compound
+  {
+    const bad = [], owner = new Map();
+    for (const [nm, t] of Object.entries(footTiles)) for (const i of t) { if (owner.has(i)) bad.push(`${nm} overlaps ${owner.get(i)} at ${i % W},${(i / W) | 0}`); else owner.set(i, nm); }
+    for (const c of Rv.compounds.filter((q) => q.walled)) for (const i of ringOf(c)) if (owner.has(i)) bad.push(`${owner.get(i)} lies on ${c.id}'s wall line`);
+    for (const o of Rv.openSpaces) { const f = o.clearField; for (const [nm, t] of Object.entries(footTiles)) if (t.some((i) => { const x = i % W, y = (i - x) / W; return ((x + 0.5 - f.cx) / f.rx) ** 2 + ((y + 0.5 - f.cy) / f.ry) ** 2 <= 1; })) bad.push(`${nm} intrudes on the open space ${o.id}`); }
+    add("footprints-exclusive", bad.length === 0, bad.length ? [...new Set(bad)].slice(0, 6).join("; ") : `no two footprints overlap; none on a wall line or in an open space`);
+  }
+  // compounds: walls cross paths only at their gates; the cottage row holds the study's four plots
+  {
+    const bad = [], info = [];
+    for (const c of Rv.compounds) {
+      const study = (P.walls || []).find((w) => w[0][0] === c.compoundBox.x0 && w[0][1] === c.compoundBox.y0);
+      if (c.walled) {
+        if (!study || !same(c.compoundBox, { x0: study[0][0], y0: study[0][1], x1: study[0][2], y1: study[0][3] }) || JSON.stringify(c.gateTiles) !== JSON.stringify(study[1])) bad.push(`${c.id} isn't the study's walled compound and gates`);
+        const ring = ringOf(c); let paved = 0, wet = 0;
+        for (const i of ring) { if (m.ground[i] === GROUND.path || m.ground[i] === GROUND.bridge || m.ground[i] === GROUND.dock) paved++; if (!m.land[i] || [GROUND.river, GROUND.pond, GROUND.lava].includes(m.ground[i])) wet++; }
+        for (const [x, y] of c.gateTiles) { const i = y * W + x, b = c.compoundBox; if (!(x === b.x0 || x === b.x1 || y === b.y0 || y === b.y1)) bad.push(`${c.id}'s gate ${x},${y} isn't on its wall line`); if (!walk(i)) bad.push(`${c.id}'s gate ${x},${y} isn't walkable`); }
+        if (paved) bad.push(`${c.id}'s wall line would cut ${paved} paved tile(s) outside its gates`);
+        if (wet) bad.push(`${c.id}'s wall line crosses ${wet} water or sea tile(s)`);
+        info.push(`${c.id} wall line ${ring.length} tiles, ${c.gateTiles.length} gate tiles`);
+      } else {
+        const plots = (P.buildings || []).filter((b) => b[0] === "cottage").map((b) => ({ x0: b[1], y0: b[2], x1: b[1] + b[3] - 1, y1: b[2] + b[4] - 1 }));
+        for (const pl of plots) { if (!(pl.x0 >= c.compoundBox.x0 && pl.x1 <= c.compoundBox.x1 && pl.y0 >= c.compoundBox.y0 && pl.y1 <= c.compoundBox.y1)) bad.push(`${c.id} doesn't contain the study's cottage at ${pl.x0},${pl.y0}`);
+          if (boxTiles(pl).some((i) => !m.land[i] || !(m.ground[i] === GROUND.land || m.ground[i] === GROUND.sand) || (m.coll[i] & COLL.solid))) bad.push(`the study's cottage plot at ${pl.x0},${pl.y0} isn't free land`); }
+        info.push(`${c.id} holds the study's ${plots.length} cottage plots, all free land`);
+      }
+    }
+    add("compounds", bad.length === 0, bad.length ? bad.join("; ") : `${info.join("; ")}; walls cross paths only at gates`);
+  }
+  // the open spaces: the rift arena's field clear (every tile walkable)
+  {
+    const bad = [], info = [], arena = P.anchors && P.anchors["arena (rift)"];
+    for (const o of Rv.openSpaces) {
+      const f = o.clearField; let n = 0, blocked = 0;
+      for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) if (((x + 0.5 - f.cx) / f.rx) ** 2 + ((y + 0.5 - f.cy) / f.ry) ** 2 <= 1) { n++; if (!walk(y * W + x)) blocked++; }
+      if (blocked) bad.push(`${o.id}: ${blocked} of ${n} tiles blocked`);
+      if (o.id === "rift-arena" && (!arena || o.centreTile[0] !== arena[0] || o.centreTile[1] !== arena[1] || f.cx !== arena[0] + 0.5 || f.cy !== arena[1] + 0.5 || f.rx !== 10.6 || f.ry !== 5.75)) bad.push("rift-arena isn't the study's (centre 76,56, 10.6 by 5.75)");
+      info.push(`${o.id} ${n} tiles, all walkable`);
+    }
+    add("open-spaces-clear", bad.length === 0, bad.length ? bad.join("; ") : info.join("; "));
+  }
+  // the markers: the cave mouth outside the sealed volcano, every marker where the study had it, reachable
+  {
+    const bad = [], mk = Object.fromEntries(Rv.markers.map((q) => [q.id, q]));
+    const massR = src.elevation.regions.find((r) => r.id === "volcano-mass"), mg = raster(regionPoly(massR), W, H);
+    const want = { "cave-mouth": [P.stations && P.stations.cave, P.targets && [66, 25]], "volcano-trailhead": [P.anchors && P.anchors["volcano trailhead"]], "park-gate": [P.anchors && P.anchors.gate], "research-gate": [P.anchors && P.anchors["research gate"]], "shrine": [P.stations && P.stations.shrine, [14, 20]] };
+    for (const [id, [t, a]] of Object.entries(want)) {
+      const q = mk[id]; if (!q) { bad.push(`no ${id} marker`); continue; }
+      if (!t || q.markerTile[0] !== t[0] || q.markerTile[1] !== t[1]) bad.push(`${id} isn't the study's ${t}`);
+      if (a && (!q.approachTile || q.approachTile[0] !== a[0] || q.approachTile[1] !== a[1])) bad.push(`${id}'s approach isn't the study's ${a}`);
+      const i = q.markerTile[1] * W + q.markerTile[0];
+      if (!m.land[i]) bad.push(`${id} is in the sea`);
+      if (mg[i]) bad.push(`${id} is inside the sealed volcano mass`);
+      const j = q.approachTile ? q.approachTile[1] * W + q.approachTile[0] : i;
+      if (!walk(j) || !byColl[j]) bad.push(`${id}${q.approachTile ? "'s approach" : ""} isn't walkable and reachable`);
+    }
+    for (const [nm, t] of Object.entries(footTiles)) for (const q of Rv.markers) for (const tt of [q.markerTile, q.approachTile].filter(Boolean)) if (t.includes(tt[1] * W + tt[0])) bad.push(`${nm} covers the ${q.id} marker`);
+    add("markers", bad.length === 0, bad.length ? bad.join("; ") : `cave mouth 66,24 outside the sealed volcano, its approach 66,25 reachable; volcano trailhead 83,25, park gate 74,38, research gate 101,29, shrine 14,19 (approach 14,20): the study's, reachable, outside the volcano`);
+  }
+  // the lighthouse base on the level-2 headland; the helipad in ops
+  {
+    const bad = [], lh = footTiles.lighthouse || [], hp = src.elevation.regions.find((r) => r.id === "headland-plateau"), hg = raster(regionPoly(hp), W, H);
+    if (!lh.length) bad.push("no lighthouse footprint");
+    if (lh.some((i) => !hg[i] || m.height[i] !== 2)) bad.push("the lighthouse base isn't all on the level-2 headland plateau");
+    const ops = src.districts.find((d) => d.id === "ops-security"), hb = src.infrastructure.helipadBox;
+    if (!ops || hb.x0 < ops.districtBox.x0 || hb.x1 > ops.districtBox.x1 || hb.y0 < ops.districtBox.y0 || hb.y1 > ops.districtBox.y1) bad.push("the helipad isn't inside the ops-security district");
+    add("lighthouse-helipad", bad.length === 0, bad.length ? bad.join("; ") : "the lighthouse base (2 x 2) is on the level-2 headland plateau; the helipad is inside the ops-security district");
+  }
+  // habitats: the study's, apart, on land, the contained ones in research
+  const habTiles = {};
+  {
+    const bad = [], info = [];
+    const studyH = Object.fromEntries((P.habitats || []).map((h) => [h.name, h]));
+    const NAME = { "holding-paddock": "holding paddock (temporary)", "raptor-yard": "raptor yard", "riverlands-range": "riverlands range", "brachio-meadow": "brachio meadow", "spino-reach": "spino reach",
+      "delta-wetland": "delta wetland", "galli-meadow": "galli meadow", "pachy-heath": "pachy heath", "dilo-strip": "dilo strip", "koi-garden": "koi garden", "village-gardens": "village gardens" };
+    const research = src.districts.find((d) => d.id === "research-security").districtBox;
+    for (const h of src.habitats) {
+      const st = studyH[NAME[h.id]];
+      if (!st) { bad.push(`${h.id} isn't one of the study's habitats`); continue; }
+      if (h.outline) { if (!st.shapePoints || JSON.stringify(h.outline.points.map((p) => [p.x, p.y])) !== JSON.stringify(st.shapePoints) || h.outline.points.some((p) => p.corner)) bad.push(`${h.id}'s outline isn't the study's`); }
+      else if (!st.rectHalfOpen || !same(h.habitatBox, conv(st.rectHalfOpen))) bad.push(`${h.id}'s box isn't the study's`);
+      const contained = /fence/.test(st.containment), walled = /walled/.test(st.containment);
+      if ((h.containment === "contained") !== contained || (h.containment === "walled garden") !== walled) bad.push(`${h.id}'s containment isn't the study's (${st.containment})`);
+      const g = h.outline ? raster(hermiteLoop(h.outline.points.map((p) => [p.x, p.y, p.corner ? 0 : 1]), h.outline.samplesPerSegment), W, H) : (() => { const r = new Uint8Array(W * H); for (const i of boxTiles(h.habitatBox)) r[i] = 1; return r; })();
+      const t = []; for (let i = 0; i < W * H; i++) if (g[i]) t.push(i);
+      habTiles[h.id] = t;
+      if (t.some((i) => !m.land[i])) bad.push(`${h.id} reaches the sea`);
+      const lv = new Set(t.filter((i) => m.land[i] && ![GROUND.river, GROUND.pond, GROUND.bridge].includes(m.ground[i])).map((i) => m.height[i]));
+      if (lv.size > 1) bad.push(`${h.id} spans levels ${[...lv].join(",")}`);
+      if (h.containment === "contained" && t.some((i) => !inB(i, research))) bad.push(`${h.id} is contained but not inside the research district`);
+      info.push(`${h.id} ${t.length}`);
+    }
+    const ids = Object.keys(habTiles);
+    for (let a = 0; a < ids.length; a++) for (let b = a + 1; b < ids.length; b++) { const s2 = new Set(habTiles[ids[a]]); if (habTiles[ids[b]].some((i) => s2.has(i))) bad.push(`habitats ${ids[a]} and ${ids[b]} overlap`); }
+    const hp = src.habitats.find((h) => h.id === "holding-paddock");
+    if (!hp || !hp.planningLabels.some((l) => /until Ironwood/.test(l))) bad.push("the holding paddock must say it is temporary, until Ironwood");
+    const koi = src.habitats.find((h) => h.id === "koi-garden"), kc = Rv.compounds.find((c) => c.id === "koi-garden");
+    if (koi && kc && habTiles["koi-garden"].some((i) => !inB(i, kc.compoundBox))) bad.push("the koi garden habitat isn't inside the koi-garden compound");
+    add("habitats", bad.length === 0, bad.length ? bad.join("; ") : `${src.habitats.length} habitats, the study's outlines, apart, on land, each on one level (water aside); the two contained ones in research; tiles: ${info.join(", ")}`);
+  }
+  // the planning log sites: the study's, walkable, reachable, outside every footprint
+  {
+    const bad = [], ls = Object.fromEntries(src.planningMarkers.logSites.map((l) => [l.id, l.siteTile]));
+    for (const [nm, t] of Object.entries(P.logTargets || {})) { const q = ls[STUDY_LOG[nm]]; if (!q || q[0] !== t[0] || q[1] !== t[1]) bad.push(`log site ${STUDY_LOG[nm]} isn't the study's ${t}`); }
+    for (const [id, [x, y]] of Object.entries(ls)) { const i = y * W + x; if (!walk(i) || !byColl[i]) bad.push(`log site ${id} isn't walkable and reachable`); }
+    add("planning-log-sites", bad.length === 0, bad.length ? bad.join("; ") : `${Object.keys(ls).length} log sites, the study's, walkable and reachable (planning only; not in the staged map)`);
+  }
+  // the projection: every reserve made solid (footprints, wall lines, the contained habitats' fences, the cottage plots)
+  {
+    const solid = new Uint8Array(W * H);
+    for (const t of Object.values(footTiles)) for (const i of t) solid[i] = 1;
+    for (const c of Rv.compounds.filter((q) => q.walled)) for (const i of ringOf(c)) solid[i] = 1;
+    for (const b of (P.buildings || []).filter((q) => q[0] === "cottage")) for (const i of boxTiles({ x0: b[1], y0: b[2], x1: b[1] + b[3] - 1, y1: b[2] + b[4] - 1 })) solid[i] = 1;
+    for (const h of src.habitats.filter((q) => q.containment === "contained")) { const s2 = new Set(habTiles[h.id]); for (const i of habTiles[h.id]) { const x = i % W, y = (i - x) / W; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !s2.has((y + dy) * W + x + dx))) solid[i] = 1; } }
+    const walk2 = (i) => walk(i) && !solid[i];
+    let n = 0; for (let i = 0; i < W * H; i++) if (walk2(i)) n++;
+    const A = src.corridors.routeEnds.find((r) => r.id === "arrival").endTile, reach2 = flood([A[1] * W + A[0]], walk2, W, H);
+    let r = 0; for (let i = 0; i < W * H; i++) if (reach2[i]) r++;
+    const places = src.corridors.routeEnds.map((q) => [q.id, q.endTile]).concat(src.planningMarkers.logSites.map((q) => ["log " + q.id, q.siteTile]), src.districts.flatMap((d) => d.hubs.map((h) => ["hub " + h.id, h.hubTile])), Rv.markers.map((q) => ["marker " + q.id, q.approachTile || q.markerTile]));
+    const cut = places.filter(([, [x, y]]) => !reach2[y * W + x]).map(([id]) => id);
+    // the study's own solids on this map, for comparison: its buildings and bases at their sizes, its stations, walls and fences
+    const studySolid = new Uint8Array(W * H);
+    for (const b of P.buildings || []) for (const i of boxTiles({ x0: b[1], y0: b[2], x1: b[1] + b[3] - 1, y1: b[2] + b[4] - 1 })) studySolid[i] = 1;
+    for (const b of Object.values(P.landmarkBases || {})) for (const i of boxTiles({ x0: b[0], y0: b[1], x1: b[0] + b[2] - 1, y1: b[1] + b[3] - 1 })) studySolid[i] = 1;
+    for (const [k, [x, y]] of Object.entries(P.stations || {})) if (k !== "boat") studySolid[y * W + x] = 1;
+    for (const c of Rv.compounds.filter((q) => q.walled)) for (const i of ringOf(c)) studySolid[i] = 1;
+    for (const h of src.habitats.filter((q) => q.containment === "contained")) { const s2 = new Set(habTiles[h.id]); for (const i of habTiles[h.id]) { const x = i % W, y = (i - x) / W; if ([[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !s2.has((y + dy) * W + x + dx))) studySolid[i] = 1; } }
+    let ns = 0; for (let i = 0; i < W * H; i++) if (walk(i) && !studySolid[i]) ns++;
+    add("projected-walkable", cut.length === 0, cut.length ? `with every reserve solid, cut off: ${cut.join(", ")}` :
+      `now ${[...Array(W * H).keys()].filter(walk).length} walkable (B1d's, unchanged). With every B1e reserve solid (footprints, wall lines, contained habitats' fences, the cottage plots): ${n} walkable, ${r} reachable from the arrival (the fenced interiors aside), and every route end, hub, marker and log site still reachable. The study's own solids on this map (its building and base sizes, its 10 stations): ${ns}; the study measured 8,693 (8,606 reachable)`);
   }
 
   // the accepted build
@@ -750,6 +963,7 @@ const r21 = JSON.parse(readFileSync(R21_PATH, "utf8"));
 const r21Levels = JSON.parse(readFileSync(R21_LEVELS_PATH, "utf8"));
 const r21Water = JSON.parse(readFileSync(R21_WATER_PATH, "utf8"));
 const r21Infra = JSON.parse(readFileSync(R21_INFRA_PATH, "utf8"));
+const r21Plan = JSON.parse(readFileSync(R21_PLAN_PATH, "utf8"));
 const accepted = existsSync(ACCEPTED_PATH) ? JSON.parse(readFileSync(ACCEPTED_PATH, "utf8")) : null;
 let fails = 0;
 const say = (ok, name, detail) => { if (!ok) fails++; console.log(`${ok ? "ok  " : "FAIL"} ${name}: ${detail}`); };
@@ -764,7 +978,7 @@ try {
 if (args.includes("--accept")) {
   const reason = (args.find((a) => a.startsWith("--reason=")) || "").slice(9).trim();
   if (reason.length < 10) { console.error('map-lint --accept needs --reason="why this build is the intended one" (10 characters or more)'); process.exit(1); }
-  const res = runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted }).filter((c) => !c.ok && !["r21-land-mask", "land-count", "land-bounds", "r21-level-mask", "level-counts", "r21-water-mask", "accepted-build"].includes(c.name));
+  const res = runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }).filter((c) => !c.ok && !["r21-land-mask", "land-count", "land-bounds", "r21-level-mask", "level-counts", "r21-water-mask", "accepted-build"].includes(c.name));
   if (res.length) { res.forEach((c) => say(false, c.name, c.detail)); console.error("map-lint --accept: refusing, the build fails the checks above"); process.exit(1); }
   if (readFileSync(STAGED_PATH, "utf8") !== serialize(m, src)) { console.error("map-lint --accept: refusing, tools/maps/staged/home.js is stale (run node tools/map-compile.mjs)"); process.exit(1); }
   acceptTo(ACCEPTED_PATH, acceptedRecord(m, r21, r21Levels, r21Water, accepted, reason));
@@ -773,7 +987,7 @@ if (args.includes("--accept")) {
 }
 
 console.log(`map-lint ${STAGE}: ${rel(SOURCE_PATH)} -> ${rel(STAGED_PATH)}`);
-for (const c of runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted })) say(c.ok, c.name, c.detail);
+for (const c of runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted })) say(c.ok, c.name, c.detail);
 
 // the staged file: current, hashed, staged, never the game's registry
 const staged = existsSync(STAGED_PATH) ? readFileSync(STAGED_PATH, "utf8") : "";
@@ -820,7 +1034,7 @@ function expectThrow(name, fn, re) {
   try { fn(); say(false, "self-test " + name, "NOT refused"); }
   catch (e) { say(re.test(e.message), "self-test " + name, re.test(e.message) ? `refused: ${e.message.replace(/^home\.src\.mjs: /, "")}` : `refused for the wrong reason: ${e.message}`); }
 }
-function expectFail(name, s, checks, ctx = { r21, r21Levels, r21Water, r21Infra, accepted }, alter) {
+function expectFail(name, s, checks, ctx = { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }, alter) {
   let mm; try { mm = compile(s, "self-test"); } catch (e) { say(false, "self-test " + name, "didn't compile: " + e.message); return; }
   if (alter) alter(mm);                                            // break the compiled map itself, past the compiler
   const res = runChecks(s, mm, ctx), failed = res.filter((c) => !c.ok).map((c) => c.name);
@@ -844,7 +1058,7 @@ expectThrow("tile off the map", () => { const s = copy(); s.exits.south.routeMar
 { const s = copy(); s.exits.south.ferryTerminalReserveBox = { x0: 82, y0: 77, x1: 87, y1: 80 }; expectFail("terminal reserve overlapping the arrival plaza", s, ["exits"]); }
 { const s = copy(); const p = pt(s, "delta-lobe"); s.coast.points.splice(s.coast.points.indexOf(p) + 1, 0, { id: "delta-lobe-copy", x: p.x, y: p.y }); expectFail("two control points at one position", s, ["coast-points-distinct"]); }
 { const t = JSON.parse(JSON.stringify(r21)); t.rows[50] = t.rows[50].slice(0, 75) + (t.rows[50][75] === "1" ? "0" : "1") + t.rows[50].slice(76);
-  expectFail("frozen r2.1 fixture tampered with (one tile flipped)", copy(), ["r21-fixture-frozen", "r21-land-mask"], { r21: t, r21Levels, r21Water, r21Infra, accepted }); }
+  expectFail("frozen r2.1 fixture tampered with (one tile flipped)", copy(), ["r21-fixture-frozen", "r21-land-mask"], { r21: t, r21Levels, r21Water, r21Infra, r21Plan, accepted }); }
 expectThrow("--accept aimed at the frozen r2.1 fixture", () => acceptTo(R21_PATH, "{}"), /never rewritten/);
 { const r = stagedNotRuntime(staged.replace(/ISLAND_MAPS_STAGED/g, "ISLAND_MAPS")); say(!r.ok, "self-test staged file registering window.ISLAND_MAPS", r.ok ? "NOT caught" : `caught: ${r.why}`); }
 { const r = stagedNotRuntime(staged.replace('"runtimeSupported": false', '"runtimeSupported": true')); say(!r.ok, "self-test staged file claiming runtime support", r.ok ? "NOT caught" : `caught: ${r.why}`); }
@@ -873,7 +1087,7 @@ expectFail("volcano mass opened in the compiled map", copy(), ["volcano-blocked"
 { const s = copy(); pt(s, "west-coast-westmost").x = 4; expectFail("coast point moved while editing elevation", s, ["coast-locked", "r21-land-mask", "sea-unchanged"]); }
 { const s = copy(); s.sea.shallowWithin = 4; expectFail("sea rule changed while editing elevation", s, ["sea-unchanged", "accepted-build"]); }
 { const t = JSON.parse(JSON.stringify(r21Levels)); t.rows[60] = t.rows[60].slice(0, 70) + "2" + t.rows[60].slice(71);
-  expectFail("frozen r2.1 level fixture tampered with", copy(), ["r21-levels-fixture-frozen", "r21-level-mask"], { r21, r21Levels: t, r21Water, r21Infra, accepted }); }
+  expectFail("frozen r2.1 level fixture tampered with", copy(), ["r21-levels-fixture-frozen", "r21-level-mask"], { r21, r21Levels: t, r21Water, r21Infra, r21Plan, accepted }); }
 // B1c: the water guards
 const river = (s, id) => s.water.rivers.find((r) => r.id === id);
 const body = (s, id) => s.water.bodies.find((b) => b.id === id);
@@ -895,7 +1109,7 @@ expectFail("lava made walkable", copy(), ["water-collision"], undefined, (mm) =>
 { const s = copy(); s.elevation.regions.find((r) => r.id === "meadow-terrace").outline.points.find((p) => p.id === "meadow-edge-west-cove").y = 52; body(s, "koi-pond").ellipse.rx = 5; expectFail("levels moved while changing water", s, ["r21-level-mask", "level-counts"]); }
 { const s = copy(); ramp(s, "riverlands-delta-trail").rampBox.x1 = 38; expectFail("a ramp changed while changing water", s, ["ramps-unchanged"]); }
 { const t = JSON.parse(JSON.stringify(r21Water)); t.water[62] = t.water[62].slice(0, 110) + "." + t.water[62].slice(111);
-  expectFail("frozen r2.1 water fixture tampered with", copy(), ["r21-water-fixture-frozen", "r21-water-mask"], { r21, r21Levels, r21Water: t, r21Infra, accepted }); }
+  expectFail("frozen r2.1 water fixture tampered with", copy(), ["r21-water-fixture-frozen", "r21-water-mask"], { r21, r21Levels, r21Water: t, r21Infra, r21Plan, accepted }); }
 // B1d: the corridor and infrastructure guards
 const xy = (mm, x, y) => y * mm.w + x;
 for (const cid of ["upper-bridge", "brachio-bridge", "delta-bridge"]) {
@@ -923,7 +1137,23 @@ expectFail("the village and ops severed (a wall across the lowland)", copy(), ["
 { const s = copy(); region(s, "headland-plateau").outline.points[0].x = 128; expectFail("the levels moved while editing corridors", s, ["r21-level-mask"]); }
 { const s = copy(); body(s, "tarn").ellipse.rx = 4; expectFail("the water moved while editing corridors", s, ["r21-water-mask"]); }
 { const t = JSON.parse(JSON.stringify(r21Infra)); t.infra[80] = t.infra[80].slice(0, 75) + "." + t.infra[80].slice(76);
-  expectFail("frozen r2.1 infrastructure fixture tampered with", copy(), ["r21-infra-fixture-frozen", "r21-infra-mask"], { r21, r21Levels, r21Water, r21Infra: t, accepted }); }
+  expectFail("frozen r2.1 infrastructure fixture tampered with", copy(), ["r21-infra-fixture-frozen", "r21-infra-mask"], { r21, r21Levels, r21Water, r21Infra: t, r21Plan, accepted }); }
+// B1e: the planning guards
+const fp = (s, id) => s.reserves.footprints.find((q) => q.id === id);
+{ const s = copy(); fp(s, "visitor-centre").footprintBox = { x0: 76, y0: 88, x1: 84, y1: 92 }; expectFail("the visitor centre placed in the water", s, ["footprints-free"]); }
+{ const s = copy(); fp(s, "ranger-hq-depot").footprintBox = { x0: 101, y0: 69, x1: 107, y1: 72 }; expectFail("the ranger HQ / depot across a level boundary", s, ["footprints-free"]); }
+{ const s = copy(); fp(s, "lighthouse").footprintBox = { x0: 125, y0: 46, x1: 126, y1: 47 }; expectFail("the lighthouse off the headland", s, ["lighthouse-helipad", "footprints-free"]); }
+{ const s = copy(); fp(s, "cafe").footprintBox = { x0: 45, y0: 77, x1: 49, y1: 79 }; expectFail("two footprints overlapping (the cafe on the post office)", s, ["footprints-exclusive"]); }
+{ const s = copy(); fp(s, "post-office").footprintBox = { x0: 21, y0: 77, x1: 25, y1: 80 }; expectFail("a footprint over the delta bridge", s, ["footprints-free"]); }
+{ const s = copy(); fp(s, "workshop").footprintBox = { x0: 79, y0: 55, x1: 84, y1: 58 }; expectFail("a building in the rift arena", s, ["footprints-exclusive"]); }
+{ const s = copy(); s.reserves.markers.find((q) => q.id === "cave-mouth").markerTile = [70, 20]; expectFail("the cave mouth moved inside the solid volcano", s, ["markers"]); }
+{ const s = copy(); s.districts[0].hubs[0].hubTile = [79, 100]; expectFail("a district hub placed in the sea", s, ["districts"]); }
+expectFail("habitat metadata leaking into collision (a fence made solid in the compiled map)", copy(), ["b1d-geometry-locked", "accepted-build"], undefined, (mm) => { for (let x = 119; x <= 127; x++) { mm.coll[10 * mm.w + x] = COLL.solid; mm.coll[17 * mm.w + x] = COLL.solid; } });
+{ const s = copy(); s.corridors.paths.find((q) => q.id === "ops-road").line[2] = [96, 78]; s.districts[2].hubs[0].hubTile = [104, 87]; expectFail("a path changed while editing planning metadata", s, ["r21-infra-mask", "b1d-geometry-locked", "districts"]); }
+{ const s = copy(); s.reserves.compounds.find((c) => c.id === "bunker-compound").gateTiles = [[109, 84]]; expectFail("a wall line cutting the ops road (gates removed)", s, ["compounds"]); }
+{ const s = copy(); s.habitats.find((h) => h.id === "holding-paddock").planningLabels = ["predator paddock"]; expectFail("the holding paddock no longer marked temporary until Ironwood", s, ["habitats"]); }
+{ const t = JSON.parse(JSON.stringify(r21Plan)); t.plan.hubs.commons = [77, 54];
+  expectFail("frozen r2.1 plan fixture tampered with", copy(), ["r21-plan-fixture-frozen", "districts"], { r21, r21Levels, r21Water, r21Infra, r21Plan: t, accepted }); }
 { // the guard isn't simply refusing everything: a write it allows (into tools/out/) happens, with the tracked file's bytes
   const p = join(ROOT, "tools/out/mapb/selftest/home.js");
   try {
