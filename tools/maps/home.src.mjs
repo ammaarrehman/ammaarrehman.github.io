@@ -6,9 +6,9 @@
    100 x 80 island from js/maps/home.js; the game learns the new map format in B2, and the switch-over is
    a separate, approved release later. It holds the canvas, the coast and the sea (B1a, locked), the four
    levels, the beach and the eight ramps (B1b, locked), the river, the ponds and the volcano's terrain
-   (B1c), and metadata for the three future exits, the planned river crossings and the open sea the
-   satellites need. Paths, bridges, docks, buildings and everything else come in later batches; this
-   file must not hold them yet (the compiler refuses unknown sections).
+   (B1c, locked), the corridors, bridges, plazas, docks and helipad (B1d), and metadata for the three
+   future exits and the open sea the satellites need. Districts, buildings and everything else come in
+   later batches; this file must not hold them yet (the compiler refuses unknown sections).
 
    Coordinates (one convention for the whole file; tools/map-lint.mjs enforces it):
    - Tile space. Tile (tx, ty) is the square [tx, tx + 1) x [ty, ty + 1); its centre is (tx + 0.5, ty + 0.5).
@@ -243,8 +243,9 @@ export default {
        base + gain * (k / n) ^ power along the n segments. A river that starts at another's point joins it.
      - the volcano: the cone and the crater inside the solid volcano mass (elevation); the rest of the
        mass is scree. All of it stays solid; the crater is lava.
-     - plannedCrossings: where B1d will bridge the river. Not built: map-lint uses them only to show that
-       any area the river cuts off until then is joined again by a planned crossing. */
+     - crossings: the only places the river may be bridged (approved). The bridges themselves are built
+       by the corridors (B1d): a corridor over river makes bridge there. A crossing with no bridge yet is
+       planned, and map-lint uses it only to show that any area the river cuts off is joined again by it. */
   water: {
     bodies: [
       { id: "koi-pond", kind: "pond", ellipse: { cx: 111, cy: 62, rx: 5.5, ry: 3.2, sides: 48 }, withinBox: { x0: 104, y0: 56, x1: 118, y1: 68 } },
@@ -282,12 +283,98 @@ export default {
       cone: { cx: 72, cy: 13, rx: 9, ry: 6.5, sides: 48 },
       crater: { cx: 72, cy: 12, rx: 3, ry: 2, sides: 48 }
     },
-    plannedCrossings: [
-      // the study's bridge boxes, converted from half-open to inclusive; built in B1d
+    crossings: [
+      // the study's bridge boxes, converted from half-open to inclusive
       { id: "upper-bridge", crossingBox: { x0: 46, y0: 20, x1: 53, y1: 25 } },
       { id: "brachio-bridge", crossingBox: { x0: 32, y0: 44, x1: 38, y1: 49 } },
       { id: "delta-bridge", crossingBox: { x0: 21, y0: 75, x1: 28, y1: 80 } }
     ]
+  },
+
+  /* corridors (B1d): the island's paths, a hierarchy, not a grid. A corridor is a polyline through
+     positions (tile space, like the coast's points); a land tile is on it when its centre is within its
+     class's half-width of the line. main (about 3 tiles wide) links the hubs to the arrival; secondary
+     (about 2) reaches the districts; service (about 2) serves ops, research and the west jetty; trail
+     (1 to 2) crosses the riverlands, the highland and the shrine cape. Corridors pave grass and beach;
+     over river they make bridge (only inside an approved water.crossings box); they never pave still
+     water or lava, and never change a level. Plazas pave the grass and beach inside them. The large
+     natural areas (the commons, the riverlands, the koi garden and headland, the highland) stay open:
+     only these lines cross them. Short local trails (door stubs, the koi garden loop, the fence walks)
+     are the approved study's, kept so the network is exact; B3 may refine them.
+     routeEnds: the places the corridors exist to join, each a tile; map-lint walks to every one from the
+     arrival and reports the times. Not districts (B1e). */
+  corridors: {
+    halfWidths: { main: 1.55, secondary: 1.05, service: 1.05, trail: 0.62 },
+    plazas: [
+      // inclusive boxes (the study's rectangles were half-open: x1 and y1 here are the study's minus 1)
+      { id: "arrival-plaza", sameAs: "exits.south.arrivalPlazaBox" },
+      { id: "village-square", plazaBox: { x0: 42, y0: 82, x1: 54, y1: 88 } },
+      { id: "commons", ellipse: { cx: 76, cy: 54, rx: 6, ry: 4.5, sides: 48 } },
+      { id: "car-park", plazaBox: { x0: 56, y0: 88, x1: 60, y1: 91 } },
+      { id: "research-forecourt", plazaBox: { x0: 103, y0: 25, x1: 120, y1: 28 } },
+      { id: "service-yard", plazaBox: { x0: 99, y0: 83, x1: 107, y1: 89 } }
+    ],
+    paths: [
+      // main: the spine, from the ferry pier through the arrival plaza, the commons and the park gate to the highland junction
+      { id: "main-walk", class: "main", line: [[79, 96], [79, 84], [78, 79], [76, 73], [76, 66], [76, 60], [76, 54], [75, 46], [74, 38], [73, 33]] },
+      // secondary: to the districts
+      { id: "village-road", class: "secondary", line: [[71, 78], [62, 80], [52, 84], [44, 85], [34, 85], [28, 82], [24, 79], [19, 76], [17, 71]] },   // plaza, village, delta bridge, west jetty
+      { id: "ops-road", class: "secondary", line: [[84, 75], [92, 74.5], [97, 80], [104, 85], [109, 85]] },                                          // plaza, service yard, the compound's gate
+      { id: "riverlands-road", class: "secondary", line: [[76, 54], [66, 52], [56, 50], [46, 49], [38, 48], [30, 46], [22, 44]] },                    // commons, riverlands, brachio bridge, brachio meadow
+      { id: "koi-headland-road", class: "secondary", line: [[76, 54], [88, 52.5], [100, 52], [111, 52], [120, 47], [127, 44], [132, 44], [137, 45.5], [140, 45.5]] },   // commons, koi garden gate, headland stairs, lighthouse
+      // service: ops, research
+      { id: "research-service-road", class: "service", line: [[104, 85], [98, 82], [96, 76], [97, 70], [99, 62], [100, 52], [100, 42], [101, 33], [104, 28], [111, 26.5]] },   // service yard, both service-road ramps, research forecourt
+      { id: "helipad-spur", class: "service", line: [[103, 89], [103, 93]] },
+      { id: "depot-spur", class: "service", line: [[105, 78.7], [105, 83]] },
+      // trails: the highland, the shrine cape, the riverlands
+      { id: "cave-spur", class: "trail", line: [[73, 33], [68, 28], [66, 26]] },
+      { id: "shrine-trail", class: "trail", line: [[73, 33], [62, 31], [55, 27], [50, 24], [44, 22], [38, 22.5], [30, 23.5], [22, 24.5], [17, 25], [15, 23], [14, 21]] },   // junction, upper bridge, heath, shrine stairs
+      { id: "bridgehead-trail", class: "trail", line: [[14, 21], [9, 21]] },                                                                         // the Ashpine rope-bridge landing
+      { id: "tower-trail", class: "trail", line: [[73, 33], [84, 32], [90, 30], [95, 29], [100, 29], [104, 28]] },                                    // junction, tower, research gate
+      { id: "volcano-trailhead-spur", class: "trail", line: [[84, 32], [83, 25]] },                                                                   // reserved for Cinder Reach
+      { id: "paddock-fence-walk", class: "trail", line: [[106, 26], [106, 19], [119, 19]] },
+      { id: "raptor-yard-walk", class: "trail", line: [[120, 26], [123, 24], [123, 22]] },
+      { id: "koi-north-gate", class: "trail", line: [[111, 52], [111, 55]] },
+      { id: "koi-west-gate", class: "trail", line: [[103, 61.5], [98, 61.5]] },
+      { id: "koi-garden-loop", class: "trail", line: [[106, 58], [108, 57.5], [115, 57.5], [117, 60], [117, 64], [114, 65], [107, 65], [105, 63], [106, 58]] },
+      { id: "koi-bay-overlook", class: "trail", line: [[117, 63.5], [120, 63.5]] },
+      { id: "riverlands-delta-trail", class: "trail", line: [[46, 49], [42, 56], [36, 62], [32, 66], [31, 68]] },
+      { id: "brachio-meadow-loop", class: "trail", line: [[22, 44], [16, 40], [12, 46], [18, 50], [22, 44]] },
+      // door stubs where the approved study's buildings stand (B3 builds them)
+      { id: "terminal-door", class: "trail", line: [[88, 81], [88, 82]] },
+      { id: "post-office-door", class: "trail", line: [[46, 81], [46, 84]] },
+      { id: "cafe-door", class: "trail", line: [[57, 80], [57, 82]] },
+      { id: "visitor-centre-door", class: "trail", line: [[85, 74], [85, 75]] },
+      { id: "research-station-door", class: "trail", line: [[112, 25], [112, 26]] },
+      { id: "keeper-cottage-door", class: "trail", line: [[136, 42], [136, 44.5]] },
+      { id: "lantern-cove-steps-trail", class: "trail", line: [[125, 45], [126, 40], [127, 35.5]] }
+    ],
+    routeEnds: [
+      { id: "arrival", endTile: [79, 79] },
+      { id: "village-square", endTile: [48, 85] },
+      { id: "ops-service-yard", endTile: [104, 86] },
+      { id: "commons", endTile: [76, 54] },
+      { id: "riverlands", endTile: [46, 49] },
+      { id: "brachio-meadow", endTile: [18, 44] },
+      { id: "delta-wetland", endTile: [15, 78] },
+      { id: "koi-garden", endTile: [108, 68] },
+      { id: "lighthouse-headland", endTile: [140, 45] },
+      { id: "research-forecourt", endTile: [110, 26] },
+      { id: "highland-junction", endTile: [73, 33] },
+      { id: "cave", endTile: [66, 25] },
+      { id: "shrine", endTile: [14, 20] },
+      { id: "nw-bridgehead", endTile: [9, 21] },
+      { id: "west-jetty", endTile: [18, 68] },
+      { id: "helipad", endTile: [103, 95] },
+      { id: "ferry-pier-end", endTile: [79, 96] }
+    ]
+  },
+
+  /* infrastructure (B1d). The docks are built from the exits' own boxes: the quay (exits.south.quayBox),
+     the ferry pier (exits.south.ferryPierBox) and the west service jetty (exits.west.jettyBox), dock
+     over land or water. The helipad is pad. Nothing else: no east pier, no south-east slip */
+  infrastructure: {
+    helipadBox: { x0: 101, y0: 93, x1: 105, y1: 97 }
   },
 
   /* named features, each checked by tiles that must be land or sea (map-lint). points: the control

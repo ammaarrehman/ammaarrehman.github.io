@@ -14,6 +14,11 @@
    What it compiles:
    - B1a (locked): the canvas, the coast (land is every tile whose centre is inside the closed coast
      spline), and the sea (shallow within sea.shallowWithin steps of land, deep beyond);
+   - B1d: the corridors and the infrastructure, in the study's order: the plazas pave grass and beach;
+     the paths pave grass and beach within their class's half-width of their polyline, and turn river
+     under them into bridge (walkable); the docks (the quay, the ferry pier, the west jetty, from the
+     exits' boxes) are dock over land or water (walkable); the helipad is pad. Paths and pad keep any
+     cliff rim under them solid (map-lint proves there is none);
    - B1c: the water and the volcano's terrain: the bodies (pond, tarn, lagoon, marsh: ground pond), then
      the rivers (ground river), both shallow water that can't be walked, on land tiles only, never
      changing a tile's level; the crater (ground lava, solid and lava); the waterfalls, derived wherever
@@ -41,7 +46,7 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE_PATH = join(ROOT, "tools/maps/home.src.mjs");
 export const STAGED_PATH = join(ROOT, "tools/maps/staged/home.js");
 export const PREVIEW_DIR = join(ROOT, "tools/out/mapb");
-export const STAGE = "B1c";
+export const STAGE = "B1d";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /* ════════ the source: schema and the coordinate convention ════════ */
@@ -58,7 +63,7 @@ export function validateSource(src) {
   const int = (v, f, lo, hi) => { if (typeof v !== "number" || !Number.isInteger(v) || v < lo || v > hi) bad(`${f} must be a whole number from ${lo} to ${hi}, not ${JSON.stringify(v)}`); };
   const str = (v, f) => { if (typeof v !== "string" || !v) bad(`${f} must be text`); };
   const id = (v, f) => { if (typeof v !== "string" || !ID.test(v)) bad(`${f} must be an id (lowercase words joined by hyphens), not ${JSON.stringify(v)}`); };
-  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "water", "features", "exits", "seaLanes", "satellites"]);
+  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "water", "corridors", "infrastructure", "features", "exits", "seaLanes", "satellites"]);
   if (src.schema !== "mapb-source-1") bad(`schema must be "mapb-source-1"`);
   if (src.id !== "home") bad(`id must be "home" (the redesigned island keeps the home id)`);
   int(src.w, "w", 1, 256); int(src.h, "h", 1, 256);
@@ -183,7 +188,7 @@ export function validateSource(src) {
     if (p.corner !== undefined && p.corner !== true) bad(`${g}.corner is true or left out`);
   };
   const Wt = src.water;
-  only(Wt, "water", ["bodies", "rivers", "volcano", "plannedCrossings"]);
+  only(Wt, "water", ["bodies", "rivers", "volcano", "crossings"]);
   const wIds = new Set();
   const wid = (v, f) => { id(v, f); if (wIds.has(v) || rIds.has(v)) bad(`${f}: ${v} is already used`); wIds.add(v); };
   if (!Array.isArray(Wt.bodies)) bad("water.bodies must be a list");
@@ -217,8 +222,36 @@ export function validateSource(src) {
   const massR = E.regions.find((r) => r.id === Wt.volcano.mass);
   if (!massR || !massR.solid) bad(`water.volcano.mass must name a solid elevation region, not ${JSON.stringify(Wt.volcano.mass)}`);
   ellipse(Wt.volcano.cone, "water.volcano.cone"); ellipse(Wt.volcano.crater, "water.volcano.crater");
-  if (!Array.isArray(Wt.plannedCrossings)) bad("water.plannedCrossings must be a list");
-  Wt.plannedCrossings.forEach((c, i) => { only(c, `water.plannedCrossings[${i}]`, ["id", "crossingBox"]); wid(c.id, `water.plannedCrossings[${i}].id`); });
+  if (!Array.isArray(Wt.crossings)) bad("water.crossings must be a list");
+  Wt.crossings.forEach((c, i) => { only(c, `water.crossings[${i}]`, ["id", "crossingBox"]); wid(c.id, `water.crossings[${i}].id`); });
+  // corridors: half-widths, plazas, paths, route ends
+  const C = src.corridors;
+  only(C, "corridors", ["halfWidths", "plazas", "paths", "routeEnds"]);
+  only(C.halfWidths, "corridors.halfWidths", ["main", "secondary", "service", "trail"]);
+  for (const k2 of ["main", "secondary", "service", "trail"]) if (typeof C.halfWidths[k2] !== "number" || !(C.halfWidths[k2] > 0 && C.halfWidths[k2] < 4)) bad(`corridors.halfWidths.${k2} must be a number above 0 and below 4`);
+  const cIds = new Set(), cid = (v, f) => { id(v, f); if (cIds.has(v)) bad(`${f}: ${v} appears twice`); cIds.add(v); };
+  if (!Array.isArray(C.plazas)) bad("corridors.plazas must be a list");
+  C.plazas.forEach((pz, i) => {
+    const f = `corridors.plazas[${i}]${pz && pz.id ? " (" + pz.id + ")" : ""}`;
+    only(pz, f, ["id", "plazaBox", "ellipse", "sameAs"], ["id"]);
+    cid(pz.id, `${f}.id`);
+    if ([pz.plazaBox, pz.ellipse, pz.sameAs].filter((v) => v !== undefined).length !== 1) bad(`${f} needs exactly one of plazaBox, ellipse or sameAs`);
+    if (pz.ellipse) ellipse(pz.ellipse, `${f}.ellipse`);
+    if (pz.sameAs !== undefined && pz.sameAs !== "exits.south.arrivalPlazaBox") bad(`${f}.sameAs can only be "exits.south.arrivalPlazaBox"`);
+  });
+  if (!Array.isArray(C.paths) || !C.paths.length) bad("corridors.paths must be a list");
+  C.paths.forEach((pa, i) => {
+    const f = `corridors.paths[${i}]${pa && pa.id ? " (" + pa.id + ")" : ""}`;
+    only(pa, f, ["id", "class", "line"]);
+    cid(pa.id, `${f}.id`);
+    if (!["main", "secondary", "service", "trail"].includes(pa.class)) bad(`${f}.class must be main, secondary, service or trail`);
+    if (!Array.isArray(pa.line) || pa.line.length < 2) bad(`${f}.line needs at least 2 positions`);
+    pa.line.forEach((q, k) => { if (!Array.isArray(q) || q.length !== 2 || q.some((v) => typeof v !== "number" || !Number.isFinite(v))) bad(`${f}.line[${k}] must be a position [x, y]`); if (q[0] < 0 || q[0] > W || q[1] < 0 || q[1] > H) bad(`${f}.line[${k}] must be on the map (x 0 to ${W}, y 0 to ${H}), not ${JSON.stringify(q)}`); });
+  });
+  if (!Array.isArray(C.routeEnds) || !C.routeEnds.length) bad("corridors.routeEnds must be a list");
+  const reIds = new Set();                                          // route ends name destinations, in their own namespace
+  C.routeEnds.forEach((r, i) => { only(r, `corridors.routeEnds[${i}]`, ["id", "endTile"]); id(r.id, `corridors.routeEnds[${i}].id`); if (reIds.has(r.id)) bad(`route end ${r.id} appears twice`); reIds.add(r.id); });
+  only(src.infrastructure, "infrastructure", ["helipadBox"]);
   // features: tiles that must be land or sea, and the points that shape them
   const fIds = new Set();
   if (!Array.isArray(src.features)) bad("features must be a list");
@@ -260,7 +293,7 @@ export function validateSource(src) {
 }
 
 /* ════════ compile ════════ */
-export const GROUND = { deep: 0, shallow: 1, sand: 2, land: 3, pond: 5, lava: 7, river: 9 }; // the format's ground codes
+export const GROUND = { deep: 0, shallow: 1, sand: 2, land: 3, path: 4, pond: 5, dock: 6, lava: 7, pad: 8, river: 9, bridge: 10 }; // the format's ground codes
 export const COLL = { none: 0, solid: 1, shallow: 2, deep: 4, lava: 257 };   // the game's flags: C_SOLID 1, C_SHALLOW 2, C_DEEP 4, C_LAVA 256 (lava is solid too)
 export const WHY = { none: 0, rim: 1, blocked: 2 };                 // why a land tile is solid: a cliff rim, or a solid region
 /* a region's polygon: an outline's spline samples, or an ellipse's corners */
@@ -326,6 +359,31 @@ export function compile(src, sourceSha256) {
       if (land[b] && height[b] < height[a] && !rampJoins(a, b)) { coll[a] = COLL.solid; why[a] = WHY.rim; break; }
     }
   }
+  // B1d. corridors and infrastructure, in the study's order: plazas, paths (river under them is bridge), docks, the pad
+  const C = src.corridors, CLASS = ["main", "secondary", "service", "trail"], pathClass = new Int8Array(W * H).fill(-1), pathOf = new Int16Array(W * H).fill(-1);
+  const paveable = (i) => ground[i] === GROUND.land || ground[i] === GROUND.sand;
+  const plazaTiles = C.plazas.map((pz) => {
+    const g = new Uint8Array(W * H);
+    if (pz.ellipse) { const r = raster(ellipsePoly(pz.ellipse.cx, pz.ellipse.cy, pz.ellipse.rx, pz.ellipse.ry, pz.ellipse.sides), W, H); for (let i = 0; i < W * H; i++) g[i] = r[i]; }
+    else { const b = pz.sameAs ? src.exits.south.arrivalPlazaBox : pz.plazaBox; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) g[y * W + x] = 1; }
+    for (let i = 0; i < W * H; i++) if (g[i] && land[i] && paveable(i)) ground[i] = GROUND.path;
+    return g;
+  });
+  C.paths.forEach((pa, k) => {
+    const hw = C.halfWidths[pa.class], xs = pa.line.map((q) => q[0]), ys = pa.line.map((q) => q[1]);
+    for (let y = Math.max(0, Math.trunc(Math.min(...ys)) - 3); y < Math.min(H, Math.trunc(Math.max(...ys)) + 4); y++)
+      for (let x = Math.max(0, Math.trunc(Math.min(...xs)) - 3); x < Math.min(W, Math.trunc(Math.max(...xs)) + 4); x++) {
+        let d = Infinity; for (let j = 0; j < pa.line.length - 1; j++) d = Math.min(d, segDist(x + 0.5, y + 0.5, pa.line[j], pa.line[j + 1]));
+        if (d > hw) continue;
+        const i = y * W + x;
+        if (pathClass[i] < 0) { pathClass[i] = CLASS.indexOf(pa.class); pathOf[i] = k; }
+        if (ground[i] === GROUND.river) { ground[i] = GROUND.bridge; coll[i] = COLL.none; }
+        else if (paveable(i)) ground[i] = GROUND.path;
+      }
+  });
+  const dockBoxes = [["harbour-quay", src.exits.south.quayBox], ["ferry-pier", src.exits.south.ferryPierBox], ["west-service-jetty", src.exits.west.jettyBox]];
+  for (const [, b] of dockBoxes) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) { const i = y * W + x; ground[i] = GROUND.dock; coll[i] = COLL.none; why[i] = WHY.none; }
+  { const b = src.infrastructure.helipadBox; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) ground[y * W + x] = GROUND.pad; }
   // the waterfalls: neighbouring river tiles on different levels, grouped by the levels they join and by touch
   const fallAt = new Uint8Array(W * H), fallPairs = [];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
@@ -342,7 +400,7 @@ export function compile(src, sourceSha256) {
     const lv = q.map((c) => height[c]);
     falls.push({ upper: Math.max(...lv), lower: Math.min(...lv), tiles: q.map((c) => [c % W, (c - c % W) / W]) });
   }
-  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, water, waterIds, bodyPolys, riverLines, cone, crater, conePoly, craterPoly, falls, beach, sourceSha256 };
+  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, water, waterIds, bodyPolys, riverLines, cone, crater, conePoly, craterPoly, falls, beach, pathClass, pathOf, plazaTiles, dockBoxes, shallowWithin: src.sea.shallowWithin, sourceSha256 };
 }
 
 /* the staged file's text. Everything that decides a byte is here, in a fixed order */
@@ -374,7 +432,8 @@ export function serialize(m, src) {
     `   format 2, which the game can't read yet (js/world.js reads format 1; format 2 support begins in B2). It`,
     `   registers window.ISLAND_MAPS_STAGED, never window.ISLAND_MAPS, it is never loaded by a page, and tools/`,
     `   is never deployed. Production runs the 100 x 80 island in js/maps/home.js until an approved switch-over.`,
-    `   ground: a hex digit per tile (0 deep, 1 shallow, 2 sand (the beach), 3 grass, 5 still water, 7 lava, 9 river).`,
+    `   ground: a hex digit per tile (0 deep, 1 shallow, 2 sand (the beach), 3 grass, 4 path, 5 still water, 6 dock,`,
+    `   7 lava, 8 pad, 9 river, a bridge). Paths, plazas, bridges, docks and the pad can be walked.`,
     `   height: the level, 0 to 3 (the sea 0; water keeps the level of the land it lies on). coll: a base-36 index`,
     `   into coll.values (the game's flags: 1 solid, the cliff rims and the volcano mass; 2 shallow, the sea's`,
     `   shallows, rivers and still water; 4 deep; 257 solid and lava, the crater). footBlock: none yet.`,
@@ -384,7 +443,9 @@ export function serialize(m, src) {
     `   shapes.ramps: the only places a level changes, inclusive tile boxes (x0..x1, y0..y1) and their two levels.`,
     `   shapes.water: the still water in order (kind pond, tarn, lagoon or marsh); shapes.rivers: open Hermite`,
     `   centre lines and their half-widths; shapes.volcano: the cone and crater ellipses inside the solid mass;`,
-    `   shapes.falls: derived, where the river drops a level (its tiles, and the two levels). */`,
+    `   shapes.falls: derived, where the river drops a level (its tiles, and the two levels). shapes.corridors:`,
+    `   the half-width per class, the plazas, and each path's class and polyline; shapes.docks and shapes.helipad:`,
+    `   inclusive tile boxes. A dock over water keeps the sea's level, 0. */`,
     `(window.ISLAND_MAPS_STAGED = window.ISLAND_MAPS_STAGED || {}).home = {`,
     `  "format": 2, "staged": true, "runtimeSupported": false, "stage": ${num(STAGE)}, "id": ${num(m.id)}, "generator": "tools/map-compile.mjs",`,
     `  "source": "tools/maps/home.src.mjs", "sourceSha256": ${num(m.sourceSha256)}, "tile": ${m.tile}, "w": ${m.w}, "h": ${m.h},`,
@@ -400,7 +461,14 @@ export function serialize(m, src) {
     `    "water": [`, bodies.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
     `    "rivers": [`, rivers.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
     `    "volcano": ${num({ mass: Wt.volcano.mass, cone: ell(Wt.volcano.cone), crater: ell(Wt.volcano.crater) })},`,
-    `    "falls": [`, m.falls.map((f) => `      ${num(f)}`).join(",\n"), `    ]`,
+    `    "falls": [`, m.falls.map((f) => `      ${num(f)}`).join(",\n"), `    ],`,
+    `    "corridors": {`,
+    `      "halfWidths": ${num(src.corridors.halfWidths)},`,
+    `      "plazas": [`, src.corridors.plazas.map((pz) => `        ${num(pz.ellipse ? { id: pz.id, type: "ellipse", ...pz.ellipse } : { id: pz.id, type: "box", ...(pz.sameAs ? src.exits.south.arrivalPlazaBox : pz.plazaBox) })}`).join(",\n"), `      ],`,
+    `      "paths": [`, src.corridors.paths.map((pa) => `        ${num({ id: pa.id, class: pa.class, line: pa.line })}`).join(",\n"), `      ]`,
+    `    },`,
+    `    "docks": [`, m.dockBoxes.map(([id, b]) => `      ${num({ id, ...b })}`).join(",\n"), `    ],`,
+    `    "helipad": ${num(src.infrastructure.helipadBox)}`,
     `  }`,
     `};`,
     ``
@@ -646,7 +714,7 @@ export function previewSvgs(m, src, r21) {
     b += `<clipPath id="dz"><rect x="${M}" y="${T0}" width="${(x1 - x0) * P}" height="${(y1 - y0) * P}"/></clipPath><g clip-path="url(#dz)">`;
     m.riverLines.forEach((l) => (b += line(l.map(([px, py]) => [px - x0, py - y0]), P, M, T0, "#e6f4ff", 1.5, "4 3")));
     b += `</g>`;
-    const cb = src.water.plannedCrossings.find((c) => c.id === "delta-bridge").crossingBox;
+    const cb = src.water.crossings.find((c) => c.id === "delta-bridge").crossingBox;
     b += `<rect x="${M + (cb.x0 - x0) * P}" y="${T0 + (cb.y0 - y0) * P}" width="${(cb.x1 - cb.x0 + 1) * P}" height="${(cb.y1 - cb.y0 + 1) * P}" fill="none" stroke="#ffd166" stroke-width="2" stroke-dasharray="8 5"/>` + label(M + (cb.x0 - x0) * P + 4, T0 + (cb.y0 - y0) * P - 6, "delta-bridge (planned, B1d)", "#ffd166", 12);
     for (let x = x0; x <= x1; x += 5) b += `<text x="${M + (x - x0) * P}" y="${T0 - 6}" fill="#ccc" font-size="11" text-anchor="middle">${x}</text>`;
     for (let y = y0 + 1; y <= y1; y += 5) b += `<text x="${M - 6}" y="${T0 + (y - y0) * P + 4}" fill="#ccc" font-size="11" text-anchor="end">${y}</text>`;
@@ -695,6 +763,104 @@ export function previewSvgs(m, src, r21) {
     b += legend(M * 2 + (x1 - x0) * P - 20, T0, [[WCOL.cone, `cone, solid (${n.cone} tiles)`], [WCOL.scree, `scree, solid (${n.scree}; kept for Cinder Reach)`], [WCOL.lava, `crater lava, solid + lava (${n.lava})`],
       [LEVEL[2], "highland, level 2"], [WCOL.tarn, "the tarn (the river's source)"], [WCOL.river, "river"], ["#e0d0ff", "dashed lavender: the volcano mass (level 3)"], ["#ffe08a", "dashed yellow: cone and crater"], ["#555", "diagonal stroke: solid (can't be walked)"]]);
     out["volcano"] = frame(w, h, `MAP-B B1c the volcano (x ${x0}-${x1 - 1}, y ${y0}-${y1 - 1}, ${P} px a tile): cone, scree and crater, all solid; no way in`, b);
+  }
+
+  /* B1d: corridors and infrastructure */
+  const ICOL = { main: "#f4e7c2", secondary: "#dcc08a", service: "#a7acc0", trail: "#b98f5c", plaza: "#e9dcb8", bridge: "#9a6a3c", dock: "#7d5430", pad: "#cfcfd6" };
+  const CLS = ["main", "secondary", "service", "trail"];
+  const infraColor = (i) => m.ground[i] === GROUND.bridge ? ICOL.bridge : m.ground[i] === GROUND.dock ? ICOL.dock : m.ground[i] === GROUND.pad ? ICOL.pad : m.ground[i] === GROUND.path ? (m.pathClass[i] >= 0 ? ICOL[CLS[m.pathClass[i]]] : ICOL.plaza) : null;
+  const muted = (i) => { if (!m.land[i]) return m.ground[i] === GROUND.dock ? ICOL.dock : m.ground[i] === GROUND.shallow ? "#2c5068" : "#1c3550"; if (m.ground[i] === GROUND.lava) return WCOL.lava; const wc = waterColor(m, i); if (wc && m.ground[i] !== GROUND.bridge) return wc; return ["#9db87e", "#6f9a5a", "#9a845f", "#b8acd2"][m.height[i]]; };
+  const fullColor = (i) => infraColor(i) || (m.why[i] === WHY.rim ? "#5a4038" : muted(i));
+  const infraLegend = [[ICOL.main, "main path (about 3 wide)"], [ICOL.secondary, "secondary path (about 2)"], [ICOL.service, "service road (about 2)"], [ICOL.trail, "trail (1 to 2)"], [ICOL.plaza, "plaza"], [ICOL.bridge, "bridge"], [ICOL.dock, "dock: quay, ferry pier, west jetty"], [ICOL.pad, "helipad"]];
+  const zoom = (x0, y0, x1, y1, P, color, extra, title, rows, name) => {
+    const legW = 400, w = (x1 - x0) * P + 2 * M + legW, h = Math.max((y1 - y0) * P + T0 + M + 10, T0 + rows.length * 18 + 40);
+    let b = "";
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * m.w + x; b += `<rect x="${M + (x - x0) * P}" y="${T0 + (y - y0) * P}" width="${P}" height="${P}" fill="${color(i)}" stroke="#000" stroke-opacity="0.12"/>`; }
+    for (let x = x0; x <= x1; x += 5) b += `<text x="${M + (x - x0) * P}" y="${T0 - 6}" fill="#ccc" font-size="11" text-anchor="middle">${x}</text>`;
+    for (let y = y0; y <= y1; y += 5) b += `<text x="${M - 6}" y="${T0 + (y - y0) * P + 4}" fill="#ccc" font-size="11" text-anchor="end">${y}</text>`;
+    const X = (x) => M + (x - x0) * P, Y = (y) => T0 + (y - y0) * P;
+    b += `<clipPath id="z${name}"><rect x="${M}" y="${T0}" width="${(x1 - x0) * P}" height="${(y1 - y0) * P}"/></clipPath><g clip-path="url(#z${name})">${extra(X, Y, P)}</g>`;
+    b += legend(M * 2 + (x1 - x0) * P - 20, T0, rows);
+    out[name] = frame(w, h, title, b);
+  };
+  const boxOutline = (X, Y, P, bx, stroke, lbl, dash) => `<rect x="${X(bx.x0)}" y="${Y(bx.y0)}" width="${(bx.x1 - bx.x0 + 1) * P}" height="${(bx.y1 - bx.y0 + 1) * P}" fill="none" stroke="${stroke}" stroke-width="2.5"${dash ? ' stroke-dasharray="7 4"' : ""}/>` + (lbl ? label(X(bx.x0) + 2, Y(bx.y0) - 5, lbl, stroke, 12) : "");
+  const tileMark = (X, Y, P, t, fill, lbl) => `<rect x="${X(t[0]) + 2}" y="${Y(t[1]) + 2}" width="${P - 4}" height="${P - 4}" fill="${fill}" stroke="#111" stroke-width="2"/>` + (lbl ? label(X(t[0]) + P + 3, Y(t[1]) + P - 4, lbl, "#fff", 12) : "");
+  // 15. corridors over terrain
+  {
+    const P = 8, legW = 380, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, fullColor);
+    const named = src.corridors.paths.filter((pa) => pa.class !== "trail" || ["shrine-trail", "tower-trail", "riverlands-delta-trail", "bridgehead-trail", "cave-spur"].includes(pa.id));
+    for (const pa of named) { const mid = pa.line[Math.floor((pa.line.length - 1) / 2)]; b += label(M + mid[0] * P + 4, T0 + mid[1] * P - 4, pa.id, "#fff", 10); }
+    const cnt = { main: 0, secondary: 0, service: 0, trail: 0, plaza: 0 }; for (let i = 0; i < m.w * m.h; i++) if (m.ground[i] === GROUND.path || m.ground[i] === GROUND.bridge) { if (m.pathClass[i] >= 0) cnt[CLS[m.pathClass[i]]]++; else cnt.plaza++; }
+    b += legend(M * 2 + m.w * P - 20, T0, infraLegend.concat([["#5a4038", "cliff rim"]]));
+    b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 190}" fill="#ccc" font-size="12">tiles: main ${cnt.main}, secondary ${cnt.secondary}, service ${cnt.service}, trail ${cnt.trail}, plaza ${cnt.plaza}</text>`;
+    b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 208}" fill="#aaa" font-size="11">${src.corridors.paths.length} paths and ${src.corridors.plazas.length} plazas; labels on the main, secondary,</text><text x="${M * 2 + m.w * P - 20}" y="${T0 + 222}" fill="#aaa" font-size="11">service and long trails</text>`;
+    out["corridors"] = frame(w, h, "MAP-B B1d corridors: main, secondary, service and trail paths, plazas, bridges, docks and the helipad over the terrain", b);
+  }
+  // 16. the three bridges, zoomed side by side
+  {
+    const P = 24, wins = src.water.crossings.map((c) => ({ c, x0: c.crossingBox.x0 - 4, y0: c.crossingBox.y0 - 4, x1: c.crossingBox.x1 + 5, y1: c.crossingBox.y1 + 5 }));
+    const panelW = Math.max(...wins.map((q) => (q.x1 - q.x0) * P)), panelH = Math.max(...wins.map((q) => (q.y1 - q.y0) * P)), legW = 330;
+    const w = wins.length * (panelW + M) + M + legW, h = panelH + T0 + M + 40;
+    let b = "";
+    wins.forEach((q, k) => {
+      const ox = M + k * (panelW + M);
+      b += `<clipPath id="bz${k}"><rect x="${ox}" y="${T0}" width="${(q.x1 - q.x0) * P}" height="${(q.y1 - q.y0) * P}"/></clipPath><g clip-path="url(#bz${k})">`;
+      for (let y = q.y0; y < q.y1; y++) for (let x = q.x0; x < q.x1; x++) { const i = y * m.w + x; b += `<rect x="${ox + (x - q.x0) * P}" y="${T0 + (y - q.y0) * P}" width="${P}" height="${P}" fill="${fullColor(i)}" stroke="#000" stroke-opacity="0.12"/>`;
+        if (m.ground[i] === GROUND.bridge) b += `<rect x="${ox + (x - q.x0) * P + 2}" y="${T0 + (y - q.y0) * P + 2}" width="${P - 4}" height="${P - 4}" fill="none" stroke="#fff" stroke-width="2.5"/>`; }
+      const cb = q.c.crossingBox; b += `<rect x="${ox + (cb.x0 - q.x0) * P}" y="${T0 + (cb.y0 - q.y0) * P}" width="${(cb.x1 - cb.x0 + 1) * P}" height="${(cb.y1 - cb.y0 + 1) * P}" fill="none" stroke="#ffd166" stroke-width="2" stroke-dasharray="7 4"/></g>`;
+      let n = 0; for (let i = 0; i < m.w * m.h; i++) if (m.ground[i] === GROUND.bridge && i % m.w >= cb.x0 && i % m.w <= cb.x1 && ((i / m.w) | 0) >= cb.y0 && ((i / m.w) | 0) <= cb.y1) n++;
+      b += `<text x="${ox}" y="${T0 + panelH + 18}" fill="#eee" font-size="13" font-weight="bold">${q.c.id}: ${n} bridge tiles</text><text x="${ox}" y="${T0 + panelH + 34}" fill="#ccc" font-size="12">approved crossing x ${cb.x0}-${cb.x1}, y ${cb.y0}-${cb.y1}</text>`;
+    });
+    b += legend(wins.length * (panelW + M) + M - 20, T0, [[ICOL.bridge, "bridge (white outline)"], [WCOL.river, "river"], ["#ffd166", "dashed: the approved crossing box"]].concat(infraLegend.slice(0, 4)));
+    out["bridges"] = frame(w, h, "MAP-B B1d the three bridges, each inside its approved crossing (24 px a tile)", b);
+  }
+  // 17. the harbour
+  {
+    const S = src.exits.south;
+    zoom(60, 70, 100, 106, 18, fullColor, (X, Y, P) => boxOutline(X, Y, P, S.arrivalPlazaBox, "#ffd166", "arrival plaza") + boxOutline(X, Y, P, S.ferryTerminalReserveBox, "#f4a261", "ferry terminal reserve", true) + boxOutline(X, Y, P, S.quayBox, "#e9c46a", "") + label(X(S.quayBox.x0), Y(S.quayBox.y1 + 1) + 14, "quay", "#e9c46a", 12) +
+      boxOutline(X, Y, P, S.ferryPierBox, "#c8a27a", "") + label(X(S.ferryPierBox.x1 + 1) + 4, Y(S.ferryPierBox.y0 + 6), "ferry pier", "#c8a27a", 12) + tileMark(X, Y, P, S.berthTile, "#ffffff", "deep-water berth") + tileMark(X, Y, P, S.routeMarkerTile, "#ff5fd2", "south route marker (not a building)") +
+      boxOutline(X, Y, P, { x0: 76, y0: 97, x1: 82, y1: 105 }, "#9fd3ff", "harbour channel (open)", true),
+      "MAP-B B1d the harbour (x 60-99, y 70-105, 18 px a tile): plaza, terminal reserve, quay, ferry pier, berth, route marker", infraLegend.concat([[COLOR.shallow, "shallow sea"], [COLOR.deep, "deep sea"]]), "harbour");
+  }
+  // 18. the west jetty
+  {
+    const Wx = src.exits.west;
+    zoom(0, 58, 32, 80, 22, fullColor, (X, Y, P) => boxOutline(X, Y, P, Wx.jettyBox, "#c8a27a", "west service jetty (restricted)") + tileMark(X, Y, P, Wx.routeMarkerTile, "#ff5fd2", "barge route (Ironwood)") +
+      boxOutline(X, Y, P, src.seaLanes.find((l) => l.id === "ironwood-west").laneBox, "#9fd3ff", "open water west (Ironwood lane)", true),
+      "MAP-B B1d the west service jetty (x 0-31, y 58-79, 22 px a tile), reached by the village road over the delta bridge", infraLegend.concat([[WCOL.lagoon, "delta lagoon"], [COLOR.shallow, "shallow sea"]]), "west-jetty");
+  }
+  // 19. the north-west bridgehead
+  {
+    const N = src.exits.northwest, st = src.elevation.ramps.find((r) => r.id === "shrine-stairs").rampBox;
+    zoom(0, 10, 28, 32, 24, fullColor, (X, Y, P) => boxOutline(X, Y, P, N.landingBox, "#ffffff", "rope-bridge landing (bridgehead)") + boxOutline(X, Y, P, st, "#50ffa0", "shrine stairs (level 2 to 3)", true) + tileMark(X, Y, P, N.routeMarkerTile, "#ff5fd2", "the gap to Ashpine") +
+      boxOutline(X, Y, P, src.seaLanes.find((l) => l.id === "ashpine-strait").laneBox, "#9fd3ff", "", true),
+      "MAP-B B1d the north-west bridgehead on the shrine cape (x 0-27, y 10-31, 24 px a tile); the bridge itself is a later phase", infraLegend.slice(3, 4).concat([["#b8acd2", "level 3, the shrine knoll"], ["#9a845f", "level 2, the highland"], ["#5a4038", "cliff rim"], ["#9fd3ff", "dashed blue: the Ashpine strait (open sea)"]]), "nw-bridgehead");
+  }
+  // 20. connectivity: walking distance from the arrival, one piece
+  {
+    const P = 8, legW = 400, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    const walkT = (i) => (m.land[i] || m.ground[i] === GROUND.dock) && !(m.coll[i] & 7);
+    const A = src.corridors.routeEnds.find((r) => r.id === "arrival").endTile, D = new Int32Array(m.w * m.h).fill(-1), q = [A[1] * m.w + A[0]]; D[q[0]] = 0;
+    for (let k = 0; k < q.length; k++) { const i = q[k], x = i % m.w, y = (i - x) / m.w; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * m.w + nx; if (nx >= 0 && ny >= 0 && nx < m.w && ny < m.h && D[j] < 0 && walkT(j)) { D[j] = D[i] + 1; q.push(j); } } }
+    let far = 0, n = 0, un = 0; for (let i = 0; i < m.w * m.h; i++) { if (D[i] > far) far = D[i]; if (walkT(i)) { n++; if (D[i] < 0) un++; } }
+    const heat = (d) => { const t = d / far, r = Math.round(40 + 215 * t), g = Math.round(200 - 120 * t), bl = Math.round(120 - 80 * t); return `rgb(${r},${g},${bl})`; };
+    let b = tilesSvg(m, P, M, T0, (i) => walkT(i) ? (D[i] < 0 ? "#ff00ff" : (m.ground[i] === GROUND.path || m.ground[i] === GROUND.bridge || m.ground[i] === GROUND.dock || m.ground[i] === GROUND.pad) ? "#f0f0f0" : heat(D[i])) : !m.land[i] ? (m.ground[i] === GROUND.shallow ? "#24384a" : "#18263a") : "#333");
+    for (const r of src.corridors.routeEnds) { const [x, y] = r.endTile, d = D[y * m.w + x]; b += `<circle cx="${M + (x + 0.5) * P}" cy="${T0 + (y + 0.5) * P}" r="5" fill="#111" stroke="#fff" stroke-width="2"/>` + label(M + (x + 1) * P + 4, T0 + (y + 0.5) * P + 4, `${r.id}${r.id === "arrival" ? "" : ` ${(d / (54 / 14.9)).toFixed(0)} s`}`, "#fff", 10); }
+    b += legend(M * 2 + m.w * P - 20, T0, [["#f0f0f0", "paved: paths, plazas, bridges, docks, pad"], [heat(0), "open ground near the arrival"], [heat(far / 2), `halfway (${Math.round(far / 2)} tiles)`], [heat(far), `farthest (${far} tiles, ${Math.round(far / (54 / 14.9))} s walking)`], ["#333", "solid or water on land"], ["#ff00ff", "walkable but cut off (none)"]]);
+    b += `<text x="${M * 2 + m.w * P - 20}" y="${T0 + 130}" fill="#ccc" font-size="12">${n} walkable tiles, one piece, ${un} cut off; times are walking</text>`;
+    out["connectivity"] = frame(w, h, "MAP-B B1d connectivity: walking distance from the arrival over the whole island (one piece), with the route ends", b);
+  }
+  // 21. the whole blockout
+  {
+    const P = 8, legW = 400, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, fullColor);
+    const S = src.exits.south, Wx = src.exits.west, N = src.exits.northwest;
+    for (const [t, lbl] of [[S.routeMarkerTile, "1 south exit: ferries, Server Key, the site"], [Wx.routeMarkerTile, "2 west exit: Ironwood (restricted)"], [N.routeMarkerTile, "3 north-west exit: Ashpine bridge"]]) b += `<circle cx="${M + (t[0] + 0.5) * P}" cy="${T0 + (t[1] + 0.5) * P}" r="9" fill="none" stroke="#ff5fd2" stroke-width="3"/>` + label(M + (t[0] + 1.5) * P + 4, T0 + (t[1] + 0.5) * P + 4, lbl, "#ffb3ee", 11);
+    for (const [t, x, y] of ORIENT) b += `<text x="${M + x * P}" y="${T0 + y * P}" fill="#fff" font-size="11" text-anchor="middle" stroke="#111" stroke-width="3" paint-order="stroke">${esc(t)}</text>`;
+    m.falls.forEach((f) => { const cx = f.tiles.reduce((a, t) => a + t[0], 0) / f.tiles.length + 0.5, cy = f.tiles.reduce((a, t) => a + t[1], 0) / f.tiles.length + 0.5; b += `<circle cx="${M + cx * P}" cy="${T0 + cy * P}" r="7" fill="none" stroke="#fff" stroke-width="2"/>`; });
+    b += legend(M * 2 + m.w * P - 20, T0, [["#9db87e", "level 0"], ["#6f9a5a", "level 1"], ["#9a845f", "level 2"], ["#b8acd2", "level 3"], ["#5a4038", "cliff rim"]].concat(infraLegend, [[WCOL.river, "river"], [WCOL.pond, "still water"], [WCOL.lava, "lava"], ["#ff5fd2", "pink rings: the three exits"], ["#ffffff", "white rings: the two waterfalls"]]));
+    out["blockout"] = frame(w, h, "MAP-B B1d blockout: terrain, water, corridors, harbour, jetty, bridgehead and helipad (staged; nothing in the game reads it yet)", b);
   }
   return out;
 }

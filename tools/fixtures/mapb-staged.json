@@ -1,12 +1,12 @@
 {
   "about": "The accepted current build of the staged MAP-B home island (tools/maps/staged/home.js). map-lint compares every build with it; change it only with node tools/map-lint.mjs --accept --reason=\"...\". The approved r2.1 record is tools/fixtures/mapb-r21.json, which is frozen and never written by any tool.",
   "accepted": {
-    "stage": "B1c",
+    "stage": "B1d",
     "w": 150,
     "h": 120,
     "landTiles": 10257,
-    "shallowTiles": 1967,
-    "deepTiles": 5776,
+    "shallowTiles": 1949,
+    "deepTiles": 5794,
     "landBox": {
       "x0": 6,
       "y0": 5,
@@ -28,13 +28,14 @@
       508
     ],
     "digests": {
+      "ground0": "f610eaa3f33a4342f9a1a0c94c7b809ecec4c23727aeb3aeba5ebdf08b7b2763",
       "land": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
       "water": "407562a2ab9361e225ea72a6dc7a6402b74537755e35febff440b1653dbe984b",
       "sea": "5a93c8be99d153945ae7cabb434de9a2a6b05cd7b2222ae284b1dbb72fc400a3",
       "levels": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64",
-      "ground": "403a58824bb3192e82ba3d67ed09b7997fbaf330b65d9d80aef05dc4d4b92e9a:150x120",
+      "ground": "3bb60f6bbb5f459511cbb917ecb13d5ebe199092977c22569d8cc57346f9d89e:150x120",
       "height": "28e4a85c297b297d7d9098ac081fea4a3daff5e7c8e87550154d5bdf15e23d31:150x120",
-      "coll": "4fbeb33301d1e1a8b78f9934ad151bd53ecaaf3f40a78971e8cbe3f59abc86bb:150x120",
+      "coll": "634f93800886ca9f829678e26f58c953f0edcd743de4a673f51452ce8ffa95ec:150x120",
       "coast": "5cae1fc25c55c5fbe59dc0eac06357e3d23d203fcdbc84ab6da30ded474541f2"
     },
     "driftFromR21": {
@@ -79,6 +80,23 @@
       "n": 3,
       "stage": "B1c",
       "reason": "B1c: the approved r2.1 river, two-mouth delta, tarn, koi pond, lagoon, reed marsh and volcano cone, scree and crater on the locked B1a coast and B1b levels; exactly the frozen r2.1 water and volcano",
+      "landTiles": 10257,
+      "levelTiles": [
+        3413,
+        4111,
+        2225,
+        508
+      ],
+      "driftFromR21Tiles": 0,
+      "levelDriftFromR21Tiles": 0,
+      "waterDriftFromR21Tiles": 0,
+      "landSha256": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
+      "levelsSha256": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64"
+    },
+    {
+      "n": 4,
+      "stage": "B1d",
+      "reason": "B1d: the approved r2.1 corridors, plazas, three bridges, harbour quay and ferry pier, west service jetty, north-west bridgehead trail and helipad; the whole ground is the frozen study's final ground",
       "landTiles": 10257,
       "levelTiles": [
         3413,

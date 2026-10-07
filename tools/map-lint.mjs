@@ -32,6 +32,15 @@
    covers, are B1b's; the beach the water covers is accounted for. Until B1d builds the planned crossings,
    the river may cut walkable ground into pieces, but every piece must be joined to the arrival plaza by
    a planned crossing; once they are built, the island must be one piece again.
+   B1d adds: the corridors, bridges, plazas, docks and helipad are exactly the frozen r2.1 study's, and so
+   is the whole ground layer (tools/fixtures/mapb-r21-infra.json); exactly three bridges, one in each
+   approved crossing, each over the river with walkable land on both banks, and no other crossing; the
+   island is one walkable piece again; exactly two dock structures (the harbour's quay and ferry pier, and
+   the west service jetty), no other dock; the berth is deep water at the pier's end with open water round
+   it, apart from the route marker and the terminal reserve; the west jetty is reachable and opens west to
+   the open sea; the north-west bridgehead is walkable and reachable on the cape; the helipad is in the
+   ops area on level 0; no path, plaza, dock or pad lies on a cliff rim; every route end is reachable from
+   the arrival, each within a fifth of its approved walk, with the travel times and an all-logs tour reported.
    - then self-tests: each guard is broken on purpose (in memory, or in tools/out/) and must fail.
 
    The frozen r2.1 fixture is never rewritten by any tool; this file checks it against hashes in its own
@@ -53,6 +62,7 @@ import { selfIntersections, flood, raster } from "./maps/geom.mjs";
 const R21_PATH = join(ROOT, "tools/fixtures/mapb-r21.json");
 const R21_LEVELS_PATH = join(ROOT, "tools/fixtures/mapb-r21-levels.json");
 const R21_WATER_PATH = join(ROOT, "tools/fixtures/mapb-r21-water.json");
+const R21_INFRA_PATH = join(ROOT, "tools/fixtures/mapb-r21-infra.json");
 export const ACCEPTED_PATH = join(ROOT, "tools/fixtures/mapb-staged.json");
 const PROD_MAP = join(ROOT, "js/maps/home.js");
 // the frozen r2.1 record's own hashes: changing the fixture without changing this code fails the lint
@@ -68,6 +78,18 @@ const B1B_RIMS_SHA256 = "8f09f2ab81056f601f249f98e7db96b616080f78c6e9c0f49805935
 const B1B_RAMPS_SHA256 = "093d4a253fe13420f07a5fa53fcc9c816962fd395d27122130608bbef36db8e3";
 const B1B_BEACH_TILES = 665;
 const B1B_BEACH_SHA256 = "7790248a64bb8042b67411a5347cc5789340deb6c8ec43ecf7b6db6782994105";
+const R21_INFRA_SHA256 = "3c0695b41b186bdf66509e090d036820097b5b773662883117bbbfd290afe6a0";
+const R21_GROUND_SHA256 = "f610eaa3f33a4342f9a1a0c94c7b809ecec4c23727aeb3aeba5ebdf08b7b2763";
+// walking speed (the game's, as the approved study measured it): tiles a second
+const WALK_TPS = 54 / 14.9, RUN_TPS = 54 / 9.3;
+// each route end's approved walk from the arrival, in tiles (the study's hub walks where it had one; the
+// rest are the first B1d build's, equal to the study's network). A route may not grow or shrink by more than a fifth
+const ROUTE_TILES = { "village-square": 37, "ops-service-yard": 32, "commons": 28, "riverlands": 63, "brachio-meadow": 96, "delta-wetland": 65, "koi-garden": 40,
+  "lighthouse-headland": 95, "research-forecourt": 84, "highland-junction": 52, "cave": 67, "shrine": 124, "nw-bridgehead": 128, "west-jetty": 72, "helipad": 40, "ferry-pier-end": 17 };
+// the study's log targets, for the sanity tour only (the logs themselves are B3's)
+const LOG_SITES = { mailbox: [50, 82], tablet: [82, 49], "rack/desk (bunker)": [116, 83], uplink: [121, 82], macbook: [106, 58], tower: [95, 28], lighthouse: [140, 45] };
+// the approved ops area (the study's ops district, inclusive), where the helipad must stand until B1e defines districts
+const OPS_AREA = { x0: 94, y0: 72, x1: 131, y1: 103 };
 // the water codes of the frozen fixture, by the source's ids
 const WATER_CODE = { "main-river": "r", "delta-branch": "b", "koi-pond": "k", "tarn": "t", "delta-lagoon": "l", "delta-reed-marsh": "m" };
 // the level each approved body lies on
@@ -76,7 +98,8 @@ const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 const rel = (p) => p.replace(ROOT + "/", "");
 
 /* ════════ what a build is ════════ */
-function seaRows(m) { const r = []; for (let y = 0; y < m.h; y++) { let s = ""; for (let x = 0; x < m.w; x++) { const i = y * m.w + x; s += m.land[i] ? "L" : m.ground[i] === GROUND.shallow ? "s" : "d"; } r.push(s); } return r; }
+// the sea as the coast makes it (before any dock is laid over it): land, shallow within the rule, deep beyond
+function seaRows(m) { const r = []; for (let y = 0; y < m.h; y++) { let s = ""; for (let x = 0; x < m.w; x++) { const i = y * m.w + x; s += m.land[i] ? "L" : m.steps[i] <= m.shallowWithin ? "s" : "d"; } r.push(s); } return r; }
 function levelRows(m) { const r = []; for (let y = 0; y < m.h; y++) { let s = ""; for (let x = 0; x < m.w; x++) { const i = y * m.w + x; s += m.land[i] ? String(m.height[i]) : "."; } r.push(s); } return r; }
 function landRows(m) { const r = []; for (let y = 0; y < m.h; y++) { let s = ""; for (let x = 0; x < m.w; x++) s += m.land[y * m.w + x] ? "1" : "0"; r.push(s); } return r; }
 function layerSha(m, arr) { return sha256(Buffer.from(arr.buffer, arr.byteOffset, arr.byteLength)) + ":" + m.w + "x" + m.h; }
@@ -90,7 +113,7 @@ function summary(m) {
   return { w: m.w, h: m.h, landTiles: land, shallowTiles: shallow, deepTiles: deep, landBox: { x0, y0, x1, y1 },
     waterTiles: (() => { const c = {}; for (let i = 0; i < m.w * m.h; i++) if (m.water && m.water[i] >= 0) { const k = m.waterIds[m.water[i]]; c[k] = (c[k] || 0) + 1; } return c; })(),
     levelTiles: [0, 1, 2, 3].map((l) => { let n = 0; for (let i = 0; i < m.w * m.h; i++) if (m.land[i] && m.height[i] === l) n++; return n; }),
-    digests: { land: sha256(landRows(m).join("\n")), water: sha256(waterRows(m).join("\n")), sea: sha256(seaRows(m).join("\n")), levels: sha256(levelRows(m).join("\n")), ground: layerSha(m, m.ground), height: layerSha(m, m.height), coll: layerSha(m, m.coll), coast: sha256(JSON.stringify([m.n, m.pts])) } };
+    digests: { ground0: sha256(Array.from({ length: m.h }, (_, y) => Array.from({ length: m.w }, (_, x) => m.ground[y * m.w + x].toString(16)).join("")).join("\n")), land: sha256(landRows(m).join("\n")), water: sha256(waterRows(m).join("\n")), sea: sha256(seaRows(m).join("\n")), levels: sha256(levelRows(m).join("\n")), ground: layerSha(m, m.ground), height: layerSha(m, m.height), coll: layerSha(m, m.coll), coast: sha256(JSON.stringify([m.n, m.pts])) } };
 }
 function levelDrift(m, lv) {
   const d = [];
@@ -116,7 +139,7 @@ function drift(m, r21) {
 }
 
 /* ════════ the checks on a build (pure: the self-tests run them on broken copies) ════════ */
-export function runChecks(src, m, { r21, r21Levels, r21Water, accepted }) {
+export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted }) {
   const out = [], add = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   const W = m.w, H = m.h, isLand = (x, y) => x >= 0 && y >= 0 && x < W && y < H && m.land[y * W + x] === 1;
   const sum = summary(m), acc = accepted && accepted.accepted, intended = acc && acc.driftFromR21 && acc.driftFromR21.tiles > 0 ? acc : null;
@@ -175,10 +198,12 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, accepted }) {
       let near = false;
       for (let dy = -k; dy <= k && !near; dy++) for (let dx = -k; dx <= k && !near; dx++) if (isLand(x + dx, y + dy)) near = true;
       const g = m.ground[i], c = m.coll[i];
-      const okT = m.land[i] ? ((g === GROUND.land || g === GROUND.sand) && (c === COLL.none || c === COLL.solid)) || ((g === GROUND.river || g === GROUND.pond) && c === COLL.shallow) || (g === GROUND.lava && c === COLL.lava) : near ? g === GROUND.shallow && c === COLL.shallow : g === GROUND.deep && c === COLL.deep;
+      const inDock = m.dockBoxes.some(([, b]) => x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1);
+      const okT = g === GROUND.dock ? inDock && c === COLL.none
+        : m.land[i] ? ((g === GROUND.land || g === GROUND.sand || g === GROUND.path || g === GROUND.pad) && (c === COLL.none || c === COLL.solid)) || ((g === GROUND.river || g === GROUND.pond) && c === COLL.shallow) || (g === GROUND.bridge && c === COLL.none) || (g === GROUND.lava && c === COLL.lava) : near ? g === GROUND.shallow && c === COLL.shallow : g === GROUND.deep && c === COLL.deep;
       if (!okT) wrong.push(`${x},${y} ground ${g} coll ${c}`);
     }
-    add("sea-depths-and-collision", wrong.length === 0, wrong.length ? wrong.join("; ") : `land: grass or sand (open or solid), river or still water (flag 2), or lava (257); shallow sea (within ${k} of land): ground 1, flag 2; deep: ground 0, flag 4`);
+    add("sea-depths-and-collision", wrong.length === 0, wrong.length ? wrong.join("; ") : `land: grass, sand, path or pad (open or solid), river or still water (flag 2), bridge (open) or lava (257); dock (open) only in a dock box; shallow sea (within ${k} of land): ground 1, flag 2; deep: ground 0, flag 4`);
   }
   // the open sea the satellites need
   {
@@ -259,10 +284,14 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, accepted }) {
     for (let i = 0; i < W * H; i++) { if (m.land[i]) { if (m.height[i] > 3) bad++; else seen.add(m.height[i]); } else if (m.height[i] !== 0) seaBad++; }
     add("levels-0-to-3", !bad && !seaBad && seen.size === 4, `land levels used: ${[...seen].sort().join(", ")}${bad ? `; ${bad} land tile(s) above 3` : ""}${seaBad ? `; ${seaBad} sea tile(s) not at 0` : ""} (all four of 0-3 must occur, nothing else)`);
   }
-  const walk = (i) => i >= 0 && i < W * H && m.land[i] === 1 && !(m.coll[i] & (COLL.solid | COLL.shallow | COLL.deep));
+  const walk = (i) => i >= 0 && i < W * H && (m.land[i] === 1 || m.ground[i] === GROUND.dock) && !(m.coll[i] & (COLL.solid | COLL.shallow | COLL.deep));
   // the planned crossings (B1d) not built yet: river tiles inside a crossing box, which reach checks may cross until then
   const pending = new Uint8Array(W * H); let pendingN = 0;
-  for (const c of src.water.plannedCrossings) { const b = c.crossingBox; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (m.ground[y * W + x] === GROUND.river) { pending[y * W + x] = 1; pendingN++; } }
+  // a crossing is built once a bridge stands in it; before B1d (which builds them all) its river tiles count as
+  // crossable for the reach checks. From B1d on there is no such allowance: a missing bridge cuts the island
+  const crossingsDue = STAGE >= "B1d";
+  for (const c of crossingsDue ? [] : src.water.crossings) { const b = c.crossingBox; let built = false; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (m.ground[y * W + x] === GROUND.bridge) built = true;
+    if (!built) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (m.ground[y * W + x] === GROUND.river) { pending[y * W + x] = 1; pendingN++; } }
   const walkP = (i) => walk(i) || (i >= 0 && i < W * H && pending[i] === 1);
   const ramps = src.elevation.ramps, rampAt = (x, y) => ramps.findIndex((r) => x >= r.rampBox.x0 && x <= r.rampBox.x1 && y >= r.rampBox.y0 && y <= r.rampBox.y1);
   // every walkable step between levels, and where it is
@@ -320,7 +349,7 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, accepted }) {
     for (let i = 0; i < W * H; i++) if (walk(i) && !seenC[i]) {
       const g = flood([i], walk, W, H); let n = 0, x0 = W, y0 = H, x1 = 0, y1 = 0, plaza = false;
       for (let j = 0; j < W * H; j++) if (g[j]) { seenC[j] = 1; n++; const x = j % W, y = (j - x) / W; x0 = Math.min(x0, x); x1 = Math.max(x1, x); y0 = Math.min(y0, y); y1 = Math.max(y1, y); if (starts.includes(j)) plaza = true; }
-      const joins = src.water.plannedCrossings.filter((c) => { const b = c.crossingBox; for (let y = b.y0 - 1; y <= b.y1 + 1; y++) for (let x = b.x0 - 1; x <= b.x1 + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H && g[y * W + x]) return true; return false; }).map((c) => c.id);
+      const joins = src.water.crossings.filter((c) => { const b = c.crossingBox; for (let y = b.y0 - 1; y <= b.y1 + 1; y++) for (let x = b.x0 - 1; x <= b.x1 + 1; x++) if (x >= 0 && y >= 0 && x < W && y < H && g[y * W + x]) return true; return false; }).map((c) => c.id);
       comps.push({ n, box: [x0, y0, x1, y1], plaza, joins });
     }
   }
@@ -476,15 +505,20 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, accepted }) {
   // water and lava can't be walked; every body in its approved area and on its level
   {
     const bad = [];
-    let wt = 0, lava = 0;
+    let wt = 0, lava = 0, wbridge = 0;
     for (let i = 0; i < W * H; i++) {
       const b = bodyOf(i);
-      if (b !== null) { wt++; const g = m.ground[i], wantG = riverIds.has(b) ? GROUND.river : GROUND.pond; if (g !== wantG || m.coll[i] !== COLL.shallow) bad.push(`${b} at ${i % W},${(i / W) | 0}: ground ${g}, coll ${m.coll[i]}`); }
+      if (b !== null) {
+        wt++; const g = m.ground[i], x = i % W, y = (i - x) / W;
+        const bridged = riverIds.has(b) && g === GROUND.bridge && m.coll[i] === COLL.none && src.water.crossings.some((c) => x >= c.crossingBox.x0 && x <= c.crossingBox.x1 && y >= c.crossingBox.y0 && y <= c.crossingBox.y1);
+        if (bridged) wbridge++;
+        else { const wantG = riverIds.has(b) ? GROUND.river : GROUND.pond; if (g !== wantG || m.coll[i] !== COLL.shallow) bad.push(`${b} at ${x},${y}: ground ${g}, coll ${m.coll[i]}`); }
+      }
       if (m.ground[i] === GROUND.lava) { lava++; if (m.coll[i] !== COLL.lava || !m.crater[i]) bad.push(`lava at ${i % W},${(i / W) | 0}: coll ${m.coll[i]}`); }
       else if (m.crater[i] && m.land[i]) bad.push(`crater tile ${i % W},${(i / W) | 0} isn't lava`);
       if ((m.ground[i] === GROUND.river || m.ground[i] === GROUND.pond) && b === null) bad.push(`water at ${i % W},${(i / W) | 0} belongs to no body`);
     }
-    add("water-collision", bad.length === 0, bad.length ? `${bad.length} wrong: ${bad.slice(0, 5).join("; ")}` : `${wt} water tiles: ground river or still water, flag 2 (shallow), none walkable; ${lava} lava tiles: ground lava, flags solid + lava (257)`);
+    add("water-collision", bad.length === 0, bad.length ? `${bad.length} wrong: ${bad.slice(0, 5).join("; ")}` : `${wt} water tiles: ground river or still water, flag 2 (shallow), none walkable, but ${wbridge} river tiles under a bridge in an approved crossing (walkable); ${lava} lava tiles: ground lava, flags solid + lava (257)`);
     const misplaced = [];
     for (const body of src.water.bodies) {
       const b = body.withinBox; let n = 0, out = 0; const lv = new Set();
@@ -527,22 +561,149 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, accepted }) {
     let superseded = 0, wrong = 0, now = 0;
     for (let i = 0; i < W * H; i++) {
       const isRim = m.why[i] === WHY.rim; if (isRim) now++;
-      const wet = m.ground[i] === GROUND.river || m.ground[i] === GROUND.pond || m.ground[i] === GROUND.lava;
+      const wet = m.ground[i] === GROUND.river || m.ground[i] === GROUND.pond || m.ground[i] === GROUND.lava || m.ground[i] === GROUND.bridge;
       if (rule[i] && wet) superseded++;
       if (isRim !== (rule[i] === 1 && !wet)) wrong++;
     }
     add("cliff-rims", ruleSha === B1B_RIMS_SHA256 && wrong === 0, `the rim rule gives B1b's ${ruleSha === B1B_RIMS_SHA256 ? "292 tiles exactly" : "tiles NOT exactly"}; ${superseded} of them are now water, so ${now} rims remain${wrong ? `; ${wrong} tile(s) disagree with the rule` : ""}`);
   }
-  // the beach the water covers: B1b's beach (the compiler's beach before any water) is exactly B1b's, and
-  // every tile of it is still beach or is now water
+  // the beach that water, paths and docks cover: B1b's beach (the compiler's beach before any of them) is
+  // exactly B1b's, and every tile of it is still beach or is now water, path, dock or pad
   {
+    const NAMES = ["deep", "shallow", "sand", "grass", "path", "still water", "dock", "lava", "pad", "river", "bridge"];
     let beach = 0, sand = 0, covered = 0, other = 0; const by = {}, rows = [];
     for (let y = 0; y < H; y++) { let r = ""; for (let x = 0; x < W; x++) { const i = y * W + x; r += m.beach[i] ? "1" : "0"; if (m.ground[i] === GROUND.sand) sand++;
-      if (m.beach[i]) { beach++; if (m.ground[i] !== GROUND.sand) { const b = bodyOf(i); if (b === null) other++; else { covered++; by[b] = (by[b] || 0) + 1; } } } } rows.push(r); }
+      if (m.beach[i] && m.ground[i] !== GROUND.sand) { const g = m.ground[i]; if ([GROUND.river, GROUND.pond, GROUND.path, GROUND.dock, GROUND.pad, GROUND.bridge].includes(g)) { covered++; by[NAMES[g]] = (by[NAMES[g]] || 0) + 1; } else other++; }
+      if (m.beach[i]) beach++; } rows.push(r); }
     const bs = sha256(rows.join("\n"));
     add("beach-accounting", bs === B1B_BEACH_SHA256 && beach === B1B_BEACH_TILES && !other && sand === beach - covered,
-      `B1b's ${beach} beach tiles (${bs === B1B_BEACH_SHA256 ? "exactly B1b's" : "NOT B1b's"}): ${covered} now water (${Object.entries(by).map(([b, n]) => `${b} ${n}`).join(", ")}), ${sand} still beach${other ? `, ${other} changed to something else` : ""}; the study later puts paths and docks on 57 more (B1d)`);
+      `B1b's ${beach} beach tiles (${bs === B1B_BEACH_SHA256 ? "exactly B1b's" : "NOT B1b's"}): ${covered} now covered (${Object.entries(by).map(([k, n]) => `${k} ${n}`).join(", ")}), ${sand} still beach${other ? `, ${other} changed to something else` : ""}`);
   }
+  /* ════════ B1d: corridors and infrastructure ════════ */
+  const NAMES = ["deep", "shallow", "sand", "grass", "path", "still water", "dock", "lava", "pad", "river", "bridge"], CL = "msvt";
+  {
+    const ok = Array.isArray(r21Infra.infra) && Array.isArray(r21Infra.ground) && sha256(r21Infra.infra.join("\n")) === R21_INFRA_SHA256 && r21Infra.infraSha256 === R21_INFRA_SHA256 &&
+      sha256(r21Infra.ground.join("\n")) === R21_GROUND_SHA256 && r21Infra.groundSha256 === R21_GROUND_SHA256;
+    add("r21-infra-fixture-frozen", ok, `infra sha ${Array.isArray(r21Infra.infra) ? sha256(r21Infra.infra.join("\n")).slice(0, 16) : "?"} (code expects ${R21_INFRA_SHA256.slice(0, 16)}), ground sha ${Array.isArray(r21Infra.ground) ? sha256(r21Infra.ground.join("\n")).slice(0, 16) : "?"} (expects ${R21_GROUND_SHA256.slice(0, 16)})`);
+    const d = [], dg = [], cnt = {};
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x, g = m.ground[i];
+      const c = g === GROUND.bridge ? "B" : g === GROUND.dock ? "D" : g === GROUND.pad ? "H" : g === GROUND.path ? (m.pathClass[i] >= 0 ? CL[m.pathClass[i]] : "P") : ".";
+      if (c !== ".") cnt[c] = (cnt[c] || 0) + 1;
+      if (!r21Infra.infra[y] || c !== r21Infra.infra[y][x]) d.push(`${x},${y}:${r21Infra.infra[y] ? r21Infra.infra[y][x] : "?"}>${c}`);
+      if (!r21Infra.ground[y] || g.toString(16) !== r21Infra.ground[y][x]) dg.push(`${x},${y}`);
+    }
+    add("r21-infra-mask", d.length === 0, d.length ? `${d.length} tiles differ from the r2.1 corridors and infrastructure: ${d.slice(0, 8).join(" ")} (x,y:r2.1>now)` :
+      `identical to the frozen r2.1 corridors and infrastructure: main ${cnt.m}, secondary ${cnt.s}, service ${cnt.v}, trail ${cnt.t}, plaza ${cnt.P} path tiles; ${cnt.B} bridge, ${cnt.D} dock, ${cnt.H} pad`);
+    add("r21-ground", dg.length === 0, dg.length ? `${dg.length} ground tiles differ from the study's final ground: ${dg.slice(0, 8).join(" ")}` : "the whole ground layer is the approved study's final ground (0 of 18,000 tiles differ)");
+  }
+  // clusters of tiles (8-neighbour) that pass pred
+  const clusters = (pred) => { const seenK = new Uint8Array(W * H), out = []; for (let i = 0; i < W * H; i++) if (pred(i) && !seenK[i]) { const q = [i]; seenK[i] = 1; for (let k = 0; k < q.length; k++) { const c = q[k], cx = c % W, cy = (c - cx) / W; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = cx + dx, ny = cy + dy, j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && pred(j) && !seenK[j]) { seenK[j] = 1; q.push(j); } } } out.push(q); } return out; };
+  const inB = (i, b) => { const x = i % W, y = (i - x) / W; return x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1; };
+  const span = (q) => { const xs = q.map((c) => c % W), ys = q.map((c) => (c - c % W) / W); return `x ${Math.min(...xs)}-${Math.max(...xs)}, y ${Math.min(...ys)}-${Math.max(...ys)}`; };
+  // the bridges: three, one per approved crossing, over the river, with walkable land on both banks
+  {
+    const bad = [], br = clusters((i) => m.ground[i] === GROUND.bridge), info = [];
+    if (br.length !== 3) bad.push(`${br.length} bridges (the plan has 3)`);
+    for (const c of src.water.crossings) {
+      const mine = br.filter((q) => q.every((i) => inB(i, c.crossingBox)));
+      if (mine.length !== 1) { bad.push(`${c.id}: ${mine.length} bridges in its box`); continue; }
+      const q = mine[0];
+      if (q.some((i) => !channel(i))) bad.push(`${c.id}: a bridge tile not over the river`);
+      // the banks: walkable non-bridge tiles beside it, grouped by how they connect without crossing water
+      const box = { x0: c.crossingBox.x0 - 3, y0: c.crossingBox.y0 - 3, x1: c.crossingBox.x1 + 3, y1: c.crossingBox.y1 + 3 };
+      const side = (i) => inB(i, box) && walk(i) && m.ground[i] !== GROUND.bridge;
+      const nb = new Set(); for (const i of q) { const x = i % W, y = (i - x) / W; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * W + nx; if (side(j)) nb.add(j); } }
+      const banks = []; const used = new Set();
+      for (const j of nb) if (!used.has(j)) { const g = flood([j], side, W, H); for (const k of nb) if (g[k]) used.add(k); banks.push(j); }
+      if (banks.length < 2) bad.push(`${c.id}: land on only ${banks.length} bank`);
+      info.push(`${c.id} ${q.length} tiles at ${span(q)}, ${banks.length} banks`);
+    }
+    const stray = br.filter((q) => !src.water.crossings.some((c) => q.every((i) => inB(i, c.crossingBox))));
+    if (stray.length) bad.push(`${stray.length} bridge(s) outside the approved crossings, at ${stray.map(span).join("; ")}`);
+    add("bridges", bad.length === 0, bad.length ? bad.join("; ") : `${info.join("; ")}; no other crossing`);
+  }
+  // the docks: two structures, every dock tile in an exit's dock box (no east pier, no south-east slip)
+  {
+    const bad = [], dk = clusters((i) => m.ground[i] === GROUND.dock), S = src.exits.south, Wx = src.exits.west;
+    const harbour = (i) => inB(i, S.quayBox) || inB(i, S.ferryPierBox);
+    const outside = []; for (let i = 0; i < W * H; i++) if (m.ground[i] === GROUND.dock && !harbour(i) && !inB(i, Wx.jettyBox)) outside.push(i);
+    if (outside.length) bad.push(`${outside.length} dock tile(s) outside the harbour and the west jetty, at ${span(outside)}`);
+    if (dk.length !== 2) bad.push(`${dk.length} dock structures (exactly 2: the harbour and the west jetty)`);
+    const h = dk.filter((q) => q.every(harbour)), j = dk.filter((q) => q.every((i) => inB(i, Wx.jettyBox)));
+    if (h.length !== 1 || j.length !== 1) bad.push("the harbour and the west jetty must be one structure each");
+    for (const [nm, b] of [["quay", S.quayBox], ["ferry pier", S.ferryPierBox], ["west jetty", Wx.jettyBox]]) for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (m.ground[y * W + x] !== GROUND.dock) { bad.push(`the ${nm} box isn't all dock`); y = b.y1 + 1; break; }
+    let sea = 0, land = 0; for (let i = 0; i < W * H; i++) if (m.ground[i] === GROUND.dock) { if (m.land[i]) land++; else sea++; }
+    add("docks", bad.length === 0, bad.length ? bad.join("; ") : `2 structures: the harbour (quay and ferry pier, ${h[0].length} tiles) and the west service jetty (${j[0].length}); ${land} on land, ${sea} over water; no other dock`);
+  }
+  // the harbour: the berth is deep water at the pier's end with open water round it; the route marker apart
+  {
+    const bad = [], S = src.exits.south, [bx, by] = S.berthTile, bi = by * W + bx;
+    if (m.land[bi] || m.ground[bi] !== GROUND.deep) bad.push(`the berth ${bx},${by} isn't deep water`);
+    if (m.ground[(by - 1) * W + bx] !== GROUND.dock) bad.push("the berth isn't at the ferry pier's end");
+    let open = 0, n = 0; for (let y = by - 4; y <= by + 4; y++) for (let x = bx - 4; x <= bx + 4; x++) { n++; const i = y * W + x; if (!m.land[i] && m.ground[i] !== GROUND.dock) open++; }
+    if (open < 60) bad.push(`only ${open} of ${n} tiles round the berth are open water`);
+    const [rx, ry] = S.routeMarkerTile, ri = ry * W + rx;
+    if (rx === bx && ry === by) bad.push("the route marker is the berth");
+    if (m.land[ri] || m.ground[ri] !== GROUND.deep) bad.push("the route marker isn't deep water");
+    const T = S.ferryTerminalReserveBox; let tBad = 0; for (let y = T.y0; y <= T.y1; y++) for (let x = T.x0; x <= T.x1; x++) { const i = y * W + x; if (!walk(i) || m.ground[i] === GROUND.dock || m.ground[i] === GROUND.bridge) tBad++; }
+    if (tBad) bad.push(`${tBad} ferry terminal reserve tile(s) aren't open walkable ground`);
+    if (inB(ri, T) || inB(bi, T)) bad.push("the berth or route marker is in the terminal reserve");
+    let pierDeep = 0; for (let x = S.ferryPierBox.x0; x <= S.ferryPierBox.x1; x++) { const i = (S.ferryPierBox.y1 + 1) * W + x; if (!m.land[i] && m.ground[i] === GROUND.deep) pierDeep++; }
+    if (!pierDeep) bad.push("the ferry pier doesn't reach deep water");
+    add("harbour", bad.length === 0, bad.length ? bad.join("; ") : `berth ${bx},${by} deep, at the pier's end, ${open} of ${n} tiles round it open water; the pier reaches deep water (${pierDeep} deep tiles past its end); route marker ${rx},${ry} deep and apart; the terminal reserve open ground, untouched`);
+  }
+  // the west jetty: reachable, and opening west to the open sea; the north-west bridgehead; the helipad
+  {
+    const bad = [], jb = src.exits.west.jettyBox;
+    let jr = 0, jn = 0; for (let y = jb.y0; y <= jb.y1; y++) for (let x = jb.x0; x <= jb.x1; x++) { jn++; if (walk(y * W + x) && byColl[y * W + x]) jr++; }
+    if (jr !== jn) bad.push(`${jn - jr} jetty tile(s) not walkable and reachable from the arrival`);
+    let clear = Infinity; for (let y = jb.y0; y <= jb.y1; y++) { let n = 0; for (let x = jb.x0 - 1; x >= 0; x--) { const i = y * W + x; if (m.land[i] || m.ground[i] === GROUND.dock) break; n++; } if (!m.land[y * W + jb.x0 - 1] && n < clear) clear = n; }
+    if (!(clear >= 15)) bad.push(`only ${clear} tiles of open water west of the jetty (at least 15)`);
+    add("west-jetty", bad.length === 0, bad.length ? bad.join("; ") : `all ${jn} jetty tiles walkable and reachable from the arrival; ${clear}+ tiles of open water west of it to the map's edge (Ironwood's way out)`);
+  }
+  {
+    const bad = [], lb = src.exits.northwest.landingBox; let n = 0, ok = 0, paved = 0;
+    for (let y = lb.y0; y <= lb.y1; y++) for (let x = lb.x0; x <= lb.x1; x++) { const i = y * W + x; n++; if (walk(i) && byColl[i]) ok++; if (m.ground[i] === GROUND.path) paved++; }
+    if (ok !== n) bad.push(`${n - ok} bridgehead tile(s) not walkable and reachable`);
+    if (paved !== n) bad.push(`${n - paved} bridgehead tile(s) not on the trail`);
+    let gap = 0; for (let x = lb.x0 - 1; x >= 0; x--) { const i = lb.y0 * W + x; if (m.land[i]) continue; if (m.ground[i] === GROUND.dock) { gap = -1; break; } gap++; }
+    if (gap < 6) bad.push(`the sea gap west of the bridgehead is ${gap} tiles (at least 6)`);
+    add("nw-bridgehead", bad.length === 0, bad.length ? bad.join("; ") : `one bridgehead, ${n} tiles at x ${lb.x0}-${lb.x1}, y ${lb.y0}: on the bridgehead trail, walkable, reached from the arrival by the shrine stairs; ${gap} tiles of open sea to the map's edge`);
+  }
+  {
+    const bad = [], hb = src.infrastructure.helipadBox; let n = 0, pad = 0, ok = 0;
+    for (let i = 0; i < W * H; i++) if (m.ground[i] === GROUND.pad) { pad++; if (!inB(i, hb)) bad.push(`pad at ${i % W},${(i / W) | 0} outside the helipad box`); }
+    for (let y = hb.y0; y <= hb.y1; y++) for (let x = hb.x0; x <= hb.x1; x++) { const i = y * W + x; n++; if (m.land[i] && m.ground[i] === GROUND.pad && m.height[i] === 0 && walk(i) && byColl[i]) ok++; }
+    if (ok !== n) bad.push(`${n - ok} helipad tile(s) not pad on walkable, reachable level-0 land`);
+    if (hb.x0 < OPS_AREA.x0 || hb.x1 > OPS_AREA.x1 || hb.y0 < OPS_AREA.y0 || hb.y1 > OPS_AREA.y1) bad.push(`the helipad isn't inside the ops area x ${OPS_AREA.x0}-${OPS_AREA.x1}, y ${OPS_AREA.y0}-${OPS_AREA.y1}`);
+    add("helipad", bad.length === 0, bad.length ? bad.slice(0, 4).join("; ") : `${pad} pad tiles, x ${hb.x0}-${hb.x1}, y ${hb.y0}-${hb.y1}: level 0 land, walkable, reachable, inside the ops area`);
+  }
+  // no path, plaza, dock or pad on a cliff rim (paving never opens a cliff; levels change only in ramps)
+  {
+    const on = []; for (let i = 0; i < W * H; i++) if ((m.ground[i] === GROUND.path || m.ground[i] === GROUND.pad || m.ground[i] === GROUND.dock) && (m.coll[i] & COLL.solid)) on.push(`${i % W},${(i / W) | 0}`);
+    add("paving-off-cliffs", on.length === 0, on.length ? `${on.length} paved tile(s) on a cliff rim or solid ground: ${on.slice(0, 8).join(" ")}` : "no path, plaza, dock or pad lies on a cliff rim or solid ground");
+  }
+  // the routes from the arrival, and the all-logs tour
+  {
+    const dist = (from) => { const D = new Int32Array(W * H).fill(-1), q = [from]; D[from] = 0; for (let k = 0; k < q.length; k++) { const i = q[k], x = i % W, y = (i - x) / W; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && D[j] < 0 && walk(j)) { D[j] = D[i] + 1; q.push(j); } } } return D; };
+    const arrival = src.corridors.routeEnds.find((r) => r.id === "arrival").endTile, A = dist(arrival[1] * W + arrival[0]);
+    const bad = [], rows = [];
+    for (const r of src.corridors.routeEnds) {
+      if (r.id === "arrival") continue;
+      const d = A[r.endTile[1] * W + r.endTile[0]], want = ROUTE_TILES[r.id];
+      if (d < 0) { bad.push(`${r.id} unreachable`); continue; }
+      if (want !== undefined && (d > want * 1.2 || d < want * 0.8)) bad.push(`${r.id} is ${d} tiles, outside a fifth of its approved ${want}`);
+      rows.push(`${r.id} ${d} (${(d / WALK_TPS).toFixed(1)} s)`);
+    }
+    add("routes", bad.length === 0, bad.length ? bad.join("; ") : `from the arrival, in tiles and walking seconds: ${rows.join(", ")}`);
+    let cur = arrival[1] * W + arrival[0], tour = 0; const left = Object.entries(LOG_SITES), order = [];
+    while (left.length) { const D = dist(cur); left.sort((a, b) => D[a[1][1] * W + a[1][0]] - D[b[1][1] * W + b[1][0]]); const [nm, [x, y]] = left.shift(); tour += D[y * W + x]; cur = y * W + x; order.push(nm); }
+    let far = 0; for (let i = 0; i < W * H; i++) if (A[i] > far) far = A[i];
+    const ok = tour >= 331 * 0.85 && tour <= 331 * 1.15 && far >= 134 * 0.85 && far <= 134 * 1.15;
+    add("travel-sanity", ok, `all-logs tour (the study's log sites; the logs are B3's) ${tour} tiles, ${Math.round(tour / WALK_TPS)} s walking, ${Math.round(tour / RUN_TPS)} s running (approved about 331, 91 s, 57 s); longest walk from the arrival ${far} tiles, ${Math.round(far / WALK_TPS)} s (approved about 134, 37 s); order ${order.join(", ")}`);
+  }
+
   // the accepted build
   {
     if (!acc) add("accepted-build", false, `no accepted build in ${rel(ACCEPTED_PATH)} (run map-lint --accept --reason="...")`);
@@ -588,6 +749,7 @@ const args = process.argv.slice(2);
 const r21 = JSON.parse(readFileSync(R21_PATH, "utf8"));
 const r21Levels = JSON.parse(readFileSync(R21_LEVELS_PATH, "utf8"));
 const r21Water = JSON.parse(readFileSync(R21_WATER_PATH, "utf8"));
+const r21Infra = JSON.parse(readFileSync(R21_INFRA_PATH, "utf8"));
 const accepted = existsSync(ACCEPTED_PATH) ? JSON.parse(readFileSync(ACCEPTED_PATH, "utf8")) : null;
 let fails = 0;
 const say = (ok, name, detail) => { if (!ok) fails++; console.log(`${ok ? "ok  " : "FAIL"} ${name}: ${detail}`); };
@@ -602,7 +764,7 @@ try {
 if (args.includes("--accept")) {
   const reason = (args.find((a) => a.startsWith("--reason=")) || "").slice(9).trim();
   if (reason.length < 10) { console.error('map-lint --accept needs --reason="why this build is the intended one" (10 characters or more)'); process.exit(1); }
-  const res = runChecks(src, m, { r21, r21Levels, r21Water, accepted }).filter((c) => !c.ok && !["r21-land-mask", "land-count", "land-bounds", "r21-level-mask", "level-counts", "r21-water-mask", "accepted-build"].includes(c.name));
+  const res = runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted }).filter((c) => !c.ok && !["r21-land-mask", "land-count", "land-bounds", "r21-level-mask", "level-counts", "r21-water-mask", "accepted-build"].includes(c.name));
   if (res.length) { res.forEach((c) => say(false, c.name, c.detail)); console.error("map-lint --accept: refusing, the build fails the checks above"); process.exit(1); }
   if (readFileSync(STAGED_PATH, "utf8") !== serialize(m, src)) { console.error("map-lint --accept: refusing, tools/maps/staged/home.js is stale (run node tools/map-compile.mjs)"); process.exit(1); }
   acceptTo(ACCEPTED_PATH, acceptedRecord(m, r21, r21Levels, r21Water, accepted, reason));
@@ -611,7 +773,7 @@ if (args.includes("--accept")) {
 }
 
 console.log(`map-lint ${STAGE}: ${rel(SOURCE_PATH)} -> ${rel(STAGED_PATH)}`);
-for (const c of runChecks(src, m, { r21, r21Levels, r21Water, accepted })) say(c.ok, c.name, c.detail);
+for (const c of runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, accepted })) say(c.ok, c.name, c.detail);
 
 // the staged file: current, hashed, staged, never the game's registry
 const staged = existsSync(STAGED_PATH) ? readFileSync(STAGED_PATH, "utf8") : "";
@@ -658,7 +820,7 @@ function expectThrow(name, fn, re) {
   try { fn(); say(false, "self-test " + name, "NOT refused"); }
   catch (e) { say(re.test(e.message), "self-test " + name, re.test(e.message) ? `refused: ${e.message.replace(/^home\.src\.mjs: /, "")}` : `refused for the wrong reason: ${e.message}`); }
 }
-function expectFail(name, s, checks, ctx = { r21, r21Levels, r21Water, accepted }, alter) {
+function expectFail(name, s, checks, ctx = { r21, r21Levels, r21Water, r21Infra, accepted }, alter) {
   let mm; try { mm = compile(s, "self-test"); } catch (e) { say(false, "self-test " + name, "didn't compile: " + e.message); return; }
   if (alter) alter(mm);                                            // break the compiled map itself, past the compiler
   const res = runChecks(s, mm, ctx), failed = res.filter((c) => !c.ok).map((c) => c.name);
@@ -682,7 +844,7 @@ expectThrow("tile off the map", () => { const s = copy(); s.exits.south.routeMar
 { const s = copy(); s.exits.south.ferryTerminalReserveBox = { x0: 82, y0: 77, x1: 87, y1: 80 }; expectFail("terminal reserve overlapping the arrival plaza", s, ["exits"]); }
 { const s = copy(); const p = pt(s, "delta-lobe"); s.coast.points.splice(s.coast.points.indexOf(p) + 1, 0, { id: "delta-lobe-copy", x: p.x, y: p.y }); expectFail("two control points at one position", s, ["coast-points-distinct"]); }
 { const t = JSON.parse(JSON.stringify(r21)); t.rows[50] = t.rows[50].slice(0, 75) + (t.rows[50][75] === "1" ? "0" : "1") + t.rows[50].slice(76);
-  expectFail("frozen r2.1 fixture tampered with (one tile flipped)", copy(), ["r21-fixture-frozen", "r21-land-mask"], { r21: t, r21Levels, r21Water, accepted }); }
+  expectFail("frozen r2.1 fixture tampered with (one tile flipped)", copy(), ["r21-fixture-frozen", "r21-land-mask"], { r21: t, r21Levels, r21Water, r21Infra, accepted }); }
 expectThrow("--accept aimed at the frozen r2.1 fixture", () => acceptTo(R21_PATH, "{}"), /never rewritten/);
 { const r = stagedNotRuntime(staged.replace(/ISLAND_MAPS_STAGED/g, "ISLAND_MAPS")); say(!r.ok, "self-test staged file registering window.ISLAND_MAPS", r.ok ? "NOT caught" : `caught: ${r.why}`); }
 { const r = stagedNotRuntime(staged.replace('"runtimeSupported": false', '"runtimeSupported": true')); say(!r.ok, "self-test staged file claiming runtime support", r.ok ? "NOT caught" : `caught: ${r.why}`); }
@@ -711,13 +873,13 @@ expectFail("volcano mass opened in the compiled map", copy(), ["volcano-blocked"
 { const s = copy(); pt(s, "west-coast-westmost").x = 4; expectFail("coast point moved while editing elevation", s, ["coast-locked", "r21-land-mask", "sea-unchanged"]); }
 { const s = copy(); s.sea.shallowWithin = 4; expectFail("sea rule changed while editing elevation", s, ["sea-unchanged", "accepted-build"]); }
 { const t = JSON.parse(JSON.stringify(r21Levels)); t.rows[60] = t.rows[60].slice(0, 70) + "2" + t.rows[60].slice(71);
-  expectFail("frozen r2.1 level fixture tampered with", copy(), ["r21-levels-fixture-frozen", "r21-level-mask"], { r21, r21Levels: t, r21Water, accepted }); }
+  expectFail("frozen r2.1 level fixture tampered with", copy(), ["r21-levels-fixture-frozen", "r21-level-mask"], { r21, r21Levels: t, r21Water, r21Infra, accepted }); }
 // B1c: the water guards
 const river = (s, id) => s.water.rivers.find((r) => r.id === id);
 const body = (s, id) => s.water.bodies.find((b) => b.id === id);
 const rpt = (s, id) => s.water.rivers.flatMap((r) => r.points).find((p) => p.id === id);
 expectFail("river cut in two (in the compiled map)", copy(), ["river-connected", "r21-water-mask"], undefined, (mm) => {
-  for (let i = 0; i < mm.w * mm.h; i++) { const y = (i / mm.w) | 0; if (y === 48 && mm.ground[i] === GROUND.river) { mm.ground[i] = GROUND.land; mm.coll[i] = COLL.none; mm.water[i] = -1; } }
+  for (let i = 0; i < mm.w * mm.h; i++) { const y = (i / mm.w) | 0; if (y === 55 && mm.ground[i] === GROUND.river) { mm.ground[i] = GROUND.land; mm.coll[i] = COLL.none; mm.water[i] = -1; } }
 });
 { const s = copy(); rpt(s, "branch-second-mouth").x = 19; rpt(s, "branch-second-mouth").y = 90; expectFail("second mouth deleted (the branch ends inland)", s, ["river-mouths", "r21-water-mask"]); }
 { const s = copy(); s.water.rivers.push({ id: "test-channel", samplesPerSegment: 8, halfWidth: 1, points: [{ id: "test-a", x: 60, y: 60 }, { id: "test-b", x: 64, y: 90 }] }); expectFail("a third mouth (a new channel to the harbour)", s, ["river-mouths", "r21-water-mask"]); }
@@ -733,7 +895,35 @@ expectFail("lava made walkable", copy(), ["water-collision"], undefined, (mm) =>
 { const s = copy(); s.elevation.regions.find((r) => r.id === "meadow-terrace").outline.points.find((p) => p.id === "meadow-edge-west-cove").y = 52; body(s, "koi-pond").ellipse.rx = 5; expectFail("levels moved while changing water", s, ["r21-level-mask", "level-counts"]); }
 { const s = copy(); ramp(s, "riverlands-delta-trail").rampBox.x1 = 38; expectFail("a ramp changed while changing water", s, ["ramps-unchanged"]); }
 { const t = JSON.parse(JSON.stringify(r21Water)); t.water[62] = t.water[62].slice(0, 110) + "." + t.water[62].slice(111);
-  expectFail("frozen r2.1 water fixture tampered with", copy(), ["r21-water-fixture-frozen", "r21-water-mask"], { r21, r21Levels, r21Water: t, accepted }); }
+  expectFail("frozen r2.1 water fixture tampered with", copy(), ["r21-water-fixture-frozen", "r21-water-mask"], { r21, r21Levels, r21Water: t, r21Infra, accepted }); }
+// B1d: the corridor and infrastructure guards
+const xy = (mm, x, y) => y * mm.w + x;
+for (const cid of ["upper-bridge", "brachio-bridge", "delta-bridge"]) {
+  const box = r21Water && src.water.crossings.find((c) => c.id === cid).crossingBox;
+  expectFail(`the ${cid} deleted (in the compiled map)`, copy(), cid === "upper-bridge" ? ["bridges"] : ["bridges", "connected"], undefined, (mm) => {
+    for (let y = box.y0; y <= box.y1; y++) for (let x = box.x0; x <= box.x1; x++) { const i = xy(mm, x, y); if (mm.ground[i] === GROUND.bridge) { mm.ground[i] = GROUND.river; mm.coll[i] = COLL.shallow; } }
+  });
+}
+{ const s = copy(); s.corridors.paths.push({ id: "test-ford", class: "trail", line: [[25, 58], [36, 58]] }); expectFail("a fourth river crossing", s, ["bridges", "r21-infra-mask"]); }
+{ const s = copy(); s.water.crossings.find((c) => c.id === "brachio-bridge").crossingBox = { x0: 60, y0: 44, x1: 66, y1: 49 }; expectFail("a crossing box that misses the river (its bridge falls outside)", s, ["bridges"]); }
+expectFail("the west jetty cut off (in the compiled map)", copy(), ["west-jetty", "connected"], undefined, (mm) => {
+  const b = src.exits.west.jettyBox;
+  for (let y = b.y0 - 2; y <= b.y1 + 3; y++) for (let x = b.x0 - 2; x <= b.x1 + 3; x++) { const i = xy(mm, x, y); if (mm.land[i] && !(x >= b.x0 && x <= b.x1 && y >= b.y0 && y <= b.y1)) mm.coll[i] = COLL.solid; }
+});
+expectThrow("an east pier in the source (no such field)", () => { const s = copy(); s.exits.east = { leadsTo: "nowhere", jettyBox: { x0: 136, y0: 72, x1: 138, y1: 76 } }; validate(s); }, /unknown field east/);
+expectFail("an east pier laid in the compiled map", copy(), ["docks"], undefined, (mm) => { for (let y = 70; y <= 74; y++) for (let x = 135; x <= 137; x++) { const i = xy(mm, x, y); mm.ground[i] = GROUND.dock; mm.coll[i] = COLL.none; } });
+expectFail("a south-east slip laid in the compiled map", copy(), ["docks"], undefined, (mm) => { for (let y = 98; y <= 101; y++) { const i = xy(mm, 116, y); mm.ground[i] = GROUND.dock; mm.coll[i] = COLL.none; } });
+{ const s = copy(); s.exits.south.ferryPierBox = { x0: 78, y0: 84, x1: 80, y1: 88 }; expectFail("the ferry pier pulled back from deep water", s, ["harbour", "exits"]); }
+{ const s = copy(); s.exits.south.routeMarkerTile = [79, 97]; expectFail("the route marker merged with the berth", s, ["harbour", "exits"]); }
+expectFail("the north-west bridgehead blocked (in the compiled map)", copy(), ["nw-bridgehead"], undefined, (mm) => { const b = src.exits.northwest.landingBox; for (let x = b.x0; x <= b.x1; x++) mm.coll[xy(mm, x, b.y0)] = COLL.solid; });
+{ const s = copy(); s.infrastructure.helipadBox = { x0: 120, y0: 104, x1: 124, y1: 108 }; expectFail("the helipad placed in the water", s, ["helipad"]); }
+expectFail("the village and ops severed (a wall across the lowland)", copy(), ["routes"], undefined, (mm) => { for (let y = 66; y < mm.h; y++) for (const x of [62, 63]) { const i = xy(mm, x, y); if (mm.land[i] || mm.ground[i] === GROUND.dock) mm.coll[i] = COLL.solid; } });
+{ const s = copy(); s.corridors.paths.push({ id: "test-cliff-path", class: "secondary", line: [[50, 63], [50, 75]] }); expectFail("a path laid across a cliff outside any ramp", s, ["paving-off-cliffs", "r21-infra-mask"]); }
+{ const s = copy(); pt(s, "koi-bay-inner").x = 123; s.corridors.paths[0].line[0] = [79, 95]; expectFail("the coast moved while editing corridors", s, ["coast-locked", "r21-land-mask"]); }
+{ const s = copy(); region(s, "headland-plateau").outline.points[0].x = 128; expectFail("the levels moved while editing corridors", s, ["r21-level-mask"]); }
+{ const s = copy(); body(s, "tarn").ellipse.rx = 4; expectFail("the water moved while editing corridors", s, ["r21-water-mask"]); }
+{ const t = JSON.parse(JSON.stringify(r21Infra)); t.infra[80] = t.infra[80].slice(0, 75) + "." + t.infra[80].slice(76);
+  expectFail("frozen r2.1 infrastructure fixture tampered with", copy(), ["r21-infra-fixture-frozen", "r21-infra-mask"], { r21, r21Levels, r21Water, r21Infra: t, accepted }); }
 { // the guard isn't simply refusing everything: a write it allows (into tools/out/) happens, with the tracked file's bytes
   const p = join(ROOT, "tools/out/mapb/selftest/home.js");
   try {
