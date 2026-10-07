@@ -1,7 +1,7 @@
 {
   "about": "The accepted current build of the staged MAP-B home island (tools/maps/staged/home.js). map-lint compares every build with it; change it only with node tools/map-lint.mjs --accept --reason=\"...\". The approved r2.1 record is tools/fixtures/mapb-r21.json, which is frozen and never written by any tool.",
   "accepted": {
-    "stage": "B1b",
+    "stage": "B1c",
     "w": 150,
     "h": 120,
     "landTiles": 10257,
@@ -13,6 +13,14 @@
       "x1": 143,
       "y1": 107
     },
+    "waterTiles": {
+      "tarn": 11,
+      "main-river": 260,
+      "koi-pond": 52,
+      "delta-lagoon": 20,
+      "delta-branch": 39,
+      "delta-reed-marsh": 31
+    },
     "levelTiles": [
       3413,
       4111,
@@ -21,11 +29,12 @@
     ],
     "digests": {
       "land": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
+      "water": "407562a2ab9361e225ea72a6dc7a6402b74537755e35febff440b1653dbe984b",
       "sea": "5a93c8be99d153945ae7cabb434de9a2a6b05cd7b2222ae284b1dbb72fc400a3",
       "levels": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64",
-      "ground": "ac47831f8ea46739ebed985a2dacf5994bec1d536d46e97364103e62c02d93d7:150x120",
+      "ground": "403a58824bb3192e82ba3d67ed09b7997fbaf330b65d9d80aef05dc4d4b92e9a:150x120",
       "height": "28e4a85c297b297d7d9098ac081fea4a3daff5e7c8e87550154d5bdf15e23d31:150x120",
-      "coll": "336ca5704a5e8af8b66cc4be2820b1195766c722819d46ef14b15e0a9a3c2ef8:150x120",
+      "coll": "4fbeb33301d1e1a8b78f9934ad151bd53ecaaf3f40a78971e8cbe3f59abc86bb:150x120",
       "coast": "5cae1fc25c55c5fbe59dc0eac06357e3d23d203fcdbc84ab6da30ded474541f2"
     },
     "driftFromR21": {
@@ -33,6 +42,10 @@
       "sha256": null
     },
     "levelDriftFromR21": {
+      "tiles": 0,
+      "sha256": null
+    },
+    "waterDriftFromR21": {
       "tiles": 0,
       "sha256": null
     }
@@ -59,6 +72,23 @@
       ],
       "driftFromR21Tiles": 0,
       "levelDriftFromR21Tiles": 0,
+      "landSha256": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
+      "levelsSha256": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64"
+    },
+    {
+      "n": 3,
+      "stage": "B1c",
+      "reason": "B1c: the approved r2.1 river, two-mouth delta, tarn, koi pond, lagoon, reed marsh and volcano cone, scree and crater on the locked B1a coast and B1b levels; exactly the frozen r2.1 water and volcano",
+      "landTiles": 10257,
+      "levelTiles": [
+        3413,
+        4111,
+        2225,
+        508
+      ],
+      "driftFromR21Tiles": 0,
+      "levelDriftFromR21Tiles": 0,
+      "waterDriftFromR21Tiles": 0,
       "landSha256": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
       "levelsSha256": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64"
     }

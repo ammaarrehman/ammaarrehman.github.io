@@ -5,9 +5,10 @@
    STAGED. Nothing in the game reads this file or its output yet. Production still runs the original
    100 x 80 island from js/maps/home.js; the game learns the new map format in B2, and the switch-over is
    a separate, approved release later. It holds the canvas, the coast and the sea (B1a, locked), the four
-   levels, the beach and the eight ramps (B1b), and metadata for the three future exits and the open sea
-   the satellites need. Rivers, ponds, paths, docks, buildings and everything else come in later batches;
-   this file must not hold them yet (the compiler refuses unknown sections).
+   levels, the beach and the eight ramps (B1b, locked), the river, the ponds and the volcano's terrain
+   (B1c), and metadata for the three future exits, the planned river crossings and the open sea the
+   satellites need. Paths, bridges, docks, buildings and everything else come in later batches; this
+   file must not hold them yet (the compiler refuses unknown sections).
 
    Coordinates (one convention for the whole file; tools/map-lint.mjs enforces it):
    - Tile space. Tile (tx, ty) is the square [tx, tx + 1) x [ty, ty + 1); its centre is (tx + 0.5, ty + 0.5).
@@ -227,6 +228,65 @@ export default {
       { id: "headland-stairs", number: 6, levels: [1, 2], rampBox: { x0: 128, y0: 40, x1: 132, y1: 46 } },
       { id: "lantern-cove-steps", number: 7, levels: [0, 1], rampBox: { x0: 124, y0: 32, x1: 129, y1: 37 } },
       { id: "riverlands-delta-trail", number: 8, levels: [0, 1], rampBox: { x0: 27, y0: 60, x1: 37, y1: 70 } }
+    ]
+  },
+
+  /* water and the volcano's terrain (B1c), on the locked coast and levels: they change what ground a land
+     tile is, never whether it is land or its level.
+     - bodies, in order (a later one wins a tile): each fills the land tiles whose centre is inside its
+       ellipse or outline. kind says what it is (pond, tarn, lagoon, marsh); the format draws them all as
+       still water for now. withinBox is the inclusive tile box the body must stay inside (its approved
+       area). meetsSea: true says the body may touch the sea; any other body that does is an error.
+     - rivers, after the bodies (a river wins a tile): an open Hermite spline through named points, from
+       upstream to downstream. A land tile is river when its centre is within the half-width of the
+       nearest segment of the sampled centre line. halfWidth is a number, or a widening one,
+       base + gain * (k / n) ^ power along the n segments. A river that starts at another's point joins it.
+     - the volcano: the cone and the crater inside the solid volcano mass (elevation); the rest of the
+       mass is scree. All of it stays solid; the crater is lava.
+     - plannedCrossings: where B1d will bridge the river. Not built: map-lint uses them only to show that
+       any area the river cuts off until then is joined again by a planned crossing. */
+  water: {
+    bodies: [
+      { id: "koi-pond", kind: "pond", ellipse: { cx: 111, cy: 62, rx: 5.5, ry: 3.2, sides: 48 }, withinBox: { x0: 104, y0: 56, x1: 118, y1: 68 } },
+      { id: "tarn", kind: "tarn", ellipse: { cx: 54.5, cy: 12.5, rx: 2.8, ry: 1.8, sides: 48 }, withinBox: { x0: 50, y0: 9, x1: 59, y1: 16 } },
+      { id: "delta-lagoon", kind: "lagoon", ellipse: { cx: 15, cy: 75, rx: 3, ry: 2, sides: 48 }, withinBox: { x0: 11, y0: 72, x1: 19, y1: 78 } },
+      { id: "delta-reed-marsh", kind: "marsh", meetsSea: true, outline: { samplesPerSegment: 8, points: [
+        // between the two channels; it fronts the sea along the lobe between the mouths (as approved)
+        { id: "marsh-north-west", x: 10.5, y: 87 },
+        { id: "marsh-north-east", x: 20, y: 84 },
+        { id: "marsh-east", x: 19, y: 90 },
+        { id: "marsh-south-east", x: 16, y: 94.5 },
+        { id: "marsh-south-west", x: 10.5, y: 93.5 }
+      ] }, withinBox: { x0: 9, y0: 83, x1: 21, y1: 96 } }
+    ],
+    rivers: [
+      { id: "main-river", samplesPerSegment: 8, halfWidth: { base: 1, gain: 1.5, power: 1.6 }, points: [
+        { id: "river-source", x: 54, y: 13 },              // in the tarn
+        { id: "river-highland", x: 50, y: 22 },
+        { id: "river-upper-falls", x: 44, y: 31 },         // drops from the highland to the meadow terrace
+        { id: "river-spino-reach", x: 38, y: 42 },
+        { id: "river-brachio-reach", x: 34, y: 52 },
+        { id: "river-lower-falls", x: 30, y: 63 },         // drops from the meadow terrace to the lowland
+        { id: "river-delta-head", x: 26, y: 75 },
+        { id: "river-fork", x: 21, y: 82 },                // the delta branch leaves here
+        { id: "river-main-mouth", x: 13, y: 86 }
+      ] },
+      { id: "delta-branch", samplesPerSegment: 6, halfWidth: 1.3, points: [
+        { id: "branch-fork", x: 21, y: 82 },
+        { id: "branch-middle", x: 18, y: 89 },
+        { id: "branch-second-mouth", x: 15, y: 94.5 }
+      ] }
+    ],
+    volcano: {
+      mass: "volcano-mass",
+      cone: { cx: 72, cy: 13, rx: 9, ry: 6.5, sides: 48 },
+      crater: { cx: 72, cy: 12, rx: 3, ry: 2, sides: 48 }
+    },
+    plannedCrossings: [
+      // the study's bridge boxes, converted from half-open to inclusive; built in B1d
+      { id: "upper-bridge", crossingBox: { x0: 46, y0: 20, x1: 53, y1: 25 } },
+      { id: "brachio-bridge", crossingBox: { x0: 32, y0: 44, x1: 38, y1: 49 } },
+      { id: "delta-bridge", crossingBox: { x0: 21, y0: 75, x1: 28, y1: 80 } }
     ]
   },
 

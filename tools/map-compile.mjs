@@ -14,6 +14,10 @@
    What it compiles:
    - B1a (locked): the canvas, the coast (land is every tile whose centre is inside the closed coast
      spline), and the sea (shallow within sea.shallowWithin steps of land, deep beyond);
+   - B1c: the water and the volcano's terrain: the bodies (pond, tarn, lagoon, marsh: ground pond), then
+     the rivers (ground river), both shallow water that can't be walked, on land tiles only, never
+     changing a tile's level; the crater (ground lava, solid and lava); the waterfalls, derived wherever
+     two neighbouring river tiles are on different levels. Water and lava are never cliff rims;
    - B1b: the levels (each land tile takes the highest level of the elevation regions its centre is in,
      else 0), the beach (the coastal band of levels 0 and 1 becomes sand at level 0), the solid regions
      (the volcano mass), and the cliff rims: wherever walkable land meets land a level lower, the higher
@@ -31,13 +35,13 @@ import { readFileSync, writeFileSync, mkdirSync, existsSync, realpathSync } from
 import { createHash } from "node:crypto";
 import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
-import { hermiteLoop, ellipsePoly, inside, raster, stepsFrom } from "./maps/geom.mjs";
+import { hermiteLoop, hermiteOpen, segDist, ellipsePoly, inside, raster, stepsFrom } from "./maps/geom.mjs";
 
 export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE_PATH = join(ROOT, "tools/maps/home.src.mjs");
 export const STAGED_PATH = join(ROOT, "tools/maps/staged/home.js");
 export const PREVIEW_DIR = join(ROOT, "tools/out/mapb");
-export const STAGE = "B1b";
+export const STAGE = "B1c";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /* ════════ the source: schema and the coordinate convention ════════ */
@@ -54,7 +58,7 @@ export function validateSource(src) {
   const int = (v, f, lo, hi) => { if (typeof v !== "number" || !Number.isInteger(v) || v < lo || v > hi) bad(`${f} must be a whole number from ${lo} to ${hi}, not ${JSON.stringify(v)}`); };
   const str = (v, f) => { if (typeof v !== "string" || !v) bad(`${f} must be text`); };
   const id = (v, f) => { if (typeof v !== "string" || !ID.test(v)) bad(`${f} must be an id (lowercase words joined by hyphens), not ${JSON.stringify(v)}`); };
-  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "features", "exits", "seaLanes", "satellites"]);
+  only(src, "the source", ["schema", "id", "w", "h", "tile", "coast", "sea", "elevation", "water", "features", "exits", "seaLanes", "satellites"]);
   if (src.schema !== "mapb-source-1") bad(`schema must be "mapb-source-1"`);
   if (src.id !== "home") bad(`id must be "home" (the redesigned island keeps the home id)`);
   int(src.w, "w", 1, 256); int(src.h, "h", 1, 256);
@@ -162,6 +166,59 @@ export function validateSource(src) {
     int(r.levels[0], `${f}.levels[0]`, 0, 3); int(r.levels[1], `${f}.levels[1]`, 0, 3);
     if (r.levels[0] >= r.levels[1]) bad(`${f}.levels must be [lower, upper], lower first`);
   });
+  // water: bodies, rivers, the volcano's terrain, the planned crossings
+  const ellipse = (e, f) => {
+    only(e, f, ["cx", "cy", "rx", "ry", "sides"]);
+    for (const k2 of ["cx", "cy", "rx", "ry"]) if (typeof e[k2] !== "number" || !Number.isFinite(e[k2])) bad(`${f}.${k2} must be a number`);
+    if (e.cx < 0 || e.cx > W || e.cy < 0 || e.cy > H) bad(`${f} centre must be on the map`);
+    if (!(e.rx > 0 && e.ry > 0)) bad(`${f} radii must be above 0`);
+    int(e.sides, `${f}.sides`, 8, 256);
+  };
+  const onMapPoint = (p, g) => {
+    only(p, g, ["id", "x", "y", "corner"], ["id", "x", "y"]);
+    id(p.id, `${g}.id`);
+    if (pointIds.has(p.id)) bad(`point ${p.id} appears twice (point ids are unique across the whole file)`);
+    pointIds.add(p.id);
+    for (const [k2, hi] of [["x", W], ["y", H]]) if (typeof p[k2] !== "number" || !Number.isFinite(p[k2]) || p[k2] < 0 || p[k2] > hi) bad(`${g}.${k2} must be a position from 0 to ${hi}, not ${JSON.stringify(p[k2])}`);
+    if (p.corner !== undefined && p.corner !== true) bad(`${g}.corner is true or left out`);
+  };
+  const Wt = src.water;
+  only(Wt, "water", ["bodies", "rivers", "volcano", "plannedCrossings"]);
+  const wIds = new Set();
+  const wid = (v, f) => { id(v, f); if (wIds.has(v) || rIds.has(v)) bad(`${f}: ${v} is already used`); wIds.add(v); };
+  if (!Array.isArray(Wt.bodies)) bad("water.bodies must be a list");
+  Wt.bodies.forEach((b, i) => {
+    const f = `water.bodies[${i}]${b && b.id ? " (" + b.id + ")" : ""}`;
+    only(b, f, ["id", "kind", "meetsSea", "ellipse", "outline", "withinBox"], ["id", "kind", "withinBox"]);
+    wid(b.id, `${f}.id`);
+    if (!["pond", "tarn", "lagoon", "marsh"].includes(b.kind)) bad(`${f}.kind must be pond, tarn, lagoon or marsh`);
+    if (b.meetsSea !== undefined && b.meetsSea !== true) bad(`${f}.meetsSea is true or left out`);
+    if ((b.ellipse === undefined) === (b.outline === undefined)) bad(`${f} needs exactly one of ellipse or outline`);
+    if (b.ellipse) ellipse(b.ellipse, `${f}.ellipse`);
+    else {
+      only(b.outline, `${f}.outline`, ["samplesPerSegment", "points"]);
+      if (![4, 8, 16, 32].includes(b.outline.samplesPerSegment)) bad(`${f}.outline.samplesPerSegment must be 4, 8, 16 or 32`);
+      if (!Array.isArray(b.outline.points) || b.outline.points.length < 3) bad(`${f}.outline needs at least 3 points`);
+      b.outline.points.forEach((p, k) => onMapPoint(p, `${f}.outline.points[${k}]`));
+    }
+  });
+  if (!Array.isArray(Wt.rivers) || !Wt.rivers.length) bad("water.rivers must be a list");
+  Wt.rivers.forEach((r, i) => {
+    const f = `water.rivers[${i}]${r && r.id ? " (" + r.id + ")" : ""}`;
+    only(r, f, ["id", "samplesPerSegment", "halfWidth", "points"]);
+    wid(r.id, `${f}.id`);
+    int(r.samplesPerSegment, `${f}.samplesPerSegment`, 2, 32);
+    if (typeof r.halfWidth === "number") { if (!(r.halfWidth > 0)) bad(`${f}.halfWidth must be above 0`); }
+    else { only(r.halfWidth, `${f}.halfWidth`, ["base", "gain", "power"]); for (const k2 of ["base", "gain", "power"]) if (typeof r.halfWidth[k2] !== "number" || !Number.isFinite(r.halfWidth[k2])) bad(`${f}.halfWidth.${k2} must be a number`); if (!(r.halfWidth.base > 0)) bad(`${f}.halfWidth.base must be above 0`); }
+    if (!Array.isArray(r.points) || r.points.length < 2) bad(`${f} needs at least 2 points`);
+    r.points.forEach((p, k) => onMapPoint(p, `${f}.points[${k}]`));
+  });
+  only(Wt.volcano, "water.volcano", ["mass", "cone", "crater"]);
+  const massR = E.regions.find((r) => r.id === Wt.volcano.mass);
+  if (!massR || !massR.solid) bad(`water.volcano.mass must name a solid elevation region, not ${JSON.stringify(Wt.volcano.mass)}`);
+  ellipse(Wt.volcano.cone, "water.volcano.cone"); ellipse(Wt.volcano.crater, "water.volcano.crater");
+  if (!Array.isArray(Wt.plannedCrossings)) bad("water.plannedCrossings must be a list");
+  Wt.plannedCrossings.forEach((c, i) => { only(c, `water.plannedCrossings[${i}]`, ["id", "crossingBox"]); wid(c.id, `water.plannedCrossings[${i}].id`); });
   // features: tiles that must be land or sea, and the points that shape them
   const fIds = new Set();
   if (!Array.isArray(src.features)) bad("features must be a list");
@@ -203,8 +260,8 @@ export function validateSource(src) {
 }
 
 /* ════════ compile ════════ */
-export const GROUND = { deep: 0, shallow: 1, sand: 2, land: 3 }; // the format's ground codes (land is grass, the beach sand)
-export const COLL = { none: 0, solid: 1, shallow: 2, deep: 4 };   // the game's collision flags: C_SOLID 1, C_SHALLOW 2, C_DEEP 4
+export const GROUND = { deep: 0, shallow: 1, sand: 2, land: 3, pond: 5, lava: 7, river: 9 }; // the format's ground codes
+export const COLL = { none: 0, solid: 1, shallow: 2, deep: 4, lava: 257 };   // the game's flags: C_SOLID 1, C_SHALLOW 2, C_DEEP 4, C_LAVA 256 (lava is solid too)
 export const WHY = { none: 0, rim: 1, blocked: 2 };                 // why a land tile is solid: a cliff rim, or a solid region
 /* a region's polygon: an outline's spline samples, or an ellipse's corners */
 export function regionPoly(r) {
@@ -229,29 +286,69 @@ export function compile(src, sourceSha256) {
   E.regions.forEach((r, k) => { const g = raster(polys[k], W, H); for (let i = 0; i < W * H; i++) if (land[i] && g[i]) { inRegion[k][i] = 1; if (r.level > height[i]) height[i] = r.level; } });
   // the beach: the coastal band of levels 0 and 1 is sand, at level 0
   const fromSea = stepsFrom(land.map((v) => 1 - v), W, H);
-  for (let i = 0; i < W * H; i++) if (land[i] && height[i] < 2 && fromSea[i] <= (height[i] === 0 ? E.beach.level0Within : E.beach.level1Within)) { ground[i] = GROUND.sand; height[i] = 0; }
+  const beach = new Uint8Array(W * H);                              // the beach before any water (map-lint accounts for it)
+  for (let i = 0; i < W * H; i++) if (land[i] && height[i] < 2 && fromSea[i] <= (height[i] === 0 ? E.beach.level0Within : E.beach.level1Within)) { ground[i] = GROUND.sand; height[i] = 0; beach[i] = 1; }
   // solid regions (the volcano mass): blocked ground
   E.regions.forEach((r, k) => { if (r.solid) for (let i = 0; i < W * H; i++) if (inRegion[k][i]) { coll[i] = COLL.solid; why[i] = WHY.blocked; } });
+  // B1c. water: the bodies in order, then the rivers (a later one wins a tile); land tiles only, levels unchanged
+  const Wt = src.water, water = new Int8Array(W * H).fill(-1), waterIds = Wt.bodies.map((b) => b.id).concat(Wt.rivers.map((r) => r.id));
+  const bodyPolys = Wt.bodies.map((b) => b.ellipse ? ellipsePoly(b.ellipse.cx, b.ellipse.cy, b.ellipse.rx, b.ellipse.ry, b.ellipse.sides)
+    : hermiteLoop(b.outline.points.map((p) => [p.x, p.y, p.corner ? 0 : 1]), b.outline.samplesPerSegment));
+  Wt.bodies.forEach((b, k) => { const g = raster(bodyPolys[k], W, H); for (let i = 0; i < W * H; i++) if (land[i] && g[i]) { ground[i] = GROUND.pond; coll[i] = COLL.shallow; why[i] = WHY.none; water[i] = k; } });
+  const riverLines = Wt.rivers.map((r) => hermiteOpen(r.points.map((p) => [p.x, p.y]), r.samplesPerSegment));
+  Wt.rivers.forEach((r, k) => {
+    const line = riverLines[k], n = line.length - 1;
+    const hw = (j) => typeof r.halfWidth === "number" ? r.halfWidth : r.halfWidth.base + r.halfWidth.gain * Math.pow(j / n, r.halfWidth.power);
+    for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+      const i = y * W + x;
+      if (!land[i]) continue;
+      let best = 0, bd = Infinity;
+      for (let j = 0; j < n; j++) { const d = segDist(x + 0.5, y + 0.5, line[j], line[j + 1]); if (d < bd) { bd = d; best = j; } }
+      if (bd <= hw(best)) { ground[i] = GROUND.river; coll[i] = COLL.shallow; why[i] = WHY.none; water[i] = Wt.bodies.length + k; }
+    }
+  });
+  // the volcano: the cone and the crater, inside the solid mass; the crater is lava (solid and lava)
+  const conePoly = ellipsePoly(Wt.volcano.cone.cx, Wt.volcano.cone.cy, Wt.volcano.cone.rx, Wt.volcano.cone.ry, Wt.volcano.cone.sides);
+  const craterPoly = ellipsePoly(Wt.volcano.crater.cx, Wt.volcano.crater.cy, Wt.volcano.crater.rx, Wt.volcano.crater.ry, Wt.volcano.crater.sides);
+  const cone = raster(conePoly, W, H), crater = raster(craterPoly, W, H);
+  for (let i = 0; i < W * H; i++) if (land[i] && crater[i]) { ground[i] = GROUND.lava; coll[i] = COLL.lava; why[i] = WHY.blocked; }
+  const isWet = (i) => ground[i] === GROUND.river || ground[i] === GROUND.pond || ground[i] === GROUND.lava;
   // cliff rims: the higher of two neighbouring land tiles is solid unless both are inside one ramp, as its two levels
   const rampOf = new Int16Array(W * H).fill(-1);
   E.ramps.forEach((r, k) => { const b = r.rampBox; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (rampOf[y * W + x] < 0) rampOf[y * W + x] = k; });
   const rampJoins = (a, b) => rampOf[a] >= 0 && rampOf[a] === rampOf[b] && E.ramps[rampOf[a]].levels[0] === height[b] && E.ramps[rampOf[a]].levels[1] === height[a];
   for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
     const a = y * W + x;
-    if (!land[a] || coll[a] & COLL.solid) continue;
+    if (!land[a] || coll[a] & COLL.solid || isWet(a)) continue;     // water and lava are never rims
     for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) {
       if (nx < 0 || ny < 0 || nx >= W || ny >= H) continue;
       const b = ny * W + nx;
       if (land[b] && height[b] < height[a] && !rampJoins(a, b)) { coll[a] = COLL.solid; why[a] = WHY.rim; break; }
     }
   }
-  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, sourceSha256 };
+  // the waterfalls: neighbouring river tiles on different levels, grouped by the levels they join and by touch
+  const fallAt = new Uint8Array(W * H), fallPairs = [];
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) for (const [nx, ny] of [[x + 1, y], [x, y + 1]]) {
+    if (nx >= W || ny >= H) continue;
+    const a = y * W + x, b = ny * W + nx;
+    if (ground[a] === GROUND.river && ground[b] === GROUND.river && height[a] !== height[b]) { fallAt[a] = fallAt[b] = 1; fallPairs.push([a, b]); }
+  }
+  const falls = [], seenF = new Uint8Array(W * H);
+  for (let i = 0; i < W * H; i++) {
+    if (!fallAt[i] || seenF[i]) continue;
+    const q = [i]; seenF[i] = 1;
+    for (let k = 0; k < q.length; k++) { const c = q[k], cx = c % W, cy = (c - cx) / W; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const nx = cx + dx, ny = cy + dy, j = ny * W + nx; if (nx >= 0 && ny >= 0 && nx < W && ny < H && fallAt[j] && !seenF[j]) { seenF[j] = 1; q.push(j); } } }
+    q.sort((p1, p2) => p1 - p2);
+    const lv = q.map((c) => height[c]);
+    falls.push({ upper: Math.max(...lv), lower: Math.min(...lv), tiles: q.map((c) => [c % W, (c - c % W) / W]) });
+  }
+  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, water, waterIds, bodyPolys, riverLines, cone, crater, conePoly, craterPoly, falls, beach, sourceSha256 };
 }
 
 /* the staged file's text. Everything that decides a byte is here, in a fixed order */
 export function serialize(m, src) {
   const rows = (arr, ch) => { const out = []; for (let y = 0; y < m.h; y++) { let r = ""; for (let x = 0; x < m.w; x++) r += ch(arr[y * m.w + x]); out.push(`    "${r}"`); } return out.join(",\n"); };
-  const values = [COLL.none, COLL.solid, COLL.shallow, COLL.deep];
+  const values = [COLL.none, COLL.solid, COLL.shallow, COLL.deep, COLL.lava];
   const E = src.elevation;
   const levels = E.regions.map((r) => {
     const o = { id: r.id, level: r.level };
@@ -261,6 +358,15 @@ export function serialize(m, src) {
     return o;
   });
   const ramps = E.ramps.map((r) => ({ id: r.id, levels: r.levels, x0: r.rampBox.x0, y0: r.rampBox.y0, x1: r.rampBox.x1, y1: r.rampBox.y1 }));
+  const Wt = src.water, ell = (e) => ({ cx: e.cx, cy: e.cy, rx: e.rx, ry: e.ry, sides: e.sides });
+  const bodies = Wt.bodies.map((b) => {
+    const o = { id: b.id, kind: b.kind };
+    if (b.meetsSea) o.meetsSea = true;
+    if (b.ellipse) Object.assign(o, { type: "ellipse" }, ell(b.ellipse));
+    else Object.assign(o, { type: "hermite-loop", samplesPerSegment: b.outline.samplesPerSegment, pts: b.outline.points.map((p) => [p.x, p.y, p.corner ? 0 : 1]) });
+    return o;
+  });
+  const rivers = Wt.rivers.map((r) => ({ id: r.id, type: "hermite-open", samplesPerSegment: r.samplesPerSegment, halfWidth: r.halfWidth, pts: r.points.map((p) => [p.x, p.y]) }));
   const num = (v) => JSON.stringify(v);
   return [
     `/* STAGED MAP-B home island ("Harbour Crescent", r2.1), stage ${STAGE}. Generated by tools/map-compile.mjs from`,
@@ -268,13 +374,17 @@ export function serialize(m, src) {
     `   format 2, which the game can't read yet (js/world.js reads format 1; format 2 support begins in B2). It`,
     `   registers window.ISLAND_MAPS_STAGED, never window.ISLAND_MAPS, it is never loaded by a page, and tools/`,
     `   is never deployed. Production runs the 100 x 80 island in js/maps/home.js until an approved switch-over.`,
-    `   ground: a hex digit per tile (0 deep, 1 shallow, 2 sand (the beach), 3 grass). height: the level, 0 to 3 (sea`,
-    `   0). coll: a base-36 index into coll.values (the game's flags: 1 solid, the cliff rims and the volcano mass;`,
-    `   2 shallow; 4 deep). footBlock: none yet. shapes.coast: the closed Hermite spline the land is filled from,`,
-    `   [x, y, tangent] per control point (tangent 0 at a corner), samplesPerSegment samples per segment.`,
-    `   shapes.levels: the elevation regions in order (a land tile takes the highest level it is in, then the`,
-    `   beach rule makes the coastal band of levels 0 and 1 sand at level 0); shapes.beach: that rule;`,
-    `   shapes.ramps: the only places a level changes, inclusive tile boxes (x0..x1, y0..y1) and their two levels. */`,
+    `   ground: a hex digit per tile (0 deep, 1 shallow, 2 sand (the beach), 3 grass, 5 still water, 7 lava, 9 river).`,
+    `   height: the level, 0 to 3 (the sea 0; water keeps the level of the land it lies on). coll: a base-36 index`,
+    `   into coll.values (the game's flags: 1 solid, the cliff rims and the volcano mass; 2 shallow, the sea's`,
+    `   shallows, rivers and still water; 4 deep; 257 solid and lava, the crater). footBlock: none yet.`,
+    `   shapes.coast: the closed Hermite spline the land is filled from, [x, y, tangent] per control point (tangent`,
+    `   0 at a corner). shapes.levels: the elevation regions in order (a land tile takes the highest level it is`,
+    `   in, then the beach rule makes the coastal band of levels 0 and 1 sand at level 0); shapes.beach: that rule;`,
+    `   shapes.ramps: the only places a level changes, inclusive tile boxes (x0..x1, y0..y1) and their two levels.`,
+    `   shapes.water: the still water in order (kind pond, tarn, lagoon or marsh); shapes.rivers: open Hermite`,
+    `   centre lines and their half-widths; shapes.volcano: the cone and crater ellipses inside the solid mass;`,
+    `   shapes.falls: derived, where the river drops a level (its tiles, and the two levels). */`,
     `(window.ISLAND_MAPS_STAGED = window.ISLAND_MAPS_STAGED || {}).home = {`,
     `  "format": 2, "staged": true, "runtimeSupported": false, "stage": ${num(STAGE)}, "id": ${num(m.id)}, "generator": "tools/map-compile.mjs",`,
     `  "source": "tools/maps/home.src.mjs", "sourceSha256": ${num(m.sourceSha256)}, "tile": ${m.tile}, "w": ${m.w}, "h": ${m.h},`,
@@ -286,7 +396,11 @@ export function serialize(m, src) {
     `    "coast": { "type": "hermite-loop", "samplesPerSegment": ${m.n}, "pts": ${num(m.pts)} },`,
     `    "levels": [`, levels.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
     `    "beach": ${num(E.beach)},`,
-    `    "ramps": [`, ramps.map((o) => `      ${num(o)}`).join(",\n"), `    ]`,
+    `    "ramps": [`, ramps.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
+    `    "water": [`, bodies.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
+    `    "rivers": [`, rivers.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
+    `    "volcano": ${num({ mass: Wt.volcano.mass, cone: ell(Wt.volcano.cone), crater: ell(Wt.volcano.crater) })},`,
+    `    "falls": [`, m.falls.map((f) => `      ${num(f)}`).join(",\n"), `    ]`,
     `  }`,
     `};`,
     ``
@@ -338,8 +452,12 @@ function tilesSvg(m, P, ox, oy, colorOf) {
   }
   return s;
 }
-const terrainColor = (m) => (i) => m.land[i] ? (m.ground[i] === GROUND.sand ? COLOR.sand : COLOR.land) : m.ground[i] === GROUND.shallow ? COLOR.shallow : COLOR.deep;
+const WCOL = { river: "#3d8fd6", pond: "#4fb0cf", tarn: "#6cc3dd", lagoon: "#58b6b0", marsh: "#6f9f86", lava: "#f06a28", cone: "#4b4242", scree: "#7a6c62" };
+const waterColor = (m, i) => { if (m.water[i] < 0) return null; const id = m.waterIds[m.water[i]], b = WATER_KIND[id]; return b ? WCOL[b] : WCOL.river; };
+let WATER_KIND = {};
+const terrainColor = (m) => (i) => m.land[i] ? (m.ground[i] === GROUND.lava ? WCOL.lava : waterColor(m, i) || (m.ground[i] === GROUND.sand ? COLOR.sand : COLOR.land)) : m.ground[i] === GROUND.shallow ? COLOR.shallow : COLOR.deep;
 const levelColor = (m) => (i) => m.land[i] ? LEVEL[m.height[i]] : m.ground[i] === GROUND.shallow ? "#2c5068" : "#1c3550";
+const levelWaterColor = (m) => (i) => m.land[i] && m.ground[i] === GROUND.lava ? WCOL.lava : (m.land[i] && waterColor(m, i)) || levelColor(m)(i);
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 function frame(w, h, title, body) {
   return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}" font-family="Helvetica, Arial, sans-serif"><rect width="${w}" height="${h}" fill="#14161c"/>` +
@@ -361,6 +479,7 @@ function axes(m, P, ox, oy, every, strongEvery) {
 }
 export function previewSvgs(m, src, r21) {
   const out = {}, M = 44, T0 = 40;
+  WATER_KIND = {}; src.water.bodies.forEach((b) => (WATER_KIND[b.id] = b.kind));
   // 1. clean terrain
   {
     const P = 6, w = m.w * P + 2 * M, h = m.h * P + T0 + M;
@@ -492,6 +611,91 @@ export function previewSvgs(m, src, r21) {
       ["#d2442f", `cliff rim, solid (${rims} tiles)`], ["#2b2b33", `volcano mass, solid (${blocked} tiles)`], ["#2c5068", "shallow sea (flag 2)"], ["#1c3550", "deep sea (flag 4)"]]);
     out["collision"] = frame(w, h, "MAP-B B1b collision: walkable ground, cliff rims and the blocked volcano mass (8 px a tile)", b);
   }
+  /* B1c: water and the volcano */
+  const wcount = {}; for (let i = 0; i < m.w * m.h; i++) if (m.water[i] >= 0) { const id = m.waterIds[m.water[i]]; wcount[id] = (wcount[id] || 0) + 1; }
+  const waterLegend = [[WCOL.river, `river: main-river ${wcount["main-river"]} tiles, delta-branch ${wcount["delta-branch"]}`], [WCOL.pond, `koi-pond ${wcount["koi-pond"]}`], [WCOL.tarn, `tarn (the source) ${wcount["tarn"]}`],
+    [WCOL.lagoon, `delta-lagoon ${wcount["delta-lagoon"]}`], [WCOL.marsh, `delta-reed-marsh ${wcount["delta-reed-marsh"]} (meets the sea)`], [WCOL.lava, "lava (the crater)"], [COLOR.shallow, "shallow sea"], [COLOR.deep, "deep sea"]];
+  const line = (pts, P, ox, oy, stroke, wdt, dash) => `<polyline points="${pts.map((p) => `${(ox + p[0] * P).toFixed(2)},${(oy + p[1] * P).toFixed(2)}`).join(" ")}" fill="none" stroke="${stroke}" stroke-width="${wdt}"${dash ? ` stroke-dasharray="${dash}"` : ""}/>`;
+  const mouthTiles = [];
+  for (let y = 0; y < m.h; y++) for (let x = 0; x < m.w; x++) { const i = y * m.w + x; if (m.ground[i] === GROUND.river && [[1, 0], [-1, 0], [0, 1], [0, -1]].some(([dx, dy]) => !m.land[(y + dy) * m.w + x + dx])) mouthTiles.push([x, y]); }
+  // 10. the water
+  {
+    const P = 8, legW = 380, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, (i) => m.land[i] ? (m.ground[i] === GROUND.lava ? WCOL.lava : waterColor(m, i) || "#8aa977") : m.ground[i] === GROUND.shallow ? COLOR.shallow : COLOR.deep);
+    m.riverLines.forEach((l) => (b += line(l, P, M, T0, "#cfe9ff", 1, "3 2")));
+    b += legend(M * 2 + m.w * P - 20, T0, waterLegend.concat([["#8aa977", "land"], ["#cfe9ff", "river centre lines (dashed)"]]));
+    for (const [t, x, y] of [["tarn", 54, 10], ["main-river", 41, 38], ["delta-branch", 21, 92], ["koi-pond", 111, 57.5], ["lagoon", 15, 71.5], ["marsh", 7, 92]]) b += label(M + x * P, T0 + y * P, t, "#fff", 11);
+    out["water"] = frame(w, h, `MAP-B B1c water: the river from the tarn to two mouths, the koi pond, the lagoon and the reed marsh (${Object.values(wcount).reduce((a, c) => a + c, 0)} tiles)`, b);
+  }
+  // 11. water over the four levels, with the falls
+  {
+    const P = 8, legW = 380, w = m.w * P + 2 * M + legW, h = m.h * P + T0 + M;
+    let b = tilesSvg(m, P, M, T0, levelWaterColor(m));
+    m.falls.forEach((f, k) => { const cx = f.tiles.reduce((a, t) => a + t[0], 0) / f.tiles.length + 0.5, cy = f.tiles.reduce((a, t) => a + t[1], 0) / f.tiles.length + 0.5; b += `<circle cx="${M + cx * P}" cy="${T0 + cy * P}" r="13" fill="none" stroke="#fff" stroke-width="2.5"/>` + label(M + cx * P + 16, T0 + cy * P + 4, `fall ${k + 1}: level ${f.upper} to ${f.lower}`, "#fff", 12); });
+    b += legend(M * 2 + m.w * P - 20, T0, lvLegend.concat(waterLegend.slice(0, 6)));
+    out["water-elevation"] = frame(w, h, "MAP-B B1c water over the four levels (white rings: the two waterfalls, where the river drops a level)", b);
+  }
+  // 12. the delta, zoomed
+  {
+    const P = 22, x0 = 3, y0 = 64, x1 = 35, y1 = 101, legW = 420, w = (x1 - x0) * P + 2 * M + legW, h = (y1 - y0) * P + T0 + M + 10;
+    const sub = { w: x1 - x0, h: y1 - y0 };
+    let b = "";
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * m.w + x; const c = terrainColor(m)(i); b += `<rect x="${M + (x - x0) * P}" y="${T0 + (y - y0) * P}" width="${P}" height="${P}" fill="${c}" stroke="#000" stroke-opacity="0.12"/>`; }
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * m.w + x; if (m.why[i] === WHY.rim) b += `<rect x="${M + (x - x0) * P + 3}" y="${T0 + (y - y0) * P + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#d2442f" stroke-width="2"/>`; }
+    for (const [x, y] of mouthTiles) if (x >= x0 && x < x1 && y >= y0 && y < y1) b += `<rect x="${M + (x - x0) * P + 2}" y="${T0 + (y - y0) * P + 2}" width="${P - 4}" height="${P - 4}" fill="none" stroke="#ffffff" stroke-width="3"/>`;
+    b += `<clipPath id="dz"><rect x="${M}" y="${T0}" width="${(x1 - x0) * P}" height="${(y1 - y0) * P}"/></clipPath><g clip-path="url(#dz)">`;
+    m.riverLines.forEach((l) => (b += line(l.map(([px, py]) => [px - x0, py - y0]), P, M, T0, "#e6f4ff", 1.5, "4 3")));
+    b += `</g>`;
+    const cb = src.water.plannedCrossings.find((c) => c.id === "delta-bridge").crossingBox;
+    b += `<rect x="${M + (cb.x0 - x0) * P}" y="${T0 + (cb.y0 - y0) * P}" width="${(cb.x1 - cb.x0 + 1) * P}" height="${(cb.y1 - cb.y0 + 1) * P}" fill="none" stroke="#ffd166" stroke-width="2" stroke-dasharray="8 5"/>` + label(M + (cb.x0 - x0) * P + 4, T0 + (cb.y0 - y0) * P - 6, "delta-bridge (planned, B1d)", "#ffd166", 12);
+    for (let x = x0; x <= x1; x += 5) b += `<text x="${M + (x - x0) * P}" y="${T0 - 6}" fill="#ccc" font-size="11" text-anchor="middle">${x}</text>`;
+    for (let y = y0 + 1; y <= y1; y += 5) b += `<text x="${M - 6}" y="${T0 + (y - y0) * P + 4}" fill="#ccc" font-size="11" text-anchor="end">${y}</text>`;
+    for (const [t, x, y] of [["main mouth", 6.5, 85.5], ["second mouth", 7.2, 96.6], ["fork", 22, 81.5], ["lobe (marsh fronts the sea)", 3.5, 90.8], ["delta-lagoon", 13, 72.4], ["delta-branch", 19.5, 91], ["main-river", 26, 72]]) b += label(M + (x - x0) * P, T0 + (y - y0) * P, t, "#fff", 13);
+    b += legend(M * 2 + (x1 - x0) * P - 20, T0, waterLegend.slice(0, 5).concat([[COLOR.sand, "beach"], [COLOR.land, "grass"], [COLOR.shallow, "shallow sea"], ["#ffffff", "white outline: a river mouth tile (beside the sea)"], ["#d2442f", "red outline: a cliff rim"], ["#ffd166", "dashed: the planned delta bridge (B1d)"]]));
+    out["delta"] = frame(w, h, `MAP-B B1c the south-west delta (x ${x0}-${x1 - 1}, y ${y0}-${y1 - 1}, ${P} px a tile): two mouths, the lobe, the lagoon and the reed marsh`, b);
+  }
+  // 13. the waterfalls, zoomed side by side
+  {
+    const P = 22, boxes = [[38, 22, 52, 36, "fall 1"], [24, 53, 38, 67, "fall 2"]], pw = 14 * P, legW = 340, w = 2 * pw + 3 * M + legW, h = 14 * P + T0 + M + 46;
+    let b = "";
+    boxes.forEach(([x0, y0, x1, y1, nm], k) => {
+      const ox = M + k * (pw + M);
+      b += `<clipPath id="fz${k}"><rect x="${ox}" y="${T0}" width="${pw}" height="${14 * P}"/></clipPath><g clip-path="url(#fz${k})">`;
+      for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) { const i = y * m.w + x; b += `<rect x="${ox + (x - x0) * P}" y="${T0 + (y - y0) * P}" width="${P}" height="${P}" fill="${levelWaterColor(m)(i)}" stroke="#000" stroke-opacity="0.12"/>`;
+        if (m.ground[i] === GROUND.river || m.land[i]) b += `<text x="${ox + (x - x0) * P + P / 2}" y="${T0 + (y - y0) * P + P / 2 + 4}" fill="#111" fill-opacity="0.55" font-size="10" text-anchor="middle">${m.height[i]}</text>`;
+        if (m.why[i] === WHY.rim) b += `<rect x="${ox + (x - x0) * P + 3}" y="${T0 + (y - y0) * P + 3}" width="${P - 6}" height="${P - 6}" fill="none" stroke="#d2442f" stroke-width="2"/>`; }
+      const f = m.falls[k];
+      for (const [x, y] of f.tiles) b += `<rect x="${ox + (x - x0) * P + 1}" y="${T0 + (y - y0) * P + 1}" width="${P - 2}" height="${P - 2}" fill="none" stroke="#fff" stroke-width="3"/>`;
+      m.riverLines.forEach((l) => (b += line(l.map(([px, py]) => [px - x0, py - y0]), P, ox, T0, "#e6f4ff", 1.5, "4 3")));
+      b += `</g>`;
+      b += `<text x="${ox}" y="${T0 + 14 * P + 18}" fill="#eee" font-size="13" font-weight="bold">${nm}: level ${f.upper} to ${f.lower} (x ${x0}-${x1 - 1}, y ${y0}-${y1 - 1})</text>`;
+      b += `<text x="${ox}" y="${T0 + 14 * P + 36}" fill="#ccc" font-size="12">tiles ${f.tiles.map((t) => t.join(",")).join("  ")}</text>`;
+    });
+    b += legend(3 * M + 2 * pw - 20, T0, lvLegend.concat([[WCOL.river, "river (the digit is its level)"], ["#ffffff", "white outline: the fall's tiles"], ["#d2442f", "red outline: a cliff rim"]]));
+    out["waterfalls"] = frame(w, h, "MAP-B B1c the two waterfalls, derived where neighbouring river tiles are on different levels (22 px a tile; digits are levels)", b);
+  }
+  // 14. the volcano, zoomed
+  {
+    const P = 20, x0 = 50, y0 = 1, x1 = 94, y1 = 30, legW = 360, w = (x1 - x0) * P + 2 * M + legW, h = (y1 - y0) * P + T0 + M + 10;
+    const massR = src.elevation.regions.find((r) => r.id === src.water.volcano.mass), mg = raster(regionPoly(massR), m.w, m.h);
+    let b = "", n = { cone: 0, scree: 0, lava: 0 };
+    for (let y = y0; y < y1; y++) for (let x = x0; x < x1; x++) {
+      const i = y * m.w + x;
+      let c = terrainColor(m)(i);
+      if (m.land[i] && mg[i]) c = m.ground[i] === GROUND.lava ? WCOL.lava : m.cone[i] ? WCOL.cone : WCOL.scree;
+      else if (m.land[i] && m.ground[i] !== GROUND.lava && !waterColor(m, i)) c = LEVEL[m.height[i]];
+      b += `<rect x="${M + (x - x0) * P}" y="${T0 + (y - y0) * P}" width="${P}" height="${P}" fill="${c}" stroke="#000" stroke-opacity="0.12"/>`;
+      if (m.land[i] && (m.coll[i] & COLL.solid)) b += `<line x1="${M + (x - x0) * P + 3}" y1="${T0 + (y - y0 + 1) * P - 3}" x2="${M + (x - x0 + 1) * P - 3}" y2="${T0 + (y - y0) * P + 3}" stroke="#000" stroke-opacity="0.35"/>`;
+    }
+    for (let i = 0; i < m.w * m.h; i++) if (m.land[i] && mg[i]) { if (m.ground[i] === GROUND.lava) n.lava++; else if (m.cone[i]) n.cone++; else n.scree++; }
+    for (const e of [src.water.volcano.cone, src.water.volcano.crater]) b += `<ellipse cx="${M + (e.cx - x0) * P}" cy="${T0 + (e.cy - y0) * P}" rx="${e.rx * P}" ry="${e.ry * P}" fill="none" stroke="#ffe08a" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    const me = massR.ellipse; b += `<ellipse cx="${M + (me.cx - x0) * P}" cy="${T0 + (me.cy - y0) * P}" rx="${me.rx * P}" ry="${me.ry * P}" fill="none" stroke="#e0d0ff" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+    for (let x = x0; x <= x1; x += 5) b += `<text x="${M + (x - x0) * P}" y="${T0 - 6}" fill="#ccc" font-size="11" text-anchor="middle">${x}</text>`;
+    for (let y = y0 + 4; y <= y1; y += 5) b += `<text x="${M - 6}" y="${T0 + (y - y0) * P + 4}" fill="#ccc" font-size="11" text-anchor="end">${y}</text>`;
+    b += legend(M * 2 + (x1 - x0) * P - 20, T0, [[WCOL.cone, `cone, solid (${n.cone} tiles)`], [WCOL.scree, `scree, solid (${n.scree}; kept for Cinder Reach)`], [WCOL.lava, `crater lava, solid + lava (${n.lava})`],
+      [LEVEL[2], "highland, level 2"], [WCOL.tarn, "the tarn (the river's source)"], [WCOL.river, "river"], ["#e0d0ff", "dashed lavender: the volcano mass (level 3)"], ["#ffe08a", "dashed yellow: cone and crater"], ["#555", "diagonal stroke: solid (can't be walked)"]]);
+    out["volcano"] = frame(w, h, `MAP-B B1c the volcano (x ${x0}-${x1 - 1}, y ${y0}-${y1 - 1}, ${P} px a tile): cone, scree and crater, all solid; no way in`, b);
+  }
   return out;
 }
 async function writePreviews(m, src) {
@@ -515,7 +719,7 @@ async function writePreviews(m, src) {
 }
 
 /* ════════ the command line ════════ */
-if (import.meta.url === pathToFileURL(process.argv[1]).href) {
+if (process.argv[1] && import.meta.url === pathToFileURL(process.argv[1]).href) {
   const args = process.argv.slice(2);
   const { src, sourceSha256 } = await loadSource();
   const m = compile(src, sourceSha256);

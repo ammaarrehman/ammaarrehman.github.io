@@ -28,6 +28,31 @@ export function hermiteLoop(pts, n) {
   return out;
 }
 
+/* an open Hermite spline through [x, y] points, all smooth (tangent 1), the end tangents from the end
+   points themselves: n samples per segment and the last point. The study's open curve, operation for
+   operation (t ** 2 and t ** 3 as powers, since n need not be a power of two here) */
+export function hermiteOpen(pts, n) {
+  const k = pts.length, out = [];
+  for (let i = 0; i < k - 1; i++) {
+    const a = pts[i], b = pts[i + 1], pa = i > 0 ? pts[i - 1] : pts[i], nb = i + 2 < k ? pts[i + 2] : pts[i + 1];
+    const tax = 1 * (b[0] - pa[0]) / 2, tay = 1 * (b[1] - pa[1]) / 2, tbx = 1 * (nb[0] - a[0]) / 2, tby = 1 * (nb[1] - a[1]) / 2;
+    for (let j = 0; j < n; j++) {
+      const t = j / n, t2 = Math.pow(t, 2), t3 = Math.pow(t, 3);
+      const h00 = 2 * t3 - 3 * t2 + 1, h10 = t3 - 2 * t2 + t, h01 = -2 * t3 + 3 * t2, h11 = t3 - t2;
+      out.push([h00 * a[0] + h10 * tax + h01 * b[0] + h11 * tbx, h00 * a[1] + h10 * tay + h01 * b[1] + h11 * tby]);
+    }
+  }
+  out.push([pts[k - 1][0], pts[k - 1][1]]);
+  return out;
+}
+
+/* the distance from (px, py) to the segment a-b */
+export function segDist(px, py, a, b) {
+  const dx = b[0] - a[0], dy = b[1] - a[1], L = dx * dx + dy * dy;
+  const t = L === 0 ? 0 : Math.max(0, Math.min(1, ((px - a[0]) * dx + (py - a[1]) * dy) / L));
+  return Math.hypot(px - a[0] - t * dx, py - a[1] - t * dy);
+}
+
 /* an ellipse as a polygon of n corners, starting at angle 0 (the study's, operation for operation) */
 export function ellipsePoly(cx, cy, rx, ry, n) {
   const out = [];
