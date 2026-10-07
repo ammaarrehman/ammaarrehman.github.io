@@ -22,7 +22,8 @@ its habitats; the other regions are separate islands, each its own habitat, and 
 with a tool, a repair or a quest. All eight portfolio logs stay on the home island. The cyber metaphor lives only in NPC dialogue (regions are network
 segments, crossings are gateways, the Field Guide is an asset inventory).
 
-World plan (MAP-B r2.1, approved by Ammaar 2026-10-03; design only, nothing built yet). The home
+World plan (MAP-B r2.1, approved by Ammaar 2026-10-03). Its B1 blockout is complete as staged data in
+`tools/` (2026-10-07; "Technical", MAP-B B1), not runtime-active and not deployed. The home
 island becomes "Harbour Crescent", about 138 x 103 tiles of island on a 150 x 120 map, with the south
 harbour as the reserve's transport hub. It has exactly three exits: the south harbour, a restricted
 service jetty in the west, and the north-west rope bridge to Ashpine. The satellites are conceptual:
@@ -31,7 +32,7 @@ home island.
 
 | Region | Where | Habitat | Crossing | Signature moment | Status |
 |---|---|---|---|---|---|
-| Home island | the core | Harbour Crescent: harbour, village, ops, commons, riverlands and delta, koi garden and lighthouse headland, research, highland and volcano | none | the portfolio | built as the original 100 x 80 island; the 150 x 120 redesign is approved, not built |
+| Home island | the core | Harbour Crescent: harbour, village, ops, commons, riverlands and delta, koi garden and lighthouse headland, research, highland and volcano | none | the portfolio | built as the original 100 x 80 island; the 150 x 120 redesign is approved and blocked out as staged data (B1), not in the game |
 | Cinder Reach | the home island's volcano, expanded | lava, basalt, steam vents | a switchback trail from the highland hub | the summit view; vents launch pi to ledges | planned |
 | Hornfield | north-east satellite, core reserve | large-herbivore savanna | public ferry from the south harbour | a herd crossing at dawn | planned |
 | Reedmarsh | east / south-east satellite, core reserve | wetland, boardwalks | public ferry from the south harbour | the Parasaurolophus chorus at dusk | planned |
@@ -287,8 +288,69 @@ naming the field, and the orb says the island didn't load (a retry works).
   against `anchors.coreApproach`, not the reference, with its own regression (four sides, the approach moved,
   the arena moved alone, no literal left in `world.js`).
 - Saves: `SAVE_V` is still 2. MAP-A and B0 changed no save field and migrated nothing.
-- Geography: production is still the original 100 x 80 island. The 150 x 120 MAP-B island hasn't been
-  generated or switched in.
+- Geography: production is still the original 100 x 80 island (`js/maps/home.js`, format 1). The
+  150 x 120 MAP-B island exists only as the staged B1 blockout below; the game doesn't read it.
+
+MAP-B B1, the staged blockout (2026-10-07; complete, not runtime-active, not deployed):
+- Pipeline: `tools/maps/home.src.mjs` (the authored source: named coast points, levels, water, corridors,
+  planning metadata) goes through the deterministic compiler `tools/map-compile.mjs` (helpers in
+  `tools/maps/geom.mjs`) to `tools/maps/staged/home.js`, a format-2 draft that registers
+  `window.ISLAND_MAPS_STAGED.home` with `runtimeSupported: false`, never `ISLAND_MAPS`. The compiler
+  refuses to write under `js/`. `tools/map-lint.mjs` checks it (71 checks and 82 deliberate-break
+  self-tests, 153 in all) against five frozen fixtures, never rewritten: `tools/fixtures/mapb-r21.json`
+  (coast), `mapb-r21-levels.json`, `mapb-r21-water.json`, `mapb-r21-infra.json` and `mapb-r21-plan.json`;
+  `mapb-staged.json` holds the accepted builds (`map-lint --accept --reason=...`). Coordinates are tile
+  space; every rectangle is an inclusive `...Box` `{x0, y0, x1, y1}`.
+- Production still loads `js/maps/home.js`, the 100 x 80 format-1 island, which B1 never overwrote. The
+  staged files live under `tools/`, which the deploy bundle excludes. B2 teaches the game to read and
+  draw the staged island locally; switching production over is a separate, approved release later.
+- Geography (locked, Harbour Crescent r2.1): 150 x 120 tiles; 10,257 land tiles, x 6 to 143, y 5 to 107;
+  80 named coast control points; 0 drift from the frozen r2.1 coast.
+- Elevation: level 0 3,413 tiles, level 1 4,111, level 2 2,225, level 3 508; exactly 8 ramps (main path,
+  park gate, shrine stairs, service road lower and upper, headland stairs, lantern-cove steps,
+  riverlands-delta trail); levels change only inside a ramp.
+- Water and volcano: the main river 260 tiles, the delta branch 39, the koi pond 52, the tarn 11, the
+  delta lagoon 20, the reed marsh 31 (the only water that meets the sea); exactly 2 river mouths and 2
+  waterfalls (level 2 to 1 and 1 to 0). The volcano's cone, scree and crater (160, 246, 20 tiles) are
+  sealed, solid, for Cinder Reach later.
+- Infrastructure: exactly 3 bridges (upper, brachio, delta) and 2 dock structures (the south harbour quay
+  and ferry pier; the west Ironwood service jetty); the north-west Ashpine bridgehead; the helipad.
+  9,194 walkable tiles, one connected piece.
+- Districts (8): harbour-arrival, village-services, ops-security, meadow-commons, riverlands-delta,
+  koi-garden-headland, research-security, highland-volcano-cave.
+- Exits (3, future): the south harbour; the west restricted jetty to Ironwood; the north-west bridgehead
+  to Ashpine. No east pier and no south-east slip. The satellite islands aren't built, and no ferry or
+  map-switch logic exists.
+- Planning reserves (metadata only; no tile comes from them): footprints for the visitor centre 9 x 5,
+  ferry terminal 6 x 4, ranger HQ and depot 7 x 4, bunker 7 x 4 inside the bunker compound, research
+  station 8 x 4, raptor house 5 x 2, workshop 6 x 4, post office 5 x 4, cafe 5 x 3, keeper cottage 4 x 2,
+  koi pavilion 4 x 3, lighthouse base 2 x 2 and tower base 3 x 3; the cottage-row reserve; the koi-garden
+  compound; the rift-arena clear space (191 tiles); markers for the cave approach, the volcano trailhead,
+  the park gate and the research gate.
+- The shrine is a planning marker only: marker `[14,19]`, approach `[14,20]`. The study's old 3 x 3 base
+  conflicts with B1b's stricter cliff geometry, and the nearby clean alternative would cover the approved
+  route endpoint. B3 decides the shrine's final structure and footprint.
+- Habitats (11, planning metadata only; no runtime fences, roam areas, creature spawns or containment):
+  the temporary T. rex holding paddock and the raptor yard (both to be contained, in research), the
+  riverlands range, brachio meadow, spino reach, delta wetland, galli meadow, pachy heath, dilo strip, the
+  koi garden (walled) and the village gardens. Herbivore areas stay relatively open and natural; predator
+  and research areas are contained later. The T. rex's holding paddock on the main island is temporary;
+  its long-term principal habitat is Ironwood.
+- Scale (planning and sanity metrics, not gameplay guarantees): the all-logs tour between the 7 planning
+  log sites is 333 tiles, about 92 s walking and 57 s running; the longest route from the arrival is 134
+  tiles, about 37 s walking.
+- Projected solids: 9,194 walkable now; with every B1e reserve made solid, 8,725 walkable and 8,638
+  reachable. The difference from the study's historical 8,693 is understood (the approved smaller visitor
+  centre, depot and lighthouse footprints, later landmark station solids, the shrine footprint left
+  unresolved, the stricter cliffs). 8,693 is not an implementation target; don't force it.
+- B2 (next; runtime format, painter and local preview): runtime support for the new format with format 1
+  intact; a generalized painter (the coast, four levels, several water bodies, the river and its two
+  derived falls, cliffs dropping into the sea, ramps) whose pictures line up with the collision; corridors
+  drawn from the authored lines, checking that the thin diagonal trails draw as continuous strokes where
+  their tiles meet only at corners; the `footBlock` and shoreline decision; a dev-only staged loader;
+  Chromium and WebKit screenshots; performance, memory and ground-paint cost at 150 x 120; the big map at
+  450 x 360 and at a 390 px viewport. B2 doesn't switch production to MAP-B and doesn't start B3
+  (buildings and content).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
