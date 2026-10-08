@@ -12,10 +12,15 @@
      - any file contains something shaped like a key: ghp_, github_pat_, -----BEGIN
      - the CSP in the <meta> tags doesn't match the one in _headers (the header may add
        frame-ancestors and upgrade-insecure-requests, which a meta tag can't or shouldn't carry)
+     - the staged MAP-B island would ship (until its approved switch-over): js/maps/home.js, run in a sandbox,
+       must register the format-1, 100 x 80 island and nothing staged; no shipped script's code (comments aside)
+       may name ISLAND_MAPS_STAGED, switch on the preview flag or carry a staged map ("staged": true)
+     node tools/deploy.mjs --guard-self-test   proves that guard stops a synthetic staged map, and passes the real one
    The deploy itself needs `npx wrangler login` once (see docs/hosting.md). No token is stored. */
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
 import { dirname, extname, join, relative, resolve } from "node:path";
 import { execSync } from "node:child_process";
+import vm from "node:vm";
 import { fileURLToPath } from "node:url";
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
@@ -38,6 +43,38 @@ const KEYISH = [/ghp_[A-Za-z0-9]{20,}/, /github_pat_[A-Za-z0-9_]{20,}/, /-----BE
 const TEXT = new Set([".html", ".css", ".js", ".json", ".txt", ".xml", ".webmanifest", ".svg", ""]);
 
 const fail = [];
+/* the staged MAP-B island stays local until the approved switch-over (B4 lifts the format-1 rule): home is the
+   text of js/maps/home.js, scripts [path, text] every shipped script. Judged by what runs, not by words in comments */
+function stagedMapProblems(home, scripts) {
+  const out = [], ctx = { window: {} };
+  try { vm.runInNewContext(home, ctx, { timeout: 2000 }); } catch (e) { return [`js/maps/home.js doesn't run: ${e.message}`]; }
+  const H = ctx.window.ISLAND_MAPS && ctx.window.ISLAND_MAPS.home;
+  if (!H || H.format !== 1 || H.w !== 100 || H.h !== 80 || H.staged !== undefined) out.push(`js/maps/home.js isn't the format-1, 100 x 80 production island (format ${H && H.format}, ${H && H.w} x ${H && H.h}${H && H.staged !== undefined ? ", staged " + H.staged : ""})`);
+  if (ctx.window.ISLAND_MAPS_STAGED !== undefined) out.push("js/maps/home.js registers ISLAND_MAPS_STAGED");
+  if (ctx.window.ISLAND_MAP_PREVIEW !== undefined) out.push("js/maps/home.js switches on the MAP-B preview flag");
+  for (const [f, text] of scripts) {
+    const code = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/[^\n]*/g, "$1");
+    if (/\bISLAND_MAPS_STAGED\b/.test(code)) out.push(`${f} names ISLAND_MAPS_STAGED, the staged map's registry`);
+    if (/\bISLAND_MAP_PREVIEW\s*=(?!=)/.test(code)) out.push(`${f} switches on the MAP-B preview flag`);
+    if (/["']staged["']\s*:\s*true/.test(code)) out.push(`${f} carries a staged map ("staged": true)`);
+  }
+  return out;
+}
+if (process.argv.includes("--guard-self-test")) {
+  const realHome = readFileSync(join(ROOT, "js/maps/home.js"), "utf8"), staged = readFileSync(join(ROOT, "tools/maps/staged/home.js"), "utf8");
+  const wrapped = staged + "\nwindow.ISLAND_MAPS = window.ISLAND_MAPS || {}; window.ISLAND_MAPS.home = window.ISLAND_MAPS_STAGED.home;\nwindow.ISLAND_MAP_PREVIEW = \"mapb-staged\";\n";
+  const cases = [
+    ["the real js/maps/home.js and js/world.js pass", realHome, [["js/world.js", readFileSync(join(ROOT, "js/world.js"), "utf8")]], false],
+    ["the staged file shipped as js/maps/home.js is stopped", staged, [], true],
+    ["the preview wrapper shipped as js/maps/home.js is stopped", wrapped, [], true],
+    ["a format-2 map registered as the home island is stopped", realHome.replace('"format": 1', '"format": 2'), [], true],
+    ["a script switching on the preview flag is stopped", realHome, [["js/extra.js", "window.ISLAND_MAP_PREVIEW = 'mapb-staged';"]], true],
+    ["the words in a comment don't stop it", realHome, [["js/extra.js", "/* ISLAND_MAPS_STAGED, \"staged\": true */\n// ISLAND_MAP_PREVIEW = x\nvar a = 1;"]], false]
+  ];
+  let bad = 0;
+  for (const [name, home, scripts, stop] of cases) { const p = stagedMapProblems(home, scripts); const ok = stop ? p.length > 0 : p.length === 0; if (!ok) bad++; console.log(`${ok ? "ok  " : "FAIL"} ${name}${p.length ? ": " + p.join("; ") : ""}`); }
+  process.exit(bad ? 1 : 0);
+}
 if (CHECK) { await live(); process.exit(0); }
 function walk(dir) {
   return readdirSync(dir).flatMap((n) => { const p = join(dir, n); return statSync(p).isDirectory() ? walk(p) : [p]; });
@@ -62,6 +99,9 @@ for (const f of files) {
     for (const re of KEYISH) if (re.test(body)) fail.push(`key-shaped string in ${f} (${re})`);
   }
 }
+
+// 2b. the staged MAP-B island can't ship
+for (const p of stagedMapProblems(readFileSync(join(OUT, "js/maps/home.js"), "utf8"), files.filter((f) => extname(f) === ".js").map((f) => [f, readFileSync(join(OUT, f), "utf8")]))) fail.push(`MAP-B must not ship yet: ${p}`);
 
 // 3. every referenced file exists
 const have = new Set(files);

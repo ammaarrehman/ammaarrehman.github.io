@@ -6,7 +6,9 @@
      node tools/serve.mjs            http://localhost:8000
      PORT=8123 node tools/serve.mjs
 
-   Also imported by audit.mjs, which starts it on a spare port. */
+   Also imported by audit.mjs, which starts it on a spare port, and by tools/mapb-preview.mjs, which passes
+   overrides: { "/js/maps/home.js": () => ({ type, body }) }, exact paths answered from memory by the tool's own
+   function (never from a path a request names). Without overrides it serves exactly as before. */
 import { createServer } from "node:http";
 import { readFileSync, statSync } from "node:fs";
 import { dirname, extname, join, normalize, resolve } from "node:path";
@@ -33,10 +35,12 @@ function file(p) {
   try { const s = statSync(p); return s.isDirectory() ? file(join(p, "index.html")) : p; } catch { return null; }
 }
 
-export function serve(port = 8000) {
+export function serve(port = 8000, { overrides = null } = {}) {
   const H = headers();
   const server = createServer((req, res) => {
     const path = decodeURIComponent(new URL(req.url, "http://x").pathname);
+    const ov = overrides && Object.prototype.hasOwnProperty.call(overrides, path) ? overrides[path] : null;
+    if (ov) { const o = ov(); res.writeHead(200, { ...H, "Content-Type": o.type, "Cache-Control": "no-store" }); res.end(req.method === "HEAD" ? undefined : o.body); return; }
     const safe = normalize(join(ROOT, path));
     // nothing outside the repo, and none of the files the deploy never ships
     const blocked = !safe.startsWith(ROOT) || /(^|\/)(\.git|tools|docs|node_modules)(\/|$)|\.md$|wrangler\.|_headers$/.test(path);

@@ -70,7 +70,7 @@
   /* the creature kinds a spawn may name: the keys of DINOS, which is built further down (the ?debug=1
      decodeMap summary says whether the two still agree) */
   var CREATURE_KINDS = ["brachio", "trex", "stego", "trike", "para", "raptor", "ankylo", "baby", "spino", "dilo", "pachy", "galli", "compy", "baby2", "robot", "roomba", "cat"];
-  /* decodeMap: one map's data (format 1) checked and decoded, or an Error naming the field and the
+  /* decodeMap1: one map's data (format 1) checked and decoded, or an Error naming the field and the
      problem. it never changes what it's given: the layers become typed arrays, footBlock a bitset (one bit
      per pixel), and everything else a copy (props keep their fields in their order).
      the shape types (harmonic-blob, sine-edge, wobble-ellipse, disc, the curves, the volcano) are legacy
@@ -85,7 +85,7 @@
      island heli and helipad follow the helicopter, so its map has no spots for them). units: tiles, all of them, apart from the older
      anchors.spawn, in world px. decoded, checked and copied; the home island builds its creatures, bots,
      car, rex, goto spots, zones, arena, core approach and first-visit spot from them */
-  function decodeMap(M) {
+  function decodeMap1(M) {
     function bad(msg) { throw new Error(msg); }
     function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
     function num(v, f) { if (typeof v !== "number" || !isFinite(v)) bad(f + " must be a finite number"); return v; }
@@ -341,12 +341,204 @@
     }
     return D;
   }
+  /* MAP-B's staged island (B2b): format 2, read only by the local terrain preview. tools/mapb-preview.mjs
+     serves an in-memory wrapper in place of js/maps/home.js that registers the staged map (tools/maps/staged/
+     home.js, never deployed) as ISLAND_MAPS.home and sets window.ISLAND_MAP_PREVIEW = "mapb-staged". A staged
+     map runs only with that flag, on a loopback host; anything else is refused. decodeMap sends only a staged
+     format-2 map to decodeMap2: every other map, a non-staged format 2 among them, goes to decodeMap1 exactly
+     as before (production reads format 1; a normal format-2 home, with the content its systems need, is B4's) */
+  var LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
+  function previewAsked() { return window.ISLAND_MAP_PREVIEW === "mapb-staged"; }
+  function decodeMap(M) {
+    if (M && typeof M === "object" && !Array.isArray(M) && M.format === 2 && M.staged === true) return decodeMap2(M);
+    return decodeMap1(M);
+  }
+  /* decodeMap2: a staged format-2 map checked and decoded, or an Error naming the field and the problem. It never
+     changes what it's given. The checks are generic (sizes, codes, boxes inside the map, footBlock on walkable tiles
+     and equal to edgeMask there, docks on dock, the pad on pad, falls on river, bridges on their bridge tiles); none
+     of them asks for home's content (buildings, landmarks, creatures, routes), which B3 adds as its own sections.
+     Anchors are tiles in format 2 (anchors.spawnTile, anchors.helipadTile); the runtime's world-px spawn is made from
+     spawnTile here, in footOfTile(), and nowhere else. The result has format 1's runtime shape (ground, height, coll,
+     foot, anchors.spawn in px, anchors.helipad as a tile) and empty content, plus edge (the visual boundary bitset),
+     tileAnchors (as authored) and the format-2 shapes */
+  function footOfTile(t) { return [t[0] * T + 8, t[1] * T + 10]; }        // where pi's feet stand in a tile: the path follower's aim spot
+  function decodeMap2(M) {
+    function bad(msg) { throw new Error(msg); }
+    function isObj(o) { return !!o && typeof o === "object" && !Array.isArray(o); }
+    function num(v, f) { if (typeof v !== "number" || !isFinite(v)) bad(f + " must be a finite number"); return v; }
+    function int(v, f, lo, hi) { if (typeof v !== "number" || v % 1 !== 0 || v < lo || v > hi) bad(f + " must be a whole number from " + lo + " to " + hi); return v; }
+    function arr(v, f, n) { if (!Array.isArray(v) || (n !== undefined && v.length !== n)) bad(f + " must be a list" + (n !== undefined ? " of " + n : "")); return v; }
+    function nums(v, f, n) { arr(v, f, n).forEach(function (q, i) { num(q, f + "[" + i + "]"); }); return v; }
+    function only(o, f, keys) { Object.keys(o).forEach(function (q) { if (keys.indexOf(q) < 0) bad(f + " has an unknown field " + q); }); }
+    function copy(o) { return JSON.parse(JSON.stringify(o)); }
+    var ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
+    if (!(previewAsked() && LOOPBACK)) bad("this is a staged map: it runs only in the local MAP-B preview (tools/mapb-preview.mjs, on a loopback host)");
+    only(M, "the map", ["format", "staged", "runtimeSupported", "stage", "id", "generator", "source", "sourceSha256", "tile", "w", "h", "ground", "height", "coll", "anchors", "footBlock", "edgeMask", "shapes"]);
+    if (M.runtimeSupported !== undefined && typeof M.runtimeSupported !== "boolean") bad("runtimeSupported must be true or false");
+    if (typeof M.id !== "string" || !ID.test(M.id)) bad("id must be a short lowercase name (a to z, 0 to 9, -)");
+    if (M.tile !== T) bad("tile must be " + T + " (px per tile in this engine)");
+    var w = int(M.w, "w", 1, 256), h = int(M.h, "h", 1, 256), PWm = w * T, PHm = h * T;
+    var D = { format: 2, staged: true, id: M.id, source: null, stage: typeof M.stage === "string" ? M.stage : null, w: w, h: h };
+    function layer(f, list, max) {
+      var out = new Uint8Array(w * h);
+      if (!Array.isArray(list) || list.length !== h) bad(f + " must have " + h + " rows");
+      for (var y = 0; y < h; y++) {
+        var row = list[y]; if (typeof row !== "string" || row.length !== w) bad(f + " row " + y + " must be " + w + " long" + (typeof row === "string" ? ", not " + row.length : ""));
+        for (var x = 0; x < w; x++) { var v = parseInt(row.charAt(x), 36); if (!(v <= max)) bad(f + " row " + y + " has " + JSON.stringify(row.charAt(x)) + " at " + x + " (0 to " + max.toString(36) + ")"); out[y * w + x] = v; }
+      }
+      return out;
+    }
+    D.ground = layer("ground", M.ground, BRIDGE);
+    D.height = layer("height", M.height, 3);                                // format 2's four levels, 0 to 3
+    if (!isObj(M.coll)) bad("coll must be { values, rows }");
+    only(M.coll, "coll", ["values", "rows"]);
+    var vals = arr(M.coll.values, "coll.values");
+    if (!vals.length || vals.length > 36) bad("coll.values must hold 1 to 36 values");
+    vals.forEach(function (v, i) { int(v, "coll.values[" + i + "]", 0, C_ALL); if (vals.indexOf(v) !== i) bad("coll.values has " + v + " twice"); });
+    var ix = layer("coll", M.coll.rows, vals.length - 1);
+    D.coll = new Uint16Array(w * h);
+    for (var i = 0; i < ix.length; i++) D.coll[i] = vals[ix[i]];
+    function walk(x, y) { return x >= 0 && y >= 0 && x < w && y < h && !(D.coll[y * w + x] & C_BLOCK); }
+    function g(x, y) { return x >= 0 && y >= 0 && x < w && y < h ? D.ground[y * w + x] : -1; }
+    function wetLook(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
+    // footBlock and edgeMask: runs per pixel row, [py, x0, n, ...], rows going up, runs in order with a gap
+    function runs(f, list, set, onTile) {
+      var lastY = -1, n = 0;
+      arr(list, f).forEach(function (r, k) {
+        if (!Array.isArray(r) || r.length < 3 || r.length % 2 !== 1) bad(f + " entry " + k + " must be [py, x0, n, ...]");
+        var py = int(r[0], f + " entry " + k + " row", 0, PHm - 1);
+        if (py <= lastY) bad(f + " rows must go up: row " + py + " comes after " + lastY);
+        lastY = py;
+        for (var j = 1, end = -1; j < r.length; j += 2) {
+          var x0 = int(r[j], f + " row " + py + " run start", 0, PWm - 1), len = int(r[j + 1], f + " row " + py + " run length", 1, PWm);
+          if (x0 <= end) bad(f + " row " + py + ": the run at " + x0 + " overlaps or touches the one before (runs must be in order, with a gap)");
+          if (x0 + len > PWm) bad(f + " row " + py + ": the run at " + x0 + " runs off the map");
+          for (var px = x0; px < x0 + len; px++) { if (onTile) onTile(px, py); var b = py * PWm + px; set[b >>> 5] |= 1 << (b & 31); n++; }
+          end = x0 + len;
+        }
+      });
+      return n;
+    }
+    function bit(set, px, py) { var b = py * PWm + px; return (set[b >>> 5] >>> (b & 31) & 1) === 1; }
+    D.foot = new Uint32Array((PWm * PHm + 31) >>> 5);
+    D.footPixels = runs("footBlock", M.footBlock, D.foot, function (px, py) {
+      if (!walk((px / T) | 0, (py / T) | 0)) bad("footBlock pixel " + px + "," + py + " is on tile " + ((px / T) | 0) + "," + ((py / T) | 0) + ", which coll already blocks");
+    });
+    D.edge = new Uint32Array((PWm * PHm + 31) >>> 5);
+    D.edgePixels = runs("edgeMask", M.edgeMask, D.edge, null);
+    // one boundary: footBlock is exactly the edgeMask pixels on walkable tiles (each of them water on a dry tile)
+    var onWalk = 0;
+    arr(M.edgeMask, "edgeMask").forEach(function (r) {
+      for (var j = 1; j < r.length; j += 2) for (var px = r[j]; px < r[j] + r[j + 1]; px++) {
+        var tx = (px / T) | 0, ty = (r[0] / T) | 0;
+        if (!walk(tx, ty)) continue;
+        onWalk++;
+        if (wetLook(g(tx, ty))) bad("edgeMask pixel " + px + "," + r[0] + " would show dry ground on walkable water tile " + tx + "," + ty);
+        if (!bit(D.foot, px, r[0])) bad("edgeMask pixel " + px + "," + r[0] + " looks like water on walkable tile " + tx + "," + ty + " but footBlock doesn't stop feet there");
+      }
+    });
+    if (onWalk !== D.footPixels) bad("footBlock has " + D.footPixels + " pixels but edgeMask has " + onWalk + " on walkable tiles: footBlock must be exactly those");
+    // anchors: tiles. spawnTile (required: the safe ground floods from it) and helipadTile (optional)
+    var A = M.anchors; if (!isObj(A)) bad("anchors is missing");
+    only(A, "anchors", ["spawnTile", "helipadTile"]);
+    function tileAt(p, f) { nums(p, f, 2); int(p[0], f + " x", 0, w - 1); int(p[1], f + " y", 0, h - 1); return p; }
+    tileAt(A.spawnTile, "anchors.spawnTile");
+    if (!walk(A.spawnTile[0], A.spawnTile[1])) bad("anchors.spawnTile " + A.spawnTile + " is on a tile that can't be walked");
+    var sp = footOfTile(A.spawnTile);
+    for (var fy = sp[1] - 2; fy <= sp[1] + 1; fy++) for (var fx = sp[0] - 4; fx <= sp[0] + 4; fx++)
+      if (!walk((fx / T) | 0, (fy / T) | 0) || bit(D.foot, fx, fy)) bad("anchors.spawnTile " + A.spawnTile + ": pi's feet at " + sp + " (px) would touch the blocked pixel " + fx + "," + fy);
+    if (A.helipadTile !== undefined) { tileAt(A.helipadTile, "anchors.helipadTile"); if (g(A.helipadTile[0], A.helipadTile[1]) !== PAD) bad("anchors.helipadTile " + A.helipadTile + " isn't on a pad tile in ground"); }
+    D.tileAnchors = copy(A);
+    D.anchors = { spawn: sp };                                            // the runtime's world px, from spawnTile
+    if (A.helipadTile) D.anchors.helipad = A.helipadTile.slice();        // a tile, as the runtime's helipad anchor is
+    // the shapes: format 2's own (the painter reads them; collision never does)
+    var S = M.shapes; if (!isObj(S)) bad("shapes is missing");
+    only(S, "shapes", ["coast", "levels", "beach", "ramps", "water", "rivers", "volcano", "falls", "corridors", "docks", "helipad", "bridges"]);
+    function pt(p, f, n) { nums(p, f, n); if (p[0] < -10 || p[0] > w + 10 || p[1] < -10 || p[1] > h + 10) bad(f + " is far off the map"); return p; }
+    function box(b, f) {
+      if (!isObj(b)) bad(f + " must be an inclusive box { x0, y0, x1, y1 }");
+      only(b, f, ["x0", "y0", "x1", "y1"]);
+      int(b.x0, f + ".x0", 0, w - 1); int(b.y0, f + ".y0", 0, h - 1); int(b.x1, f + ".x1", b.x0, w - 1); int(b.y1, f + ".y1", b.y0, h - 1);
+      return b;
+    }
+    function closed(o, f, keys) {
+      if (o.type === "hermite-loop") { only(o, f, keys.concat(["type", "samplesPerSegment", "pts"])); int(o.samplesPerSegment, f + ".samplesPerSegment", 1, 64); if (arr(o.pts, f + ".pts").length < 3) bad(f + ".pts needs at least 3 points"); o.pts.forEach(function (p, k) { pt(p, f + ".pts[" + k + "]", 3); }); }
+      else if (o.type === "ellipse") { only(o, f, keys.concat(["type", "cx", "cy", "rx", "ry", "sides"])); pt([o.cx, o.cy], f + " centre", 2); if (num(o.rx, f + ".rx") <= 0 || num(o.ry, f + ".ry") <= 0) bad(f + " radii must be above 0"); int(o.sides, f + ".sides", 3, 256); }
+      else bad(f + ".type " + JSON.stringify(o.type) + " isn't a known type (hermite-loop, ellipse)");
+    }
+    function ids(list, f) { var seen = {}; list.forEach(function (o, k) { if (!isObj(o) || typeof o.id !== "string" || !ID.test(o.id)) bad(f + "[" + k + "] needs an id (a short lowercase name)"); if (seen[o.id]) bad(f + ": " + o.id + " appears twice"); seen[o.id] = 1; }); return seen; }
+    if (S.coast !== undefined) { if (!isObj(S.coast)) bad("shapes.coast must be an object"); if (S.coast.type !== "hermite-loop") bad("shapes.coast.type must be hermite-loop"); closed(S.coast, "shapes.coast", []); }
+    if (S.levels !== undefined) { ids(arr(S.levels, "shapes.levels"), "shapes.levels"); S.levels.forEach(function (o, k) { var f = "shapes.levels " + o.id; int(o.level, f + ".level", 0, 3); if (o.solid !== undefined && o.solid !== true) bad(f + ".solid must be true if given"); closed(o, f, ["id", "level", "solid"]); }); }
+    if (S.beach !== undefined) { if (!isObj(S.beach)) bad("shapes.beach must be an object"); only(S.beach, "shapes.beach", ["level0Within", "level1Within"]); int(S.beach.level0Within, "shapes.beach.level0Within", 0, 16); int(S.beach.level1Within, "shapes.beach.level1Within", 0, 16); }
+    if (S.ramps !== undefined) { ids(arr(S.ramps, "shapes.ramps"), "shapes.ramps"); S.ramps.forEach(function (o) { var f = "shapes.ramps " + o.id; only(o, f, ["id", "levels", "x0", "y0", "x1", "y1"]); nums(o.levels, f + ".levels", 2); int(o.levels[0], f + ".levels[0]", 0, 2); if (o.levels[1] !== o.levels[0] + 1) bad(f + " must join two neighbouring levels"); box({ x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1 }, f); }); }
+    var waterIds = {};
+    if (S.water !== undefined) { waterIds = ids(arr(S.water, "shapes.water"), "shapes.water"); S.water.forEach(function (o) { var f = "shapes.water " + o.id; if (["pond", "tarn", "lagoon", "marsh"].indexOf(o.kind) < 0) bad(f + ".kind " + JSON.stringify(o.kind) + " isn't a known kind (pond, tarn, lagoon, marsh)"); if (o.meetsSea !== undefined && o.meetsSea !== true) bad(f + ".meetsSea must be true if given"); closed(o, f, ["id", "kind", "meetsSea"]); }); }
+    var riverIds = {};
+    if (S.rivers !== undefined) { riverIds = ids(arr(S.rivers, "shapes.rivers"), "shapes.rivers"); S.rivers.forEach(function (o) { var f = "shapes.rivers " + o.id; only(o, f, ["id", "type", "samplesPerSegment", "halfWidth", "pts"]); if (o.type !== "hermite-open") bad(f + ".type must be hermite-open"); int(o.samplesPerSegment, f + ".samplesPerSegment", 1, 64);
+      if (typeof o.halfWidth === "number") { if (num(o.halfWidth, f + ".halfWidth") <= 0) bad(f + ".halfWidth must be above 0"); } else { if (!isObj(o.halfWidth)) bad(f + ".halfWidth must be a number or { base, gain, power }"); only(o.halfWidth, f + ".halfWidth", ["base", "gain", "power"]); num(o.halfWidth.base, f + ".halfWidth.base"); num(o.halfWidth.gain, f + ".halfWidth.gain"); num(o.halfWidth.power, f + ".halfWidth.power"); }
+      if (arr(o.pts, f + ".pts").length < 2) bad(f + ".pts needs at least 2 points"); o.pts.forEach(function (p, k) { pt(p, f + ".pts[" + k + "]", 2); }); }); }
+    if (S.volcano !== undefined) { var V2 = S.volcano; if (!isObj(V2)) bad("shapes.volcano must be an object"); only(V2, "shapes.volcano", ["mass", "cone", "crater"]); if (typeof V2.mass !== "string") bad("shapes.volcano.mass must name a level region");
+      ["cone", "crater"].forEach(function (k) { var e = V2[k], f = "shapes.volcano." + k; if (!isObj(e)) bad(f + " must be an ellipse"); only(e, f, ["cx", "cy", "rx", "ry", "sides"]); pt([e.cx, e.cy], f + " centre", 2); if (num(e.rx, f + ".rx") <= 0 || num(e.ry, f + ".ry") <= 0) bad(f + " radii must be above 0"); int(e.sides, f + ".sides", 3, 256); }); }
+    if (S.falls !== undefined) arr(S.falls, "shapes.falls").forEach(function (o, k) { var f = "shapes.falls[" + k + "]"; if (!isObj(o)) bad(f + " must be { upper, lower, tiles }"); only(o, f, ["upper", "lower", "tiles"]); int(o.upper, f + ".upper", 1, 3); int(o.lower, f + ".lower", 0, o.upper - 1);
+      if (!arr(o.tiles, f + ".tiles").length) bad(f + ".tiles is empty"); o.tiles.forEach(function (p, j) { tileAt(p, f + ".tiles[" + j + "]"); if (g(p[0], p[1]) !== RIVER) bad(f + ".tiles[" + j + "] " + p + " isn't a river tile"); }); });
+    var pathIds = {}, CLASSES = ["main", "secondary", "service", "trail"];
+    if (S.corridors !== undefined) { var Co = S.corridors; if (!isObj(Co)) bad("shapes.corridors must be an object"); only(Co, "shapes.corridors", ["halfWidths", "plazas", "paths"]);
+      if (!isObj(Co.halfWidths)) bad("shapes.corridors.halfWidths must be an object"); only(Co.halfWidths, "shapes.corridors.halfWidths", CLASSES); Object.keys(Co.halfWidths).forEach(function (k) { if (num(Co.halfWidths[k], "shapes.corridors.halfWidths." + k) <= 0) bad("shapes.corridors.halfWidths." + k + " must be above 0"); });
+      ids(arr(Co.plazas, "shapes.corridors.plazas"), "shapes.corridors.plazas"); Co.plazas.forEach(function (o) { var f = "shapes.corridors.plazas " + o.id; if (o.type === "box") { only(o, f, ["id", "type", "x0", "y0", "x1", "y1"]); box({ x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1 }, f); } else if (o.type === "ellipse") closed(o, f, ["id"]); else bad(f + ".type must be box or ellipse"); });
+      pathIds = ids(arr(Co.paths, "shapes.corridors.paths"), "shapes.corridors.paths"); Co.paths.forEach(function (o) { var f = "shapes.corridors.paths " + o.id; only(o, f, ["id", "class", "line"]); if (CLASSES.indexOf(o.class) < 0 || Co.halfWidths[o.class] === undefined) bad(f + ".class " + JSON.stringify(o.class) + " has no half-width"); if (arr(o.line, f + ".line").length < 2) bad(f + ".line needs at least 2 points"); o.line.forEach(function (p, k) { pt(p, f + ".line[" + k + "]", 2); }); }); }
+    function allOn(b, code, f) { for (var y = b.y0; y <= b.y1; y++) for (var x = b.x0; x <= b.x1; x++) if (g(x, y) !== code) bad(f + ": tile " + x + "," + y + " isn't " + (code === DOCK ? "dock" : "pad") + " in ground"); }
+    if (S.docks !== undefined) { ids(arr(S.docks, "shapes.docks"), "shapes.docks"); S.docks.forEach(function (o) { var f = "shapes.docks " + o.id; only(o, f, ["id", "x0", "y0", "x1", "y1"]); allOn(box({ x0: o.x0, y0: o.y0, x1: o.x1, y1: o.y1 }, f), DOCK, f); }); }
+    if (S.helipad !== undefined) { allOn(box(S.helipad, "shapes.helipad"), PAD, "shapes.helipad"); if (A.helipadTile && (A.helipadTile[0] < S.helipad.x0 || A.helipadTile[0] > S.helipad.x1 || A.helipadTile[1] < S.helipad.y0 || A.helipadTile[1] > S.helipad.y1)) bad("anchors.helipadTile " + A.helipadTile + " is off shapes.helipad"); }
+    if (S.bridges !== undefined) {
+      var listed = 0, onMap = 0;
+      ids(arr(S.bridges, "shapes.bridges"), "shapes.bridges");
+      S.bridges.forEach(function (o) {
+        var f = "shapes.bridges " + o.id;
+        only(o, f, ["id", "crossingBox", "bridgeBox", "tiles", "path", "class", "deckHalfWidth", "river", "deckAxis", "deckDir"]);
+        var cb = box(o.crossingBox, f + ".crossingBox"), bb = box(o.bridgeBox, f + ".bridgeBox");
+        if (bb.x0 < cb.x0 || bb.x1 > cb.x1 || bb.y0 < cb.y0 || bb.y1 > cb.y1) bad(f + ".bridgeBox isn't inside its crossingBox");
+        var n = 0; for (var y = bb.y0; y <= bb.y1; y++) for (var x = bb.x0; x <= bb.x1; x++) if (g(x, y) === BRIDGE) n++;
+        if (int(o.tiles, f + ".tiles", 1, w * h) !== n) bad(f + ".tiles is " + o.tiles + " but its bridgeBox holds " + n + " bridge tiles");
+        listed += n;
+        if (!pathIds[o.path]) bad(f + ".path " + JSON.stringify(o.path) + " isn't in shapes.corridors.paths");
+        if (S.corridors.paths.filter(function (p) { return p.id === o.path; })[0].class !== o.class) bad(f + ".class isn't its path's");
+        if (num(o.deckHalfWidth, f + ".deckHalfWidth") !== S.corridors.halfWidths[o.class]) bad(f + ".deckHalfWidth isn't its class's half-width");
+        if (!riverIds[o.river]) bad(f + ".river " + JSON.stringify(o.river) + " isn't in shapes.rivers");
+        nums(o.deckDir, f + ".deckDir", 2);
+        if (Math.abs(Math.hypot(o.deckDir[0], o.deckDir[1]) - 1) > 0.001) bad(f + ".deckDir must be a unit vector");
+        if (o.deckAxis !== (Math.abs(o.deckDir[0]) >= Math.abs(o.deckDir[1]) ? "ew" : "ns")) bad(f + ".deckAxis must be the larger of deckDir's directions");
+      });
+      for (var bi = 0; bi < w * h; bi++) if (D.ground[bi] === BRIDGE) onMap++;
+      if (onMap !== listed) bad("shapes.bridges hold " + listed + " bridge tiles but ground has " + onMap);
+    }
+    D.shapes = copy(S);
+    // the content sections format 1 carries: none yet (B3 adds them to format 2 as its own sections)
+    D.decals = {}; D.buildings = []; D.stations = {}; D.regions = { paddocks: [], compound: null, roamAreas: [], zones: {} }; D.spawns = []; D.routes = {}; D.places = {}; D.props = [];
+    return D;
+  }
   var MAP;
   try { MAP = decodeMap(window.ISLAND_MAPS && window.ISLAND_MAPS.home); }
   catch (e) { var err = new Error("pi's island: js/maps/home.js: " + e.message); if (window.console) console.error(err.message); throw err; }
+  /* MAP_PREVIEW_TERRAIN_ONLY (TERRAIN_ONLY below): the local MAP-B terrain preview, and nothing else. It holds
+     only for a staged format-2 map, with the preview flag, on a loopback host (decodeMap2 refuses a staged map
+     anywhere else). It is the only state in which the systems whose content B3 hasn't authored yet (the
+     landmarks and buildings, creatures, bots, car, rex, the rift, the koi, the zones' systems, the volcano
+     sprite, the falls) are left out, and the helicopter is left parked, unseen and unused. Format 1, and any
+     future normal format-2 home, keep every completeness check below. The preview neither reads nor writes
+     the save (see the save) */
+  var TERRAIN_ONLY = MAP.format === 2 && MAP.staged === true && previewAsked() && LOOPBACK;
+  var LEGACY = MAP.format === 1;        // format 1: its legacy shapes (coast(), the terraces, the pond, the curves, the volcano) and its painter
+  // a small badge says so, only in the preview, so nobody takes it for the live island (CSSOM, no style attribute)
+  if (TERRAIN_ONLY) (function () {
+    var b = document.createElement("div"); b.className = "w-mapb-badge"; b.textContent = "MAP-B staged preview";
+    var st = b.style; st.position = "absolute"; st.top = "8px"; st.left = "50%"; st.transform = "translateX(-50%)"; st.zIndex = "9"; st.pointerEvents = "none";
+    st.padding = "3px 8px"; st.font = "700 11px 'Cascadia Mono', monospace"; st.color = "#111"; st.background = "#ffd166"; st.border = "2px solid #111";
+    root.appendChild(b);
+  })();
   // the placements are optional in a map, but this island's creatures, welder, actors, goto spots, zones,
   // arena, core approach and first-visit spot are built from them, so home must carry them all
   (function () {
+    if (TERRAIN_ONLY) return;
     var miss = [];
     if (!Object.keys(MAP.places).length) miss.push("places");
     ["arena", "coreApproach", "firstVisit"].forEach(function (k) { if (!MAP.anchors[k]) miss.push("anchors." + k); });
@@ -358,7 +550,7 @@
     if (miss.length) { var e2 = new Error("pi's island: js/maps/home.js has no " + miss.join(", ")); if (window.console) console.error(e2.message); throw e2; }
   })();
   var SH = MAP.shapes;
-  var MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock[0];
+  var MW = MAP.w, MH = MAP.h, CX = 48, CY = 40, DOCKX = MAP.anchors.dock ? MAP.anchors.dock[0] : null;
   var ZONES = MAP.regions.zones;      // named boxes in tiles; each system below reads its edges its own way
   function hash(a, b) { var h = (a * 374761393 + b * 668265263) | 0; h = (h ^ (h >> 13)) * 1274126177 | 0; return ((h ^ (h >> 16)) >>> 0) / 4294967295; }
   /* the island is built like a level, in three terraces. the highland across the north holds
@@ -412,7 +604,7 @@
               sand: ["#8f7c6a", "#b99a6c", "#d6bb86", "#ecd9a6", "#f6ecc8"], blossom: ["#e7a9bf", "#f6dde4"],
               leaf2: ["#2c4a3a", "#3f6a42", "#5c8c49", "#86ad55", "#b6cf6b"], dry: ["#4a5236", "#6b7440", "#8f944c", "#b6b060", "#d8cd80"] };   // from art/palette.json
   // the koi pond: a wobbly blob (tile units). < 1 is water
-  var KP = { x: SH.pond.x, y: SH.pond.y, rx: SH.pond.rx, ry: SH.pond.ry };
+  var KP = LEGACY ? { x: SH.pond.x, y: SH.pond.y, rx: SH.pond.rx, ry: SH.pond.ry } : null;
   function pondF(fx, fy) {
     var dx = (fx - KP.x) / KP.rx, dy = (fy - KP.y) / KP.ry, a = Math.atan2(dy, dx), r = 1;
     for (var i = 0; i < SH.pond.waves.length; i++) r = wave(r, SH.pond.waves[i], a);
@@ -439,16 +631,16 @@
      the old trail into the woods, east past the garden along the headland, the raptor pen, the t-rex
      viewpoint, the garden, the coast road to the outpost, the helipad, the dock, the stone tablet.
      their tiles are in GROUND already; the curves are what the painter draws them from */
-  var RIVERS = SH.curves.filter(function (c) { return c.kind === "river"; }), ROADS = SH.curves.filter(function (c) { return c.kind === "road"; });
-  var RIVER_PTS = RIVERS[0].pts;
+  var RIVERS = LEGACY ? SH.curves.filter(function (c) { return c.kind === "river"; }) : [], ROADS = LEGACY ? SH.curves.filter(function (c) { return c.kind === "road"; }) : [];
+  var RIVER_PTS = RIVERS.length ? RIVERS[0].pts : null;
   RIVERS.forEach(function (c) { carve(c.pts, function (q) { return c.w[0] + q * c.w[1]; }, "river"); });
   ROADS.forEach(function (c) { carve(c.pts, c.w, "road"); });
-  var PLAZA = { x: SH.plaza.x, y: SH.plaza.y, r: SH.plaza.r };       // the village square, by the harbour
-  var dockY = MAP.anchors.dock[1];                                     // the last tile of land before the dock
+  var PLAZA = LEGACY ? { x: SH.plaza.x, y: SH.plaza.y, r: SH.plaza.r } : null;       // the village square, by the harbour
+  var dockY = MAP.anchors.dock ? MAP.anchors.dock[1] : null;                                     // the last tile of land before the dock
   var HELI = { x: MAP.anchors.helipad[0], y: MAP.anchors.helipad[1] }; // the helipad, 3x3 tiles
   // buildings: the visitor centre and the supply depot on the square, the bunker in the outpost. where
   // each stands and the room behind its door are map data; the names and words are here
-  var BUILDINGS = [
+  var BUILDINGS = TERRAIN_ONLY ? [] : [
     { id: "visitor", name: "the visitor centre", text: "the visitor centre. the robots keep it stocked. there's a map on the wall with eight pins in it, and a sign by the door: 'lost and found: one hat, two sunglasses, a very small egg.'" },
     { id: "bunker", name: "the bunker", text: "the outpost bunker." },
     { id: "depot", name: "the supply depot", text: "the supply depot. crates come off the boat, the cargo bots haul them in here, and the drones fly them out to wherever something needs fixing." }
@@ -462,13 +654,14 @@
   var HEIGHT = MAP.height;
   // the volcano is a heightfield (world px): a cone with gullies, a crater bowl and a lava lake.
   // (x, y) is the centre of its footprint; squash flattens the footprint front to back
-  var VOLC = { x: SH.volcano.x, y: SH.volcano.y, R: SH.volcano.R, H: SH.volcano.H, sq: SH.volcano.sq, rc: SH.volcano.rc };
+  var VOLC = LEGACY ? { x: SH.volcano.x, y: SH.volcano.y, R: SH.volcano.R, H: SH.volcano.H, sq: SH.volcano.sq, rc: SH.volcano.rc } : null;   // format 2's volcano is drawn in B2d
   function volcD(wx, wy) { var u = wx - VOLC.x, v = (wy - VOLC.y) * VOLC.sq; return Math.sqrt(u * u + v * v); }
-  var RIMH = Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H;
+  var RIMH = VOLC ? Math.pow(1 - VOLC.rc / VOLC.R, 1.25) * VOLC.H : 0;
   function lvl(x, y) { return x < 0 || y < 0 || x >= MW || y >= MH ? 0 : HEIGHT[y * MW + x]; }
   // the waterfalls: wherever the river runs off a cliff
-  var FALLS = [];
+  var FALLS = [];                                                      // format 2's falls are drawn in B2d, from shapes.falls
   (function () {
+    if (!LEGACY) return;
     var seen = {};
     for (var yy = 1; yy < MH; yy++) for (var xx = 0; xx < MW; xx++) {
       if (GROUND[yy * MW + xx] !== RIVER || GROUND[(yy - 1) * MW + xx] !== RIVER || lvl(xx, yy - 1) <= lvl(xx, yy)) continue;
@@ -482,7 +675,7 @@
 
   /* ════════ the portfolio, as landmarks ════════ */
   var GH = "https://github.com/ammaarrehman/";
-  var STATIONS = [
+  var STATIONS = TERRAIN_ONLY ? [] : [
     { id: "sign", name: "signpost", text: "Mossgate Reserve. the robots run it; pi is the newest intern. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
     { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "Homelab v1, retired September 2026: high-availability DNS. Two Raspberry Pi 5 nodes ran AdGuard Home behind a keepalived VRRP floating IP, filtering DNS for my own devices. Failover and failback tested in both directions. Version two, one Pi built with Ansible, is in progress.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
     { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
@@ -553,6 +746,7 @@
     return m;
   }
   (function () {
+    if (TERRAIN_ONLY) { saveLocked = true; return; }                  // the MAP-B preview: a fresh save, never read, never written
     var o = null; try { o = JSON.parse(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { o = null; }
     var m = mergeSave(o);
     if (m) { save = m; if (o.v !== SAVE_V) writeSave(); return; }                       // version 1: rewritten as version 2 now
@@ -572,7 +766,7 @@
   // the park gate over the north road, the electric fences around the paddocks and the outpost's sandbag
   // walls: where they stand is map data, the fence and wall tiles (drawn as sprites) follow from it, and
   // what can't be walked through is already in COLL
-  var GATE = { x: MAP.anchors.gate[0], y: MAP.anchors.gate[1] };
+  var GATE = MAP.anchors.gate ? { x: MAP.anchors.gate[0], y: MAP.anchors.gate[1] } : null;   // the MAP-B preview has no gate (B3)
   var PADDOCKS = MAP.regions.paddocks.map(function (p) { return { name: p[0], x0: p[1], y0: p[2], x1: p[3], y1: p[4] }; });
   var COMPOUND = MAP.regions.compound;                                  // or null: no outpost
   var fence = {}, wall = {};
@@ -589,7 +783,7 @@
     for (var o = 0; o < 3; o++) { v += a2 * (Math.sin(x * f + o * 1.7) * Math.cos(y * f * 1.13 + o * 2.3) + Math.sin((x + y) * f * 0.7 + o)); n += a2 * 2; a2 *= 0.5; f *= 2.1; }
     return v / n;
   }
-  var FOREST_BIAS = SH.woods;
+  var FOREST_BIAS = LEGACY ? SH.woods : [];
   function forest(x, y) {
     var v = fbm(x, y) + 0.08;
     FOREST_BIAS.forEach(function (fb) { v += fb[3] * Math.max(0, 1 - Math.hypot(x - fb[0], y - fb[1]) / fb[2]); });
@@ -762,7 +956,7 @@
     }
   })();
   var WD, groundMs = performance.now();                         // WD: each water pixel's distance to land, x3 (chamfer)
-  (function paint() {
+  if (LEGACY) (function paint() {
     var g = ground.getContext("2d"), img = g.createImageData(PW, PH), buf = new Uint32Array(img.data.buffer);
     function r(x, y, w, h, c) { g.fillStyle = c; g.fillRect(x, y, w, h); }
     function put(px, py, c) { if (px >= 0 && py >= 0 && px < PW && py < PH) buf[py * PW + px] = c; }
@@ -1034,11 +1228,48 @@
     }
     BUILDINGS.forEach(function (bd) { castShadow(Math.round((bd.x0 + bd.w / 2) * T + 10), (bd.y0 + bd.h) * T + 2, bd.w * 9, 6, 0.32); });
   })();
+  else paintBlockout();
+  /* format 2's ground in B2b: a plain diagnostic blockout, straight from the decoded tiles and the edge mask, to
+     prove the runtime's geometry (B2c paints the island). Each pixel is its look, the edge mask over its tile's
+     ground: water by kind (deep sea, shallow sea, still water, river), dry ground on a water tile (the tile-blocked
+     lip) a darker sand, lava, solid ground (cliff rims, the volcano) dark, then paths and plazas, docks and bridges,
+     the pad and the beach by ground code, and the rest by level, 0 to 3. Tile lines a shade darker. GK, the pixel
+     kinds the footfalls and glints read, follows the same look */
+  function paintBlockout() {
+    var g = ground.getContext("2d"), img = g.createImageData(PW, PH), buf = new Uint32Array(img.data.buffer), EB = MAP.edge;
+    var C = { deep: c32("#183a5c"), shal: c32("#2f6f95"), pond: c32("#4fb7d4"), river: c32("#3a8fd9"), lip: c32("#c9a46a"), lava: c32("#e8572a"), solid: c32("#4a3a33"),
+              path: c32("#d8c08c"), wood: c32("#a77b4c"), pad: c32("#9aa0a6"), sand: c32("#e6d6a4"), lv: ["#a6cc78", "#6fa65a", "#a38c66", "#c7b5e6"].map(c32) };
+    function darker(c) { return ((c & 0xff000000) | ((((c >>> 16) & 255) * 0.8) << 16) | ((((c >>> 8) & 255) * 0.8) << 8) | ((c & 255) * 0.8)) >>> 0; }
+    function wetGround(t) { return t === DEEP || t === SHAL || t === POND || t === RIVER; }
+    // a dry tile's water pixels take the kind of the water beside it (a river or pond before the sea)
+    var wetKind = new Uint8Array(MW * MH);
+    for (var ty = 0; ty < MH; ty++) for (var tx = 0; tx < MW; tx++) {
+      var best = SHAL;
+      for (var j = -1; j <= 1; j++) for (var i = -1; i <= 1; i++) { var q = at(tx + i, ty + j); if (q === RIVER || q === POND) best = q; else if (q === DEEP && best === SHAL) best = DEEP; }
+      wetKind[ty * MW + tx] = at(tx, ty) === BRIDGE ? RIVER : best;
+    }
+    for (var py = 0; py < PH; py++) for (var px = 0; px < PW; px++) {
+      var p = py * PW + px, t = (py >> 4) * MW + (px >> 4), gc = GROUND[t], edge = (EB[p >>> 5] >>> (p & 31) & 1) === 1, wet = wetGround(gc) !== edge, c, kd;
+      if (wet) { var wk = wetGround(gc) ? gc : wetKind[t]; c = wk === DEEP ? C.deep : wk === POND ? C.pond : wk === RIVER ? C.river : C.shal; kd = KW; }
+      else if (wetGround(gc)) { c = C.lip; kd = KS; }
+      else if (gc === LAVA) { c = C.lava; kd = KD; }
+      else if (COLL[t] & C_SOLID) { c = C.solid; kd = KG; }
+      else if (gc === PATH) { c = C.path; kd = KD; }
+      else if (gc === DOCK || gc === BRIDGE) { c = C.wood; kd = KD; }
+      else if (gc === PAD) { c = C.pad; kd = KD; }
+      else if (gc === SAND) { c = C.sand; kd = KS; }
+      else { c = C.lv[HEIGHT[t]]; kd = KG; }
+      buf[p] = (px & 15) === 0 || (py & 15) === 0 ? darker(c) : c;
+      GK[p] = kd;
+    }
+    g.putImageData(img, 0, 0);
+  }
   groundMs = performance.now() - groundMs;
   /* the surf: every sea pixel on the waterline, with the way out to sea, kept per tile. the foam
      rides in and out along it with the tide (still under reduced motion) */
   var FOAM = new Array(MW * MH);
   (function () {
+    if (!LEGACY) { WD = null; return; }                         // format 2's surf comes with its painter (B2d)
     for (var py = 1; py < PH - 1; py++) for (var px = 1; px < PW - 1; px++) {
       var i = py * PW + px;
       var tl = GROUND[(py >> 4) * MW + (px >> 4)];
@@ -1134,7 +1365,7 @@
 
   var SPAWN = { x: MAP.anchors.spawn[0], y: MAP.anchors.spawn[1] };
   var pi = { kaiju: !!save.evolved, x: SPAWN.x, y: SPAWN.y, vx: 0, vy: 0, face: 1, dir: "down", dist: 0, stepAcc: 0, boost: 0, path: null, want: null, hop: 0 };
-  var rex = { x: MAP.anchors.rex[0] * T + 8, y: MAP.anchors.rex[1] * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
+  var rex = TERRAIN_ONLY ? null : { x: MAP.anchors.rex[0] * T + 8, y: MAP.anchors.rex[1] * T + 10, tx: 0, ty: 0, face: -1, wait: 1, dist: 0, hop: 0, vy: 0 };
   var ptero = { on: false, x: 0, y: 0, vx: 0, next: 4 };
   var clouds = [0, 1, 2].map(function (i) { return { x: hash(i, 9) * MW * T, y: hash(9, i) * MH * T, w: 90 + i * 30, v: 5 + i * 2 }; });
   var egg = null;          // { t } while pi is hatching
@@ -1195,9 +1426,10 @@
   }
   var shoreT = 0, shore = 0;
   // each terrace has its own loop (the buildings are all on the lowland), and a night version
+  // (format 2: the level under pi, 0 to 3, the shrine knoll's level 3 with the highland's loop)
   function regionMood() {
-    var tr = room ? 0 : tier(pi.x / T, (aboard() ? heli.y : pi.y) / T);
-    return ["low", "meadow", "high"][tr] + (sky.dark > 0.6 ? "-night" : "");
+    var tr = room ? 0 : LEGACY ? tier(pi.x / T, (aboard() ? heli.y : pi.y) / T) : lvl(Math.floor(pi.x / T), Math.floor((aboard() ? heli.y : pi.y) / T));
+    return ["low", "meadow", "high", "high"][tr] + (sky.dark > 0.6 ? "-night" : "");
   }
   function hush(names) { names.forEach(function (k2) { amb[k2].set({ vol: 0 }); }); }
   function updateSound(dt) {
@@ -1218,18 +1450,18 @@
       for (var j = -5; j <= 5; j += 1) for (var i = -5; i <= 5; i += 1) if (at(tx0 + i, ty0 + j) === DEEP || at(tx0 + i, ty0 + j) === SHAL) wn++;
       shore = wn / 121;
     }
-    var vd = Math.hypot(pi.x - VX, pi.y - (VOLC.y - 20));
+    var vd = VOLC ? Math.hypot(pi.x - VX, pi.y - (VOLC.y - 20)) : Infinity;     // the MAP-B preview has no volcano sound yet
     amb.waves.set({ vol: 0.04 + shore * 0.4 });
     var WF = FALLS.reduce(function (m, f) { return !m || Math.hypot(pi.x - f.x, pi.y - f.y) < Math.hypot(pi.x - m.x, pi.y - m.y) ? f : m; }, null) || { x: -9999, y: -9999 };
     amb.falls.set({ vol: Math.pow(Math.max(0, 1 - Math.hypot(pi.x - WF.x, pi.y - WF.y) / 230), 1.6) * 0.1, pan: Math.max(-1, Math.min(1, (WF.x - pi.x) / 200)) });
     var dn = drones.reduce(function (m, d) { return Math.min(m, Math.hypot(pi.x - d.x, pi.y - d.y)); }, 1e9);
     amb.buzz.set({ vol: Math.pow(Math.max(0, 1 - dn / 150), 1.5) * 0.018 });
     amb.aura.set({ vol: rift ? 0.1 * Math.max(0, 1 - Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y) / 200) : 0, rate: 0.2 });
-    amb.rumble.set({ vol: Math.max(0, 1 - vd / 380) * 0.4, pan: Math.max(-1, Math.min(1, (VX - pi.x) / 300)) });
+    amb.rumble.set({ vol: Math.max(0, 1 - vd / 380) * 0.4, pan: VOLC ? Math.max(-1, Math.min(1, (VX - pi.x) / 300)) : 0 });
     if (vd < 300 && (popT -= dt) <= 0) { popT = 0.4 + rand() * 1.6; sfx("pop", VX + (rand() - 0.5) * 30, VY); }
     var hd = Math.hypot(heli.x - pi.x, heli.y - pi.y);
     amb.rotor.set({ vol: heli.spin * (aboard() ? 0.2 : 0.2 * Math.max(0, 1 - hd / 320)), rate: heli.spin });
-    amb.engine.set({ vol: car.driving ? 0.08 + Math.min(1, Math.abs(car.v) / 120) * 0.12 : 0, rate: Math.min(1, Math.abs(car.v) / 120) });
+    amb.engine.set({ vol: car && car.driving ? 0.08 + Math.min(1, Math.abs(car.v) / 120) * 0.12 : 0, rate: car ? Math.min(1, Math.abs(car.v) / 120) : 0 });
   }
   if (SND && SND.onRestart) SND.onRestart(function () { amb = null; if (open) startSound(); });
   if (SND) SND.onChange(function (on) { paintSound(on); paintChip(); });
@@ -1256,7 +1488,7 @@
   // with nothing saved, shake and flashes start from the system's reduced-motion setting, and follow it
   var OPT = { shake: REDUCED ? 0 : 1, flash: !REDUCED, map: true }, OPT_SAVED = {};
   try {
-    var so0 = save.settings || JSON.parse(localStorage.getItem("island-opts") || "{}"); if (so0 && typeof so0 === "object") OPT_SAVED = so0; else so0 = {};
+    var so0 = save.settings || (TERRAIN_ONLY ? {} : JSON.parse(localStorage.getItem("island-opts") || "{}")); if (so0 && typeof so0 === "object") OPT_SAVED = so0; else so0 = {};
     if (typeof so0.shake === "number") OPT.shake = Math.max(0, Math.min(1, so0.shake));
     if (typeof so0.flash === "boolean") OPT.flash = so0.flash;
     if (so0.map === false) OPT.map = false;
@@ -1360,12 +1592,12 @@
     if (tour && !e.repeat && (e.key === " " || e.key === "e" || e.key === "E" || e.key === "Enter" || e.key === "ArrowRight")) { e.preventDefault(); if (tour.i >= TOUR.length - 1) { endTour(false); closeDialog(); } else tourStep(); return; }
     if (tour && e.key === "Escape") { e.preventDefault(); endTour(true); return; }
     var d = dirKey(e);
-    if (d) { keys[d] = 1; pi.path = null; pi.want = null; car.target = null; heli.target = null; e.preventDefault(); if (egg) egg.t = 99; return; }
+    if (d) { keys[d] = 1; pi.path = null; pi.want = null; if (car) car.target = null; heli.target = null; e.preventDefault(); if (egg) egg.t = 99; return; }
     if (e.repeat) { if (e.key === " " || e.key === "Enter") e.preventDefault(); return; }
     if (aboard() && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleHeli(); return; }
     if (aboard() && e.key === " ") { e.preventDefault(); bubble = { text: "whup whup whup", t: 1 }; return; }
-    if (car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
-    if (car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); foundSecret("honk"); return; }
+    if (car && car.driving && (e.key === "e" || e.key === "E" || e.key === "Enter")) { e.preventDefault(); toggleCar(); return; }
+    if (car && car.driving && e.key === " ") { e.preventDefault(); bubble = { text: "beep beep", t: 1 }; sfx("honk"); foundSecret("honk"); return; }
     if (e.key === "Escape") { e.preventDefault(); if (!dlg.hidden) closeDialog(); else if (side && side.phase === "walk") { irisTo(function () { side = null; freeSideArt(); if (SND) SND.music(null); }); } else if (!side) setPaused(true); return; }
     if (asking && !dlg.hidden && (e.key === "y" || e.key === "Y" || e.key === "n" || e.key === "N")) { e.preventDefault(); wakeOrbs(e.key === "y" || e.key === "Y"); return; }
     if ((e.key === "p" || e.key === "P") && !side) { e.preventDefault(); setPaused(true); return; }
@@ -1425,7 +1657,7 @@
     nudgeSound();
     try { cv.setPointerCapture(e.pointerId); } catch (x) {}
     if (promptRect && dlg.hidden && !riftBusy() && e.clientX >= promptRect[0] && e.clientX <= promptRect[0] + promptRect[2] && e.clientY >= promptRect[1] && e.clientY <= promptRect[1] + promptRect[3]) {
-      if (car.driving) toggleCar(); else if (heli.state === "flying") toggleHeli(); else { var pn = nearby(); if (pn) interact(pn); }
+      if (car && car.driving) toggleCar(); else if (heli.state === "flying") toggleHeli(); else { var pn = nearby(); if (pn) interact(pn); }
       return;
     }
     if (mapRect && e.clientX >= mapRect[0] && e.clientX <= mapRect[0] + mapRect[2] && e.clientY >= mapRect[1] && e.clientY <= mapRect[1] + mapRect[3]) { mapOn = !mapOn; sfx("blip"); return; }
@@ -1434,20 +1666,20 @@
     if (!dlg.hidden) { typing ? finishTyping() : closeDialog(); return; }
     var E = S * zoom, wx = camX + e.clientX / E, wy = camY + e.clientY / E;
     var tx = Math.floor(wx / T), ty = Math.floor(wy / T);
-    if (car.driving) { car.target = { x: wx, y: wy }; return; }
+    if (car && car.driving) { car.target = { x: wx, y: wy }; return; }
     if (side) { if (side.phase === "walk") { if (e.clientY < H * 0.45) keys.jump = 1; else side.tap = e.clientX < W / 2 ? -1 : 1; } return; }
-    if (e.pointerType === "touch" && !joy && !car.driving && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
+    if (e.pointerType === "touch" && !joy && !(car && car.driving) && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (room) { pi.path = null; roomTap = { x: wx, y: wy }; var rc = roomCandidates().filter(function (c) { return Math.hypot(wx - c.v.ax, wy - c.v.ay - 12) < 18; })[0]; if (rc) roomTap.want = rc.v; return; }
     if (heli.state === "flying") { if (Math.hypot(wx - heli.x, wy - heli.y + heli.z) < 16) toggleHeli(); else heli.target = { x: wx, y: wy }; return; }
     if (aboard()) return;
     // tapped a landmark (its sprite reaches up a couple of tiles)? walk up to it
     var hit = OUT.filter(function (s) { return Math.abs(tx - s.x) <= (s.wide ? 1 : 0) && ty <= s.y && ty >= s.y - 2; })[0];
-    if (!hit && Math.hypot(wx - rex.x, wy - rex.y + 6) < 12) hit = { id: "rex" };
-    if (!hit && Math.hypot(wx - car.x, wy - car.y) < 12) hit = { id: "car", gx: Math.floor(car.x / T), gy: Math.floor(car.y / T) };
-    if (!hit && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
+    if (!hit && rex && Math.hypot(wx - rex.x, wy - rex.y + 6) < 12) hit = { id: "rex" };
+    if (!hit && car && Math.hypot(wx - car.x, wy - car.y) < 12) hit = { id: "car", gx: Math.floor(car.x / T), gy: Math.floor(car.y / T) };
+    if (!hit && !TERRAIN_ONLY && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
     if (!hit) critters.forEach(function (c) { if (!hit && Math.hypot(wx - c.x, wy - c.y + 5) < 10) hit = { id: "critter", ref: c, gx: Math.floor(c.x / T), gy: Math.floor(c.y / T) }; });
     if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: MAP.anchors.coreApproach[0], y: MAP.anchors.coreApproach[1] };
-    if (e.pointerType === "touch" && !joy && !car.driving && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
+    if (e.pointerType === "touch" && !joy && !(car && car.driving) && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (hit) {
       var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [hit.x, hit.y] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
       pi.path = piPath(goal, true); pi.want = hit;
@@ -1522,6 +1754,7 @@
   }
   function nearby() {
     if (room) return pick(roomCandidates());
+    if (TERRAIN_ONLY) return null;                                       // the MAP-B preview: nothing to use yet (B3)
     if (car.driving || aboard()) return null;
     var cands = nearCandidates(), da = Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y);
     if (rift && rift.phase === "reign") cands.push({ d: da, max: 30, v: { id: "core", name: "the core" } });
@@ -1880,8 +2113,10 @@
   });
   // Ammaar's cats: jasmine (pink collar) and prince (blue collar)
   var cats = critters.filter(function (c) { return c.kind === "cat"; });
-  cats[0].name = "jasmine"; cats[0].pal = { Q: "#ff7eb6" }; cats[0].say = "jasmine, one of Ammaar's two himalayan cats. she's very fluffy and fully unbothered.";
-  cats[1].name = "prince"; cats[1].pal = { Q: "#4f8fff" }; cats[1].say = "prince, one of Ammaar's two himalayan cats. he inspects pi, then goes back to supervising.";
+  if (!TERRAIN_ONLY) {                                                // the MAP-B preview has no creatures (B3)
+    cats[0].name = "jasmine"; cats[0].pal = { Q: "#ff7eb6" }; cats[0].say = "jasmine, one of Ammaar's two himalayan cats. she's very fluffy and fully unbothered.";
+    cats[1].name = "prince"; cats[1].pal = { Q: "#4f8fff" }; cats[1].say = "prince, one of Ammaar's two himalayan cats. he inspects pi, then goes back to supervising.";
+  }
   var trex = critters.filter(function (c) { return c.kind === "trex"; })[0];
   function okFor(c, tx, ty) {
     if (!walkable(tx, ty)) return false;
@@ -2028,18 +2263,18 @@
   function building(id) { return BUILDINGS.filter(function (q) { return q.id === id; })[0]; }
   function doorstep(b) { return [Math.floor(b.x0 + b.w / 2), b.y0 + b.h]; }
   function inBox(p, z) { return p.tx >= z[0] && p.tx <= z[2] && p.ty >= z[1] && p.ty <= z[3]; }   // a prop's tile, edges in
-  var DOCKPT = [DOCKX, dockY], DEPOTPT = doorstep(building("depot")), VISITPT = doorstep(building("visitor"));
+  var DOCKPT = [DOCKX, dockY], DEPOTPT = TERRAIN_ONLY ? null : doorstep(building("depot")), VISITPT = TERRAIN_ONLY ? null : doorstep(building("visitor"));
   var WELD = MAP.routes["welder-patrol"], GARD = MAP.anchors.gardener;
   function tileOf(o) { return [Math.floor(o.x / T), Math.floor(o.y / T)]; }
-  var bots = [
+  var bots = TERRAIN_ONLY ? [] : [
     { kind: "cargo", x: DOCKPT[0] * T + 8, y: DOCKPT[1] * T + 10, legs: [DEPOTPT, VISITPT, DEPOTPT, DOCKPT], leg: 0, path: null, carry: true, wait: 1, face: 1, dist: 0 },
     { kind: "cargo", x: DEPOTPT[0] * T + 8, y: DEPOTPT[1] * T + 10, legs: [DOCKPT, DEPOTPT], leg: 0, path: null, carry: false, wait: 4, face: -1, dist: 0 },
     { kind: "welder", x: WELD.start[0] * T + 8, y: WELD.start[1] * T + 10, spots: WELD.stops, spot: 0, path: null, wait: 6, face: -1, dist: 0, work: 0 },
     { kind: "gardener", x: GARD[0] * T + 8, y: GARD[1] * T + 10, path: null, wait: 2, face: 1, dist: 0, work: 0 }
   ];
   // the drones' pad: the depot's roof, at the middle of its top row (6 px down the sprite); 30 px up
-  var DEPOT = building("depot"), pad = { x: (DEPOT.x0 + DEPOT.w / 2) * T, y: DEPOT.y0 * T + 6, roof: 30 };
-  var drones = [0, 1].map(function (i) { return { x: pad.x + i * 6, y: pad.y, z: pad.roof, state: "rest", wait: 2 + i * 5, tx: 0, ty: 0, carry: true, spin: 0 }; });
+  var DEPOT = building("depot"), pad = DEPOT ? { x: (DEPOT.x0 + DEPOT.w / 2) * T, y: DEPOT.y0 * T + 6, roof: 30 } : null;
+  var drones = !pad ? [] : [0, 1].map(function (i) { return { x: pad.x + i * 6, y: pad.y, z: pad.roof, state: "rest", wait: 2 + i * 5, tx: 0, ty: 0, carry: true, spin: 0 }; });
   var sparks = [];
   function botGo(b, goal) { b.path = bfs(tileOf(b), goal, true); if (b.path) sfx("servo", b.x, b.y); }
   function stepBot(b, dt, sp) {
@@ -2144,13 +2379,14 @@
   };
   var perches = [];
   (function () {
+    if (TERRAIN_ONLY) return;
     function top(id) { var s = STATIONS.filter(function (q) { return q.id === id; })[0]; return { x: s.x * T + 8, y: s.y * T + 17 - SPR[id].height, gy: s.y * T + 16 }; }
     ["sign", "mailbox", "tablet", "uplink"].forEach(function (id) { perches.push(top(id)); });
     props.filter(function (p) { return /^e:(oak|birch|ginkgo)/.test(p.kind) && inBox(p, ZONES["cockatiel-trees"]); }).slice(0, 6).forEach(function (p) {
       perches.push({ x: p.tx * T + 8 + (p.ox || 0), y: p.ty * T + 16 - ENV[p.kind.slice(2)][3] + 4, gy: p.ty * T + 15 });
     });
   })();
-  var birds = [0, 1].map(function (i) { var p = perches[i]; return { i: i, x: p.x + i * 4, y: p.y, gy: p.gy, z: 0, perch: i, fly: null, face: i ? -1 : 1, rest: 3 + i * 2 }; });
+  var birds = TERRAIN_ONLY ? [] : [0, 1].map(function (i) { var p = perches[i]; return { i: i, x: p.x + i * 4, y: p.y, gy: p.gy, z: 0, perch: i, fly: null, face: i ? -1 : 1, rest: 3 + i * 2 }; });
   function updateBirds(dt) {
     birds.forEach(function (b, i) {
       if (b.fly) {
@@ -2194,7 +2430,7 @@
     ["goshiki", "#3b3f58", ["#e2462f", "#f5f3ea"]], ["shiro utsuri", "#161616", ["#f5f3ea"]], ["orenji ogon", "#f28a2a", []],
     ["hi utsuri", "#161616", ["#e2462f"]], ["kujaku", "#c9c9b8", ["#e2462f", "#d9b44a"]], ["ochiba", "#9aa7b4", ["#b8834e"]]
   ];
-  var koi = KOI.map(function (v, i) {
+  var koi = TERRAIN_ONLY ? [] : KOI.map(function (v, i) {
     var len = 5 + Math.floor(hash(i, 5) * 6), col = [];
     for (var j = 0; j < len; j++) col.push(v[2].length && hash(i * 9 + j, 7) < 0.45 ? v[2][(hash(j, i) * v[2].length) | 0] : v[1]);
     if (v[0] === "tancho") col[1] = "#e2462f";                 // the single red spot on the head
@@ -2266,7 +2502,7 @@
      lights on), a torque curve that fades toward top speed, brakes that bite, and grip: the
      tyres kill sideways slide, until you pull the handbrake (shift) and the back steps out into
      a drift, laying rubber on the ground. hit something and it bumps off it. */
-  var car = { x: MAP.anchors.car[0] * T + 8, y: MAP.anchors.car[1] * T + 8, a: Math.PI / 2, v: 0, vx: 0, vy: 0, driving: false, target: null, gear: "D", brake: false, skidT: 0 };
+  var car = TERRAIN_ONLY ? null : { x: MAP.anchors.car[0] * T + 8, y: MAP.anchors.car[1] * T + 8, a: Math.PI / 2, v: 0, vx: 0, vy: 0, driving: false, target: null, gear: "D", brake: false, skidT: 0 };
   var skids = [];
   function carClear(x, y, a) {
     var fx = Math.sin(a), fy = -Math.cos(a), rx = Math.cos(a), ry = Math.sin(a);
@@ -2497,7 +2733,7 @@
   var ROCKV = ["#17120f", "#221a15", "#30251d", "#403127", "#534033", "#6b5443", "#866c57"];
   var MOSS = ["#1d3a1f", "#27502a", "#356a34", "#4a8a44"];
   var FLOWS = [[1.25, 58, 2.6], [1.72, 76, 3.2], [2.2, 50, 2.2]];      // [angle, length, width] on the south face
-  var volc = (function () {
+  var volc = !VOLC ? null : (function () {
     var R = VOLC.R, Hm = VOLC.H, sq = VOLC.sq, rc = VOLC.rc, floor = RIMH - 11;
     var depth = Math.ceil(R / sq), w = R * 2 + 4, h = Math.ceil(Hm) + depth * 2 + 8;
     var ox = VOLC.x - R - 2, oy = VOLC.y - depth - Math.ceil(Hm) - 4;
@@ -2535,7 +2771,7 @@
     }
     return { canvas: outline(c, "rgba(12,9,7,.9)"), ox: ox - 1, oy: oy - 1, lava: lava, flows: flows };
   })();
-  var VX = VOLC.x, VY = VOLC.y - RIMH + 2;
+  var VX = VOLC ? VOLC.x : null, VY = VOLC ? VOLC.y - RIMH + 2 : null;
   function drawVolcano() {
     var cv0 = volc.canvas, ox = volc.ox + 1, oy = volc.oy + 1;
     ctx.drawImage(skin(cv0), volc.ox, volc.oy);
@@ -3111,6 +3347,7 @@
   function piInside(z) { return pi.x < z[2] * T && pi.x > z[0] * T && pi.y > z[1] * T && pi.y < z[3] * T; }
   function updateLife(dt) {
     skyT -= dt; if (skyT <= 0) { readSky(); skyT = 30; }
+    if (TERRAIN_ONLY) return;                                            // the MAP-B preview: no creatures, birds, koi, car, bots or volcano yet, and the helicopter stays parked
     critters.forEach(function (c) { updateCritter(c, dt); });
     updateBirds(dt); updateKoi(dt); updateCar(dt); updateHeli(dt); updateVolcano(dt); updateBots(dt);
     if (trex.cd <= 0 && !aboard() && !room && piInside(ZONES["trex-roar"]) && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
@@ -3121,7 +3358,7 @@
      the island darkens, five orbs fall out of the sky, and they fight for
      control of the site. the last one standing takes the core, and runs the
      orbs on the page for the rest of the session. walk up to it for a rematch. */
-  var ARENA = { x: MAP.anchors.arena[0] * T + 8, y: MAP.anchors.arena[1] * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
+  var ARENA = TERRAIN_ONLY ? null : { x: MAP.anchors.arena[0] * T + 8, y: MAP.anchors.arena[1] * T + 8 }, OR = 13;         // centre of the fight, orb radius (world px)
   var RIVALS = ["eclipse", "bone", "halo", "fog", "void"];
   var POWER = { eclipse: 1.7, bone: 1.2, halo: 1.1, fog: 0.9, void: 1.0 };
   var rift = null, pendingRift = false, orbCache = {};
@@ -4092,7 +4329,7 @@
     if (cut) { updateCut(dt); return; }
     if (hitstop > 0) { hitstop -= dt; return; }
     if (side) { updateSide(dt); updateReality(dt); quake = Math.max(0, quake - dt * 8); if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; } return; }             // a beat of freeze on a big hit sells the impact
-    updateRift(dt);
+    if (!TERRAIN_ONLY) updateRift(dt);                                  // the MAP-B preview has no rift (B3)
     updateReality(dt);
     updateLife(dt);
     updateFootfalls(dt);
@@ -4104,7 +4341,7 @@
     sinceLog += dt;
     if (!save.hints.move && Math.hypot(pi.x - hintFrom.x, pi.y - hintFrom.y) > 3 * T) { save.hints.move = true; writeSave(); }
     if (!dlg.hidden) mx = my = 0;
-    if (riftBusy() || car.driving || aboard() || termOpen || irisBusy()) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
+    if (riftBusy() || (car && car.driving) || aboard() || termOpen || irisBusy()) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
     if (!mx && !my && pi.path && pi.path.length) {
       var n = pi.path[0], gx = n[0] * T + 8, gy = n[1] * T + 10, ddx = gx - pi.x, ddy = gy - pi.y, dd = Math.hypot(ddx, ddy);
       if (dd < 1.5) { pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
@@ -4141,23 +4378,25 @@
       if (pi.path && moved < 0.01) { pi.path = null; pi.stalls = (pi.stalls || 0) + 1; }   // stuck: give up (counted for the ?debug=1 tests)
       footfall(moved);
     }
-    // rex wanders the meadow
-    rex.wait -= dt;
-    if (rex.wait <= 0 && !rex.tx) {
-      var rm = ZONES["rex-meadow"];                                    // whole tiles, both edges in
-      var tx = rm[0] + Math.floor(rand() * (rm[2] - rm[0] + 1)), ty = rm[1] + Math.floor(rand() * (rm[3] - rm[1] + 1));
-      if (walkable(tx, ty)) { rex.tx = tx * T + 8; rex.ty = ty * T + 10; }
+    // rex wanders the meadow, and pterosaurs fly by (the MAP-B terrain preview has neither: B3)
+    if (!TERRAIN_ONLY) {
+      rex.wait -= dt;
+      if (rex.wait <= 0 && !rex.tx) {
+        var rm = ZONES["rex-meadow"];                                    // whole tiles, both edges in
+        var tx = rm[0] + Math.floor(rand() * (rm[2] - rm[0] + 1)), ty = rm[1] + Math.floor(rand() * (rm[3] - rm[1] + 1));
+        if (walkable(tx, ty)) { rex.tx = tx * T + 8; rex.ty = ty * T + 10; }
+      }
+      if (rex.tx) {
+        var rx = rex.tx - rex.x, ry = rex.ty - rex.y, rd = Math.hypot(rx, ry);
+        if (rd < 2) { rex.tx = 0; rex.wait = 1 + rand() * 3; }
+        else { var bx = rex.x, by = rex.y; move(rex, rx / rd * 22 * dt, ry / rd * 22 * dt); rex.dist += 22 * dt; rex.face = rx > 0 ? 1 : -1; if (Math.hypot(rex.x - bx, rex.y - by) < 0.01) { rex.tx = 0; rex.wait = 1; } }
+      }
+      if (rex.hop) { rex.vy += 9 * dt; rex.hop += rex.vy; if (rex.hop >= 0) { rex.hop = 0; rex.vy = 0; } }
+      // pterodactyl fly-bys
+      ptero.next -= dt;
+      if (!ptero.on && ptero.next <= 0) { ptero.on = true; ptero.vx = rand() < 0.5 ? 38 : -38; ptero.x = ptero.vx > 0 ? camX - 30 : camX + W / (S * zoom) + 30; ptero.y = camY + 20 + rand() * (H / (S * zoom) - 60); }
+      if (ptero.on) { ptero.x += ptero.vx * dt; ptero.y -= 4 * dt; if (ptero.x < camX - 60 || ptero.x > camX + W / (S * zoom) + 60) { ptero.on = false; ptero.next = 6 + rand() * 8; } }
     }
-    if (rex.tx) {
-      var rx = rex.tx - rex.x, ry = rex.ty - rex.y, rd = Math.hypot(rx, ry);
-      if (rd < 2) { rex.tx = 0; rex.wait = 1 + rand() * 3; }
-      else { var bx = rex.x, by = rex.y; move(rex, rx / rd * 22 * dt, ry / rd * 22 * dt); rex.dist += 22 * dt; rex.face = rx > 0 ? 1 : -1; if (Math.hypot(rex.x - bx, rex.y - by) < 0.01) { rex.tx = 0; rex.wait = 1; } }
-    }
-    if (rex.hop) { rex.vy += 9 * dt; rex.hop += rex.vy; if (rex.hop >= 0) { rex.hop = 0; rex.vy = 0; } }
-    // pterodactyl fly-bys
-    ptero.next -= dt;
-    if (!ptero.on && ptero.next <= 0) { ptero.on = true; ptero.vx = rand() < 0.5 ? 38 : -38; ptero.x = ptero.vx > 0 ? camX - 30 : camX + W / (S * zoom) + 30; ptero.y = camY + 20 + rand() * (H / (S * zoom) - 60); }
-    if (ptero.on) { ptero.x += ptero.vx * dt; ptero.y -= 4 * dt; if (ptero.x < camX - 60 || ptero.x > camX + W / (S * zoom) + 60) { ptero.on = false; ptero.next = 6 + rand() * 8; } }
     clouds.forEach(function (c) { c.x += c.v * dt; if (c.x > MW * T + c.w) c.x = -c.w; });
     if (bubble) { bubble.t -= dt; if (bubble.t <= 0) bubble = null; }
   }
@@ -4235,8 +4474,8 @@
   }
   /* fireflies over the brachio meadow at night */
   var FLIES = [];
-  var FZ = ZONES.fireflies;           // spread over the box, x0 to x1 and y0 to y1
-  for (var fi = 0; fi < 38; fi++) { var fx0 = FZ[0] + hash(fi, 71) * (FZ[2] - FZ[0]), fy0 = FZ[1] + hash(71, fi) * (FZ[3] - FZ[1]); if (land(at(Math.floor(fx0), Math.floor(fy0)))) FLIES.push({ x: fx0 * T, y: fy0 * T, ph: hash(fi, 5) * 6.283, r: 6 + hash(fi, 9) * 10 }); }
+  var FZ = ZONES.fireflies;           // spread over the box, x0 to x1 and y0 to y1 (the MAP-B preview has no zone for them)
+  if (FZ) for (var fi = 0; fi < 38; fi++) { var fx0 = FZ[0] + hash(fi, 71) * (FZ[2] - FZ[0]), fy0 = FZ[1] + hash(71, fi) * (FZ[3] - FZ[1]); if (land(at(Math.floor(fx0), Math.floor(fy0)))) FLIES.push({ x: fx0 * T, y: fy0 * T, ph: hash(fi, 5) * 6.283, r: 6 + hash(fi, 9) * 10 }); }
   function drawFlies() {
     if (sky.dark < 0.5 || REAL !== "dino") return;
     var a0 = Math.min(1, (sky.dark - 0.5) * 3);
@@ -4254,7 +4493,7 @@
   /* ════════ the minimap: bottom right, click it to fold it away ════════ */
   var mini = mkCanvas(), MINI = 2, mapOn = OPT.map, mapRect = null;
   mini.width = MW * MINI; mini.height = MH * MINI;
-  (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
+  (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); if (volc) g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
   /* the full map: m, or from the menu. the island pre-rendered once at 3 px a tile, drawn at a
      whole-number scale; found landmarks are named, the rest are "?". pick a found one (click it,
      or from the list) and pi travels there */
@@ -4265,7 +4504,7 @@
     bigMap = mkCanvas(); bigMap.width = MAPW; bigMap.height = MAPH;
     var g = bigMap.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
     g.drawImage(ground, 0, 0, bigMap.width, bigMap.height);
-    g.drawImage(volc.canvas, volc.ox / T * 3, volc.oy / T * 3, volc.canvas.width / T * 3, volc.canvas.height / T * 3);
+    if (volc) g.drawImage(volc.canvas, volc.ox / T * 3, volc.oy / T * 3, volc.canvas.width / T * 3, volc.canvas.height / T * 3);
   }
   function mapSpot(q) {
     if (q.room) { var b = BUILDINGS.filter(function (b0) { return b0.room === q.room; })[0], i = STATIONS.filter(function (x) { return x.room === q.room; }).indexOf(q); return { x: b.x0 + b.w / 2 + (i ? 1.4 : -1.4), y: b.y0 + b.h / 2, below: i % 2 }; }
@@ -4368,7 +4607,7 @@
         }
       }
       if (!wet(tt)) continue;
-      if (tt === POND && pondF(tx + 0.5, ty + 0.5) > 0.9) continue;
+      if (tt === POND && KP && pondF(tx + 0.5, ty + 0.5) > 0.9) continue;
       var ph = hash(tx, ty), cyc = REDUCED ? 0 : Math.floor(t * 0.9 + ph * 7);    // glints, only ever on water
       if (hash(tx * 3 + cyc, ty) < 0.16) {
         var gx0 = tx * T + ((hash(cyc, tx) * 11) | 0), gy0 = ty * T + ((hash(ty, cyc) * 14) | 0);
@@ -4393,10 +4632,10 @@
     critters.forEach(function (c) { list.push({ y: c.y, f: function () { drawCritter(c); } }); });
     bots.forEach(function (b) { list.push({ y: b.y, f: function () { drawBot(b); } }); });
     birds.forEach(function (b) { list.push({ y: b.fly ? b.gy + 40 : b.gy + 1, f: function () { drawBird(b); } }); });
-    list.push({ y: car.y + 8, f: drawCar });
-    if (heli.z < 12) list.push({ y: heli.y + 12, f: drawHeli });
-    list.push({ y: GATE.y * T + 14, f: drawGate });
-    list.push({ y: VOLC.y + 24, f: drawVolcano });
+    if (car) list.push({ y: car.y + 8, f: drawCar });
+    if (heli.z < 12 && !TERRAIN_ONLY) list.push({ y: heli.y + 12, f: drawHeli });      // the MAP-B preview: the helicopter isn't drawn (B2e)
+    if (GATE) list.push({ y: GATE.y * T + 14, f: drawGate });
+    if (volc) list.push({ y: VOLC.y + 24, f: drawVolcano });
     for (var fy = y0; fy <= y1 + 1; fy++) for (var fx = x0 - 1; fx <= x1 + 1; fx++) {
       if (fence[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawFence(a, b); } }); })(fx, fy);
       if (wall[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawWall(a, b); } }); })(fx, fy);
@@ -4453,7 +4692,7 @@
     OUT.forEach(function (s) { list.push({ y: s.y * T + 15, f: function () { drawStation(s); } }); });
     BUILDINGS.forEach(function (bd) { list.push({ y: (bd.y0 + bd.h) * T - 2, f: function () { drawBuilding(bd); } }); });
     FALLS.forEach(function (f) { list.push({ y: f.y + 30, f: function () { drawWaterfall(f); } }); });
-    list.push({ y: rex.y, f: function () {
+    if (rex) list.push({ y: rex.y, f: function () {
       shadow(rex.x, rex.y, 10);
       drawFrame(DINO[Math.floor(rex.dist / 5) % 2 ? "b" : "a"], { W: "#ececec", K: "#141414" }, 11, rex.x, rex.y - 1 + rex.hop, rex.face < 0);
     } });
@@ -4466,7 +4705,7 @@
     drawSparks();
     drones.forEach(drawDrone);
     drawSmoke();
-    if (heli.z >= 12) drawHeli();
+    if (heli.z >= 12 && !TERRAIN_ONLY) drawHeli();
     drawPteros();
     ctx.fillStyle = "rgba(10,30,50,.08)";
     clouds.forEach(function (c) { ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w, c.w * 0.45, 0, 0, 6.283); ctx.fill(); });
@@ -4486,8 +4725,8 @@
     // the camera follows pi, except while the orbs fight: then it watches the arena
     // lead the camera a little in the direction of travel so you see where you're going
     // about a tile and a half ahead on foot, further the faster a vehicle goes
-    var cvx = car.driving ? car.vx : aboard() ? heli.vx : pi.vx, cvy = car.driving ? car.vy : aboard() ? heli.vy : pi.vy;
-    var veh = car.driving || aboard(), lvx = cvx * (veh ? 0.3 : 0.41), lvy = cvy * (veh ? 0.3 : 0.41);
+    var drv = !!car && car.driving, cvx = drv ? car.vx : aboard() ? heli.vx : pi.vx, cvy = drv ? car.vy : aboard() ? heli.vy : pi.vy;
+    var veh = drv || aboard(), lvx = cvx * (veh ? 0.3 : 0.41), lvy = cvy * (veh ? 0.3 : 0.41);
     var lk = veh ? Math.min(64, 30 + Math.hypot(cvx, cvy) * 0.2) : 24, kl = 1 - Math.pow(0.03, rdt);
     if (cvx === undefined || cvy === undefined || isNaN(lvx)) { lvx = 0; lvy = 0; }
     look.x += (Math.max(-lk, Math.min(lk, lvx)) - look.x) * kl; look.y += (Math.max(-lk * 0.6, Math.min(lk * 0.6, lvy)) - look.y) * kl;
@@ -4528,9 +4767,9 @@
       tag(promptText(nb), sx, sy, true);
     }
     // in a vehicle, the way out is the prompt
-    else if (!egg && dlg.hidden && !riftBusy() && (car.driving || heli.state === "flying")) {
-      var vx0 = car.driving ? car.x : heli.x, vy0 = car.driving ? car.y - 14 : heli.y - heli.z - 22;
-      tag(promptText({ id: car.driving ? "exitcar" : "exitheli" }), (vx0 - camX) * E, (vy0 - camY) * E, true);
+    else if (!egg && dlg.hidden && !riftBusy() && (drv || heli.state === "flying")) {
+      var vx0 = drv ? car.x : heli.x, vy0 = drv ? car.y - 14 : heli.y - heli.z - 22;
+      tag(promptText({ id: drv ? "exitcar" : "exitheli" }), (vx0 - camX) * E, (vy0 - camY) * E, true);
     }
     bots.forEach(function (b) { if (b.bark) tag(b.bark.text, (b.x - camX) * E, (b.y - 20 - camY) * E, false); });
     drawGuide(E);
@@ -4603,7 +4842,7 @@
       }
       return;
     }
-    if (car.driving || aboard()) return;
+    if ((car && car.driving) || aboard()) return;
     shadow(pi.x, pi.y, pi.kaiju ? 12 : 10);
     var moving = (Math.abs(pi.vx) + Math.abs(pi.vy) > 4) && dlg.hidden;
     var blink = hash(Math.floor(t * 3), 9) < 0.06;
@@ -4709,7 +4948,7 @@
        paused    the menu                  → back to whatever it was */
   var FLOW = { explore: ["vehicle", "room", "terminal", "cutscene", "fight", "paused"], vehicle: ["explore", "paused"], room: ["explore", "paused"],
                terminal: ["explore"], cutscene: ["explore"], fight: ["explore", "paused"], paused: ["explore", "vehicle", "room", "fight"] };
-  function baseState() { return !open ? "closed" : paused ? "paused" : side ? "cutscene" : termOpen ? "terminal" : riftBusy() ? "fight" : room ? "room" : car.driving || aboard() ? "vehicle" : "explore"; }
+  function baseState() { return !open ? "closed" : paused ? "paused" : side ? "cutscene" : termOpen ? "terminal" : riftBusy() ? "fight" : room ? "room" : (car && car.driving) || aboard() ? "vehicle" : "explore"; }
   function can(to) { var f = FLOW[baseState()]; return !!f && f.indexOf(to) >= 0; }
   function landNow() { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; heli.target = null; zoomTo = 1; }
   function settle() {
@@ -4719,10 +4958,21 @@
     if (paused) setPaused(false);
     pendingRift = false; asking = false;
     if (!dlg.hidden) closeDialog();
-    if (car.driving) toggleCar();
+    if (car && car.driving) toggleCar();
     if (aboard()) landNow();
     if (room) exitRoom();
-    keys = {}; pi.path = null; pi.want = null; car.target = null;
+    keys = {}; pi.path = null; pi.want = null; if (car) car.target = null;
+  }
+
+  // a decoded format-2 map, in full or as a summary (the ?debug=1 API's decodeMap and decodeDetail)
+  function decodedDetail(d, full) {
+    function idx(set) { var out = []; for (var w2 = 0; w2 < set.length; w2++) { var v = set[w2]; if (!v) continue; for (var b = 0; b < 32; b++) if (v >>> b & 1) out.push(w2 * 32 + b); } return out; }
+    var o = { format: d.format, staged: d.staged, id: d.id, stage: d.stage, w: d.w, h: d.h, footPixels: d.footPixels, edgePixels: d.edgePixels, tileAnchors: d.tileAnchors, anchors: d.anchors,
+              shapes: Object.keys(d.shapes), ramps: (d.shapes.ramps || []).length, water: (d.shapes.water || []).length, rivers: (d.shapes.rivers || []).length, falls: (d.shapes.falls || []).length,
+              bridges: (d.shapes.bridges || []).map(function (b) { return [b.id, b.tiles, b.deckAxis]; }), docks: (d.shapes.docks || []).length, helipad: d.shapes.helipad || null,
+              content: { buildings: d.buildings.length, stations: Object.keys(d.stations).length, spawns: d.spawns.length, props: d.props.length, places: Object.keys(d.places).length } };
+    if (full) { o.ground = Array.from(d.ground); o.height = Array.from(d.height); o.coll = Array.from(d.coll); o.foot = idx(d.foot); o.edge = idx(d.edge); }
+    return o;
   }
 
   /* ════════ ?debug=1: a readout in the corner ════════ */
@@ -4734,7 +4984,7 @@
     if (setOpen()) return "settings";
     if (room) return "room (" + room.id + ")";
     if (riftBusy()) return "fight (" + rift.phase + (rift.act ? ", " + rift.act.kind : "") + ")";
-    if (car.driving) return "vehicle (car, " + car.gear + ")";
+    if (car && car.driving) return "vehicle (car, " + car.gear + ")";
     if (aboard()) return "vehicle (heli, " + heli.state + ")";
     if (!dlg.hidden) return "dialog";
     return "explore";
@@ -4743,6 +4993,7 @@
     return (rift ? rift.parts.length : 0) + sparks.length + ripples.length + skids.length + smoke.length + embers.length + puffs.length + prints.length + rustling.length;
   }
   function saveDump() {
+    if (TERRAIN_ONLY) return "(the MAP-B preview reads no storage)";
     var o = {};
     [["s", sessionStorage], ["l", localStorage]].forEach(function (st) {
       try { for (var i = 0; i < st[1].length; i++) { var kk = st[1].key(i); o[st[0] + ":" + kk] = st[1].getItem(kk); } } catch (e) {}
@@ -4823,14 +5074,14 @@
     // the found logs follow it now. comfort settings take effect the next time the island loads
     setSave: function (o) {
       var m = mergeSave(o); if (!m) throw new Error("setSave: not a version 1 or 2 save");
-      save = m; saveLocked = false; writeSave();
+      save = m; saveLocked = TERRAIN_ONLY; writeSave();                  // the MAP-B preview still writes nothing
       found = {}; save.logs.forEach(function (k2) { if (typeof k2 === "string") found[k2] = 1; });
       pi.kaiju = !!save.evolved; paintFound(); paintLandmarks();
       return JSON.parse(JSON.stringify(save));
     },
     getSave: function () { return JSON.parse(JSON.stringify(save)); },
     fireEvent: function (name) { if (!EVENTS[name]) throw new Error("fireEvent: one of " + Object.keys(EVENTS).join(", ")); EVENTS[name](); },
-    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju, path: pi.path ? pi.path.length : 0, stalls: pi.stalls || 0 }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex.roar > 0, quake: quake }, heli: { x: heli.x, y: heli.y, z: heli.z, a: heli.a, state: heli.state }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
+    getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju, path: pi.path ? pi.path.length : 0, stalls: pi.stalls || 0 }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex ? trex.roar > 0 : false, quake: quake }, heli: { x: heli.x, y: heli.y, z: heli.z, a: heli.a, state: heli.state }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: (b.x0 + b.w / 2) * T, y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
     props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
@@ -4853,12 +5104,22 @@
     // decodeMap on any map's data (synthetic ones in the tests): a summary of what it decoded, or its error
     decodeMap: function (o) {
       var d = decodeMap(o);
+      if (d.format === 2) return decodedDetail(d, false);
       return { id: d.id, w: d.w, h: d.h, source: d.source, ground: d.ground.length, height: d.height.length, coll: d.coll.length, footWords: d.foot.length, footPixels: d.footPixels,
                props: d.props.length, buildings: d.buildings.length, stations: Object.keys(d.stations).length, curves: d.shapes.curves.length, paddocks: d.regions.paddocks.length, compound: !!d.regions.compound,
                spawns: d.spawns.length, roamAreas: d.regions.roamAreas.map(function (r) { return r.id + ":" + r.box.join(","); }), zones: Object.keys(d.regions.zones), routes: Object.keys(d.routes), places: Object.keys(d.places),
                anchors: Object.keys(d.anchors), creatureKinds: CREATURE_KINDS.join() === Object.keys(DINOS).join() };
     },
     // the map layers (copies), one value per tile at y * w + x
+    // the MAP-B preview (B2b): what decodeMap2 made of a map, in full (the layers, every footBlock and edgeMask pixel
+    // by index, the anchors), and the running island's own preview state
+    decodeDetail: function (o) { return decodedDetail(decodeMap(o), true); },
+    preview: function () {
+      return { terrainOnly: TERRAIN_ONLY, format: MAP.format, staged: !!MAP.staged, w: MW, h: MH, tileAnchors: MAP.tileAnchors || null, spawn: [SPAWN.x, SPAWN.y],
+               footPixels: MAP.footPixels, edgePixels: MAP.edgePixels === undefined ? null : MAP.edgePixels, groundMs: Math.round(groundMs), ground: [ground.width, ground.height],
+               badge: !!root.querySelector(".w-mapb-badge"), saveLocked: saveLocked, camera: [camX, camY], zoom: zoom, view: [W / (S * zoom), H / (S * zoom)],
+               systems: { critters: critters.length, bots: bots.length, drones: drones.length, birds: birds.length, koi: koi.length, stations: STATIONS.length, buildings: BUILDINGS.length, car: !!car, rex: !!rex, gate: !!GATE, volcano: !!volc, falls: FALLS.length, arena: !!ARENA } };
+    },
     layers: function () {
       return { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
                flags: { solid: C_SOLID, shallow: C_SHALLOW, deep: C_DEEP, low: C_LOW, ledgeN: C_LEDGE_N, ledgeE: C_LEDGE_E, ledgeS: C_LEDGE_S, ledgeW: C_LEDGE_W, lava: C_LAVA, climbable: C_CLIMB } };
@@ -4904,6 +5165,7 @@
   function paintTour() { if (tourBtn) { tourBtn.setAttribute("aria-pressed", tour ? "true" : "false"); tourBtn.innerHTML = tour ? "■<span class=\"w-sound-l\"> stop tour</span>" : "▶<span class=\"w-sound-l\"> tour</span>"; } }
   function startTour() {
     egg = null;
+    if (TERRAIN_ONLY) { bubble = { text: "pi:~$ no landmarks on this island yet.", t: 2.5 }; return; }   // the MAP-B preview: nothing to tour (B3)
     if (side || riftBusy()) { bubble = { text: "pi:~$ the tour can wait for this.", t: 2.5 }; return; }
     if (paused) setPaused(false);
     if (setOpen()) toggleSettings(false);
@@ -5042,10 +5304,10 @@
       root.hidden = false; root.classList.add("show");
       var first = false;
       first = !save.hatched; save.hatched = true; writeSave();
-      egg = first && !REDUCED ? { t: 0 } : null;
+      egg = first && !REDUCED && !TERRAIN_ONLY ? { t: 0 } : null;          // the MAP-B preview starts at the spawn, no hatching
       pi.x = SPAWN.x; pi.y = SPAWN.y; pi.vx = pi.vy = 0; pi.path = null; keys = {};
       var fv = MAP.anchors.firstVisit;
-      if (first) { pi.x = fv[0] * T + 8; pi.y = fv[1] * T + 10; if (!walkable(fv[0], fv[1])) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }   // the mailbox is on screen
+      if (first && fv) { pi.x = fv[0] * T + 8; pi.y = fv[1] * T + 10; if (!walkable(fv[0], fv[1])) { pi.x = SPAWN.x; pi.y = SPAWN.y; } }   // the mailbox is on screen
       hintFrom = { x: pi.x, y: pi.y }; sinceLog = 0;
       var lp = save.lastPos;                                            // back where pi left off
       if (!first && lp && safeTile(Math.floor(lp[0] / T), Math.floor(lp[1] / T))) { pi.x = lp[0]; pi.y = lp[1]; }   // only on safe ground (C4-2)
@@ -5054,10 +5316,10 @@
       camF.x = null;
       var ruler = save.ruler;
       if (ruler && !rift && window.Orb) { rift = { phase: "reign", winner: ruler, t: 0, orbs: [rival(ruler, 0)], parts: [], shake: 0, dim: 0, ring: 0 }; var w0 = rift.orbs[0]; w0.x = ARENA.x; w0.y = ARENA.y; w0.z = 34; w0.scale = 1.7; paintFound(); }
-      else if (!ruler && !rift && Object.keys(found).length === TOTAL) later(first ? 3 : 1.2, function () { if (!rift && dlg.hidden) askRift(); });
+      else if (!ruler && !rift && !TERRAIN_ONLY && Object.keys(found).length === TOTAL) later(first ? 3 : 1.2, function () { if (!rift && dlg.hidden) askRift(); });
       startLoop();
       cv.focus({ preventScroll: true });
-      var deep = (location.hash.match(/^#island\/([a-z-]+)/) || [])[1], lmk = deep && ROUTES[deep];
+      var deep = TERRAIN_ONLY ? null : (location.hash.match(/^#island\/([a-z-]+)/) || [])[1], lmk = deep && ROUTES[deep];
       showCard(!deep && TOUCH); irisOpen();
       if (deep === "tour") later(0.2, startTour);
       else if (lmk) { egg = null; later(0.2, function () { visitLandmark(lmk); }); }
@@ -5074,7 +5336,7 @@
     if (!room && !side && !riftBusy()) { save.lastPos = [Math.round(pi.x), Math.round(pi.y)]; writeSave(); }
     if (side) { side = null; freeSideArt(); }
     closeDialog(); if (termOpen) closeTerm();
-    if (car.driving) toggleCar();
+    if (car && car.driving) toggleCar();
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
