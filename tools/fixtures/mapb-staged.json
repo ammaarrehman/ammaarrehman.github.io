@@ -1,7 +1,7 @@
 {
   "about": "The accepted current build of the staged MAP-B home island (tools/maps/staged/home.js). map-lint compares every build with it; change it only with node tools/map-lint.mjs --accept --reason=\"...\". The approved r2.1 record is tools/fixtures/mapb-r21.json, which is frozen and never written by any tool.",
   "accepted": {
-    "stage": "B1e",
+    "stage": "B2a",
     "w": 150,
     "h": 120,
     "landTiles": 10257,
@@ -36,7 +36,9 @@
       "ground": "3bb60f6bbb5f459511cbb917ecb13d5ebe199092977c22569d8cc57346f9d89e:150x120",
       "height": "28e4a85c297b297d7d9098ac081fea4a3daff5e7c8e87550154d5bdf15e23d31:150x120",
       "coll": "634f93800886ca9f829678e26f58c953f0edcd743de4a673f51452ce8ffa95ec:150x120",
-      "coast": "5cae1fc25c55c5fbe59dc0eac06357e3d23d203fcdbc84ab6da30ded474541f2"
+      "coast": "5cae1fc25c55c5fbe59dc0eac06357e3d23d203fcdbc84ab6da30ded474541f2",
+      "anchors": "4a009c37e76873fbb8636059656015ab5d0c8f858aaa848e4f1185193552d856",
+      "bridges": "58159c7caae73aaa7119a0f380d5ef84d1872eed691f4f1c7c74029dd798d6c2"
     },
     "driftFromR21": {
       "tiles": 0,
@@ -49,6 +51,13 @@
     "waterDriftFromR21": {
       "tiles": 0,
       "sha256": null
+    },
+    "pixels": {
+      "footBlock": "afdda476591ce299934e4f7e97ae00a32c2fb27c4bf00fc485517c8a6009ed69",
+      "edgeMask": "9a9bc5dc065673408d1f05ae6ec294abc418e86fbcf61de679b70cbab34d4778",
+      "footPixels": 22101,
+      "edgePixels": 43589,
+      "boundaryTiles": 835
     }
   },
   "history": [
@@ -114,6 +123,23 @@
       "n": 5,
       "stage": "B1e",
       "reason": "B1e: planning metadata only (districts, reserves, habitats, planning log sites); no tile, level, collision or shape changed from B1d",
+      "landTiles": 10257,
+      "levelTiles": [
+        3413,
+        4111,
+        2225,
+        508
+      ],
+      "driftFromR21Tiles": 0,
+      "levelDriftFromR21Tiles": 0,
+      "waterDriftFromR21Tiles": 0,
+      "landSha256": "c884c9bb4a649c2cbadba50d415b00410d058f61264afe538377445911d96e6d",
+      "levelsSha256": "d51d351b0cc30bede012b28c43ccc1f5c43a72309a7045e1aac2ef54c75bcb64"
+    },
+    {
+      "n": 6,
+      "stage": "B2a",
+      "reason": "B2a: format-2 staged data completed: compiler-generated footBlock and edge mask from the B1 geometry (exact, no noise), derived spawn and helipad anchors (tiles), derived bridge records; no B1 tile, level, collision or shape changed",
       "landTiles": 10257,
       "levelTiles": [
         3413,

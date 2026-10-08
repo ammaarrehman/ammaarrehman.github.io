@@ -40,6 +40,7 @@
      node tools/map-compile.mjs --preview  also draw review images into tools/out/mapb/ (needs Playwright's
                                            Chromium; images are review aids, never test fixtures) */
 import { readFileSync, writeFileSync, mkdirSync, existsSync, realpathSync } from "node:fs";
+import { deflateSync } from "node:zlib";
 import { createHash } from "node:crypto";
 import { dirname, join, resolve, basename } from "node:path";
 import { fileURLToPath, pathToFileURL } from "node:url";
@@ -49,7 +50,7 @@ export const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 export const SOURCE_PATH = join(ROOT, "tools/maps/home.src.mjs");
 export const STAGED_PATH = join(ROOT, "tools/maps/staged/home.js");
 export const PREVIEW_DIR = join(ROOT, "tools/out/mapb");
-export const STAGE = "B1e";
+export const STAGE = "B2a";
 const sha256 = (s) => createHash("sha256").update(s).digest("hex");
 
 /* ════════ the source: schema and the coordinate convention ════════ */
@@ -456,11 +457,203 @@ export function compile(src, sourceSha256) {
     const lv = q.map((c) => height[c]);
     falls.push({ upper: Math.max(...lv), lower: Math.min(...lv), tiles: q.map((c) => [c % W, (c - c % W) / W]) });
   }
-  return { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, water, waterIds, bodyPolys, riverLines, cone, crater, conePoly, craterPoly, falls, beach, pathClass, pathOf, plazaTiles, dockBoxes, shallowWithin: src.sea.shallowWithin, sourceSha256 };
+  const m = { id: src.id, w: W, h: H, tile: src.tile, n, pts, samples, land, ground, height, coll, why, steps, polys, rampOf, water, waterIds, bodyPolys, riverLines, cone, crater, conePoly, craterPoly, falls, beach, pathClass, pathOf, plazaTiles, dockBoxes, shallowWithin: src.sea.shallowWithin, sourceSha256 };
+  // B2a, derived from the approved semantics (no new coordinate is authored): the anchors and the bridges
+  m.anchors = deriveAnchors(src);
+  m.bridges = deriveBridges(src, m);
+  // the pixel layer (footBlock and the edge mask) is worked out the first time it's asked for: it is the
+  // slow part, and most of map-lint's self-tests never need it
+  let px = null;
+  Object.defineProperty(m, "px", { enumerable: false, get: () => px || (px = pixelLayer(m, src)), set: (v) => { px = v; } });
+  return m;
 }
 
-/* the staged file's text. Everything that decides a byte is here, in a fixed order */
-export function serialize(m, src) {
+/* ════════ B2a: derived anchors and bridge records ════════
+   anchors are tiles ([x, y], the ...Tile convention), never format 1's world-px spawn: the runtime decoder
+   (B2b) turns them into whatever it needs. spawnTile is the harbour-arrival district's arrival-plaza hub
+   (map-lint checks it is also the corridors' "arrival" route end, inside the arrival plaza); helipadTile is
+   the helipad box's centre tile (the box is an odd 5 x 5, so the centre is a whole tile; map-lint checks it
+   is also the "helipad" route end) */
+export function deriveAnchors(src) {
+  const d = src.districts.find((q) => q.id === "harbour-arrival"), hub = d && d.hubs.find((h) => h.id === "arrival-plaza");
+  const b = src.infrastructure.helipadBox;
+  return { spawnTile: hub ? [hub.hubTile[0], hub.hubTile[1]] : null, helipadTile: [(b.x0 + b.x1) / 2, (b.y0 + b.y1) / 2] };
+}
+/* a bridge record per approved crossing: its bridge tiles (the river the crossing corridor made bridge),
+   the corridor that made them, the river under them, and the deck's direction: the direction of that
+   corridor's polyline segment nearest the bridge's centre, as a unit vector [dx, dy] (4 decimals) pointing
+   east (or south, if it runs exactly north-south), and its axis, "ew" or "ns", whichever is larger. The deck
+   is the corridor's stroke: within its class's half-width of its line (the pixel layer uses exactly that) */
+export function deriveBridges(src, m) {
+  const W = m.w, C = src.corridors;
+  return src.water.crossings.map((c) => {
+    const b = c.crossingBox, tiles = [];
+    for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) if (m.ground[y * W + x] === GROUND.bridge) tiles.push(y * W + x);
+    if (!tiles.length) return { id: c.id, crossingBox: { ...b }, tiles: 0 };
+    const xs = tiles.map((i) => i % W), ys = tiles.map((i) => (i - (i % W)) / W);
+    const paths = [...new Set(tiles.map((i) => m.pathOf[i]))].map((k) => C.paths[k]), rivers = [...new Set(tiles.map((i) => m.waterIds[m.water[i]]))];
+    const pa = paths[0], cx = xs.reduce((a, v) => a + v + 0.5, 0) / tiles.length, cy = ys.reduce((a, v) => a + v + 0.5, 0) / tiles.length;
+    let best = 0, bd = Infinity;
+    for (let j = 0; j < pa.line.length - 1; j++) { const dd = segDist(cx, cy, pa.line[j], pa.line[j + 1]); if (dd < bd) { bd = dd; best = j; } }
+    let dx = pa.line[best + 1][0] - pa.line[best][0], dy = pa.line[best + 1][1] - pa.line[best][1];
+    const len = Math.hypot(dx, dy); dx /= len; dy /= len;
+    if (dx < 0 || (dx === 0 && dy < 0)) { dx = -dx; dy = -dy; }
+    const r4 = (v) => Number(v.toFixed(4)) + 0;                     // + 0 turns -0 into 0
+    return { id: c.id, crossingBox: { ...b }, bridgeBox: { x0: Math.min(...xs), y0: Math.min(...ys), x1: Math.max(...xs), y1: Math.max(...ys) }, tiles: tiles.length,
+      paths: paths.map((p) => p.id), path: pa.id, class: pa.class, deckHalfWidth: C.halfWidths[pa.class], rivers, river: rivers[0], deckAxis: Math.abs(dx) >= Math.abs(dy) ? "ew" : "ns", deckDir: [r4(dx), r4(dy)] };
+  });
+}
+
+/* ════════ B2a: the pixel layer ════════
+   World pixels, 16 a tile: pixel (px, py) is the square [px, px + 1) x [py, py + 1) of world px, inside tile
+   (px >> 4, py >> 4), and its centre in tile units is ((px + 0.5) / 16, (py + 0.5) / 16), an exact binary
+   fraction. Each pixel looks like water or dry ground, decided from the same authored geometry, by the same
+   rules and arithmetic, as the tiles (a tile is what its centre is):
+   - sea: outside the closed coast spline (the polygon of its samples, even-odd, the crossing x worked out
+     exactly as geom.inside() works it out, one pixel row at a time);
+   - still water: inside a body's polygon;
+   - river: within the half-width of the river's nearest centre-line segment (the first nearest, as the
+     tiles take it), unless it is deck: on a walkable tile inside an approved crossing box, within the
+     crossing corridor's half-width of its line (a bridge's deck is the corridor's own stroke);
+   - a dock tile is deck all through (the planks cover it); nothing else is water.
+   No noise, no jitter, no randomness: exact geometry, the same bytes on every run.
+   A tile's look is the look of its ground (deep, shallow, still water and river look like water; sand,
+   grass, path, dock, lava, pad, bridge like dry ground). edgeMask lists every pixel whose look differs from
+   its tile's (water on a dry tile, dry ground on a water tile): the boundary, for the painter. footBlock is
+   exactly the edgeMask pixels on walkable tiles (all of them water on a dry tile): there pi's feet stop, the
+   same pixel test format 1's solidPx() makes. So a walkable pixel never looks wet. Both are runs per pixel
+   row, [py, x0, n, x0, n, ...], rows going up, runs in order with a gap between them */
+const WET_GROUND = new Set([GROUND.deep, GROUND.shallow, GROUND.pond, GROUND.river]);
+export function looksWet(g) { return WET_GROUND.has(g); }
+/* every pixel row's crossings of a closed polygon: for pixel row py, the sorted x values where an edge
+   crosses the row's centre line, worked out exactly as geom.inside() does */
+function rowCrossings(poly, py, T) {
+  const y = (py + 0.5) / T, xs = [];
+  for (let i = 0, n = poly.length; i < n; i++) {
+    const p = poly[i], q = poly[(i + 1) % n];
+    if ((p[1] > y) !== (q[1] > y)) xs.push(p[0] + (y - p[1]) * (q[0] - p[0]) / (q[1] - p[1]));
+  }
+  return xs.sort((a, b) => a - b);
+}
+/* mark the pixels whose centre is inside poly (even-odd), with bit, in flags (PW x PH) */
+function fillPoly(poly, flags, bit, PW, PH, T) {
+  let y0 = Infinity, y1 = -Infinity; for (const p of poly) { y0 = Math.min(y0, p[1]); y1 = Math.max(y1, p[1]); }
+  for (let py = Math.max(0, Math.floor(y0 * T) - 1); py <= Math.min(PH - 1, Math.ceil(y1 * T) + 1); py++) {
+    const xs = rowCrossings(poly, py, T);
+    if (!xs.length) continue;
+    // a pixel is inside when an odd number of crossings lie strictly to its right (x < xc)
+    let k = 0;                                                       // crossings with xc <= x
+    const pxA = Math.max(0, Math.floor(xs[0] * T) - 1), pxB = Math.min(PW - 1, Math.ceil(xs[xs.length - 1] * T) + 1);
+    for (let px = pxA; px <= pxB; px++) {
+      const x = (px + 0.5) / T;
+      while (k < xs.length && xs[k] <= x) k++;
+      if ((xs.length - k) & 1) flags[py * PW + px] |= bit;
+    }
+  }
+}
+export const PXBIT = { sea: 1, still: 2, river: 4 };
+export function pixelLayer(m, src) {
+  const W = m.w, H = m.h, T = m.tile, PW = W * T, PH = H * T;
+  const flags = new Uint8Array(PW * PH);
+  // the sea: everything, then the land cut out of it
+  const inLand = new Uint8Array(PW * PH);
+  fillPoly(m.samples, inLand, 1, PW, PH, T);
+  for (let i = 0; i < PW * PH; i++) if (!inLand[i]) flags[i] = PXBIT.sea;
+  // still water
+  m.bodyPolys.forEach((poly) => fillPoly(poly, flags, PXBIT.still, PW, PH, T));
+  // the rivers: a tile far enough from the line is all one thing (the distance moves at most 0.663 of a tile,
+  // half a tile's diagonal less half a pixel's, between the tile's centre and any pixel centre in it, and the
+  // half-width stays between its least and its most), so only the tiles in that band are worked out per pixel
+  const Wt = src.water, riverStats = [];
+  Wt.rivers.forEach((r, k) => {
+    const line = m.riverLines[k], n = line.length - 1;
+    const hw = (j) => typeof r.halfWidth === "number" ? r.halfWidth : r.halfWidth.base + r.halfWidth.gain * Math.pow(j / n, r.halfWidth.power);
+    let lo = Infinity, hi = -Infinity; for (let j = 0; j < n; j++) { lo = Math.min(lo, hw(j)); hi = Math.max(hi, hw(j)); }
+    const near = (fx, fy) => { let best = 0, bd = Infinity; for (let j = 0; j < n; j++) { const d = segDist(fx, fy, line[j], line[j + 1]); if (d < bd) { bd = d; best = j; } } return bd <= hw(best); };
+    const xs = line.map((q) => q[0]), ys = line.map((q) => q[1]), M = 0.75;
+    let band = 0, whole = 0;
+    for (let ty = Math.max(0, Math.floor(Math.min(...ys) - hi - 2)); ty <= Math.min(H - 1, Math.floor(Math.max(...ys) + hi + 2)); ty++)
+      for (let tx = Math.max(0, Math.floor(Math.min(...xs) - hi - 2)); tx <= Math.min(W - 1, Math.floor(Math.max(...xs) + hi + 2)); tx++) {
+        let dc = Infinity; for (let j = 0; j < n; j++) dc = Math.min(dc, segDist(tx + 0.5, ty + 0.5, line[j], line[j + 1]));
+        if (dc > hi + M) continue;
+        if (dc < lo - M) { whole++; for (let py = ty * T; py < ty * T + T; py++) for (let px = tx * T; px < tx * T + T; px++) flags[py * PW + px] |= PXBIT.river; continue; }
+        band++;
+        for (let py = ty * T; py < ty * T + T; py++) for (let px = tx * T; px < tx * T + T; px++) if (near((px + 0.5) / T, (py + 0.5) / T)) flags[py * PW + px] |= PXBIT.river;
+      }
+    riverStats.push({ id: r.id, bandTiles: band, wholeTiles: whole, halfWidth: [lo, hi] });
+  });
+  // the decks: inside each crossing box, on walkable tiles, within the crossing corridor's half-width of its line
+  const walkable = (i) => m.coll[i] === COLL.none;
+  let deckPixels = 0;
+  for (const br of m.bridges) {
+    if (!br.tiles) continue;
+    const b = br.crossingBox, line = src.corridors.paths.find((p) => p.id === br.path).line, hw = br.deckHalfWidth;
+    for (let ty = b.y0; ty <= b.y1; ty++) for (let tx = b.x0; tx <= b.x1; tx++) {
+      if (!walkable(ty * W + tx)) continue;
+      for (let py = ty * T; py < ty * T + T; py++) for (let px = tx * T; px < tx * T + T; px++) {
+        const i = py * PW + px;
+        if (!(flags[i] & PXBIT.river) || flags[i] & (PXBIT.sea | PXBIT.still)) continue;
+        let d = Infinity; for (let j = 0; j < line.length - 1; j++) d = Math.min(d, segDist((px + 0.5) / T, (py + 0.5) / T, line[j], line[j + 1]));
+        if (d <= hw) { flags[i] &= ~PXBIT.river; deckPixels++; }
+      }
+    }
+  }
+  // docks: deck all through
+  for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) if (m.ground[ty * W + tx] === GROUND.dock)
+    for (let py = ty * T; py < ty * T + T; py++) flags.fill(0, py * PW + tx * T, py * PW + tx * T + T);
+  // the look, the exceptions, the runs
+  const wet = new Uint8Array(PW * PH), edge = new Uint8Array(PW * PH), foot = new Uint8Array(PW * PH);
+  const tileEdge = new Uint16Array(W * H), tileFoot = new Uint16Array(W * H);
+  for (let py = 0; py < PH; py++) for (let px = 0; px < PW; px++) {
+    const i = py * PW + px, t = (py >> 4) * W + (px >> 4);
+    wet[i] = flags[i] ? 1 : 0;
+    if (wet[i] !== (looksWet(m.ground[t]) ? 1 : 0)) { edge[i] = 1; tileEdge[t]++; if (walkable(t)) { foot[i] = 1; tileFoot[t]++; } }
+  }
+  const footBlock = encodeRuns(foot, PW, PH), edgeMask = encodeRuns(edge, PW, PH);
+  let boundaryTiles = 0, footTiles = 0, edgePixels = 0, footPixels = 0;
+  for (let t = 0; t < W * H; t++) { if (tileEdge[t]) boundaryTiles++; if (tileFoot[t]) footTiles++; edgePixels += tileEdge[t]; footPixels += tileFoot[t]; }
+  return { PW, PH, flags, wet, edge, foot, footBlock, edgeMask, stats: { boundaryTiles, footTiles, edgePixels, footPixels, deckPixels, rivers: riverStats } };
+}
+/* a PW x PH bitmap as runs per pixel row: [py, x0, n, x0, n, ...], rows going up, runs in order, apart */
+export function encodeRuns(bits, PW, PH) {
+  const rows = [];
+  for (let py = 0; py < PH; py++) {
+    let row = null;
+    for (let px = 0; px < PW; px++) {
+      if (!bits[py * PW + px]) continue;
+      let n = 1; while (px + n < PW && bits[py * PW + px + n]) n++;
+      (row = row || [py]).push(px, n); px += n;
+    }
+    if (row) rows.push(row);
+  }
+  return rows;
+}
+/* runs back into a bitmap, refusing anything malformed (the format's rules, as decodeMap's footBlock has them) */
+export function decodeRuns(rows, PW, PH, what = "runs") {
+  const bits = new Uint8Array(PW * PH);
+  if (!Array.isArray(rows)) throw new Error(`${what} must be a list`);
+  let lastY = -1, count = 0;
+  rows.forEach((r, k) => {
+    if (!Array.isArray(r) || r.length < 3 || r.length % 2 !== 1 || !r.every((v) => Number.isInteger(v))) throw new Error(`${what} entry ${k} must be [py, x0, n, ...] of whole numbers`);
+    const py = r[0];
+    if (py < 0 || py >= PH) throw new Error(`${what} entry ${k}: row ${py} is off the map`);
+    if (py <= lastY) throw new Error(`${what} rows must go up: row ${py} comes after ${lastY}`);
+    lastY = py;
+    for (let j = 1, end = -1; j < r.length; j += 2) {
+      const x0 = r[j], n = r[j + 1];
+      if (x0 < 0 || n < 1 || x0 + n > PW) throw new Error(`${what} row ${py}: the run at ${x0} (${n}) is off the map`);
+      if (x0 <= end) throw new Error(`${what} row ${py}: the run at ${x0} overlaps or touches the one before`);
+      for (let px = x0; px < x0 + n; px++) bits[py * PW + px] = 1;
+      count += n; end = x0 + n;
+    }
+  });
+  return { bits, count };
+}
+
+/* the staged file's text. Everything that decides a byte is here, in a fixed order. { b1: true } gives the
+   layout B1 ended with (an empty footBlock, no anchors, edgeMask or bridges): map-lint checks that its body is
+   still B1d's, byte for byte, so the B2a fields are only ever added */
+export function serialize(m, src, { b1 = false } = {}) {
   const rows = (arr, ch) => { const out = []; for (let y = 0; y < m.h; y++) { let r = ""; for (let x = 0; x < m.w; x++) r += ch(arr[y * m.w + x]); out.push(`    "${r}"`); } return out.join(",\n"); };
   const values = [COLL.none, COLL.solid, COLL.shallow, COLL.deep, COLL.lava];
   const E = src.elevation;
@@ -482,17 +675,32 @@ export function serialize(m, src) {
   });
   const rivers = Wt.rivers.map((r) => ({ id: r.id, type: "hermite-open", samplesPerSegment: r.samplesPerSegment, halfWidth: r.halfWidth, pts: r.points.map((p) => [p.x, p.y]) }));
   const num = (v) => JSON.stringify(v);
+  const runs = (rows) => rows.length ? `[\n${rows.map((r) => `    ${num(r)}`).join(",\n")}\n  ]` : "[]";
+  const px = b1 ? null : m.px;
   return [
     `/* STAGED MAP-B home island ("Harbour Crescent", r2.1), stage ${STAGE}. Generated by tools/map-compile.mjs from`,
     `   tools/maps/home.src.mjs: regenerate it, never edit it. NOT RUNTIME-SUPPORTED: this is a draft of map`,
-    `   format 2, which the game can't read yet (js/world.js reads format 1; format 2 support begins in B2). It`,
+    `   format 2, which the game can't read yet (js/world.js reads format 1; format 2 support begins in B2b). It`,
     `   registers window.ISLAND_MAPS_STAGED, never window.ISLAND_MAPS, it is never loaded by a page, and tools/`,
     `   is never deployed. Production runs the 100 x 80 island in js/maps/home.js until an approved switch-over.`,
+    `   TERRAIN ONLY: no buildings, landmarks, creatures, routes or other home content yet (B3). Their absence is`,
+    `   acceptable only for the dev-only terrain preview of this staged file; a normal format-2 home must carry`,
+    `   the content its systems need (B3, B4), and must not load without it.`,
     `   ground: a hex digit per tile (0 deep, 1 shallow, 2 sand (the beach), 3 grass, 4 path, 5 still water, 6 dock,`,
     `   7 lava, 8 pad, 9 river, a bridge). Paths, plazas, bridges, docks and the pad can be walked.`,
     `   height: the level, 0 to 3 (the sea 0; water keeps the level of the land it lies on). coll: a base-36 index`,
     `   into coll.values (the game's flags: 1 solid, the cliff rims and the volcano mass; 2 shallow, the sea's`,
-    `   shallows, rivers and still water; 4 deep; 257 solid and lava, the crater). footBlock: none yet.`,
+    `   shallows, rivers and still water; 4 deep; 257 solid and lava, the crater).`,
+    `   anchors: tiles [x, y], never world px (format 1's anchors.spawn is world px; B2b's decoder converts):`,
+    `   spawnTile, the arrival plaza's hub; helipadTile, the helipad box's centre. Both derived, not authored.`,
+    `   footBlock and edgeMask: world pixels, 16 a tile, as runs per pixel row [py, x0, n, x0, n, ...] (rows going`,
+    `   up, runs in order with a gap). Each pixel looks like water or dry ground by the same geometry and rules as`,
+    `   the tiles, tested at the pixel's centre: outside the coast spline is sea; inside a body is still water;`,
+    `   within a river's half-width is river, except a bridge's deck (on walkable tiles in its crossing box, within`,
+    `   the crossing corridor's half-width of its line); a dock tile is deck all through. edgeMask: every pixel`,
+    `   whose look differs from its tile's ground (deep, shallow, still water and river look wet; the rest dry).`,
+    `   footBlock: exactly the edgeMask pixels on walkable tiles, where pi's feet stop (format 1's solidPx()).`,
+    `   No noise or jitter: exact, deterministic geometry.`,
     `   shapes.coast: the closed Hermite spline the land is filled from, [x, y, tangent] per control point (tangent`,
     `   0 at a corner). shapes.levels: the elevation regions in order (a land tile takes the highest level it is`,
     `   in, then the beach rule makes the coastal band of levels 0 and 1 sand at level 0); shapes.beach: that rule;`,
@@ -501,14 +709,18 @@ export function serialize(m, src) {
     `   centre lines and their half-widths; shapes.volcano: the cone and crater ellipses inside the solid mass;`,
     `   shapes.falls: derived, where the river drops a level (its tiles, and the two levels). shapes.corridors:`,
     `   the half-width per class, the plazas, and each path's class and polyline; shapes.docks and shapes.helipad:`,
-    `   inclusive tile boxes. A dock over water keeps the sea's level, 0. */`,
+    `   inclusive tile boxes. A dock over water keeps the sea's level, 0. shapes.bridges: derived, one per approved`,
+    `   crossing: its bridge tiles' box, the corridor that made them, the river under them, and the deck's`,
+    `   direction (deckDir, the unit vector of that corridor's segment there, pointing east or south; deckAxis). */`,
     `(window.ISLAND_MAPS_STAGED = window.ISLAND_MAPS_STAGED || {}).home = {`,
     `  "format": 2, "staged": true, "runtimeSupported": false, "stage": ${num(STAGE)}, "id": ${num(m.id)}, "generator": "tools/map-compile.mjs",`,
     `  "source": "tools/maps/home.src.mjs", "sourceSha256": ${num(m.sourceSha256)}, "tile": ${m.tile}, "w": ${m.w}, "h": ${m.h},`,
     `  "ground": [`, rows(m.ground, (v) => v.toString(16)), `  ],`,
     `  "height": [`, rows(m.height, (v) => v.toString(36)), `  ],`,
     `  "coll": { "values": ${num(values)}, "rows": [`, rows(m.coll, (v) => values.indexOf(v).toString(36)), `  ] },`,
-    `  "footBlock": [],`,
+    ...(b1 ? [] : [`  "anchors": ${num({ spawnTile: m.anchors.spawnTile, helipadTile: m.anchors.helipadTile })},`]),
+    `  "footBlock": ${b1 ? "[]" : runs(px.footBlock)},`,
+    ...(b1 ? [] : [`  "edgeMask": ${runs(px.edgeMask)},`]),
     `  "shapes": {`,
     `    "coast": { "type": "hermite-loop", "samplesPerSegment": ${m.n}, "pts": ${num(m.pts)} },`,
     `    "levels": [`, levels.map((o) => `      ${num(o)}`).join(",\n"), `    ],`,
@@ -524,7 +736,8 @@ export function serialize(m, src) {
     `      "paths": [`, src.corridors.paths.map((pa) => `        ${num({ id: pa.id, class: pa.class, line: pa.line })}`).join(",\n"), `      ]`,
     `    },`,
     `    "docks": [`, m.dockBoxes.map(([id, b]) => `      ${num({ id, ...b })}`).join(",\n"), `    ],`,
-    `    "helipad": ${num(src.infrastructure.helipadBox)}`,
+    `    "helipad": ${num(src.infrastructure.helipadBox)}${b1 ? "" : ","}`,
+    ...(b1 ? [] : [`    "bridges": [`, m.bridges.map((b) => `      ${num({ id: b.id, crossingBox: b.crossingBox, bridgeBox: b.bridgeBox, tiles: b.tiles, path: b.path, class: b.class, deckHalfWidth: b.deckHalfWidth, river: b.river, deckAxis: b.deckAxis, deckDir: b.deckDir })}`).join(",\n"), `    ]`]),
     `  }`,
     `};`,
     ``
@@ -1002,9 +1215,111 @@ export function previewSvgs(m, src, r21) {
   }
   return out;
 }
+/* ════════ B2a review images: the pixel layer, drawn pixel by pixel ════════ */
+const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n++) { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+function pngOf(w, h, rgb) {                                         // rgb: w * h * 3 bytes; a plain PNG, no library
+  const chunk = (type, data) => { const len = Buffer.alloc(4); len.writeUInt32BE(data.length); const td = Buffer.concat([Buffer.from(type), data]); let c = 0xffffffff; for (const b of td) c = CRC[(c ^ b) & 255] ^ (c >>> 8); const crc = Buffer.alloc(4); crc.writeUInt32BE((c ^ 0xffffffff) >>> 0); return Buffer.concat([len, td, crc]); };
+  const ihdr = Buffer.alloc(13); ihdr.writeUInt32BE(w, 0); ihdr.writeUInt32BE(h, 4); ihdr[8] = 8; ihdr[9] = 2;
+  const raw = Buffer.alloc((w * 3 + 1) * h); for (let y = 0; y < h; y++) { raw[y * (w * 3 + 1)] = 0; Buffer.from(rgb.buffer, rgb.byteOffset + y * w * 3, w * 3).copy(raw, y * (w * 3 + 1) + 1); }
+  return Buffer.concat([Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]), chunk("IHDR", ihdr), chunk("IDAT", deflateSync(raw, { level: 9 })), chunk("IEND", Buffer.alloc(0))]);
+}
+const hexRgb = (h) => [parseInt(h.slice(1, 3), 16), parseInt(h.slice(3, 5), 16), parseInt(h.slice(5, 7), 16)];
+const PXCOL = { deep: "#163450", shallow: "#2f6a8e", still: "#4fb0cf", river: "#3d8fd6", foot: "#ff2d2d", lip: "#ff9f1a", rock: "#3a2c28", lava: "#f06a28",
+  wood: "#b08a5c", pad: "#9aa0a6", path: "#d9c08a", sand: "#e3d3a2", lv: ["#a8c97a", "#6fa45a", "#a08a66", "#c9b8e8"] };
+function pixelColor(m, P, px, py) {
+  const W = m.w, PW = W * m.tile, i = py * PW + px, t = (py >> 4) * W + (px >> 4), g = m.ground[t];
+  if (P.foot[i]) return PXCOL.foot;
+  if (P.wet[i]) { const f = P.flags[i]; return f & PXBIT.river ? PXCOL.river : f & PXBIT.still ? PXCOL.still : g === GROUND.deep ? PXCOL.deep : PXCOL.shallow; }
+  if (looksWet(g)) return PXCOL.lip;
+  if (g === GROUND.dock || g === GROUND.bridge) return PXCOL.wood;
+  if (g === GROUND.pad) return PXCOL.pad;
+  if (g === GROUND.lava) return PXCOL.lava;
+  if (m.coll[t] !== COLL.none) return PXCOL.rock;
+  if (g === GROUND.path) return PXCOL.path;
+  if (g === GROUND.sand) return PXCOL.sand;
+  return PXCOL.lv[m.height[t]];
+}
+/* tiles x0..x1, y0..y1 (inclusive) at s output px per world px (s < 1 samples); tile lines drawn when s >= 3 */
+function pixelPng(m, P, b, s) {
+  const T = m.tile, wx0 = b.x0 * T, wy0 = b.y0 * T, ww = (b.x1 - b.x0 + 1) * T, wh = (b.y1 - b.y0 + 1) * T, w = Math.round(ww * s), h = Math.round(wh * s), rgb = new Uint8Array(w * h * 3), cache = new Map();
+  for (let oy = 0; oy < h; oy++) for (let ox = 0; ox < w; ox++) {
+    const px = wx0 + Math.min(ww - 1, Math.floor(ox / s)), py = wy0 + Math.min(wh - 1, Math.floor(oy / s));
+    const hex = pixelColor(m, P, px, py); let c = cache.get(hex); if (!c) cache.set(hex, c = hexRgb(hex));
+    let k = 1; if (s >= 3 && ((px % T === 0 && ox === Math.ceil((px - wx0) * s)) || (py % T === 0 && oy === Math.ceil((py - wy0) * s)))) k = 0.55;
+    rgb.set([c[0] * k, c[1] * k, c[2] * k], (oy * w + ox) * 3);
+  }
+  return { w, h, uri: "data:image/png;base64," + pngOf(w, h, rgb).toString("base64") };
+}
+const PX_LEGEND = [[PXCOL.foot, "footBlock: water on a walkable tile (feet stop)"], [PXCOL.lip, "dry look on a water tile (the lip; tile-blocked)"], [PXCOL.shallow, "sea (shallow tile)"], [PXCOL.deep, "sea (deep tile)"],
+  [PXCOL.still, "still water"], [PXCOL.river, "river"], [PXCOL.sand, "beach (walkable)"], [PXCOL.path, "path (walkable)"], [PXCOL.wood, "bridge / dock deck"], [PXCOL.pad, "helipad"], [PXCOL.rock, "solid: cliff rim, volcano"], [PXCOL.lava, "lava"],
+  [PXCOL.lv[0], "level 0"], [PXCOL.lv[1], "level 1"], [PXCOL.lv[2], "level 2"], [PXCOL.lv[3], "level 3"]];
+/* panels in rows, each a pixel crop with a caption and an optional overlay (world px coordinates in, panel px out) */
+function panelSheet(m, P, title, list, cols, note) {
+  const T = m.tile, M = 16, top = 44, cap = 40, legendW = 330;
+  const imgs = list.map((q) => ({ ...q, img: pixelPng(m, P, q.box, q.s) }));
+  const colW = [], rowH = [];
+  imgs.forEach((q, k) => { const c = k % cols, r = (k / cols) | 0; colW[c] = Math.max(colW[c] || 0, q.img.w); rowH[r] = Math.max(rowH[r] || 0, q.img.h + cap); });
+  const W2 = M + colW.reduce((a, v) => a + v + M, 0) + legendW, H2 = Math.max(top + rowH.reduce((a, v) => a + v + M, 0), top + PX_LEGEND.length * 18 + 160);
+  let b = "", clip = 0;
+  imgs.forEach((q, k) => {
+    const c = k % cols, r = (k / cols) | 0, ox = M + colW.slice(0, c).reduce((a, v) => a + v + M, 0), oy = top + rowH.slice(0, r).reduce((a, v) => a + v + M, 0);
+    const X = (wx) => ox + (wx - q.box.x0 * T) * q.s, Y = (wy) => oy + (wy - q.box.y0 * T) * q.s;
+    b += `<clipPath id="c${clip}"><rect x="${ox}" y="${oy}" width="${q.img.w}" height="${q.img.h}"/></clipPath><image x="${ox}" y="${oy}" width="${q.img.w}" height="${q.img.h}" href="${q.img.uri}" style="image-rendering:pixelated"/>`;
+    if (q.overlay) b += `<g clip-path="url(#c${clip})">${q.overlay(X, Y, q.s)}</g>`;
+    clip++;
+    const lines = q.label.match(/.{1,95}(\s|$)/g) || [q.label];
+    lines.slice(0, 2).forEach((ln, j) => { b += `<text x="${ox}" y="${oy + q.img.h + 15 + j * 14}" fill="#ddd" font-size="12">${esc(ln.trim())}</text>`; });
+  });
+  const lx = W2 - legendW + 8;
+  b += PX_LEGEND.map(([c, t], k) => `<rect x="${lx}" y="${top + k * 18}" width="12" height="12" fill="${c}" stroke="#111"/><text x="${lx + 18}" y="${top + k * 18 + 11}" fill="#ddd" font-size="12">${esc(t)}</text>`).join("");
+  (note || []).forEach((t, k) => { b += `<text x="${lx}" y="${top + PX_LEGEND.length * 18 + 20 + k * 15}" fill="#bbb" font-size="11">${esc(t)}</text>`; });
+  return frame(W2, H2, title, b);
+}
+export function b2aPreviewSvgs(m, src) {
+  const P = m.px, T = m.tile, st = P.stats, out = {};
+  const box = (x0, y0, x1, y1) => ({ x0, y0, x1, y1 });
+  const stat = [`${st.boundaryTiles} boundary tiles; ${st.edgePixels} edge pixels`, `footBlock ${st.footPixels} px on ${st.footTiles} walkable tiles`, "tile lines drawn in the zooms", "exact geometry: no noise or jitter"];
+  // the whole island, one world pixel each
+  out.footblock = panelSheet(m, P, "B2a footBlock: every world pixel of the staged 150 x 120 map (2400 x 1920 px); red is where pi's feet stop on walkable tiles", [{ box: box(0, 0, m.w - 1, m.h - 1), s: 1, label: "the whole map at 1:1 (open the image at full size and zoom in)" }], 1, stat);
+  const shore = [["harbour beach, west of the quay", box(56, 84, 70, 96)], ["the ops arm's sharp cape (the farthest lip, 18.87 px, at its tip)", box(91, 99, 101, 108)],
+    ["north-west cape and the bridgehead", box(4, 15, 16, 27)], ["lantern cove, north-east", box(118, 26, 132, 38)]];
+  out["shore-alignment"] = panelSheet(m, P, "B2a shore alignment: the visual edge mask over tile collision and footBlock (4 px per world px)", shore.map(([label, b]) => ({ label, box: b, s: 4 })), 2,
+    ["the shoreline is the coast spline, exactly", "on walkable tiles, water pixels are footBlock (red)", "on sea tiles, dry pixels are the lip (orange)"]);
+  const water = [["the upper waterfall and the river below it", box(38, 24, 50, 35)], ["the koi pond", box(103, 56, 119, 68)], ["the delta lagoon and the delta head", box(9, 69, 24, 81)],
+    ["the reed marsh and the two mouths", box(6, 82, 22, 97)], ["the tarn (the river's source)", box(49, 8, 60, 17)]];
+  out["water-alignment"] = panelSheet(m, P, "B2a water alignment: river, pond, lagoon, marsh and tarn boundaries (4 px per world px)", water.map(([label, b]) => ({ label, box: b, s: 4 })), 3,
+    ["bodies: inside their polygon (geom.inside)", "rivers: within the nearest segment's half-width", "bridge decks: the crossing corridor's stroke"]);
+  const detail = [["harbour beach by the ferry pier and quay", box(70, 80, 84, 92)], ["delta bridge and delta head", box(17, 72, 29, 83)], ["koi pond's south shore", box(104, 62, 118, 68)],
+    ["cliff meeting the sea: the lighthouse headland", box(136, 36, 147, 50)], ["volcano north notch: rock meets the sea", box(58, 3, 68, 10)], ["ops arm tip (sharp cape)", box(93, 101, 99, 108)]];
+  out["footblock-detail"] = panelSheet(m, P, "B2a footBlock detail: high-risk places (6 px per world px)", detail.map(([label, b]) => ({ label, box: b, s: 6 })), 3,
+    ["red: footBlock (water on a walkable tile)", "orange: dry look on a tile-blocked water tile", "dark: solid (rim or volcano), drawn as rock"]);
+  // the anchors
+  const A = m.anchors, foot = (tx, ty) => (X, Y, s) => `<rect x="${X(tx * T)}" y="${Y(ty * T)}" width="${T * s}" height="${T * s}" fill="none" stroke="#ff4fd8" stroke-width="2"/>` +
+    `<rect x="${X(tx * T + 8 - 4)}" y="${Y(ty * T + 10 - 2)}" width="${9 * s}" height="${4 * s}" fill="#ff4fd8" fill-opacity=".55" stroke="#fff"/>`;
+  const mark = (X, Y, s, t, lbl) => `<circle cx="${X(t[0] * T + 8)}" cy="${Y(t[1] * T + 8)}" r="9" fill="none" stroke="#ff4fd8" stroke-width="3"/><text x="${X(t[0] * T + 8) + 12}" y="${Y(t[1] * T + 8) + 4}" fill="#fff" font-size="13" font-weight="bold">${esc(lbl)}</text>`;
+  out["derived-anchors"] = panelSheet(m, P, "B2a derived anchors (tiles): spawnTile from the arrival-plaza hub, helipadTile from the helipad box's centre", [
+    { label: `the map; spawnTile ${A.spawnTile}, helipadTile ${A.helipadTile}`, box: box(0, 0, m.w - 1, m.h - 1), s: 0.25, overlay: (X, Y, s) => mark(X, Y, s, A.spawnTile, "spawn") + mark(X, Y, s, A.helipadTile, "helipad") },
+    { label: `spawnTile ${A.spawnTile}: the arrival plaza (x 70-84, y 74-81); pink box: pi's 9 x 4 px feet at the aim spot`, box: box(73, 74, 85, 84), s: 4, overlay: foot(A.spawnTile[0], A.spawnTile[1]) },
+    { label: `helipadTile ${A.helipadTile}: centre of the 5 x 5 pad x 101-105, y 93-97`, box: box(98, 90, 108, 100), s: 4, overlay: foot(A.helipadTile[0], A.helipadTile[1]) }], 3,
+    ["pink square: the anchor tile", "pink bar: the foot box at the tile's aim spot (x + 8, y + 10)"]);
+  // the bridges
+  out["bridges-meta"] = panelSheet(m, P, "B2a bridge records: bridge tiles, the crossing corridor's deck stroke and the derived deck direction (6 px per world px)", m.bridges.map((br) => {
+    const cb = br.crossingBox, line = src.corridors.paths.find((p) => p.id === br.path).line, cx = (br.bridgeBox.x0 + br.bridgeBox.x1 + 1) / 2 * T, cy = (br.bridgeBox.y0 + br.bridgeBox.y1 + 1) / 2 * T;
+    return { label: `${br.id}: ${br.tiles} bridge tiles x ${br.bridgeBox.x0}-${br.bridgeBox.x1}, y ${br.bridgeBox.y0}-${br.bridgeBox.y1}; ${br.path} (${br.class}, half-width ${br.deckHalfWidth}) over ${br.river}; deck ${br.deckAxis} [${br.deckDir}]`,
+      box: box(cb.x0 - 1, cb.y0 - 1, cb.x1 + 1, cb.y1 + 1), s: 6, overlay: (X, Y, s) => {
+        const pts = line.map((q) => `${X(q[0] * T)},${Y(q[1] * T)}`).join(" ");
+        return `<rect x="${X(cb.x0 * T)}" y="${Y(cb.y0 * T)}" width="${(cb.x1 - cb.x0 + 1) * T * s}" height="${(cb.y1 - cb.y0 + 1) * T * s}" fill="none" stroke="#ffd166" stroke-width="2" stroke-dasharray="8 5"/>` +
+          `<rect x="${X(br.bridgeBox.x0 * T)}" y="${Y(br.bridgeBox.y0 * T)}" width="${(br.bridgeBox.x1 - br.bridgeBox.x0 + 1) * T * s}" height="${(br.bridgeBox.y1 - br.bridgeBox.y0 + 1) * T * s}" fill="none" stroke="#fff" stroke-width="2"/>` +
+          `<polyline points="${pts}" fill="none" stroke="#7df9ff" stroke-opacity=".28" stroke-width="${2 * br.deckHalfWidth * T * s}" stroke-linecap="round" stroke-linejoin="round"/>` +
+          `<polyline points="${pts}" fill="none" stroke="#ff4fd8" stroke-width="2"/>` +
+          `<line x1="${X(cx)}" y1="${Y(cy)}" x2="${X(cx + br.deckDir[0] * 40)}" y2="${Y(cy + br.deckDir[1] * 40)}" stroke="#fff" stroke-width="4"/><circle cx="${X(cx + br.deckDir[0] * 40)}" cy="${Y(cy + br.deckDir[1] * 40)}" r="7" fill="#fff"/>`;
+      } };
+  }), 3, ["yellow dashes: the approved crossing box", "white: the bridge tiles' box", "pink: the crossing corridor's line", "cyan band: its half-width (the deck stroke)", "white arrow: deckDir from the bridge's centre"]);
+  return out;
+}
 async function writePreviews(m, src) {
   const r21 = JSON.parse(readFileSync(join(ROOT, "tools/fixtures/mapb-r21.json"), "utf8"));
-  const svgs = previewSvgs(m, src, r21);
+  const svgs = { ...previewSvgs(m, src, r21), ...b2aPreviewSvgs(m, src) };
   mkdirSync(PREVIEW_DIR, { recursive: true });
   const { chromium } = await import("playwright");
   const browser = await chromium.launch(); const page = await browser.newPage();

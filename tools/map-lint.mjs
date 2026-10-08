@@ -66,8 +66,9 @@ import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
 import { join } from "node:path";
 import vm from "node:vm";
-import { ROOT, SOURCE_PATH, STAGED_PATH, STAGE, loadSource, compile, serialize, guardOut, regionPoly, GROUND, COLL, WHY } from "./map-compile.mjs";
-import { selfIntersections, flood, raster, hermiteLoop } from "./maps/geom.mjs";
+import { ROOT, SOURCE_PATH, STAGED_PATH, STAGE, loadSource, compile, serialize, guardOut, regionPoly, GROUND, COLL, WHY,
+  pixelLayer, decodeRuns, looksWet, deriveAnchors, deriveBridges, PXBIT } from "./map-compile.mjs";
+import { selfIntersections, flood, raster, hermiteLoop, inside, segDist } from "./maps/geom.mjs";
 
 const R21_PATH = join(ROOT, "tools/fixtures/mapb-r21.json");
 const R21_LEVELS_PATH = join(ROOT, "tools/fixtures/mapb-r21-levels.json");
@@ -100,6 +101,33 @@ const ROUTE_TILES = { "village-square": 37, "ops-service-yard": 32, "commons": 2
 const R21_PLAN_SHA256 = "ba6ed85e08d9690205e5c48952e382e5d32975421eb8a0b143cda2d98dbfd3c3";
 // the staged map from its ground layer on, as B1d committed it (b87ed37): planning metadata may not change a byte of it
 const B1D_BODY_SHA256 = "d92ef8c70007cec016e72afba873d20565f86712aeb365e71d36db69f84f8df5";
+// every field the staged map had at B1e (b52815e), as sha256(JSON.stringify(value)) of the field read back
+// from the file: B2a only adds fields (anchors, footBlock's contents, edgeMask, shapes.bridges) and the stage
+const B1E_FIELDS = {
+  format: "d4735e3a265e16eee03f59718b9b5d03019c07d8b6c51f90da3a666eec13ab35", staged: "b5bea41b6c623f7c09f1bf24dcae58ebab3c0cdd90ad966bc43a45b44867e12b",
+  runtimeSupported: "fcbcf165908dd18a9e49f7ff27810176db8e9f63b4352213741664245224f8aa", id: "58695d278ec15833c2ff83f37fa90b05fc3418ad22a91b5f26851f54c26be52a",
+  generator: "f147259a4e495ee1e4d9d629b95b85cab46250e0b6e369bbde37cd9af912c667", source: "6f4fc4cdf3be8da93f7ea006db852273a706969eb7eeec432d5adee608f7359b",
+  sourceSha256: "5b055a35e15fea91e5a78b166a3b3abfa6d30e80bd9ccd724c2fcf968505553e", tile: "b17ef6d19c7a5b1ee83b907c595526dcb1eb06db8227d650d5dda0a9f4ce8cd9",
+  w: "9ae2bdd7beedc2e766c6b76585530e16925115707dc7a06ab5ee4aa2776b2c7b", h: "2abaca4911e68fa9bfbf3482ee797fd5b9045b841fdff7253557c5fe15de6477",
+  ground: "0fff3cfde09e9abf70a1f7533cfebc00978f5101d51e4a7bb4398bf4327ab7fe", height: "b0780f9226209f8a458e0b70923acdbd93cca67d69dd0d5b0f3d17f2108ea598",
+  coll: "1423a9175cb5b9ba675b33ba8243ba8e2ec0194b72465629296a53774a9fc8cd",
+  "shapes.coast": "dfb3e531afb2c9d42f66515734d52134e94cb3081700da62a4d2baf9929e228a", "shapes.levels": "a8c75de0033801bde3ef50e1163e175d084c9aac90ad025d0e3e86b048063328",
+  "shapes.beach": "f359d5e4086cfc4ad19a081be09208d9d80f1ffbe5b8d8fc1aadbf6d01390077", "shapes.ramps": "2989a1de5f9e0f98b73f787af2d33b6d2448d6f5014e38762580a7df9021e6ca",
+  "shapes.water": "1fbe31c6cab60afc7b0768513c8de8a718f8ce2426015e6460740eb33b11109c", "shapes.rivers": "eb0dbc8a4fb2c627c9388091662e4610fe2b07bf38102990e168ef465a72c2d1",
+  "shapes.volcano": "0017492977d510193b6cd1a00a13af35570f9d8b168f68731c5303a3ff57a858", "shapes.falls": "375d5b0ffc56e295012fb1c59d34489c7e48f8386bb925806d1e7e8c1b972a67",
+  "shapes.corridors": "4a184f6264cdb73568e7020eab04629f0c5440296f0f38eec4762fc94f0cd406", "shapes.docks": "cf5052173597177888d76bd85d9db145c27b8299783ef8258135133737f53fdd",
+  "shapes.helipad": "bd4430c21481bf56da87f4f088f94896a894b08133608c40a1263e1ebda3f5d3" };
+const B2A_FIELDS = ["anchors", "footBlock", "edgeMask", "shapes.bridges", "stage"];      // the only fields B2a may add or change
+// the pixel checks (B2a): the main run makes them all; a self-test only the ones it names (they are the slow part)
+const PIXEL_CHECKS = new Set(["footblock-encoding", "edgemask-encoding", "edgemask-exact", "footblock-exact", "footblock-edge-agree", "footblock-walkable-only", "footblock-on-boundary",
+  "no-wet-walkable", "tile-centres-consistent", "coast-pixels-match-spline", "water-pixels-match-geometry", "foot-reachability", "dry-lip", "spawn-foot", "helipad-foot", "accepted-pixels"]);
+// how far a visibly dry pixel may lie from the ground pi's feet can reach, in px. The architecture plan expected an outer
+// beach lip of 8 px at most; B2a measured the exact geometry: 99.25% of lip pixels are within 8 px, and 152 pixels at 9
+// places lie farther, the farthest 18.87 px (exactly 18.868) at the tip of the ops arm's sharp cape. Ammaar accepted that
+// measurement (B2a review): these pin it, so nothing in B2 can make it worse. The B2c painter should make those far
+// projections read as rock, cliff or cape edge, not as beach or grass (visual only; no geometry or collision change)
+const DRY_LIP_PLAN = 8, DRY_LIP_MAX = 18.87, DRY_LIP_OVER_PLAN = 152;
+const DRY_LIP_TILES = ["80,6", "62,7", "52,13", "7,23", "44,28", "124,29", "132,37", "96,106", "97,106"];   // the only tiles where a lip pixel may lie over 8 px
 // the approved footprint sizes [w, h] (the study's, but the visitor centre, the ranger HQ / depot and the lighthouse base as approved)
 const FOOT_SIZE = { "visitor-centre": [9, 5], "ferry-terminal": [6, 4], "ranger-hq-depot": [7, 4], "bunker": [7, 4], "research-station": [8, 4], "raptor-house": [5, 2], "workshop": [6, 4],
   "post-office": [5, 4], "cafe": [5, 3], "keeper-cottage": [4, 2], "koi-pavilion": [4, 3], "lighthouse": [2, 2], "tower": [3, 3] };
@@ -135,7 +163,8 @@ function summary(m) {
   return { w: m.w, h: m.h, landTiles: land, shallowTiles: shallow, deepTiles: deep, landBox: { x0, y0, x1, y1 },
     waterTiles: (() => { const c = {}; for (let i = 0; i < m.w * m.h; i++) if (m.water && m.water[i] >= 0) { const k = m.waterIds[m.water[i]]; c[k] = (c[k] || 0) + 1; } return c; })(),
     levelTiles: [0, 1, 2, 3].map((l) => { let n = 0; for (let i = 0; i < m.w * m.h; i++) if (m.land[i] && m.height[i] === l) n++; return n; }),
-    digests: { ground0: sha256(Array.from({ length: m.h }, (_, y) => Array.from({ length: m.w }, (_, x) => m.ground[y * m.w + x].toString(16)).join("")).join("\n")), land: sha256(landRows(m).join("\n")), water: sha256(waterRows(m).join("\n")), sea: sha256(seaRows(m).join("\n")), levels: sha256(levelRows(m).join("\n")), ground: layerSha(m, m.ground), height: layerSha(m, m.height), coll: layerSha(m, m.coll), coast: sha256(JSON.stringify([m.n, m.pts])) } };
+    digests: { ground0: sha256(Array.from({ length: m.h }, (_, y) => Array.from({ length: m.w }, (_, x) => m.ground[y * m.w + x].toString(16)).join("")).join("\n")), land: sha256(landRows(m).join("\n")), water: sha256(waterRows(m).join("\n")), sea: sha256(seaRows(m).join("\n")), levels: sha256(levelRows(m).join("\n")), ground: layerSha(m, m.ground), height: layerSha(m, m.height), coll: layerSha(m, m.coll), coast: sha256(JSON.stringify([m.n, m.pts])),
+      anchors: sha256(JSON.stringify(m.anchors || null)), bridges: sha256(JSON.stringify(m.bridges || null)) } };
 }
 function levelDrift(m, lv) {
   const d = [];
@@ -161,7 +190,7 @@ function drift(m, r21) {
 }
 
 /* ════════ the checks on a build (pure: the self-tests run them on broken copies) ════════ */
-export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }) {
+export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted, only = null }) {
   const out = [], add = (name, ok, detail) => out.push({ name, ok: !!ok, detail });
   const W = m.w, H = m.h, isLand = (x, y) => x >= 0 && y >= 0 && x < W && y < H && m.land[y * W + x] === 1;
   const sum = summary(m), acc = accepted && accepted.accepted, intended = acc && acc.driftFromR21 && acc.driftFromR21.tiles > 0 ? acc : null;
@@ -731,9 +760,10 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan,
   {
     const ps = sha256(JSON.stringify(r21Plan.plan));
     add("r21-plan-fixture-frozen", ps === R21_PLAN_SHA256 && r21Plan.planSha256 === R21_PLAN_SHA256, `plan sha ${ps.slice(0, 16)} (code expects ${R21_PLAN_SHA256.slice(0, 16)})`);
-    const text = serialize(m, src), body = text.slice(text.indexOf('  "ground": ['));
+    // B2a only adds fields: this build, written in B1's layout (without them), must still be B1d's, byte for byte
+    const text = serialize(m, src, { b1: true }), body = text.slice(text.indexOf('  "ground": ['));
     const bs = sha256(body);
-    add("b1d-geometry-locked", bs === B1D_BODY_SHA256, `the staged map from its ground layer on is ${bs === B1D_BODY_SHA256 ? "byte for byte B1d's" : "NOT B1d's"} (sha256 ${bs.slice(0, 16)}): ground, levels, collision and every shape; planning changed no tile`);
+    add("b1d-geometry-locked", bs === B1D_BODY_SHA256, `this build in B1's layout (B2a's added fields left out), from its ground layer on, is ${bs === B1D_BODY_SHA256 ? "byte for byte B1d's" : "NOT B1d's"} (sha256 ${bs.slice(0, 16)}): ground, levels, collision and every B1 shape; planning and B2a changed no tile`);
   }
   const boxTiles = (b) => { const t = []; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) t.push(y * W + x); return t; };
   const conv = (b) => ({ x0: b[0], y0: b[1], x1: b[2] - 1, y1: b[3] - 1 });                   // a study half-open rectangle, inclusive
@@ -917,6 +947,254 @@ export function runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan,
       `now ${[...Array(W * H).keys()].filter(walk).length} walkable (B1d's, unchanged). With every B1e reserve solid (footprints, wall lines, contained habitats' fences, the cottage plots): ${n} walkable, ${r} reachable from the arrival (the fenced interiors aside), and every route end, hub, marker and log site still reachable. The study's own solids on this map (its building and base sizes, its 10 stations): ${ns}; the study measured 8,693 (8,606 reachable)`);
   }
 
+  /* ════════ B2a: derived anchors, bridge records, and the pixel layer ════════ */
+  const tileWalk = (i) => m.coll[i] === COLL.none;
+  let walkTiles = 0; for (let i = 0; i < W * H; i++) if (tileWalk(i)) walkTiles++;
+  const end = (id) => { const r = src.corridors.routeEnds.find((q) => q.id === id); return r ? r.endTile : null; };
+  const sameT = (a, b) => !!a && !!b && a[0] === b[0] && a[1] === b[1];
+  const inBoxT = (t, b) => t[0] >= b.x0 && t[0] <= b.x1 && t[1] >= b.y0 && t[1] <= b.y1;
+  // the spawn: the arrival plaza's hub, which is also the arrival route end; walkable, in the one walkable piece
+  {
+    const bad = [], st = m.anchors && m.anchors.spawnTile, d = deriveAnchors(src), box = src.exits.south.arrivalPlazaBox;
+    if (!Array.isArray(st) || st.length !== 2 || !st.every(Number.isInteger)) bad.push(`spawnTile ${JSON.stringify(st)} isn't a tile [x, y]`);
+    else {
+      if (!sameT(st, d.spawnTile)) bad.push(`spawnTile ${st} isn't the harbour-arrival district's arrival-plaza hub ${d.spawnTile}`);
+      if (!sameT(st, end("arrival"))) bad.push(`spawnTile ${st} isn't the "arrival" route end ${end("arrival")}`);
+      if (!inBoxT(st, box)) bad.push(`spawnTile ${st} isn't inside the arrival plaza`);
+      const i = st[1] * W + st[0];
+      if (!m.land[i] || !tileWalk(i)) bad.push(`spawnTile ${st} isn't walkable land (ground ${m.ground[i]}, coll ${m.coll[i]})`);
+      else { const r = flood([i], tileWalk, W, H); let n = 0; for (let k = 0; k < W * H; k++) if (r[k]) n++; if (n !== walkTiles) bad.push(`only ${n} of ${walkTiles} walkable tiles are reachable from spawnTile`); }
+    }
+    add("spawn-anchor", bad.length === 0, bad.length ? bad.join("; ") : `spawnTile ${st} (tiles, not world px): derived from the harbour-arrival district's arrival-plaza hub, which is also the "arrival" route end, inside the arrival plaza x ${box.x0}-${box.x1}, y ${box.y0}-${box.y1}; path ground, walkable, and all ${walkTiles} walkable tiles reachable from it`);
+  }
+  // the helipad anchor: the helipad box's centre tile (the box is odd both ways), on pad, walkable, the "helipad" route end
+  {
+    const bad = [], ht = m.anchors && m.anchors.helipadTile, b = src.infrastructure.helipadBox, d = deriveAnchors(src);
+    if ((b.x1 - b.x0) % 2 || (b.y1 - b.y0) % 2) bad.push(`the helipad box is ${b.x1 - b.x0 + 1} x ${b.y1 - b.y0 + 1}: no single centre tile`);
+    if (!Array.isArray(ht) || ht.length !== 2 || !ht.every(Number.isInteger)) bad.push(`helipadTile ${JSON.stringify(ht)} isn't a tile [x, y]`);
+    else {
+      if (!sameT(ht, d.helipadTile)) bad.push(`helipadTile ${ht} isn't the helipad box's centre ${d.helipadTile}`);
+      if (!inBoxT(ht, b)) bad.push(`helipadTile ${ht} is off the pad x ${b.x0}-${b.x1}, y ${b.y0}-${b.y1}`);
+      const i = ht[1] * W + ht[0];
+      if (m.ground[i] !== GROUND.pad || !tileWalk(i)) bad.push(`helipadTile ${ht} isn't walkable pad (ground ${m.ground[i]}, coll ${m.coll[i]})`);
+      if (!sameT(ht, end("helipad"))) bad.push(`helipadTile ${ht} isn't the "helipad" route end ${end("helipad")}`);
+    }
+    add("helipad-anchor", bad.length === 0, bad.length ? bad.join("; ") : `helipadTile ${ht}: the centre of the 5 x 5 helipad box x ${b.x0}-${b.x1}, y ${b.y0}-${b.y1} ((x0 + x1) / 2, (y0 + y1) / 2), on walkable pad, and the "helipad" route end`);
+  }
+  // the bridge records: one per approved crossing, each as derived from the bridge tiles and the corridor that made them
+  {
+    const bad = [], B = m.bridges || [], want2 = deriveBridges(src, m), keys = ["id", "crossingBox", "bridgeBox", "tiles", "path", "class", "deckHalfWidth", "river", "deckAxis", "deckDir"];
+    const pick = (b) => JSON.stringify(keys.map((k) => b[k]));
+    if (B.length !== 3) bad.push(`${B.length} bridge records (exactly 3, one per approved crossing)`);
+    if (JSON.stringify(B.map((b) => b.id)) !== JSON.stringify(src.water.crossings.map((c) => c.id))) bad.push(`bridge ids ${B.map((b) => b.id).join(", ")} aren't the crossings' ${src.water.crossings.map((c) => c.id).join(", ")}`);
+    let onMap = 0; for (let i = 0; i < W * H; i++) if (m.ground[i] === GROUND.bridge) onMap++;
+    const listed = B.reduce((a, b) => a + (b.tiles || 0), 0);
+    if (onMap !== listed) bad.push(`${onMap} bridge tiles on the map, ${listed} in the records`);
+    B.forEach((b, k) => {
+      const w2 = want2.find((q) => q.id === b.id);
+      if (!w2) return;
+      if (pick(b) !== pick(w2)) bad.push(`${b.id} isn't as derived from the bridge tiles and their corridor (${keys.filter((q) => JSON.stringify(b[q]) !== JSON.stringify(w2[q])).join(", ")})`);
+      if (!b.tiles || !w2.tiles) { bad.push(`${b.id} has no bridge tiles`); return; }
+      if (w2.paths.length !== 1) bad.push(`${b.id} was made by ${w2.paths.length} corridors`);
+      const len = Math.hypot(b.deckDir[0], b.deckDir[1]);
+      if (Math.abs(len - 1) > 2e-4) bad.push(`${b.id}'s deckDir isn't a unit vector (${len})`);
+      if (b.deckAxis !== (Math.abs(b.deckDir[0]) >= Math.abs(b.deckDir[1]) ? "ew" : "ns")) bad.push(`${b.id}'s deckAxis ${b.deckAxis} disagrees with deckDir ${b.deckDir}`);
+      if (b.deckDir[0] < 0 || (b.deckDir[0] === 0 && b.deckDir[1] < 0)) bad.push(`${b.id}'s deckDir doesn't point east or south`);
+    });
+    add("bridge-metadata", bad.length === 0, bad.length ? bad.join("; ") : B.map((b) => `${b.id}: ${b.tiles} tiles x ${b.bridgeBox.x0}-${b.bridgeBox.x1}, y ${b.bridgeBox.y0}-${b.bridgeBox.y1}, by ${b.path} (${b.class}, half-width ${b.deckHalfWidth}) over ${b.river}, deck ${b.deckAxis} [${b.deckDir}]`).join("; ") + "; derived, and no other bridge");
+  }
+  // the pixel layer: footBlock and edgeMask as written (decoded, as a reader would), against a fresh pass over the geometry
+  const pix = (name) => only === null || only.has(name);
+  if ([...PIXEL_CHECKS].some(pix)) {
+    const PXL = m.px, T = m.tile, PW = W * T, PH = H * T, N = PW * PH, tOf = (i) => ((i / PW / T) | 0) * W + (((i % PW) / T) | 0);
+    let fresh = null; const geo = () => fresh || (fresh = pixelLayer(m, src));
+    let fb = null, em = null, fbErr = "", emErr = "";
+    try { fb = decodeRuns(PXL.footBlock, PW, PH, "footBlock"); } catch (e) { fbErr = e.message; }
+    try { em = decodeRuns(PXL.edgeMask, PW, PH, "edgeMask"); } catch (e) { emErr = e.message; }
+    const runsOf = (rows) => rows.reduce((a, r) => a + (r.length - 1) / 2, 0);
+    if (pix("footblock-encoding")) add("footblock-encoding", !!fb, fb ? `${PXL.footBlock.length} pixel rows, ${runsOf(PXL.footBlock)} runs, ${fb.count} pixels; rows going up, runs in order and apart, all on the ${PW} x ${PH} px map` : fbErr);
+    if (pix("edgemask-encoding")) add("edgemask-encoding", !!em, em ? `${PXL.edgeMask.length} pixel rows, ${runsOf(PXL.edgeMask)} runs, ${em.count} pixels; rows going up, runs in order and apart` : emErr);
+    const firstDiff = (a, b) => { let n = 0, f = -1; for (let i = 0; i < N; i++) if (a[i] !== b[i]) { n++; if (f < 0) f = i; } return { n, at: f < 0 ? "" : ` (first at px ${f % PW},${(f / PW) | 0})` }; };
+    if (pix("edgemask-exact")) { const d = em ? firstDiff(em.bits, geo().edge) : null; add("edgemask-exact", !!d && d.n === 0, !d ? "edgeMask doesn't decode" : d.n ? `${d.n} pixels differ from a fresh pass over the geometry${d.at}` : `decodes to exactly a fresh pass over the geometry: ${em.count} pixels on ${geo().stats.boundaryTiles} boundary tiles`); }
+    if (pix("footblock-exact")) { const d = fb ? firstDiff(fb.bits, geo().foot) : null; add("footblock-exact", !!d && d.n === 0, !d ? "footBlock doesn't decode" : d.n ? `${d.n} pixels differ from a fresh pass over the geometry${d.at}` : `decodes to exactly a fresh pass over the geometry: ${fb.count} pixels on ${geo().stats.footTiles} walkable tiles`); }
+    if (pix("footblock-edge-agree")) {
+      let n = 0, f = -1; if (fb && em) for (let i = 0; i < N; i++) if (fb.bits[i] !== (em.bits[i] && tileWalk(tOf(i)) ? 1 : 0)) { n++; if (f < 0) f = i; }
+      add("footblock-edge-agree", !!fb && !!em && n === 0, !fb || !em ? "can't decode both" : n ? `${n} pixels where footBlock isn't exactly edgeMask on walkable tiles (first at px ${f % PW},${(f / PW) | 0})` : "footBlock is exactly the edgeMask pixels on walkable tiles: one geometry pass, one boundary");
+    }
+    if (pix("footblock-walkable-only")) { let n = 0; if (fb) for (let i = 0; i < N; i++) if (fb.bits[i] && !tileWalk(tOf(i))) n++; add("footblock-walkable-only", !!fb && n === 0, !fb ? "footBlock doesn't decode" : n ? `${n} footBlock pixels on tiles the tile collision already blocks` : "every footBlock pixel is on a walkable tile (none on a tile the tile collision already blocks)"); }
+    if (pix("footblock-on-boundary")) {
+      // each footBlock pixel is water by the authored geometry, on or beside a tile that looks wet or is bridge
+      let notWet = 0, inland = 0, f = -1;
+      if (fb) for (let i = 0; i < N; i++) {
+        if (!fb.bits[i]) continue;
+        const t = tOf(i), tx = t % W, ty = (t - tx) / W;
+        if (!geo().wet[i]) { notWet++; if (f < 0) f = i; }
+        let near2 = false; for (let dy = -1; dy <= 1 && !near2; dy++) for (let dx = -1; dx <= 1; dx++) { const x2 = tx + dx, y2 = ty + dy; if (x2 >= 0 && y2 >= 0 && x2 < W && y2 < H && (looksWet(m.ground[y2 * W + x2]) || m.ground[y2 * W + x2] === GROUND.bridge)) { near2 = true; break; } }
+        if (!near2) { inland++; if (f < 0) f = i; }
+      }
+      add("footblock-on-boundary", !!fb && notWet + inland === 0, !fb ? "footBlock doesn't decode" : notWet + inland ? `${notWet} footBlock pixels dry by the geometry, ${inland} not beside any water or bridge tile (first at px ${f % PW},${(f / PW) | 0})` : `all ${fb.count} footBlock pixels are water by the authored geometry, on tiles that are or touch water or bridge: no footBlock inland`);
+    }
+    if (pix("no-wet-walkable")) {
+      let n = 0, wetWalk = 0, f = -1;
+      if (fb && em) for (let i = 0; i < N; i++) { const t = tOf(i); if (!tileWalk(t)) continue; const wet = (em.bits[i] ? 1 : 0) ^ (looksWet(m.ground[t]) ? 1 : 0); if (wet) { wetWalk++; if (!fb.bits[i]) { n++; if (f < 0) f = i; } } }
+      add("no-wet-walkable", !!fb && !!em && n === 0, !fb || !em ? "can't decode both" : n ? `${n} pixels look wet on walkable tiles but feet aren't stopped there (first at px ${f % PW},${(f / PW) | 0})` : `0 visibly wet but walkable pixels: all ${wetWalk} pixels that look like water on walkable tiles are in footBlock`);
+    }
+    // the geometry, recomputed without the scanline: a tile is what its centre is, so every tile's centre must look as its ground does
+    const near = src.water.rivers.map((r, k) => { const line = m.riverLines[k], n = line.length - 1, hw = (j) => typeof r.halfWidth === "number" ? r.halfWidth : r.halfWidth.base + r.halfWidth.gain * Math.pow(j / n, r.halfWidth.power);
+      return (fx, fy) => { let best = 0, bd = Infinity; for (let j = 0; j < n; j++) { const d = segDist(fx, fy, line[j], line[j + 1]); if (d < bd) { bd = d; best = j; } } return bd <= hw(best); }; });
+    const deckAt = (tx, ty, fx, fy) => (m.bridges || []).some((b) => { if (!b.tiles || !tileWalk(ty * W + tx) || !inBoxT([tx, ty], b.crossingBox)) return false; const line = src.corridors.paths.find((p) => p.id === b.path).line; let d = Infinity; for (let j = 0; j < line.length - 1; j++) d = Math.min(d, segDist(fx, fy, line[j], line[j + 1])); return d <= b.deckHalfWidth; });
+    const lookAt = (tx, ty, fx, fy) => {                              // 1 sea, 2 still, 4 river, as the pixel layer marks them
+      if (m.ground[ty * W + tx] === GROUND.dock) return 0;
+      let f = inside(m.samples, fx, fy) ? 0 : PXBIT.sea;
+      if (m.bodyPolys.some((p) => inside(p, fx, fy))) f |= PXBIT.still;
+      if (near.some((q) => q(fx, fy)) && (f || !deckAt(tx, ty, fx, fy))) f |= PXBIT.river;
+      return f;
+    };
+    if (pix("tile-centres-consistent")) {
+      const bad = []; for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) { const wet = lookAt(tx, ty, tx + 0.5, ty + 0.5) ? true : false; if (wet !== looksWet(m.ground[ty * W + tx])) bad.push(`${tx},${ty}`); }
+      add("tile-centres-consistent", bad.length === 0, bad.length ? `${bad.length} tiles whose centre doesn't look as their ground: ${bad.slice(0, 8).join(" ")}` : `all ${W * H} tile centres look as their ground does (the pixel rules are the tiles' own rules: coast, bodies, rivers, decks, docks)`);
+    }
+    if (pix("coast-pixels-match-spline")) {
+      // tiles a coast segment's box touches may be mixed: each of their pixels is tested with geom.inside() itself;
+      // no segment enters any other tile, so all its pixels must be what its centre is (the tile's own land)
+      const cand = new Uint8Array(W * H), S = m.samples;
+      for (let k = 0; k < S.length; k++) { const p = S[k], q = S[(k + 1) % S.length]; for (let ty = Math.max(0, Math.floor(Math.min(p[1], q[1]))); ty <= Math.min(H - 1, Math.floor(Math.max(p[1], q[1]))); ty++) for (let tx = Math.max(0, Math.floor(Math.min(p[0], q[0]))); tx <= Math.min(W - 1, Math.floor(Math.max(p[0], q[0]))); tx++) cand[ty * W + tx] = 1; }
+      let nc = 0, tested = 0, miss = 0, uni = 0, f = "";
+      for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+        const t = ty * W + tx, sea = m.land[t] ? 0 : 1;
+        if (cand[t]) nc++;
+        for (let py = ty * T; py < ty * T + T; py++) for (let px = tx * T; px < tx * T + T; px++) {
+          const g = geo().flags[py * PW + px] & PXBIT.sea ? 1 : 0, raw = m.ground[t] === GROUND.dock ? null : g;
+          if (raw === null) continue;                                  // a dock is deck all through
+          if (cand[t]) { tested++; if (raw !== (inside(S, (px + 0.5) / T, (py + 0.5) / T) ? 0 : 1)) { miss++; if (!f) f = ` (first at px ${px},${py})`; } }
+          else if (raw !== sea) { uni++; if (!f) f = ` (first at px ${px},${py})`; }
+        }
+      }
+      add("coast-pixels-match-spline", miss + uni === 0, miss + uni ? `${miss} pixels differ from geom.inside() on the coast spline, ${uni} away from it differ from their tile${f}` : `${tested} pixels on the ${nc} tiles the spline passes through equal geom.inside() on B1's coast spline (${S.length} samples); every other pixel is its tile's own land or sea`);
+    }
+    if (pix("water-pixels-match-geometry")) {
+      // every pixel near the water (each body's box and each river's, grown by its widest half-width and 2) worked out
+      // again straight from the geometry (no scanline, no band); everywhere else no still water or river may appear
+      const region = new Uint8Array(W * H);
+      m.bodyPolys.forEach((poly) => { const xs = poly.map((q) => q[0]), ys = poly.map((q) => q[1]); for (let ty = Math.max(0, Math.floor(Math.min(...ys)) - 1); ty <= Math.min(H - 1, Math.floor(Math.max(...ys)) + 1); ty++) for (let tx = Math.max(0, Math.floor(Math.min(...xs)) - 1); tx <= Math.min(W - 1, Math.floor(Math.max(...xs)) + 1); tx++) region[ty * W + tx] = 1; });
+      src.water.rivers.forEach((r, k) => { const line = m.riverLines[k], hi = typeof r.halfWidth === "number" ? r.halfWidth : r.halfWidth.base + r.halfWidth.gain, xs = line.map((q) => q[0]), ys = line.map((q) => q[1]);
+        for (let ty = Math.max(0, Math.floor(Math.min(...ys) - hi - 2)); ty <= Math.min(H - 1, Math.floor(Math.max(...ys) + hi + 2)); ty++) for (let tx = Math.max(0, Math.floor(Math.min(...xs) - hi - 2)); tx <= Math.min(W - 1, Math.floor(Math.max(...xs) + hi + 2)); tx++) region[ty * W + tx] = 1; });
+      let tested = 0, miss = 0, stray = 0, f = "", rt = 0;
+      for (let ty = 0; ty < H; ty++) for (let tx = 0; tx < W; tx++) {
+        const t = ty * W + tx;
+        if (region[t]) rt++;
+        for (let py = ty * T; py < ty * T + T; py++) for (let px = tx * T; px < tx * T + T; px++) {
+          const g = geo().flags[py * PW + px] & (PXBIT.still | PXBIT.river);
+          if (region[t]) { tested++; if (g !== (lookAt(tx, ty, (px + 0.5) / T, (py + 0.5) / T) & (PXBIT.still | PXBIT.river))) { miss++; if (!f) f = ` (first at px ${px},${py})`; } }
+          else if (g) { stray++; if (!f) f = ` (first at px ${px},${py})`; }
+        }
+      }
+      add("water-pixels-match-geometry", miss + stray === 0, miss + stray ? `${miss} pixels differ from the bodies', rivers' and decks' geometry, ${stray} water pixels far from any${f}` : `${tested} pixels on ${rt} tiles round the 4 bodies and 2 rivers equal B1's geometry worked out pixel by pixel (polygons by geom.inside(), rivers by the nearest segment's half-width, decks by the crossing corridor's); no still water or river anywhere else`);
+    }
+    // pi's feet: where move() could stand (the 9 x 4 px foot box clear: x - 4 to x + 4, y - 2 to y + 1), flooded from the spawn
+    const needFeet = ["foot-reachability", "dry-lip", "spawn-foot", "helipad-foot"].some(pix);
+    if (needFeet && fb) {
+      const blocked = new Uint8Array(N);
+      for (let i = 0; i < N; i++) blocked[i] = !tileWalk(tOf(i)) || fb.bits[i] ? 1 : 0;
+      const sum = (arr) => { const S = new Int32Array((PW + 1) * (PH + 1)); for (let y = 0; y < PH; y++) { let row = 0; for (let x = 0; x < PW; x++) { row += arr[y * PW + x]; S[(y + 1) * (PW + 1) + x + 1] = S[y * (PW + 1) + x + 1] + row; } } return S; };
+      const box = (S, x0, y0, x1, y1) => { x0 = Math.max(0, x0); y0 = Math.max(0, y0); x1 = Math.min(PW - 1, x1); y1 = Math.min(PH - 1, y1); if (x1 < x0 || y1 < y0) return 0; return S[(y1 + 1) * (PW + 1) + x1 + 1] - S[y0 * (PW + 1) + x1 + 1] - S[(y1 + 1) * (PW + 1) + x0] + S[y0 * (PW + 1) + x0]; };
+      const SB = sum(blocked), stand = (x, y) => x >= 4 && y >= 2 && x <= PW - 5 && y <= PH - 2 && box(SB, x - 4, y - 2, x + 4, y + 1) === 0;
+      const aim = (t) => [t[0] * T + 8, t[1] * T + 10];               // the spot the path follower aims for in a tile
+      const st = m.anchors && m.anchors.spawnTile, s0 = st ? aim(st) : null;
+      const reached = new Uint8Array(N), q = new Int32Array(N); let qh = 0, qt = 0;
+      if (s0 && stand(s0[0], s0[1])) { reached[s0[1] * PW + s0[0]] = 1; q[qt++] = s0[1] * PW + s0[0]; }
+      while (qh < qt) { const i = q[qh++], x = i % PW, y = (i - x) / PW; for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) { const j = ny * PW + nx; if (nx >= 0 && ny >= 0 && nx < PW && ny < PH && !reached[j] && stand(nx, ny)) { reached[j] = 1; q[qt++] = j; } } }
+      const reachTile = new Uint8Array(W * H); for (let i = 0; i < N; i++) if (reached[i]) reachTile[tOf(i)] = 1;
+      let lost = 0; for (let t = 0; t < W * H; t++) if (tileWalk(t) && !reachTile[t]) lost++;
+      if (pix("spawn-foot")) {
+        const bad = []; if (!s0) bad.push("no spawnTile");
+        else { if (!stand(s0[0], s0[1])) bad.push(`pi's feet can't stand at the spawn's aim spot ${s0} (px)`); let fbIn = 0; for (let py = st[1] * T; py < st[1] * T + T; py++) for (let px = st[0] * T; px < st[0] * T + T; px++) if (fb.bits[py * PW + px]) fbIn++; if (fbIn) bad.push(`${fbIn} footBlock pixels in the spawn tile`); }
+        add("spawn-foot", bad.length === 0, bad.length ? bad.join("; ") : `the spawn tile ${st} has no footBlock pixel; pi's 9 x 4 px feet stand clear at its aim spot ${s0} (px), where the foot flood starts`);
+      }
+      if (pix("helipad-foot")) {
+        const ht = m.anchors && m.anchors.helipadTile, h0 = ht ? aim(ht) : null;
+        const ok = !!h0 && stand(h0[0], h0[1]) && reached[h0[1] * PW + h0[0]] === 1;
+        add("helipad-foot", ok, ok ? `pi's feet stand clear at the helipad anchor's aim spot ${h0} (px), reached from the spawn` : `the helipad anchor ${ht}'s aim spot ${h0} isn't standable and reached`);
+      }
+      if (pix("foot-reachability")) {
+        const bad = [], Rv2 = src.reserves;
+        const places = src.corridors.routeEnds.map((r) => ["route " + r.id, r.endTile]).concat(src.districts.flatMap((d) => d.hubs.map((h) => ["hub " + h.id, h.hubTile])),
+          Rv2.markers.flatMap((k) => [["marker " + k.id, k.approachTile || k.markerTile]]), src.planningMarkers.logSites.map((l) => ["log " + l.id, l.siteTile]), [["helipad anchor", m.anchors.helipadTile]]);
+        for (const [nm, t] of places) if (!reachTile[t[1] * W + t[0]]) bad.push(`${nm} ${t}`);
+        // each bridge: pi's feet cross it, bank to bank, without leaving its crossing box. The banks are the first and the
+        // last spot along the crossing corridor's line in the box where feet stand and the main flood reached; a flood held
+        // inside the box must get from one to the other (the corridor's own line may dip over the water beside a narrow
+        // bridge, as the approved 2-tile upper bridge's diagonal trail does, so the line itself isn't the test)
+        const brInfo = [];
+        for (const b of m.bridges || []) {
+          if (!b.tiles) continue;
+          const line = src.corridors.paths.find((p) => p.id === b.path).line, cb = b.crossingBox, bx0 = cb.x0 * T, by0 = cb.y0 * T, bx1 = (cb.x1 + 1) * T - 1, by1 = (cb.y1 + 1) * T - 1;
+          const spots = [];
+          for (let j = 0; j < line.length - 1; j++) { const a = line[j], c = line[j + 1], L = Math.ceil(Math.hypot(c[0] - a[0], c[1] - a[1]) * T * 2);
+            for (let k2 = 0; k2 <= L; k2++) { const x = Math.round((a[0] + (c[0] - a[0]) * k2 / L) * T), y = Math.round((a[1] + (c[1] - a[1]) * k2 / L) * T); if (x >= bx0 && x <= bx1 && y >= by0 && y <= by1 && reached[y * PW + x]) spots.push(y * PW + x); } }
+          if (spots.length < 2) { bad.push(`${b.id}: no reached bank along ${b.path}`); continue; }
+          // the crossing with pi's feet grown by g px on every side (g = 0: the real 9 x 4 px feet); the margin is the most g
+          // that still crosses, so the narrowest place on the way is 9 + 2 x margin px wide (and 4 + 2 x margin tall) at least
+          const crossWith = (g) => {
+            const ok = (x, y) => x - 4 - g >= 0 && y - 2 - g >= 0 && x + 4 + g < PW && y + 1 + g < PH && box(SB, x - 4 - g, y - 2 - g, x + 4 + g, y + 1 + g) === 0;
+            const sp = spots.filter((i) => ok(i % PW, (i / PW) | 0)); if (sp.length < 2) return false;
+            const A2 = sp[0], B2 = sp[sp.length - 1], seen = new Uint8Array((bx1 - bx0 + 1) * (by1 - by0 + 1)), idx = (x, y) => (y - by0) * (bx1 - bx0 + 1) + (x - bx0), qq = [A2];
+            seen[idx(A2 % PW, (A2 / PW) | 0)] = 1;
+            for (let k2 = 0; k2 < qq.length; k2++) { const i = qq[k2], x = i % PW, y = (i - x) / PW; if (i === B2) return true;
+              for (const [nx, ny] of [[x + 1, y], [x - 1, y], [x, y + 1], [x, y - 1]]) if (nx >= bx0 && ny >= by0 && nx <= bx1 && ny <= by1 && !seen[idx(nx, ny)] && ok(nx, ny)) { seen[idx(nx, ny)] = 1; qq.push(ny * PW + nx); } }
+            return false;
+          };
+          const A = spots[0], Bk = spots[spots.length - 1], across = crossWith(0), rv = b.river, bankA = `${A % PW},${(A / PW) | 0}`, bankB = `${Bk % PW},${(Bk / PW) | 0}`;
+          let margin = -1; if (across) for (let g = 0; g <= 16 && crossWith(g); g++) margin = g;
+          brInfo.push(`${b.id} ${across ? `crossed from px ${bankA} to ${bankB}, clearance margin ${margin} px round the feet (narrowest way at least ${9 + 2 * margin} x ${4 + 2 * margin} px)` : "NOT crossed"}`);
+          if (!across) bad.push(`${b.id}: pi's feet can't get from px ${bankA} to ${bankB} over ${rv} inside the crossing box`);
+        }
+        add("foot-reachability", bad.length === 0, bad.length ? `not reached at pixel level: ${bad.join("; ")}` : `pi's feet (9 x 4 px, as move() tests them) reach every route end, hub, marker, log site and the helipad anchor from the spawn (${places.length} places); and across each bridge inside its crossing box (${brInfo.join("; ")}); ${walkTiles - lost} of ${walkTiles} walkable tiles hold a reached standing spot (${lost} slivers, wholly beside footBlock, hold none)`);
+      }
+      if (pix("dry-lip")) {
+        // where pi's feet can reach: every pixel some reached foot box covers
+        const SR = sum(reached), space = new Uint8Array(N);
+        for (let y = 0; y < PH; y++) for (let x = 0; x < PW; x++) if (!blocked[y * PW + x] && box(SR, x - 4, y - 1, x + 4, y + 2) > 0) space[y * PW + x] = 1;
+        // the nearest such pixel, exactly: rings outward; a ring r holds nothing nearer than r, so stop once r passes the best
+        const dist = (px, py) => {
+          let best = Infinity;
+          for (let r = 0; r <= 64 && r <= best; r++) for (let dy = -r; dy <= r; dy++) for (let dx = -r; dx <= r; dx += (Math.abs(dy) === r ? 1 : 2 * r || 1)) {
+            const x = px + dx, y = py + dy; if (x >= 0 && y >= 0 && x < PW && y < PH && space[y * PW + x]) best = Math.min(best, Math.hypot(dx, dy));
+          }
+          return best;
+        };
+        let over = 0; const overTiles = new Set();
+        const cat = { beach: { n: 0, max: 0, at: "" }, inland: { n: 0, max: 0, at: "" }, walkable: { n: 0, max: 0, at: "" }, cliff: { n: 0, max: 0, at: "" } };
+        for (let i = 0; i < N; i++) {
+          const t = tOf(i), g = m.ground[t], wet = (em.bits[i] ? 1 : 0) ^ (looksWet(g) ? 1 : 0);
+          if (wet) continue;
+          let c = null;
+          if (tileWalk(t)) { if (!space[i]) c = "walkable"; }
+          else if (looksWet(g)) {
+            const tx = t % W, ty = (t - tx) / W; let byWalk = false;
+            for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const x2 = tx + dx, y2 = ty + dy; if (x2 >= 0 && y2 >= 0 && x2 < W && y2 < H && tileWalk(y2 * W + x2) && !looksWet(m.ground[y2 * W + x2])) byWalk = true; }
+            c = !byWalk ? "cliff" : g === GROUND.shallow || g === GROUND.deep ? "beach" : "inland";
+          }
+          if (!c) continue;
+          const k = cat[c]; k.n++;
+          const d = c === "cliff" ? 0 : dist(i % PW, (i / PW) | 0);
+          if (d > k.max) { k.max = d; k.at = `px ${i % PW},${(i / PW) | 0}`; }
+          if (d > DRY_LIP_PLAN && c !== "cliff") { over++; const tk = `${(i % PW) >> 4},${(i / PW) >> 4}`; overTiles.add(tk); }
+        }
+        const r1 = (v) => v === Infinity ? "unreached" : (Math.round(v * 100) / 100).toString();
+        const worst = Math.max(cat.beach.max, cat.inland.max, cat.walkable.max);
+        const lipN = cat.beach.n + cat.inland.n;
+        const newTiles = [...overTiles].filter((k2) => !DRY_LIP_TILES.includes(k2));
+        add("dry-lip", worst <= DRY_LIP_MAX && over <= DRY_LIP_OVER_PLAN && newTiles.length === 0, `worst distance from a visibly dry pixel to ground pi's feet reach: ${r1(worst)} px (pinned at most ${DRY_LIP_MAX}); ${over} pixels farther than the plan's ${DRY_LIP_PLAN} px (pinned at most ${DRY_LIP_OVER_PLAN}), ${lipN ? (100 * (1 - over / lipN)).toFixed(2) : "100"}% of the ${lipN} lip pixels within it; over ${DRY_LIP_PLAN} px at tiles ${[...overTiles].join(" ")}${newTiles.length ? ` (NOT among the ${DRY_LIP_TILES.length} accepted tiles: ${newTiles.join(" ")})` : ` (all among the ${DRY_LIP_TILES.length} accepted tiles)`}. Dry pixels on sea tiles beside walkable land (the outer beach lip): ${cat.beach.n}, worst ${r1(cat.beach.max)} px${cat.beach.at ? " at " + cat.beach.at : ""}; on pond or river tiles beside walkable land: ${cat.inland.n}, worst ${r1(cat.inland.max)} px${cat.inland.at ? " at " + cat.inland.at : ""}; on walkable tiles but outside every reached foot box (corners too tight for 9 x 4 px feet): ${cat.walkable.n}, worst ${r1(cat.walkable.max)} px${cat.walkable.at ? " at " + cat.walkable.at : ""}; on sea tiles beside only cliff or volcano (rock meets the sea, not a beach): ${cat.cliff.n}, not measured`);
+      }
+    }
+    if (pix("accepted-pixels")) {
+      const acc2 = accepted && accepted.accepted && accepted.accepted.pixels, now = { footBlock: sha256(JSON.stringify(PXL.footBlock)), edgeMask: sha256(JSON.stringify(PXL.edgeMask)) };
+      const diffs = acc2 ? Object.keys(now).filter((k) => now[k] !== acc2[k]) : ["all"];
+      add("accepted-pixels", diffs.length === 0, !acc2 ? `no accepted pixel layer in ${rel(ACCEPTED_PATH)} (run map-lint --accept --reason="...")` : diffs.length ? `differs from the accepted pixel layer in ${diffs.join(", ")}` : `footBlock and edgeMask match the accepted build's (footBlock ${now.footBlock.slice(0, 16)}, edgeMask ${now.edgeMask.slice(0, 16)})`);
+    }
+  }
+
   // the accepted build
   {
     if (!acc) add("accepted-build", false, `no accepted build in ${rel(ACCEPTED_PATH)} (run map-lint --accept --reason="...")`);
@@ -942,6 +1220,21 @@ function stagedNotRuntime(text) {
   } catch (e) { return { ok: false, why: e.message }; }
 }
 
+/* every field the staged file had at B1e, read back from the file, is unchanged; the only others are B2a's */
+function b1FieldsLocked(text) {
+  const ctx = { window: {} };
+  try {
+    vm.runInNewContext(text, ctx);
+    const s = ctx.window.ISLAND_MAPS_STAGED.home, get = (k) => k.startsWith("shapes.") ? s.shapes[k.slice(7)] : s[k];
+    const changed = Object.keys(B1E_FIELDS).filter((k) => sha256(JSON.stringify(get(k))) !== B1E_FIELDS[k]);
+    const have = Object.keys(s).filter((k) => k !== "shapes").concat(Object.keys(s.shapes).map((k) => "shapes." + k));
+    const extra = have.filter((k) => !(k in B1E_FIELDS) && !B2A_FIELDS.includes(k));
+    const ok = !changed.length && !extra.length;
+    return { ok, why: ok ? `all ${Object.keys(B1E_FIELDS).length} fields the staged file had at B1e (b52815e) read back unchanged (format, ids, size, ground, height, coll and the 11 shapes); added only ${B2A_FIELDS.filter((k) => k !== "stage").join(", ")} (and the stage, ${s.stage})` :
+      `${changed.length ? "changed since B1e: " + changed.join(", ") : ""}${changed.length && extra.length ? "; " : ""}${extra.length ? "fields B2a doesn't add: " + extra.join(", ") : ""}` };
+  } catch (e) { return { ok: false, why: e.message }; }
+}
+
 /* ════════ accepting a build: mapb-staged.json, and nothing else ════════ */
 export function acceptTo(path, record) {
   const real = (p) => (existsSync(p) ? realpathSync(p) : p).toLowerCase();
@@ -951,7 +1244,8 @@ export function acceptTo(path, record) {
 function acceptedRecord(m, r21, r21Levels, r21Water, prev, reason) {
   const s = summary(m), d = drift(m, r21), dl = levelDrift(m, r21Levels), dw = waterDrift(m, r21Water);
   const history = (prev ? prev.history : []).concat([{ n: (prev ? prev.history.length : 0) + 1, stage: STAGE, reason, landTiles: s.landTiles, levelTiles: s.levelTiles, driftFromR21Tiles: d.tiles, levelDriftFromR21Tiles: dl.tiles, waterDriftFromR21Tiles: dw.tiles, landSha256: s.digests.land, levelsSha256: s.digests.levels }]);
-  const acc = { stage: STAGE, ...s, driftFromR21: { tiles: d.tiles, sha256: d.sha256 }, levelDriftFromR21: { tiles: dl.tiles, sha256: dl.sha256 }, waterDriftFromR21: { tiles: dw.tiles, sha256: dw.sha256 } };
+  const acc = { stage: STAGE, ...s, driftFromR21: { tiles: d.tiles, sha256: d.sha256 }, levelDriftFromR21: { tiles: dl.tiles, sha256: dl.sha256 }, waterDriftFromR21: { tiles: dw.tiles, sha256: dw.sha256 },
+    pixels: { footBlock: sha256(JSON.stringify(m.px.footBlock)), edgeMask: sha256(JSON.stringify(m.px.edgeMask)), footPixels: m.px.stats.footPixels, edgePixels: m.px.stats.edgePixels, boundaryTiles: m.px.stats.boundaryTiles } };
   return JSON.stringify({
     about: "The accepted current build of the staged MAP-B home island (tools/maps/staged/home.js). map-lint compares every build with it; change it only with node tools/map-lint.mjs --accept --reason=\"...\". The approved r2.1 record is tools/fixtures/mapb-r21.json, which is frozen and never written by any tool.",
     accepted: acc, history }, null, 2) + "\n";
@@ -978,7 +1272,7 @@ try {
 if (args.includes("--accept")) {
   const reason = (args.find((a) => a.startsWith("--reason=")) || "").slice(9).trim();
   if (reason.length < 10) { console.error('map-lint --accept needs --reason="why this build is the intended one" (10 characters or more)'); process.exit(1); }
-  const res = runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }).filter((c) => !c.ok && !["r21-land-mask", "land-count", "land-bounds", "r21-level-mask", "level-counts", "r21-water-mask", "accepted-build"].includes(c.name));
+  const res = runChecks(src, m, { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }).filter((c) => !c.ok && !["r21-land-mask", "land-count", "land-bounds", "r21-level-mask", "level-counts", "r21-water-mask", "accepted-build", "accepted-pixels"].includes(c.name));
   if (res.length) { res.forEach((c) => say(false, c.name, c.detail)); console.error("map-lint --accept: refusing, the build fails the checks above"); process.exit(1); }
   if (readFileSync(STAGED_PATH, "utf8") !== serialize(m, src)) { console.error("map-lint --accept: refusing, tools/maps/staged/home.js is stale (run node tools/map-compile.mjs)"); process.exit(1); }
   acceptTo(ACCEPTED_PATH, acceptedRecord(m, r21, r21Levels, r21Water, accepted, reason));
@@ -999,6 +1293,8 @@ say(staged === fresh, "staged-current", staged === fresh ? `${rel(STAGED_PATH)} 
   say(!!mm && mm[1] === fileSha, "staged-source-hash", mm ? `staged ${mm[1].slice(0, 16)}, source file ${fileSha.slice(0, 16)}` : "no sourceSha256 in the staged file");
   const r = stagedNotRuntime(staged);
   say(r.ok, "staged-not-runtime", r.why);
+  const f = b1FieldsLocked(staged);
+  say(f.ok, "b1-fields-locked", f.why);
 }
 // determinism: two separate compiler processes, byte for byte
 {
@@ -1037,7 +1333,7 @@ function expectThrow(name, fn, re) {
 function expectFail(name, s, checks, ctx = { r21, r21Levels, r21Water, r21Infra, r21Plan, accepted }, alter) {
   let mm; try { mm = compile(s, "self-test"); } catch (e) { say(false, "self-test " + name, "didn't compile: " + e.message); return; }
   if (alter) alter(mm);                                            // break the compiled map itself, past the compiler
-  const res = runChecks(s, mm, ctx), failed = res.filter((c) => !c.ok).map((c) => c.name);
+  const res = runChecks(s, mm, { ...ctx, only: new Set(checks.filter((c) => PIXEL_CHECKS.has(c))) }), failed = res.filter((c) => !c.ok).map((c) => c.name);
   const missed = checks.filter((c) => !failed.includes(c));
   say(!missed.length, "self-test " + name, missed.length ? `NOT caught by ${missed.join(", ")}` : `caught: ${checks.map((c) => `${c} (${res.find((r) => r.name === c).detail})`).join("; ")}`);
 }
@@ -1154,6 +1450,38 @@ expectFail("habitat metadata leaking into collision (a fence made solid in the c
 { const s = copy(); s.habitats.find((h) => h.id === "holding-paddock").planningLabels = ["predator paddock"]; expectFail("the holding paddock no longer marked temporary until Ironwood", s, ["habitats"]); }
 { const t = JSON.parse(JSON.stringify(r21Plan)); t.plan.hubs.commons = [77, 54];
   expectFail("frozen r2.1 plan fixture tampered with", copy(), ["r21-plan-fixture-frozen", "districts"], { r21, r21Levels, r21Water, r21Infra, r21Plan: t, accepted }); }
+// B2a: the pixel layer, the anchors, the bridge records, the B1 lock
+const pxRow = (mm, pred) => { const k = mm.px.footBlock.findIndex(pred); return k; };
+expectFail("a footBlock run deleted", copy(), ["footblock-exact", "footblock-edge-agree", "no-wet-walkable", "accepted-pixels"], undefined, (mm) => {
+  const k = pxRow(mm, (r) => r.length >= 5); const r = mm.px.footBlock[k].slice(); r.splice(1, 2); mm.px.footBlock[k] = r; });
+// one pixel added to a row of runs, kept in order (a new row if the row has none)
+const addRun = (rows, py, px) => {
+  const k = rows.findIndex((r) => r[0] >= py);
+  if (k < 0 || rows[k][0] !== py) { rows.splice(k < 0 ? rows.length : k, 0, [py, px, 1]); return; }
+  const r = rows[k].slice(1), pairs = []; for (let j = 0; j < r.length; j += 2) pairs.push([r[j], r[j + 1]]);
+  if (pairs.some(([x0, n]) => px >= x0 - 1 && px <= x0 + n)) throw new Error("that pixel touches a run already");
+  pairs.push([px, 1]); pairs.sort((a, b) => a[0] - b[0]); rows[k] = [py].concat(...pairs);
+};
+expectFail("an inland footBlock pixel added (the commons)", copy(), ["footblock-exact", "footblock-edge-agree", "footblock-on-boundary"], undefined, (mm) => { addRun(mm.px.footBlock, 54 * 16 + 6, 76 * 16 + 5); });
+expectFail("a visibly wet pixel left walkable (one footBlock pixel dropped, the edge mask kept)", copy(), ["no-wet-walkable", "footblock-exact"], undefined, (mm) => {
+  const k = pxRow(mm, (r) => r[2] >= 3); const r = mm.px.footBlock[k].slice(); r.splice(1, 2, r[1], 1, r[1] + 2, r[2] - 2); mm.px.footBlock[k] = r; });
+expectFail("the edge mask's encoding corrupted (two runs overlapping)", copy(), ["edgemask-encoding"], undefined, (mm) => {
+  const k = mm.px.edgeMask.findIndex((r) => r.length >= 5); const r = mm.px.edgeMask[k].slice(); r[3] = r[1]; mm.px.edgeMask[k] = r; });
+expectFail("the edge mask and footBlock disagreeing (an edge run dropped on a walkable tile)", copy(), ["footblock-edge-agree", "edgemask-exact"], undefined, (mm) => {
+  const f = mm.px.footBlock[0], k = mm.px.edgeMask.findIndex((r) => r[0] === f[0]); const r = mm.px.edgeMask[k], j = r.findIndex((v, q) => q % 2 === 1 && v <= f[1] && f[1] < v + r[q + 1]);
+  if (j < 0) throw new Error("no edge run over the footBlock run"); mm.px.edgeMask[k] = r.slice(0, j).concat(r.slice(j + 2)); });
+expectFail("the spawn moved into the water", copy(), ["spawn-anchor", "spawn-foot"], undefined, (mm) => { mm.anchors.spawnTile = [79, 100]; });
+expectFail("the spawn moved onto a walkable tile whose aim spot footBlock blocks", copy(), ["spawn-anchor", "spawn-foot", "foot-reachability"], undefined, (mm) => {
+  const PW = mm.w * 16, fb = decodeRuns(mm.px.footBlock, PW, mm.h * 16).bits;
+  for (let ty = 0; ty < mm.h; ty++) for (let tx = 0; tx < mm.w; tx++) { if (mm.coll[ty * mm.w + tx] !== COLL.none) continue; const ax = tx * 16 + 8, ay = ty * 16 + 10; let hit = false; for (let y = ay - 2; y <= ay + 1; y++) for (let x = ax - 4; x <= ax + 4; x++) if (fb[y * PW + x]) hit = true; if (hit) { mm.anchors.spawnTile = [tx, ty]; return; } }
+  throw new Error("no such tile"); });
+expectFail("the helipad anchor moved off the pad", copy(), ["helipad-anchor"], undefined, (mm) => { mm.anchors.helipadTile = [99, 95]; });
+expectFail("a bridge's orientation corrupted", copy(), ["bridge-metadata"], undefined, (mm) => { mm.bridges[1].deckAxis = "ns"; mm.bridges[1].deckDir = [mm.bridges[1].deckDir[1], mm.bridges[1].deckDir[0]]; });
+expectFail("a fourth bridge record added", copy(), ["bridge-metadata"], undefined, (mm) => { mm.bridges.push({ ...mm.bridges[0], id: "east-bridge" }); });
+expectFail("a B1 ground tile changed alongside the B2a data (grass made path at the commons)", copy(), ["b1d-geometry-locked", "r21-ground", "accepted-build"], undefined, (mm) => { mm.ground[50 * mm.w + 80] = GROUND.path; });
+{ const s = copy(); s.elevation.ramps.find((r) => r.id === "main-path").rampBox.x1 = 80; expectFail("a B1 shape changed alongside the B2a data (a ramp widened)", s, ["ramps-unchanged", "b1d-geometry-locked", "accepted-build"]); }
+{ const r = b1FieldsLocked(staged.replace('"helipad": {"x0":101,', '"helipad": {"x0":100,')); say(!r.ok, "self-test a B1 shape edited in the staged file itself (the helipad box)", r.ok ? "NOT caught" : `caught: b1-fields-locked (${r.why})`); }
+{ const r = b1FieldsLocked(staged.replace('"anchors": {', '"extra": 1, "anchors": {')); say(!r.ok, "self-test a field B2a doesn't add, in the staged file", r.ok ? "NOT caught" : `caught: b1-fields-locked (${r.why})`); }
 { // the guard isn't simply refusing everything: a write it allows (into tools/out/) happens, with the tracked file's bytes
   const p = join(ROOT, "tools/out/mapb/selftest/home.js");
   try {
