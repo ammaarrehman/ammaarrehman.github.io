@@ -1,0 +1,10 @@
+{
+  "about": "The staged MAP-B island's painted ground (the format-2 painter in js/world.js, through the local preview), as the SHA-256 of the ground canvas's RGBA bytes: 2400 x 1920 world px, 4 bytes each, rows top to bottom. The painter uses integer hashes and + - * / only, so every engine paints the same bytes. tools/mapb-painter.mjs checks it in each engine. Only this canvas is tracked, never a screenshot of the page. Change it only for an approved change to the painter.",
+  "terrain": {
+    "stage": "B2c",
+    "approved": "2026-10-08",
+    "w": 2400,
+    "h": 1920,
+    "rgbaSha256": "8fdd2afe96966e7a61d61eb708bed61b5f5e98a80561a8117aa59e33ae3d07b8"
+  }
+}
