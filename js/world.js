@@ -523,17 +523,22 @@
      only for a staged format-2 map, with the preview flag, on a loopback host (decodeMap2 refuses a staged map
      anywhere else). It is the only state in which the systems whose content B3 hasn't authored yet (the
      landmarks and buildings, creatures, bots, car, rex, the rift, the koi, the zones' systems, the volcano
-     sprite, the falls) are left out, and the helicopter is left parked, unseen and unused. Format 1, and any
+     sprite, the falls) are left out. The helicopter is the one vehicle it keeps (B2e): its own mechanics, on the
+     staged pad, so flight and landing can be checked on the bigger island. Format 1, and any
      future normal format-2 home, keep every completeness check below. The preview neither reads nor writes
      the save (see the save) */
   var TERRAIN_ONLY = MAP.format === 2 && MAP.staged === true && previewAsked() && LOOPBACK;
   var LEGACY = MAP.format === 1;        // format 1: its legacy shapes (coast(), the terraces, the pond, the curves, the volcano) and its painter
-  // a small badge says so, only in the preview, so nobody takes it for the live island (CSSOM, no style attribute)
+  /* a small badge says so, only in the preview, so nobody takes it for the live island (CSSOM, no style attribute). It sits under
+     the HUD row at the left, three short lines wide (clear of the HUD's buttons and title, and of the sound chip and toasts in the
+     middle, at desktop and phone widths), and it comes straight after the game's canvas at z-index 0: above the picture, and under
+     every other layer (the HUD, cards, dialogs, the big map, the readout), which paint over it; it takes no taps (B2e) */
   if (TERRAIN_ONLY) (function () {
-    var b = document.createElement("div"); b.className = "w-mapb-badge"; b.textContent = "MAP-B staged preview";
-    var st = b.style; st.position = "absolute"; st.top = "8px"; st.left = "50%"; st.transform = "translateX(-50%)"; st.zIndex = "9"; st.pointerEvents = "none";
-    st.padding = "3px 8px"; st.font = "700 11px 'Cascadia Mono', monospace"; st.color = "#111"; st.background = "#ffd166"; st.border = "2px solid #111";
-    root.appendChild(b);
+    var b = document.createElement("div"); b.className = "w-mapb-badge"; b.textContent = "MAP-B\nstaged\npreview";
+    var st = b.style; st.position = "absolute"; st.top = "64px"; st.left = "12px"; st.zIndex = "0"; st.pointerEvents = "none"; st.whiteSpace = "pre"; st.lineHeight = "1.25";
+    st.padding = "3px 7px"; st.font = "700 11px 'Cascadia Mono', monospace"; st.color = "#111"; st.background = "#ffd166"; st.border = "2px solid #111";
+    b.setAttribute("aria-label", "MAP-B staged preview");
+    var c0 = root.querySelector(".w-cv"); root.insertBefore(b, c0 ? c0.nextSibling : root.firstChild);
   })();
   // the placements are optional in a map, but this island's creatures, welder, actors, goto spots, zones,
   // arena, core approach and first-visit spot are built from them, so home must carry them all
@@ -1261,7 +1266,10 @@
     function bitAt(set, q) { return (set[q >>> 5] >>> (q & 31) & 1) === 1; }
     // 1. the look: wet exactly where the edge mask says so over the tile's ground
     var WET = new Uint8Array(N);
-    (function () { for (var y = 0; y < PH; y++) for (var x = 0; x < PW; x++) { var q = y * PW + x; WET[q] = wetG(GROUND[(y >> 4) * MW + (x >> 4)]) !== ((EB[q >>> 5] >>> (q & 31) & 1) === 1) ? 1 : 0; } })();
+    (function () {
+      var WG = new Uint8Array(MW * MH); for (var t0 = 0; t0 < MW * MH; t0++) WG[t0] = wetG(GROUND[t0]) ? 1 : 0;   // each tile's wetness once, not per pixel (B2e)
+      for (var y = 0; y < PH; y++) for (var x = 0; x < PW; x++) { var q = y * PW + x; WET[q] = (WG[(y >> 4) * MW + (x >> 4)] === 1) !== ((EB[q >>> 5] >>> (q & 31) & 1) === 1) ? 1 : 0; }
+    })();
     // 2. which water each tile's water is: 1 deep sea, 2 shallow sea, 10 + k river k, 20 + k still body k
     var WK = new Uint8Array(MW * MH), bodies = S2.water || [], rivers = S2.rivers || [];
     var centres = bodies.map(function (b) { if (b.type === "ellipse") return [b.cx, b.cy]; var sx = 0, sy = 0; b.pts.forEach(function (q) { sx += q[0]; sy += q[1]; }); return [sx / b.pts.length, sy / b.pts.length]; });
@@ -1365,7 +1373,7 @@
     // 6. every pixel
     var tm = performance.now(); PAINT_MS.setup = tm - t0;
     (function () {
-    var px, py, p, t, tx, ty, k, j;
+    var px, py, p, t, tx, ty, k, j, PADT = [c32(PAL.rock[3]), c32("#9a9d9f"), c32(PAL.rock[4])];   // the pad's tones, made once (B2e)
     for (py = 0; py < PH; py++) for (px = 0; px < PW; px++) {
       p = py * PW + px; tx = px >> 4; ty = py >> 4; t = ty * MW + tx;
       var gc = GROUND[t], n1 = N1[(py >> 2) * B4 + (px >> 2)], n2 = N2[(py >> 1) * B2 + (px >> 1)], c, kd, cl, fx2 = (px + 0.5) / T, fy2 = (py + 0.5) / T;
@@ -1407,7 +1415,7 @@
         kd = KG; cl = PC.RIM;                                           // the rock band; faces are drawn over it below
         c = soft(Math.max(0.05, Math.min(0.95, 0.5 + (n2 - 0.5) * 0.35 + (n1 - 0.5) * 0.1 + HEIGHT[t] * 0.04)), P32.rock, px, py, 0.3);
       } else if (gc === DOCK || gc === BRIDGE) { kd = KD; cl = PC.WOOD; c = (py & 3) === 3 ? P32.wood[1] : (px & 15) === 0 ? P32.wood[2] : P32.wood[3]; }
-      else if (gc === PAD) { kd = KD; cl = PC.PAD; c = tone(0.55 + (n2 - 0.5) * 0.25, [c32(PAL.rock[3]), c32("#9a9d9f"), c32(PAL.rock[4])], px, py); }
+      else if (gc === PAD) { kd = KD; cl = PC.PAD; c = tone(0.55 + (n2 - 0.5) * 0.25, PADT, px, py); }
       else {
         var lv = HEIGHT[t], dirt = TD[t], sand = TS[t];
         if (MIX[t] & 3) {                                                // soften the edges between dry kinds (dry against dry only: the waterline is the edge mask's)
@@ -1536,12 +1544,23 @@
         var xs = L.map(function (q) { return q[0] * T; }), ys = L.map(function (q) { return q[1] * T; });
         var bx0 = Math.max(0, Math.floor(Math.min.apply(null, xs) - hw - 1)), bx1 = Math.min(PW - 1, Math.ceil(Math.max.apply(null, xs) + hw + 1));
         var by0 = Math.max(0, Math.floor(Math.min.apply(null, ys) - hw - 1)), by1 = Math.min(PH - 1, Math.ceil(Math.max.apply(null, ys) + hw + 1));
-        for (var yy = by0; yy <= by1; yy++) for (var xx = bx0; xx <= bx1; xx++) {
-          var cx = xx + 0.5, cy = yy + 0.5, best = Infinity;
-          for (var s = 0; s < L.length - 1; s++) {
-            var ax = L[s][0] * T, ay = L[s][1] * T, dx = L[s + 1][0] * T - ax, dy = L[s + 1][1] * T - ay, LL = dx * dx + dy * dy, u = LL ? ((cx - ax) * dx + (cy - ay) * dy) / LL : 0;
-            u = u < 0 ? 0 : u > 1 ? 1 : u; var ex = cx - ax - u * dx, ey = cy - ay - u * dy, d2 = ex * ex + ey * ey; if (d2 < best) best = d2;
+        /* each pixel's nearest squared distance to the line, segment by segment, each segment over its own box grown by the half
+           width (B2e: the feature pass went from about 105 to about 65 ms in Chromium; before, every segment was tested for every pixel of the
+           whole line's box). A pixel within the half width
+           of the line is within it of some segment, so inside that segment's box: its nearest distance is exactly the one the full
+           test finds, and a pixel farther off is left out either way. The same pixels, the same digest */
+        var bw = bx1 - bx0 + 1, D2 = new Float64Array(bw * (by1 - by0 + 1)).fill(Infinity);
+        for (var s = 0; s < L.length - 1; s++) {
+          var ax = L[s][0] * T, ay = L[s][1] * T, dx = L[s + 1][0] * T - ax, dy = L[s + 1][1] * T - ay, LL = dx * dx + dy * dy;
+          var sx0 = Math.max(bx0, Math.floor(Math.min(ax, L[s + 1][0] * T) - hw - 1)), sx1 = Math.min(bx1, Math.ceil(Math.max(ax, L[s + 1][0] * T) + hw + 1));
+          var sy0 = Math.max(by0, Math.floor(Math.min(ay, L[s + 1][1] * T) - hw - 1)), sy1 = Math.min(by1, Math.ceil(Math.max(ay, L[s + 1][1] * T) + hw + 1));
+          for (var sy = sy0; sy <= sy1; sy++) for (var sx = sx0; sx <= sx1; sx++) {
+            var cx = sx + 0.5, cy = sy + 0.5, u = LL ? ((cx - ax) * dx + (cy - ay) * dy) / LL : 0;
+            u = u < 0 ? 0 : u > 1 ? 1 : u; var ex = cx - ax - u * dx, ey = cy - ay - u * dy, d2 = ex * ex + ey * ey, o = (sy - by0) * bw + sx - bx0; if (d2 < D2[o]) D2[o] = d2;
           }
+        }
+        for (var yy = by0; yy <= by1; yy++) for (var xx = bx0; xx <= bx1; xx++) {
+          var best = D2[(yy - by0) * bw + xx - bx0];
           if (best > hw * hw) continue;
           var q = yy * PW + xx, d = Math.sqrt(best);
           if (!FK[q] || kc < FK[q]) { FK[q] = kc; EDG[q] = d > hw - 1.6 ? 1 : 0; }
@@ -2083,7 +2102,7 @@
     var hit = OUT.filter(function (s) { return Math.abs(tx - s.x) <= (s.wide ? 1 : 0) && ty <= s.y && ty >= s.y - 2; })[0];
     if (!hit && rex && Math.hypot(wx - rex.x, wy - rex.y + 6) < 12) hit = { id: "rex" };
     if (!hit && car && Math.hypot(wx - car.x, wy - car.y) < 12) hit = { id: "car", gx: Math.floor(car.x / T), gy: Math.floor(car.y / T) };
-    if (!hit && !TERRAIN_ONLY && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
+    if (!hit && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
     if (!hit) critters.forEach(function (c) { if (!hit && Math.hypot(wx - c.x, wy - c.y + 5) < 10) hit = { id: "critter", ref: c, gx: Math.floor(c.x / T), gy: Math.floor(c.y / T) }; });
     if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: MAP.anchors.coreApproach[0], y: MAP.anchors.coreApproach[1] };
     if (e.pointerType === "touch" && !joy && !(car && car.driving) && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
@@ -2161,7 +2180,7 @@
   }
   function nearby() {
     if (room) return pick(roomCandidates());
-    if (TERRAIN_ONLY) return null;                                       // the MAP-B preview: nothing to use yet (B3)
+    if (TERRAIN_ONLY) return aboard() ? null : pick([heliNear()]);     // the MAP-B preview: only the helicopter to use (B3 adds the rest)
     if (car.driving || aboard()) return null;
     var cands = nearCandidates(), da = Math.hypot(pi.x - ARENA.x, pi.y - ARENA.y);
     if (rift && rift.phase === "reign") cands.push({ d: da, max: 30, v: { id: "core", name: "the core" } });
@@ -3007,6 +3026,7 @@
   };
   var heli = { x: HELI.x * T + 8, y: HELI.y * T + 8, a: 0, vx: 0, vy: 0, z: 0, rot: 0, spin: 0, state: "parked", target: null };
   function aboard() { return heli.state !== "parked"; }
+  function heliNear() { return { d: Math.hypot(pi.x - heli.x, pi.y - heli.y), max: 26, v: { id: "heli", ax: heli.x, ay: heli.y - 20 } }; }   // the parked helicopter, as something to use
   /* safe ground (C4-2): the walkable tiles pi can reach on foot from the spawn. the fenced paddocks
      and other walkable pockets cut off from it are not. worked out once, on first use; like the path
      cache it assumes collision never changes after the island is built (clear SAFE if that changes) */
@@ -3045,7 +3065,7 @@
   function toggleHeli() {
     if (heli.state === "parked" && !can("vehicle")) return;
     if (heli.state === "parked") {
-      heli.state = "spool"; pi.path = null; pi.want = null; keys = {}; car.target = null;
+      heli.state = "spool"; pi.path = null; pi.want = null; keys = {}; if (car) car.target = null;
       bubble = { text: "pi:~$ spinning up. arrows fly, e lands", t: 3 }; return;
     }
     if (heli.state === "flying") {
@@ -3707,7 +3727,7 @@
     bots.forEach(function (b) { out.push({ d: Math.hypot(pi.x - b.x, pi.y - b.y), max: 18, v: { id: "bot", ref: b, ax: b.x, ay: b.y - 16 } }); });
     BUILDINGS.forEach(function (bd) { var dx2 = (bd.x0 + bd.w / 2) * T, dy2 = (bd.y0 + bd.h) * T + 6; out.push({ d: Math.hypot(pi.x - dx2, pi.y - dy2), max: 24, v: { id: "building", ref: bd, ax: dx2, ay: dy2 - 20 } }); });
     nests.forEach(function (n) { var nx = n.tx * T + 8, ny = n.ty * T + 12; out.push({ d: Math.hypot(pi.x - nx, pi.y - ny), max: 20, v: { id: "nest", ref: n, ax: nx, ay: ny - 10 } }); });
-    if (heli.state === "parked") out.push({ d: Math.hypot(pi.x - heli.x, pi.y - heli.y), max: 26, v: { id: "heli", ax: heli.x, ay: heli.y - 20 } });
+    if (heli.state === "parked") out.push(heliNear());
     birds.forEach(function (b) { if (!b.fly) out.push({ d: Math.hypot(pi.x - b.x, pi.y - b.gy), max: 22, v: { id: "bird", ax: b.x, ay: b.y - 10 } }); });
     out.push({ d: Math.hypot(pi.x - car.x, pi.y - car.y), max: 20, v: { id: "car", ax: car.x, ay: car.y - 14 } });
     var ptx = Math.floor(pi.x / T), pty = Math.floor(pi.y / T);
@@ -3754,7 +3774,7 @@
   function piInside(z) { return pi.x < z[2] * T && pi.x > z[0] * T && pi.y > z[1] * T && pi.y < z[3] * T; }
   function updateLife(dt) {
     skyT -= dt; if (skyT <= 0) { readSky(); skyT = 30; }
-    if (TERRAIN_ONLY) return;                                            // the MAP-B preview: no creatures, birds, koi, car, bots or volcano yet, and the helicopter stays parked
+    if (TERRAIN_ONLY) { updateHeli(dt); return; }                     // the MAP-B preview: no creatures, birds, koi, car, bots or volcano yet; the helicopter flies (B2e)
     critters.forEach(function (c) { updateCritter(c, dt); });
     updateBirds(dt); updateKoi(dt); updateCar(dt); updateHeli(dt); updateVolcano(dt); updateBots(dt);
     if (trex.cd <= 0 && !aboard() && !room && piInside(ZONES["trex-roar"]) && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
@@ -4751,7 +4771,7 @@
     if (riftBusy() || (car && car.driving) || aboard() || termOpen || irisBusy()) { mx = my = 0; pi.path = null; pi.vx = pi.vy = 0; }
     if (!mx && !my && pi.path && pi.path.length) {
       var n = pi.path[0], gx = n[0] * T + 8, gy = n[1] * T + 10, ddx = gx - pi.x, ddy = gy - pi.y, dd = Math.hypot(ddx, ddy);
-      if (dd < 1.5) { pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
+      if (dd < 1.5 || pi.close === n) { pi.close = null; pi.path.shift(); if (!pi.path.length) { pi.path = null; if (pi.want) { var w = pi.want; pi.want = null; interact(w.id === "rex" ? { id: "rex" } : w); } } }
       else {
         // a failsafe, not the route planner: half a second without getting closer ends the path
         if (pi.pathTo !== n || dd < pi.pathD - 0.25) { pi.pathTo = n; pi.pathD = dd; pi.pathT = 0; }
@@ -4782,7 +4802,17 @@
       pi.dist += moved;
       if (Math.abs(pi.vx) > 6) pi.face = pi.vx > 0 ? 1 : -1;
       if (len) { pi.dir = my < -0.5 ? "up" : "down"; pi.view = Math.abs(mx) >= Math.abs(my) * 0.8 ? "side" : pi.dir; }
-      if (pi.path && moved < 0.01) { pi.path = null; pi.stalls = (pi.stalls || 0) + 1; }   // stuck: give up (counted for the ?debug=1 tests)
+      /* stuck: give up (counted for the ?debug=1 tests). format 2 (B2e) gives up less readily, in two places where pi isn't stuck:
+         - only when the follower was steering: on the frame pi reaches a node nothing steers it, and the last of its momentum can
+           meet footBlock where an aim spot sits against it (the harbour sand at 85,84);
+         - held off by footBlock within 4 px of the aim spot (still inside its tile), the node counts as reached: the planner walks
+           aim spot to aim spot, and a fraction of a pixel off it a foot corner can catch the next row of footBlock (88,85).
+         format 1 keeps its rule exactly (it has the same patterns, rarer; not changed here) */
+      if (pi.path && moved < 0.01 && (LEGACY || onPath)) {
+        var nd = pi.path[0];
+        if (!LEGACY && Math.hypot(nd[0] * T + 8 - pi.x, nd[1] * T + 10 - pi.y) < 4) pi.close = nd;
+        else { pi.path = null; pi.stalls = (pi.stalls || 0) + 1; }
+      }
       footfall(moved);
     }
     // rex wanders the meadow, and pterosaurs fly by (the MAP-B terrain preview has neither: B3)
@@ -4898,7 +4928,7 @@
   }
 
   /* ════════ the minimap: bottom right, click it to fold it away ════════ */
-  var mini = mkCanvas(), MINI = 2, mapOn = OPT.map, mapRect = null;
+  var mini = mkCanvas(), MINI = 2, MINIW = 300, mapOn = OPT.map, mapRect = null;   // on screen at 1.5x (300 x 240 for 100 x 80); a bigger island keeps that width (B2e)
   mini.width = MW * MINI; mini.height = MH * MINI;
   (function () { var g = mini.getContext("2d"); g.imageSmoothingEnabled = true; g.drawImage(ground, 0, 0, mini.width, mini.height); if (volc) g.drawImage(volc.canvas, (volc.ox) / T * MINI, (volc.oy) / T * MINI, volc.canvas.width / T * MINI, volc.canvas.height / T * MINI); })();
   /* the full map: m, or from the menu. the island pre-rendered once at 3 px a tile, drawn at a
@@ -4919,11 +4949,14 @@
   }
   function paintMap() {
     if (!bigMap) buildBigMap();
-    var aw = Math.max(MAPW, Math.min(W - 40, 1200)), ah = Math.max(MAPH, H - 230);
+    var aw0 = Math.min(W - 40, 1200), aw = Math.max(MAPW, aw0), ah = Math.max(MAPH, H - 230);
     mapK = Math.max(1, Math.floor(Math.min(aw / MAPW, ah / MAPH)));
-    var cw = MAPW * mapK, ch = MAPH * mapK;
+    // format 2's bigger island (450 x 360 at 1x) on a screen too small for it, a phone: scaled down to fit, the
+    // same room format 1 leaves, rather than overflowing and squashed by the page (B2e). format 1 keeps its sizes
+    if (!LEGACY && (aw0 < MAPW || H - 230 < MAPH)) mapK = Math.max(0.25, Math.min(aw0 / MAPW, (H - 230) / MAPH));
+    var cw = Math.round(MAPW * mapK), ch = Math.round(MAPH * mapK);
     mapCv.style.width = cw + "px"; mapCv.style.height = ch + "px"; mapCv.width = Math.floor(cw * dpr); mapCv.height = Math.floor(ch * dpr);
-    var g = mapCv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = false;
+    var g = mapCv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = mapK < 1;
     g.drawImage(bigMap, 0, 0, cw, ch);
     g.font = "700 11px 'Cascadia Mono', monospace"; g.textAlign = "center"; g.textBaseline = "bottom";
     mapPts = [];
@@ -4974,7 +5007,7 @@
   }
   function drawMinimap() {
     if (W < 760 || riftBusy() || !OPT.map) { mapRect = null; return; }
-    var sc = 1.5, mw = mini.width * sc, mh = mini.height * sc, x0 = W - mw - 16, y0 = H - mh - 16;
+    var sc = Math.min(1.5, MINIW / mini.width), mw = mini.width * sc, mh = mini.height * sc, x0 = W - mw - 16, y0 = H - mh - 16;
     mapRect = [x0, y0, mw, mh];
     ctx.fillStyle = "#0a0a0a"; ctx.fillRect(x0 - 3, y0 - 3, mapOn ? mw + 6 : 58, mapOn ? mh + 6 : 22);
     ctx.strokeStyle = "rgba(244,244,244,.6)"; ctx.lineWidth = 1; ctx.strokeRect(x0 - 3.5, y0 - 3.5, mapOn ? mw + 7 : 59, mapOn ? mh + 7 : 23);
@@ -5040,7 +5073,7 @@
     bots.forEach(function (b) { list.push({ y: b.y, f: function () { drawBot(b); } }); });
     birds.forEach(function (b) { list.push({ y: b.fly ? b.gy + 40 : b.gy + 1, f: function () { drawBird(b); } }); });
     if (car) list.push({ y: car.y + 8, f: drawCar });
-    if (heli.z < 12 && !TERRAIN_ONLY) list.push({ y: heli.y + 12, f: drawHeli });      // the MAP-B preview: the helicopter isn't drawn (B2e)
+    if (heli.z < 12) list.push({ y: heli.y + 12, f: drawHeli });
     if (GATE) list.push({ y: GATE.y * T + 14, f: drawGate });
     if (volc) list.push({ y: VOLC.y + 24, f: drawVolcano });
     for (var fy = y0; fy <= y1 + 1; fy++) for (var fx = x0 - 1; fx <= x1 + 1; fx++) {
@@ -5112,7 +5145,7 @@
     drawSparks();
     drones.forEach(drawDrone);
     drawSmoke();
-    if (heli.z >= 12 && !TERRAIN_ONLY) drawHeli();
+    if (heli.z >= 12) drawHeli();
     drawPteros();
     ctx.fillStyle = "rgba(10,30,50,.08)";
     clouds.forEach(function (c) { ctx.beginPath(); ctx.ellipse(c.x, c.y, c.w, c.w * 0.45, 0, 0, 6.283); ctx.fill(); });
@@ -5599,6 +5632,9 @@
       return { terrainOnly: TERRAIN_ONLY, format: MAP.format, staged: !!MAP.staged, w: MW, h: MH, tileAnchors: MAP.tileAnchors || null, spawn: [SPAWN.x, SPAWN.y],
                footPixels: MAP.footPixels, edgePixels: MAP.edgePixels === undefined ? null : MAP.edgePixels, groundMs: Math.round(groundMs), groundMsExact: groundMs, paints: PAINTS, paintMs: PAINT_MS, ground: [ground.width, ground.height],
                badge: !!root.querySelector(".w-mapb-badge"), saveLocked: saveLocked, camera: [camX, camY], zoom: zoom, view: [W / (S * zoom), H / (S * zoom)],
+               // the map ui (B2e): the minimap's place on screen (css px, null when hidden) and its backing size, the big map's 1x size and scale
+               ui: { mini: mapRect ? mapRect.slice() : null, miniOn: mapOn, miniBacking: [mini.width, mini.height], big: [MAPW, MAPH], mapK: mapK, mapOpen: mapOpen(), css: [W, H], dpr: dpr, scale: S },
+               nearby: (function () { var nb = nearby(); return nb ? nb.id : null; })(),           // what [E] would use now
                systems: { critters: critters.length, bots: bots.length, drones: drones.length, birds: birds.length, koi: koi.length, stations: STATIONS.length, buildings: BUILDINGS.length, car: !!car, rex: !!rex, gate: !!GATE, volcano: !!volc, falls: FALLS.length, arena: !!ARENA } };
     },
     // the format-2 painter's own account of what it drew, checked against the decoded truth (?debug=1, format 2 only)
