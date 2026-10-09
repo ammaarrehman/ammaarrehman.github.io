@@ -956,8 +956,8 @@
     }
   })();
   // format 2's painter (below): what each pixel was painted as (?debug=1, for its tests), and how often the ground was painted
-  var PCLS = null, PAINTS = 0;
-  var PC = { WATER: 1, GRASS: 2, SAND: 3, WETSAND: 4, DIRT: 5, WOOD: 6, PAD: 7, RIM: 8, FACE: 9, SLOPE: 10, LIPROCK: 11, SCREE: 12, CONE: 13, LAVA: 14, SEAFACE: 15, BANK: 16 }, PAINT_MS = {};
+  var PCLS = null, PAINTS = 0, TERRAIN = null, FEAT = null;              // (and, ?debug=1, the terrain pass alone and the features' map)
+  var PC = { WATER: 1, GRASS: 2, SAND: 3, WETSAND: 4, DIRT: 5, WOOD: 6, PAD: 7, RIM: 8, FACE: 9, SLOPE: 10, LIPROCK: 11, SCREE: 12, CONE: 13, LAVA: 14, SEAFACE: 15, BANK: 16, PATH: 17, PLAZA: 18, DECK: 19, DOCK: 20, HELIPAD: 21 }, PAINT_MS = {};
   var WD, groundMs = performance.now();                         // WD: each water pixel's distance to land, x3 (chamfer)
   if (LEGACY) (function paint() {
     var g = ground.getContext("2d"), img = g.createImageData(PW, PH), buf = new Uint32Array(img.data.buffer);
@@ -1495,6 +1495,7 @@
       for (k = 1; k <= fh2; k++) cls[p + k * PW] = PC.SEAFACE;
     }
     // 8. ramps: where two walkable levels meet inside a ramp, a slope (steps under a path), drawn on the higher tile's edge
+    var STEPI = new Uint8Array(N);                                       // each slope pixel's step, 1 to 7 (the features redraw steps under the strokes)
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
       t = ty * MW + tx; if (RAMPT[t] < 0 || (COLL[t] & C_BLOCK)) continue;
       [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(function (n) {
@@ -1506,14 +1507,169 @@
           if (WET[q5] || bitAt(FB, q5)) continue;
           var sv = (s4 === 6 ? 0.82 : 0.66 - (6 - s4) * 0.07) + (hash(qx >> 1, qy >> 1) - 0.5) * 0.08;
           buf[q5] = path ? (s4 % 3 === 0 ? P32.dirt[1] : s4 % 3 === 1 ? P32.dirt[4] : P32.dirt[3]) : soft(Math.max(0.05, Math.min(0.95, sv)), GR[HEIGHT[t]], qx, qy, 0.2);
-          cls[q5] = PC.SLOPE;
+          cls[q5] = PC.SLOPE; STEPI[q5] = s4 + 1;
         }
       });
     }
     PAINT_MS.faces = performance.now() - tm; tm = performance.now();
+    if (DEBUG) TERRAIN = buf.slice();                                   // the terrain pass alone (B2c's, locked by its digest)
+    /* 9. the features (B2d), over the terrain, each from its authored geometry and only on the pixels it belongs on:
+       - paths: each corridor's stroke (within its class's half-width of its polyline, the same rule the tiles came from),
+         on walkable, dry, open pixels; main paths packed light earth, secondary earth, service roads gravel, trails narrow
+         worn earth, each with a darker edge; plazas paved; the ground the terrain painted as dirt by tile but no stroke
+         covers goes back to its grass or sand; a ramp's steps follow the stroke;
+       - bridges: the deck is the crossing corridor's stroke over the river (the bridge tiles, and the stroke's pixels by
+         the water in the crossing box), planks across the deck's direction (deckDir), rails and posts along its sides;
+       - docks: planks along each dock's long side, beams on its edges, posts in the water beside it and their shadow;
+       - the helipad: concrete, a painted edge, a yellow ring and an H;
+       - the waterfalls (shapes.falls): over the river where it drops a level, a bright lip, falling streaks and foam at
+         the foot (water pixels only).
+       No feature changes a pixel's look (wet or dry) or GK's water: only what the dry ground or the water looks like */
+    (function () {
+      var p, px, py, t, i, j, k, x0, y0, x1, y1;
+      var FK = new Uint8Array(N), EDG = new Uint8Array(N);              // the stroke kind under each pixel (1 main, 2 secondary, 3 service, 4 trail, 5 plaza) and its edge
+      var CLASSN = { main: 1, secondary: 2, service: 3, trail: 4 }, Co = S2.corridors || { paths: [], plazas: [], halfWidths: {} };
+      function open(q) { var qt = ((q / PW) >> 4) * MW + ((q % PW) >> 4); return !WET[q] && !(COLL[qt] & C_BLOCK) && !bitAt(FB, q); }
+      // the strokes: a wider class wins where two meet
+      Co.paths.forEach(function (pa) {
+        var kc = CLASSN[pa.class], hw = Co.halfWidths[pa.class] * T, L = pa.line;
+        var xs = L.map(function (q) { return q[0] * T; }), ys = L.map(function (q) { return q[1] * T; });
+        var bx0 = Math.max(0, Math.floor(Math.min.apply(null, xs) - hw - 1)), bx1 = Math.min(PW - 1, Math.ceil(Math.max.apply(null, xs) + hw + 1));
+        var by0 = Math.max(0, Math.floor(Math.min.apply(null, ys) - hw - 1)), by1 = Math.min(PH - 1, Math.ceil(Math.max.apply(null, ys) + hw + 1));
+        for (var yy = by0; yy <= by1; yy++) for (var xx = bx0; xx <= bx1; xx++) {
+          var cx = xx + 0.5, cy = yy + 0.5, best = Infinity;
+          for (var s = 0; s < L.length - 1; s++) {
+            var ax = L[s][0] * T, ay = L[s][1] * T, dx = L[s + 1][0] * T - ax, dy = L[s + 1][1] * T - ay, LL = dx * dx + dy * dy, u = LL ? ((cx - ax) * dx + (cy - ay) * dy) / LL : 0;
+            u = u < 0 ? 0 : u > 1 ? 1 : u; var ex = cx - ax - u * dx, ey = cy - ay - u * dy, d2 = ex * ex + ey * ey; if (d2 < best) best = d2;
+          }
+          if (best > hw * hw) continue;
+          var q = yy * PW + xx, d = Math.sqrt(best);
+          if (!FK[q] || kc < FK[q]) { FK[q] = kc; EDG[q] = d > hw - 1.6 ? 1 : 0; }
+        }
+      });
+      Co.plazas.forEach(function (pz) {
+        if (pz.type === "box") { for (var yy = pz.y0 * T; yy < (pz.y1 + 1) * T; yy++) for (var xx = pz.x0 * T; xx < (pz.x1 + 1) * T; xx++) FK[yy * PW + xx] = 5; }
+        else for (var yy2 = Math.floor((pz.cy - pz.ry) * T); yy2 <= Math.ceil((pz.cy + pz.ry) * T); yy2++) for (var xx2 = Math.floor((pz.cx - pz.rx) * T); xx2 <= Math.ceil((pz.cx + pz.rx) * T); xx2++) {
+          var ux = ((xx2 + 0.5) / T - pz.cx) / pz.rx, uy = ((yy2 + 0.5) / T - pz.cy) / pz.ry; if (ux * ux + uy * uy <= 1 && xx2 >= 0 && yy2 >= 0 && xx2 < PW && yy2 < PH) FK[yy2 * PW + xx2] = 5;
+        }
+      });
+      // the ground under a path: grass of its level, or sand (by the tile, or for a path tile by its neighbours' share of sand)
+      function under(q) {
+        var qx = q % PW, qy = (q / PW) | 0, qt = (qy >> 4) * MW + (qx >> 4), gq = GROUND[qt], n1v = N1[(qy >> 2) * B4 + (qx >> 2)], n2v = N2[(qy >> 1) * B2 + (qx >> 1)], lv = HEIGHT[qt], sandy = gq === SAND;
+        if (gq === PATH) { blend((qx + 0.5) / T, (qy + 0.5) / T); sandy = share(TS) + (n2v - 0.5) * 0.45 > 0.5; }
+        if (sandy) { GK[q] = KS; cls[q] = PC.SAND; return soft(Math.max(0.05, Math.min(0.95, 0.64 + (n2v - 0.5) * 0.16 + (hash(qx >> 1, qy >> 1) - 0.5) * 0.08)), P32.sand, qx, qy, 0.25); }
+        GK[q] = KG; cls[q] = PC.GRASS; return soft(Math.max(0.05, Math.min(0.95, LIFT[lv] + (n1v - 0.5) * AMP1[lv] + (n2v - 0.5) * AMP2[lv])), GR[lv], qx, qy, 0.18);
+      }
+      var GRAVEL = R(["#4f4a45", "#6a645d", "#857d73", "#a1988b", "#bdb3a4"]), PAVE = R(["#6f6458", "#8c7f6f", "#a99a86", "#c4b59e", "#ddd0b8"]);
+      for (p = 0; p < N; p++) {
+        var c0 = cls[p], fk = FK[p];
+        if (c0 !== PC.DIRT && c0 !== PC.SLOPE && !(fk && (c0 === PC.GRASS || c0 === PC.SAND))) continue;
+        px = p % PW; py = (p / PW) | 0;
+        if (c0 === PC.SLOPE) {                                           // a ramp: steps under a stroke, the grass slope elsewhere
+          var st = STEPI[p] - 1; if (st < 0) continue;
+          if (fk && fk < 5) buf[p] = st % 3 === 0 ? P32.dirt[1] : st % 3 === 1 ? P32.dirt[4] : P32.dirt[3];
+          else { var lvS = HEIGHT[(py >> 4) * MW + (px >> 4)], sv = (st === 6 ? 0.82 : 0.66 - (6 - st) * 0.07) + (hash(px >> 1, py >> 1) - 0.5) * 0.08; buf[p] = soft(Math.max(0.05, Math.min(0.95, sv)), GR[lvS], px, py, 0.2); }
+          continue;
+        }
+        if (!fk || !open(p)) { if (c0 === PC.DIRT) buf[p] = under(p); continue; }
+        var n2v = N2[(py >> 1) * B2 + (px >> 1)], e = EDG[p], v;
+        GK[p] = KD;
+        if (fk === 5) { cls[p] = PC.PLAZA; var mortar = (px % 6 === 0) || ((py + ((px / 6) | 0) * 3) % 6 === 0); buf[p] = mortar ? PAVE[1] : soft(Math.max(0.05, Math.min(0.95, 0.6 + (hash(px / 6 | 0, py / 6 | 0) - 0.5) * 0.3 + (n2v - 0.5) * 0.1)), PAVE, px, py, 0.2); continue; }
+        cls[p] = PC.PATH;
+        if (fk === 3) { buf[p] = soft(Math.max(0.05, Math.min(0.95, (e ? 0.38 : 0.6) + (hash(px, py) - 0.5) * 0.3)), GRAVEL, px, py, 0.3); continue; }
+        v = fk === 1 ? 0.72 : fk === 2 ? 0.6 : 0.5;
+        if (e) v -= fk === 4 ? 0.14 : 0.2;
+        buf[p] = soft(Math.max(0.05, Math.min(0.95, v + (n2v - 0.5) * 0.14 + (hash(px >> 1, py >> 1) - 0.5) * 0.08)), P32.dirt, px, py, 0.2);
+      }
+      // the bridges: the deck over the river, planks across its direction, rails and posts along its sides
+      (S2.bridges || []).forEach(function (br) {
+        var pa = Co.paths.filter(function (q2) { return q2.id === br.path; })[0]; if (!pa) return;
+        var hw = br.deckHalfWidth * T, L = pa.line, dX = br.deckDir[0], dY = br.deckDir[1], cb = br.crossingBox;
+        for (var yy = cb.y0 * T; yy < (cb.y1 + 1) * T; yy++) for (var xx = cb.x0 * T; xx < (cb.x1 + 1) * T; xx++) {
+          var q = yy * PW + xx; if (!open(q)) continue;
+          var tq = (yy >> 4) * MW + (xx >> 4), onBridge = GROUND[tq] === BRIDGE, byWater = false;
+          if (!onBridge) for (k = 1; k <= 6 && !byWater; k++) if ((yy + k < PH && WET[q + k * PW]) || (yy - k >= 0 && WET[q - k * PW]) || (xx + k < PW && WET[q + k]) || (xx - k >= 0 && WET[q - k])) byWater = true;
+          if (!onBridge && !byWater) continue;
+          var cx = xx + 0.5, cy = yy + 0.5, best = Infinity;
+          for (var s = 0; s < L.length - 1; s++) { var ax = L[s][0] * T, ay = L[s][1] * T, dx = L[s + 1][0] * T - ax, dy = L[s + 1][1] * T - ay, LL = dx * dx + dy * dy, u = LL ? ((cx - ax) * dx + (cy - ay) * dy) / LL : 0; u = u < 0 ? 0 : u > 1 ? 1 : u; var ex = cx - ax - u * dx, ey = cy - ay - u * dy, d2 = ex * ex + ey * ey; if (d2 < best) best = d2; }
+          var d = Math.sqrt(best); if (d > hw && !onBridge) continue;     // a bridge tile's pixels beside the stroke are deck too (pi can stand there)
+          var along = cx * dX + cy * dY, plank = Math.floor(along / 3);
+          var rim = (yy + 1 < PH && WET[q + PW]) || (yy > 0 && WET[q - PW]) || (xx + 1 < PW && WET[q + 1]) || (xx > 0 && WET[q - 1]);
+          cls[q] = PC.DECK; GK[q] = KD;
+          if (rim || d > hw - 1.5) buf[q] = (Math.floor(along) % 9 < 2) ? P32.wood[0] : P32.wood[1];   // the rail along the deck's edge, a post every 9 px
+          else buf[q] = (Math.floor(along) % 3 === 0) ? P32.wood[1] : (plank & 1 ? P32.wood[3] : P32.wood[2]);
+        }
+      });
+      // the docks: planks along each one's long side, beams on its edges, posts and shadow in the water beside it
+      (S2.docks || []).forEach(function (dk) {
+        x0 = dk.x0 * T; y0 = dk.y0 * T; x1 = (dk.x1 + 1) * T - 1; y1 = (dk.y1 + 1) * T - 1;
+        var tall = dk.y1 - dk.y0 > dk.x1 - dk.x0;
+        for (py = y0; py <= y1; py++) for (px = x0; px <= x1; px++) {
+          p = py * PW + px; if (WET[p]) continue;
+          var a = tall ? py : px, b = tall ? px - x0 : py - y0, edge = b < 2 || b > (tall ? x1 - x0 : y1 - y0) - 2;
+          cls[p] = PC.DOCK; GK[p] = KD;
+          buf[p] = edge ? P32.wood[1] : a % 4 === 0 ? P32.wood[1] : ((a >> 2) + (b >> 3)) & 1 ? P32.wood[3] : P32.wood[2];
+          if (!edge && hash(a >> 2, b >> 3) < 0.08 && (b & 7) === 3) buf[p] = P32.wood[0];                 // a nail
+        }
+        for (py = y0 - 3; py <= y1 + 4; py++) for (px = x0 - 3; px <= x1 + 3; px++) {
+          if (px < 0 || py < 0 || px >= PW || py >= PH) continue; p = py * PW + px; if (!WET[p]) continue;
+          var inX = px >= x0 && px <= x1, inY = py >= y0 && py <= y1;
+          if (inX && py > y1 && py <= y1 + 4) { buf[p] = ((buf[p] & 0xff000000) | ((((buf[p] >>> 16) & 255) * 0.72) << 16) | ((((buf[p] >>> 8) & 255) * 0.72) << 8) | ((buf[p] & 255) * 0.72)) >>> 0; continue; }   // the shadow below
+          var along2 = tall ? py - y0 : px - x0;
+          if ((inX || inY) && along2 % 24 < 3 && ((tall && (px === x0 - 2 || px === x0 - 3 || px === x1 + 2 || px === x1 + 3)) || (!tall && (py === y1 + 2 || py === y1 + 3)))) buf[p] = P32.wood[0];   // posts
+        }
+      });
+      // the helipad: concrete, a painted edge, a yellow ring and an H
+      if (S2.helipad) {
+        var hb = S2.helipad; x0 = hb.x0 * T; y0 = hb.y0 * T; x1 = (hb.x1 + 1) * T - 1; y1 = (hb.y1 + 1) * T - 1;
+        var hcx = (x0 + x1 + 1) / 2, hcy = (y0 + y1 + 1) / 2, rr = Math.min(x1 - x0, y1 - y0) * 0.36, YEL = c32("#f2c230"), WHT = c32("#f2f2ee");
+        for (py = y0; py <= y1; py++) for (px = x0; px <= x1; px++) {
+          p = py * PW + px; if (WET[p]) continue;
+          var ddx = px + 0.5 - hcx, ddy = py + 0.5 - hcy, dd = Math.sqrt(ddx * ddx + ddy * ddy), hx = Math.abs(ddx), hy = Math.abs(ddy);
+          cls[p] = PC.HELIPAD; GK[p] = KD;
+          var cc = tone(0.55 + (hash(px >> 1, py >> 1) - 0.5) * 0.25, [c32(PAL.rock[3]), c32("#9a9d9f"), c32(PAL.rock[4])], px, py);
+          if (px - x0 < 2 || x1 - px < 2 || py - y0 < 2 || y1 - py < 2) cc = c32(PAL.rock[2]);
+          else if (dd > rr - 1.5 && dd < rr + 1.5) cc = YEL;
+          else if (hy <= 11 && ((hx >= 6 && hx <= 9) || (hx < 6 && hy <= 1.5))) cc = WHT;
+          buf[p] = cc;
+        }
+      }
+      // the waterfalls (shapes.falls): where the river drops a level. The drop is a straight line across the river, through
+      // the middle of the boundaries between the fall's upper and lower tiles, square to the flow (the upper tiles' middle
+      // to the lower tiles'). Each river pixel nearby is placed by its distance along the flow from that line: a bright
+      // lip just above it, falling streaks below it, brightest at the drop, and foam at the foot. Water pixels only
+      (S2.falls || []).forEach(function (fl) {
+        var lvOf = function (q2) { return HEIGHT[q2[1] * MW + q2[0]]; };
+        var up = fl.tiles.filter(function (q2) { return lvOf(q2) === fl.upper; }), lo = fl.tiles.filter(function (q2) { return lvOf(q2) === fl.lower; });
+        if (!up.length || !lo.length) return;
+        var ux = 0, uy = 0, lx = 0, ly = 0; up.forEach(function (q2) { ux += q2[0] + 0.5; uy += q2[1] + 0.5; }); lo.forEach(function (q2) { lx += q2[0] + 0.5; ly += q2[1] + 0.5; });
+        ux /= up.length; uy /= up.length; lx /= lo.length; ly /= lo.length;
+        var fx = lx - ux, fy = ly - uy, fl2 = Math.sqrt(fx * fx + fy * fy) || 1; fx /= fl2; fy /= fl2;
+        var mx = 0, my = 0, mn = 0;                                        // the drop line's point: the middle of the level boundaries
+        up.forEach(function (a2) { lo.forEach(function (b2) { if (Math.abs(a2[0] - b2[0]) + Math.abs(a2[1] - b2[1]) === 1) { mx += (a2[0] + b2[0] + 1) / 2; my += (a2[1] + b2[1] + 1) / 2; mn++; } }); });
+        if (!mn) { mx = (ux + lx) / 2; my = (uy + ly) / 2; } else { mx /= mn; my /= mn; }
+        mx *= T; my *= T;
+        var tx0 = Math.min.apply(null, fl.tiles.map(function (q2) { return q2[0]; })) - 2, ty0 = Math.min.apply(null, fl.tiles.map(function (q2) { return q2[1]; })) - 2;
+        var tx1 = Math.max.apply(null, fl.tiles.map(function (q2) { return q2[0]; })) + 2, ty1 = Math.max.apply(null, fl.tiles.map(function (q2) { return q2[1]; })) + 2;
+        for (py = Math.max(0, ty0 * T); py < Math.min(PH, (ty1 + 1) * T); py++) for (px = Math.max(0, tx0 * T); px < Math.min(PW, (tx1 + 1) * T); px++) {
+          p = py * PW + px; var t2 = (py >> 4) * MW + (px >> 4);
+          if (!WET[p] || GROUND[t2] !== RIVER || WD2[p] / 3 <= 1.01) continue;          // the river's own water, its banks' rim left alone
+          var sAl = (px + 0.5 - mx) * fx + (py + 0.5 - my) * fy, sAc = (px + 0.5 - mx) * -fy + (py + 0.5 - my) * fx;
+          if (sAl < -3 || sAl >= 17 || Math.abs(sAc) > 40) continue;
+          FK[p] = 6;
+          if (sAl < 0) { buf[p] = sAl >= -1.5 ? P32.rim[1] : P32.rim[0]; continue; }
+          var across = Math.floor(sAc / 1.5), st3 = hash(across + 500, 41), dash = hash(across * 7 + Math.floor(sAl / 3) + 500, 13);
+          if (sAl >= 11) { if (hash(px, py) < 0.62 - (sAl - 11) * 0.09) buf[p] = P32.rim[(px + py) & 1]; continue; }   // the foam at the foot
+          var wv3 = 0.98 - sAl * 0.035 + (st3 - 0.5) * 0.3 + (dash < 0.25 ? 0.12 : 0);
+          buf[p] = wv3 > 0.9 ? P32.rim[st3 < 0.5 ? 1 : 0] : soft(Math.max(0.05, Math.min(0.97, wv3)), P32.water, px, py, 0.25);
+        }
+      });
+      if (DEBUG) FEAT = FK;
+    })();
+    PAINT_MS.features = performance.now() - tm; tm = performance.now();
     g.putImageData(img, 0, 0);
     PAINT_MS.put = performance.now() - tm; PAINT_MS.total = performance.now() - t0;
-    if (DEBUG) PCLS = { cls: cls, wet: WET, rimf: RIMF, mass: MASS, wk: WK2, ramp: RAMPT };
+    if (DEBUG) PCLS = { cls: cls, wet: WET, rimf: RIMF, mass: MASS, wk: WK2, ramp: RAMPT, feat: FEAT };
   }
   groundMs = performance.now() - groundMs;
   /* the surf: every sea pixel on the waterline, with the way out to sea, kept per tile. the foam
@@ -5254,6 +5410,41 @@
     });
     return o;
   }
+  /* the features checked against the map (B2d): no path, plaza, deck, dock or pad pixel on water or ground pi can't
+     stand on; every corridor drawn without a gap along its authored line wherever pi can stand there; each bridge's
+     deck, each dock and the pad drawn; both falls drawn, on water only; and no tile-shaped dirt left from the terrain */
+  function featureReport() {
+    if (!PCLS || !FEAT) return null;
+    var cls = PCLS.cls, WETm = PCLS.wet, N = PW * PH, o = { onBlocked: 0, onWet: 0, leftoverDirt: 0, leftoverWood: 0, paths: [], bridges: [], docks: [], helipad: null, falls: [], fallOnDry: 0 };
+    var feat = function (c) { return c === PC.PATH || c === PC.PLAZA || c === PC.DECK || c === PC.DOCK || c === PC.HELIPAD; };
+    for (var p = 0; p < N; p++) {
+      var c = cls[p], px = p % PW, py = (p / PW) | 0;
+      if (feat(c)) { if (WETm[p]) o.onWet++; if (solidPx(px, py)) o.onBlocked++; }
+      if (c === PC.DIRT) o.leftoverDirt++; if (c === PC.WOOD) o.leftoverWood++;
+      if (FEAT[p] === 6 && !WETm[p]) o.fallOnDry++;
+    }
+    var Co = MAP.shapes.corridors;
+    Co.paths.forEach(function (pa) {
+      var L = pa.line, n = 0, gaps = 0, water = 0, first = "";
+      for (var s = 0; s < L.length - 1; s++) {
+        var ax = L[s][0] * T, ay = L[s][1] * T, bx = L[s + 1][0] * T, by = L[s + 1][1] * T, len = Math.sqrt((bx - ax) * (bx - ax) + (by - ay) * (by - ay)), k = Math.ceil(len * 2);
+        for (var i = 0; i <= k; i++) {
+          var x = Math.floor(ax + (bx - ax) * i / k), y = Math.floor(ay + (by - ay) * i / k); if (x < 0 || y < 0 || x >= PW || y >= PH) continue;
+          var q = y * PW + x, cq = cls[q]; n++;
+          if (WETm[q] || solidPx(x, y)) { water++; continue; }
+          if (!feat(cq) && cq !== PC.SLOPE) { gaps++; if (!first) first = x + "," + y; }
+        }
+      }
+      o.paths.push({ id: pa.id, cls: pa.class, samples: n, gaps: gaps, notOpen: water, firstGap: first });
+    });
+    (MAP.shapes.bridges || []).forEach(function (b) { var n = 0, cb = b.crossingBox; for (var y = cb.y0 * T; y < (cb.y1 + 1) * T; y++) for (var x = cb.x0 * T; x < (cb.x1 + 1) * T; x++) if (cls[y * PW + x] === PC.DECK) n++; o.bridges.push({ id: b.id, deckPixels: n }); });
+    (MAP.shapes.docks || []).forEach(function (d) { var dry = 0, n = 0; for (var y = d.y0 * T; y < (d.y1 + 1) * T; y++) for (var x = d.x0 * T; x < (d.x1 + 1) * T; x++) { var q = y * PW + x; if (!WETm[q]) { dry++; if (cls[q] === PC.DOCK) n++; } } o.docks.push({ id: d.id, dry: dry, drawn: n }); });
+    if (MAP.shapes.helipad) { var h = MAP.shapes.helipad, dry = 0, n = 0; for (var y = h.y0 * T; y < (h.y1 + 1) * T; y++) for (var x = h.x0 * T; x < (h.x1 + 1) * T; x++) { var q = y * PW + x; if (!WETm[q]) { dry++; if (cls[q] === PC.HELIPAD) n++; } } o.helipad = { dry: dry, drawn: n }; }
+    (MAP.shapes.falls || []).forEach(function (f) { var n = 0, x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1; f.tiles.forEach(function (q2) { x0 = Math.min(x0, q2[0]); y0 = Math.min(y0, q2[1]); x1 = Math.max(x1, q2[0]); y1 = Math.max(y1, q2[1]); });
+      for (var y = (y0 - 2) * T; y < (y1 + 3) * T; y++) for (var x = (x0 - 2) * T; x < (x1 + 3) * T; x++) if (x >= 0 && y >= 0 && x < PW && y < PH && FEAT[y * PW + x] === 6) n++;
+      o.falls.push({ levels: f.upper + "-" + f.lower, pixels: n }); });
+    return o;
+  }
   // a decoded format-2 map, in full or as a summary (the ?debug=1 API's decodeMap and decodeDetail)
   function decodedDetail(d, full) {
     function idx(set) { var out = []; for (var w2 = 0; w2 < set.length; w2++) { var v = set[w2]; if (!v) continue; for (var b = 0; b < 32; b++) if (v >>> b & 1) out.push(w2 * 32 + b); } return out; }
@@ -5412,6 +5603,12 @@
     },
     // the format-2 painter's own account of what it drew, checked against the decoded truth (?debug=1, format 2 only)
     painterReport: function () { return painterReport(); },
+    featureReport: function () { return featureReport(); },
+    // the SHA-256 of the terrain pass alone (B2c's, locked), before the features are drawn over it
+    terrainDigest: function () {
+      if (!TERRAIN) return Promise.resolve(null);
+      return crypto.subtle.digest("SHA-256", new Uint8Array(TERRAIN.buffer, TERRAIN.byteOffset, TERRAIN.byteLength)).then(function (h) { return Array.from(new Uint8Array(h)).map(function (v) { return (v < 16 ? "0" : "") + v.toString(16); }).join(""); });
+    },
     // what the painter drew on each of the given tiles ("x,y"), by kind, in pixels
     painterTiles: function (tiles) {
       if (!PCLS) return null;

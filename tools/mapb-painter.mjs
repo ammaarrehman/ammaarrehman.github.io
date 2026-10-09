@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/* mapb-painter (MAP-B B2c): the format-2 terrain painter, in the real game, through the local preview, in each engine
+/* mapb-painter (MAP-B B2c, B2d): the format-2 painter, the terrain (B2c) and the features over it (B2d), in the real game, through the local preview, in each engine
    (Chromium and WebKit; Firefox is tried and reported BLOCKED if it can't launch).
 
    - the ground paints once, 2400 x 1920 world px, with no page error, its own account (?debug=1's painterReport)
@@ -8,9 +8,13 @@
      cliff rims reads as rock, with a face only above lower land; each of the 8 ramps meets its levels with a slope, no
      face; all four levels' grass, both rivers, the four still waters, both seas and the volcano's scree, cone and lava
      are drawn; the 9 accepted dry-lip places (B2a) read as rock;
-   - the paint is repeatable: three fresh loads give the same RGBA digest, and so does every engine; and it is the
-     approved one (tools/fixtures/mapb-ground.json, the ground canvas's RGBA only, never a screenshot), which a single
-     changed pixel would break;
+   - the paint is repeatable: three fresh loads give the same RGBA digest, and so does every engine. The terrain pass
+     alone (kept aside before the features are drawn) is the approved B2c terrain (tools/fixtures/mapb-ground.json's
+     terrain), which a single changed pixel would break; the finished ground (terrain and features) is checked against
+     the fixture's ground once one is approved, and measured until then. Only canvases, never a screenshot;
+   - the features (B2d): no path, plaza, deck, dock or pad pixel on water or on ground pi can't stand on; every
+     corridor drawn without a gap along its authored line wherever pi can stand there (the thin diagonal trails among
+     them); each bridge's deck, each dock and the pad drawn; both falls drawn, on water only; no tile-shaped dirt left;
    - format 1's ground (production) is unchanged: its RGBA digest per engine is B2b's;
    - measured: the paint's time by phase, the canvas and its memory, frame times while walking (the ground isn't painted
      again after the first time);
@@ -30,20 +34,23 @@ const OUT = join(ROOT, "tools/out/mapb/painter");
 const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
 // format 1's painted ground at B2b (cdc4e3f), RGBA SHA-256 per engine (format 1's painter uses sin and cos, so each engine its own)
 const F1_GROUND = { chromium: "ae221c53e6dcf6034e1c7f53b385c19310f4747d6aa2b51e8a0a6aa93592a15b", webkit: "31bef4191ad09fba4a248ab71ceccc381091b1844dc0b01cda8183c586be69e8" };
-const GROUND_FIXTURE = JSON.parse(readFileSync(join(ROOT, "tools/fixtures/mapb-ground.json"), "utf8")).terrain;
+const FIXTURE = JSON.parse(readFileSync(join(ROOT, "tools/fixtures/mapb-ground.json"), "utf8")), GROUND_FIXTURE = FIXTURE.terrain, FINAL_FIXTURE = FIXTURE.ground || null;
 const RIM_TILES = 289;                                              // B1b's cliff rims, as map-lint counts them
 const DRY_LIP_TILES = ["80,6", "62,7", "52,13", "7,23", "44,28", "124,29", "132,37", "96,106", "97,106"];   // B2a's accepted places over 8 px
 const CORNER_TILES = ["29,19", "30,19", "47,23", "50,23", "19,67", "20,67", "21,78", "25,79", "26,79"];       // B2b's accepted corner-model places
-const CROPS = [["harbour-coast", 60, 74, 98, 104], ["delta", 4, 64, 32, 100], ["riverlands", 22, 34, 62, 66], ["upper-waterfall-area", 34, 18, 54, 38], ["koi-pond", 100, 52, 122, 72],
+const CROPS = [["harbour", 62, 72, 98, 100], ["west-jetty", 10, 60, 26, 74], ["upper-bridge", 42, 18, 56, 28], ["brachio-bridge", 28, 40, 42, 54], ["delta-bridge", 16, 70, 32, 86],
+  ["upper-waterfall", 38, 22, 52, 34], ["lower-waterfall", 24, 54, 38, 66], ["helipad", 96, 86, 110, 100], ["diagonal-trails-shrine", 8, 16, 34, 30], ["diagonal-trails-riverlands", 20, 36, 46, 60],
+  ["harbour-coast", 60, 74, 98, 104], ["delta", 4, 64, 32, 100], ["riverlands", 22, 34, 62, 66], ["upper-waterfall-area", 34, 18, 54, 38], ["koi-pond", 100, 52, 122, 72],
   ["headland-coast", 122, 30, 149, 58], ["shrine", 4, 12, 24, 30], ["volcano-tarn", 46, 0, 92, 24], ["main-ramp", 68, 58, 84, 72], ["park-gate-ramp", 66, 30, 82, 44], ["shrine-ramp", 8, 18, 24, 30], ["headland-ramp", 124, 36, 136, 50]];
 const PLACES = [["harbour", [79, 82]], ["commons", [76, 54]], ["delta", [22, 79]], ["highland", [73, 33]], ["koi", [108, 68]], ["shrine", [14, 20]]];
 
 let fails = 0; const blocked = [], DIG = {};
 const check = (eng, name, ok, detail) => { if (!ok) fails++; console.log(`${ok ? "ok  " : "FAIL"} ${eng.padEnd(8)} ${name}${detail ? ": " + detail : ""}`); };
 // in the page: the ground canvas's RGBA (decoded from the test API's PNG, which is lossless) and its SHA-256
-// (perturb: the same, with one pixel's red changed by 1, to show the digest notices a single pixel)
+// (perturb: the same, with one pixel's red changed by 1, to show the digest notices a single pixel: px 1216,960, on the
+// main walk's stroke, a feature-layer pixel)
 const DIGEST = async (perturb) => { const g = window.__island.ground(), img = new Image(); img.src = g.png; await img.decode(); const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0);
-  const px = x.getImageData(0, 0, c.width, c.height).data; if (perturb) { const i = (1000 * c.width + 1200) * 4; px[i] = (px[i] + 1) & 255; }
+  const px = x.getImageData(0, 0, c.width, c.height).data; if (perturb) { const i = (960 * c.width + 1216) * 4; px[i] = (px[i] + 1) & 255; }
   const h = await crypto.subtle.digest("SHA-256", px); return { w: c.width, h: c.height, sha: [...new Uint8Array(h)].map((v) => v.toString(16).padStart(2, "0")).join("") }; };
 mkdirSync(OUT, { recursive: true });
 
@@ -64,7 +71,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   for (let r = 0; r < 3; r++) {
     const L = await load(`http://127.0.0.1:${port}/?debug=1&step=1#island`);
     const v = L.ok ? await L.page.evaluate(() => window.__island.preview()) : null, d = L.ok ? await L.page.evaluate(DIGEST) : null;
-    runs.push({ ok: L.ok && !L.errs.length, ms: v && v.groundMs, phases: v && v.paintMs, paints: v && v.paints, d, errs: L.errs });
+    const td = L.ok ? await L.page.evaluate(() => window.__island.terrainDigest()) : null;
+    runs.push({ ok: L.ok && !L.errs.length, ms: v && v.groundMs, phases: v && v.paintMs, paints: v && v.paints, d, td, errs: L.errs });
     if (r === 0 && L.ok) { rep = await L.page.evaluate(() => window.__island.painterReport()); keep = L; } else await L.ctx.close();
   }
   const r0 = runs[0];
@@ -72,9 +80,13 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const shas = runs.map((r) => r.d && r.d.sha);
   check(name, "repeatable: three fresh paints give the same RGBA", shas.every((x) => x && x === shas[0]), `sha256 ${shas.join(", ")}`);
   DIG[name] = shas[0];
-  check(name, "the approved ground (tools/fixtures/mapb-ground.json): every paint's RGBA is its digest", shas.every((x) => x === GROUND_FIXTURE.rgbaSha256) && runs.every((r) => r.d && r.d.w === GROUND_FIXTURE.w && r.d.h === GROUND_FIXTURE.h),
-    `fixture ${GROUND_FIXTURE.stage} ${GROUND_FIXTURE.rgbaSha256}${shas.every((x) => x === GROUND_FIXTURE.rgbaSha256) ? "" : `; painted ${shas[0]}`}`);
-  if (keep) { const pd = await keep.page.evaluate(DIGEST, true); check(name, "one pixel changed (px 1200,1000, red + 1): the digest no longer matches", pd.sha !== GROUND_FIXTURE.rgbaSha256, `perturbed ${pd.sha.slice(0, 16)} vs fixture ${GROUND_FIXTURE.rgbaSha256.slice(0, 16)}`); }
+  const tds = runs.map((r) => r.td);
+  check(name, "the terrain pass is the approved B2c terrain (tools/fixtures/mapb-ground.json's terrain), every paint", tds.every((x) => x === GROUND_FIXTURE.rgbaSha256),
+    `fixture ${GROUND_FIXTURE.stage} ${GROUND_FIXTURE.rgbaSha256}${tds.every((x) => x === GROUND_FIXTURE.rgbaSha256) ? "" : `; terrain painted ${tds.join(", ")}`}`);
+  check(name, FINAL_FIXTURE ? "the finished ground (terrain and features) is the approved one" : "the finished ground (terrain and features): measured, its fixture waits for approval", FINAL_FIXTURE ? shas.every((x) => x === FINAL_FIXTURE.rgbaSha256) : true,
+    FINAL_FIXTURE ? `fixture ${FINAL_FIXTURE.stage} ${FINAL_FIXTURE.rgbaSha256}` : `ground ${shas[0]}`);
+  if (keep) { const pd = await keep.page.evaluate(DIGEST, true); const fc = await keep.page.evaluate(() => window.__island.painterTiles(["76,60"])[0]);
+    check(name, "one feature pixel changed (px 1216,960 on the main walk, red + 1): the finished ground's digest no longer matches", pd.sha !== (FINAL_FIXTURE ? FINAL_FIXTURE.rgbaSha256 : shas[0]) && (fc.path || 0) > 0, `perturbed ${pd.sha.slice(0, 16)} vs ${(FINAL_FIXTURE ? FINAL_FIXTURE.rgbaSha256 : shas[0]).slice(0, 16)}; tile 76,60 holds ${fc.path || 0} path pixels`); }
   // the painter against the decoded map
   if (rep) {
     check(name, "every pixel looks wet exactly where the edge mask says (and GK agrees)", rep.mismatchWet === 0 && rep.mismatchGK === 0, `${rep.mismatchWet} painted wrong, ${rep.mismatchGK} GK wrong, of 4,608,000`);
@@ -91,6 +103,22 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     const lipT = await keep.page.evaluate((tiles) => window.__island.painterTiles(tiles), DRY_LIP_TILES);
     const lipOk = lipT.every((t) => (t.liprock || 0) + (t.seaface || 0) + (t.face || 0) > 0);
     check(name, "the 9 accepted dry-lip places (over 8 px) read as rock, not beach", lipOk, lipT.map((t) => `${t.tile}: rock ${t.liprock || 0}, wet sand ${t.wetsand || 0}, bank ${t.bank || 0}${t.seaface ? ", sea face " + t.seaface : ""}`).join("; "));
+  }
+  // the features against the map
+  {
+    const f = keep ? await keep.page.evaluate(() => window.__island.featureReport()) : null;
+    if (!f) check(name, "the feature report", false, "none");
+    else {
+      check(name, "no path, plaza, deck, dock or pad pixel on water or on ground pi can't stand on", f.onWet === 0 && f.onBlocked === 0, `${f.onWet} on water, ${f.onBlocked} on blocked ground`);
+      const gaps = f.paths.filter((q) => q.gaps), trails = f.paths.filter((q) => q.cls === "trail");
+      check(name, "every corridor drawn without a gap along its authored line wherever pi can stand (28 paths, the trails among them)", f.paths.length === 28 && !gaps.length,
+        `${f.paths.reduce((a, q) => a + q.samples, 0)} samples every half pixel; ${gaps.length ? gaps.map((q) => `${q.id} ${q.gaps} gaps (first at ${q.firstGap})`).join("; ") : "no gap"}; trails: ${trails.map((q) => `${q.id} ${q.samples} (${q.notOpen} over water or blocked)`).join(", ")}`);
+      check(name, "the three bridges' decks drawn", f.bridges.length === 3 && f.bridges.every((b) => b.deckPixels > 0), f.bridges.map((b) => `${b.id} ${b.deckPixels} px`).join(", "));
+      check(name, "the docks (quay, ferry pier, west jetty) and the helipad drawn, every dry pixel", f.docks.length === 3 && f.docks.every((d) => d.drawn === d.dry && d.dry > 0) && f.helipad && f.helipad.drawn === f.helipad.dry && f.helipad.dry === 6400,
+        `${f.docks.map((d) => `${d.id} ${d.drawn}/${d.dry}`).join(", ")}; helipad ${f.helipad && f.helipad.drawn}/${f.helipad && f.helipad.dry}`);
+      check(name, "both waterfalls drawn, on water only", f.falls.length === 2 && f.falls.every((q) => q.pixels > 0) && f.fallOnDry === 0, `${f.falls.map((q) => `${q.levels}: ${q.pixels} px`).join(", ")}; ${f.fallOnDry} on dry ground`);
+      check(name, "no tile-shaped dirt or plank left from the terrain pass", f.leftoverDirt === 0, `${f.leftoverDirt} dirt px, ${f.leftoverWood} plank px (a bridge tile's pixels beside its deck)`);
+    }
   }
   // format 1 unchanged
   {
@@ -131,7 +159,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     check(name, "walking: the ground isn't painted again; frame times measured", fr.v.paints === 1 && ws.length > 100 && L.errs.length === 0,
       `${ws.length} frames, update + render median ${q(0.5).toFixed(2)} ms, p95 ${q(0.95).toFixed(2)} ms, max ${ws[ws.length - 1].toFixed(2)} ms; paints ${fr.v.paints}${L.errs.length ? "; " + L.errs.join("; ") : ""}`);
     check(name, "paint measured (one time, by phase); ground canvas 2400 x 1920, about 17.6 MiB", true,
-      `${r0.ms} ms (setup ${r0.phases.setup.toFixed(0)}, pixels ${r0.phases.pixels.toFixed(0)}, lip ${r0.phases.lip.toFixed(0)}, faces ${r0.phases.faces.toFixed(0)}, put ${r0.phases.put.toFixed(0)}); runs ${runs.map((r) => r.ms).join(", ")} ms; RGBA 2400 x 1920 x 4 = 18,432,000 bytes`);
+      `${r0.ms} ms (setup ${r0.phases.setup.toFixed(0)}, pixels ${r0.phases.pixels.toFixed(0)}, lip ${r0.phases.lip.toFixed(0)}, faces ${r0.phases.faces.toFixed(0)}, features ${(r0.phases.features || 0).toFixed(0)}, put ${r0.phases.put.toFixed(0)}); runs ${runs.map((r) => r.ms).join(", ")} ms; RGBA 2400 x 1920 x 4 = 18,432,000 bytes`);
     await L.ctx.close();
     check(name, "review images written (ignored)", true, files.map((f) => f.replace(ROOT + "/", "")).join(", "));
   }
