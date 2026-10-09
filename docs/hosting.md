@@ -63,6 +63,12 @@ node tools/deploy.mjs --check
 
 runs only those live checks. If they fail with `ENOTFOUND` right after a DNS change, this Mac is still holding an old "no such domain" answer from the home DNS; `dig ammaarrehman.com @1.1.1.1` shows whether the domain itself resolves. The negative cache runs out on its own.
 
+```bash
+node tools/deploy.mjs --help
+```
+
+prints the usage and does nothing else. The script takes at most one option (`--dry-run`, `--check`, `--guard-self-test` or `--help` / `-h`). Any other argument, or two options together, stops it with exit 2 before it builds, writes, installs or deploys anything (`tools/deploy-args.mjs`; `node tools/deploy-args.test.mjs` proves it with every command and request stubbed). Before 2026-10-08 an unknown argument was ignored, so `--help` deployed (the incident in the deploy log). Running it with no option at all is still the real deploy.
+
 What the build refuses to ship: `*.md` files, `tools/`, `.git`, `*.env`, `.dev.vars`, `wrangler.*`, and any file containing something shaped like a key (`ghp_`, `github_pat_`, `-----BEGIN`). It also stops if a page references a file that isn't in the build, or if the CSP in the pages' `<meta>` tags differs from the one in `_headers`.
 
 The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.html` and `404.html` so it also applies on GitHub Pages. Two directives are header-only: `frame-ancestors` (not allowed in a meta tag) and `upgrade-insecure-requests` (in a meta tag it breaks testing on a phone over plain `http://` on the LAN).
@@ -167,6 +173,14 @@ The headers live in `_headers`. The same policy is in a `<meta>` tag in `index.h
 - Production is still the 100 x 80 island. `SAVE_V` is still 2. MAP-B hasn't started and the `CX` / `CY` cleanup is deferred.
 - No manual live check by Ammaar yet.
 
+**2026-10-08, accidental deploy, rolled back (not a release).** Nothing in this entry was approved for production.
+
+- What happened: at 20:07 EDT (2026-10-09 00:07:09 UTC) Claude ran `node tools/deploy.mjs --help` while starting MAP-B B2e, to read the script's options. The script didn't know `--help`, ignored it and ran its normal path: build, checks (passed), then `npx wrangler deploy`. That deployed `main` at `227c16950ce53f9a4810760e6b27a9ad00e06fe6` (MAP-B B2d, committed but never meant to ship) as Cloudflare version `e1d40cdd-e047-4c71-9090-35cd10d2726e`. Claude saw it from the output, stopped and reported it.
+- What it shipped: only `js/world.js` differed from the approved release (+849 / -92 lines since `ea910c5`: the dormant MAP-B format-2 decoder, preview gate and painter). `index.html`, `js/maps/home.js` (format 1, 100 x 80) and every other file were unchanged; `SAVE_V` 2 and the cache `20261025` unchanged; no staged map file in the bundle (`tools/` stays out; `/tools/maps/staged/home.js` 404). The format-2 code runs only for a staged format-2 map with the preview flag on a loopback host, none of which exist in production, and the format-1 path had passed MAP-A parity, B0, scenarios and the legacy decoder at B2d. So the live island behaved as before, but the code was unapproved.
+- Rollback: with Ammaar's written authorization for that one action, `npx wrangler rollback b5fe7d52-c7c5-49e7-a543-aabb127aafca` (no build, no upload; it repoints the deployment at the existing version) at 20:13 EDT (2026-10-09 00:13:42 UTC). Wrangler reported success; `npx wrangler deployments status` shows `b5fe7d52-c7c5-49e7-a543-aabb127aafca` at 100%. The accidental version was live about 6.5 minutes.
+- Verified after the rollback (read-only, cache-bypassed): `index.html`, `/404`, `css/styles.css`, `js/world.js`, `js/site.js`, `js/maps/home.js`, `js/audio.js`, `js/boot.js`, `js/windows.js` and `js/orb.js` byte-identical to `ea910c5` (the approved release), both with a random query and at the exact `?v=20261025` URLs browsers request; the live `world.js` has `SAVE_V = 2` and none of the format-2 code; 9 references to `v=20261025`; the live `home.js` is format 1, 100 x 80; `/tools/maps/staged/home.js`, `/tools/maps/home.src.mjs`, `/tools/fixtures/mapb-ground.json`, `/tools/deploy.mjs`, `/js/maps/staged/home.js`, `handoff.md` and `docs/game-design.md` all 404; a missing page 404. Fresh Playwright contexts in Chromium and WebKit, with no-cache requests (`tools/out/rollback/live.mjs`, ignored): the home page and the island load with 0 page errors, 0 console errors and 0 failed requests; the island runs the format-1, 100 x 80 map, no staged registry, no preview badge. Scripts are served `Cache-Control: public, max-age=0, must-revalidate`, so a browser that fetched the accidental `world.js` revalidates and gets the approved one on its next load. Saves were never at risk: both versions are save v2.
+- The fix: `tools/deploy.mjs` now checks its command line first (`tools/deploy-args.mjs`) and refuses any argument it doesn't know, or more than one option, with exit 2 before anything else; `--help` prints the usage and exits 0; the wrangler step also refuses to run unless no option was given. `tools/deploy-args.test.mjs` proves it without touching Cloudflare (every child process and fetch stubbed); run against the old script, the same stubs record `--help` reaching `npx wrangler deploy`. The fix is tooling only and isn't deployed (it doesn't ship).
+
 ### Two dashboard items for Ammaar (both done 2026-09-28)
 
 **1. Minimum TLS version. Done 2026-09-28.** Set to TLS 1.2 and verified by Ammaar: TLS 1.0 and 1.1 now fail, TLS 1.2 connects, and the SSL Labs recheck passed as expected (A was the expected grade). The steps stay here for reference (undo: set it back in the same place).
@@ -219,6 +233,7 @@ The code stays on `main`. Don't add a `CNAME` file: it would make GitHub try to 
 | Nameservers moved to Cloudflare | In GoDaddy, Nameservers, choose "GoDaddy default". Turn DNSSEC off in Cloudflare first and remove the DS record at GoDaddy, or the domain stops resolving. |
 | Records deleted in Cloudflare | Re-add them from the screenshots taken before deleting. |
 | www redirect rule | Delete the rule in Rules, Redirect Rules. |
+| A bad deploy | `npx wrangler deployments list` to find the last good version, then `npx wrangler rollback <version-id> -m "<reason>"`. It switches traffic to that existing version with no build or upload (done 2026-10-08, see the deploy log). Never roll back past `bbadcae` (save v2). |
 | Site deployed on Workers | Workers and Pages, the `ammaarrehman-site` Worker, Settings, Domains and Routes: remove the custom domain. Deleting the Worker removes it entirely. |
 | HSTS | Set `max-age=0` in `_headers` and deploy. Browsers that saw a long max-age keep it until it runs out, which is why it starts at 300 seconds. |
 | Tunnel (Phase 7) | Zero Trust, Networks, Tunnels: delete `homelab-lab`. On the Pi, `sudo cloudflared service uninstall`. |

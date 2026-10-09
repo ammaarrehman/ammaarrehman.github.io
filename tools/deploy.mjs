@@ -5,6 +5,9 @@
      node tools/deploy.mjs              build, check, deploy, smoke-test
      node tools/deploy.mjs --dry-run    build and check only (no Cloudflare account needed)
      node tools/deploy.mjs --check      only the live checks, against what's deployed now
+     node tools/deploy.mjs --help       usage only
+   It takes at most one option, and refuses any other argument (exit 2) before it builds, writes, installs
+   or deploys anything (tools/deploy-args.mjs; tested by tools/deploy-args.test.mjs).
 
    It stops (exit 1) if:
      - a file the pages reference (html src/href/srcset, css url(), js paths) is missing
@@ -22,12 +25,18 @@ import { dirname, extname, join, relative, resolve } from "node:path";
 import { execSync } from "node:child_process";
 import vm from "node:vm";
 import { fileURLToPath } from "node:url";
+import { parseDeployArgs, USAGE } from "./deploy-args.mjs";
+
+// 0. the command line, before anything else happens
+const ARGS = parseDeployArgs(process.argv.slice(2));
+if (ARGS.error) { console.error(`deploy.mjs: ${ARGS.error}\nnothing was built or deployed.\n\n${USAGE}`); process.exit(2); }
+if (ARGS.mode === "help") { console.log(USAGE); process.exit(0); }
 
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const OUT = join(ROOT, ".deploy");
 const SITE = "https://ammaarrehman.com";
-const DRY = process.argv.includes("--dry-run");
-const CHECK = process.argv.includes("--check");
+const DRY = ARGS.mode === "dry-run";
+const CHECK = ARGS.mode === "check";
 
 // what ships: paths relative to the repo root (a folder ships whole)
 const ALLOW = [
@@ -60,7 +69,7 @@ function stagedMapProblems(home, scripts) {
   }
   return out;
 }
-if (process.argv.includes("--guard-self-test")) {
+if (ARGS.mode === "guard-self-test") {
   const realHome = readFileSync(join(ROOT, "js/maps/home.js"), "utf8"), staged = readFileSync(join(ROOT, "tools/maps/staged/home.js"), "utf8");
   const wrapped = staged + "\nwindow.ISLAND_MAPS = window.ISLAND_MAPS || {}; window.ISLAND_MAPS.home = window.ISLAND_MAPS_STAGED.home;\nwindow.ISLAND_MAP_PREVIEW = \"mapb-staged\";\n";
   const cases = [
@@ -145,7 +154,8 @@ if (fail.length) { console.error("\nnot deploying:\n  " + fail.join("\n  ")); pr
 console.log("checks passed");
 if (DRY) { console.log("dry run: stopping before the deploy"); process.exit(0); }
 
-// 5. deploy, then look at the live site
+// 5. deploy, then look at the live site (only when it was run with no option at all)
+if (ARGS.mode !== "deploy") { console.error(`deploy.mjs: mode ${ARGS.mode} doesn't deploy; stopping`); process.exit(1); }
 execSync("npx wrangler deploy", { cwd: ROOT, stdio: "inherit" });
 await live();
 
