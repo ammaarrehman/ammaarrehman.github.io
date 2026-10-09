@@ -352,6 +352,45 @@ MAP-B B1, the staged blockout (2026-10-07; complete, not runtime-active, not dep
   450 x 360 and at a 390 px viewport. B2 doesn't switch production to MAP-B and doesn't start B3
   (buildings and content).
 
+MAP-B B3b, the content architecture (2026-10-09; staged only, not deployed; no content migrated):
+- The B3a decisions it follows: D1 as modified (a building keeps its whole B1e footprint reserved, but its collision is
+  never larger than what it draws; placeholder art comes with each building), D2 to D11 as proposed (vegetation with
+  explicit performance and accessibility limits, its own batch), D12 (the old saved position) deferred to B4; the park
+  gate's place is provisional until it passes real collision and navigation tests.
+- Data: content has its own authored source, `tools/maps/home.content.mjs` (schema `mapb-content-1`; empty in B3b), its
+  own compiler, `tools/map-content.mjs` (rules in `tools/maps/content.mjs`), and its own staged file,
+  `tools/maps/staged/home.content.js` (`window.ISLAND_MAPS_STAGED_CONTENT`), bound to the terrain it was placed on by
+  `terrainSha256`. The terrain source, its compiler, its staged file and every B1/B2 fixture are untouched.
+- A record is `{ id, kind, drawnPxBoxes, solid, doorTiles?, reserve?, encloses? }`; kinds building, landmark, station,
+  wall, fence, gate, prop. Solid is whole tiles (tile boxes, tile lists, a ring round a box or a B1e habitat outline,
+  with gaps) and foot boxes (pixels where feet stop on a tile that stays walkable, for posts and bases smaller than a
+  tile). The compiled record lists every solid tile, so the game knows no shapes.
+- The compile's rules, each named and each caught alone by a test: schema; terrain (open ground only, never water, a
+  rim, a bridge, a dock or the pad); spawn (its tile and pi's feet stay clear); drawn (D1: no collision outside what's
+  drawn); overlap; foot (foot boxes only on tiles that stay walkable); reserve (a record stays in the footprint it names,
+  and nothing else enters one); open-space (the rift arena's clear field); doors (walkable, next to their solid,
+  reachable); route-ends (all 17 still reachable); pockets (no ground cut off unless an `encloses` record encloses it).
+- Runtime (`js/world.js`): two collision layers for a staged format-2 map with content. The terrain's (`TCOLL`, `TFOOT`,
+  B2a's) is the only one the ground painter and its reports read, so content can't change a painted pixel; gameplay
+  (movement, the planner and `STEPOK`, `SAFE`, landing, hop-out, the car, creatures) reads the union, `COLL` and `FOOT`,
+  built once before anything uses them. Content only adds blocking. Format 1 and a map without content keep one layer
+  (the same arrays as before). `decodeMap2` checks the content again on its own (bounds, kinds, ids, open terrain, D1,
+  foot boxes, doors, the spawn, the totals, the terrain binding).
+- Preview: two modes on loopback only. `mapb-staged` is the terrain preview, exactly as before, and refuses content;
+  `mapb-content` (`node tools/mapb-preview.mjs --content`) needs the content layer and decodes it. Both keep every home
+  system off for now, read and write no storage, and show a badge naming the mode. The deploy guard also refuses the
+  content registry and the content wrapper (8 self-test cases).
+- Completeness: a format-2 home outside the staged preview must carry every building, landmark base, station, the park
+  gate, both paddock fences, both compound walls, the koi pond, and the sections not yet in the format (rooms, anchors,
+  spawns and roam areas, the welder's route, places, zones, props), checked from the decoded data, never from a claim
+  in it; until then it stops with the list. The decoder still refuses any non-staged format-2 map; that is B4's to lift.
+  `?debug=1` gives `completeness()`.
+- Tests: `tools/mapb-content.mjs` (the compiler, every rule, and in Chromium and WebKit the two modes, both locked
+  painter digests with synthetic content present, gameplay through a walled room's door, a fenced pen cut off, a post's
+  foot box, paths round a hut, 22 decoder refusals, the loopback and flag walls, and 7 code mutations of `js/world.js`).
+- B3c follow-ups (required): replace the overloaded `TERRAIN_ONLY` flag with explicit mode and per-system controls;
+  every solid building footprint gets visible placeholder art covering it (no invisible large building hitboxes).
+
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

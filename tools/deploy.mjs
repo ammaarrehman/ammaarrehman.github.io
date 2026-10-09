@@ -17,7 +17,8 @@
        frame-ancestors and upgrade-insecure-requests, which a meta tag can't or shouldn't carry)
      - the staged MAP-B island would ship (until its approved switch-over): js/maps/home.js, run in a sandbox,
        must register the format-1, 100 x 80 island and nothing staged; no shipped script's code (comments aside)
-       may name ISLAND_MAPS_STAGED, switch on the preview flag or carry a staged map ("staged": true)
+       may name ISLAND_MAPS_STAGED or ISLAND_MAPS_STAGED_CONTENT (B3b's content layer), switch on the preview flag
+       or carry a staged map ("staged": true)
      node tools/deploy.mjs --guard-self-test   proves that guard stops a synthetic staged map, and passes the real one
    The deploy itself needs `npx wrangler login` once (see docs/hosting.md). No token is stored. */
 import { cpSync, existsSync, mkdirSync, readdirSync, readFileSync, rmSync, statSync } from "node:fs";
@@ -60,10 +61,12 @@ function stagedMapProblems(home, scripts) {
   const H = ctx.window.ISLAND_MAPS && ctx.window.ISLAND_MAPS.home;
   if (!H || H.format !== 1 || H.w !== 100 || H.h !== 80 || H.staged !== undefined) out.push(`js/maps/home.js isn't the format-1, 100 x 80 production island (format ${H && H.format}, ${H && H.w} x ${H && H.h}${H && H.staged !== undefined ? ", staged " + H.staged : ""})`);
   if (ctx.window.ISLAND_MAPS_STAGED !== undefined) out.push("js/maps/home.js registers ISLAND_MAPS_STAGED");
+  if (ctx.window.ISLAND_MAPS_STAGED_CONTENT !== undefined) out.push("js/maps/home.js registers ISLAND_MAPS_STAGED_CONTENT");
   if (ctx.window.ISLAND_MAP_PREVIEW !== undefined) out.push("js/maps/home.js switches on the MAP-B preview flag");
   for (const [f, text] of scripts) {
     const code = text.replace(/\/\*[\s\S]*?\*\//g, "").replace(/(^|[^:\\])\/\/[^\n]*/g, "$1");
     if (/\bISLAND_MAPS_STAGED\b/.test(code)) out.push(`${f} names ISLAND_MAPS_STAGED, the staged map's registry`);
+    if (/\bISLAND_MAPS_STAGED_CONTENT\b/.test(code)) out.push(`${f} names ISLAND_MAPS_STAGED_CONTENT, the staged content's registry`);
     if (/\bISLAND_MAP_PREVIEW\s*=(?!=)/.test(code)) out.push(`${f} switches on the MAP-B preview flag`);
     if (/["']staged["']\s*:\s*true/.test(code)) out.push(`${f} carries a staged map ("staged": true)`);
   }
@@ -72,12 +75,16 @@ function stagedMapProblems(home, scripts) {
 if (ARGS.mode === "guard-self-test") {
   const realHome = readFileSync(join(ROOT, "js/maps/home.js"), "utf8"), staged = readFileSync(join(ROOT, "tools/maps/staged/home.js"), "utf8");
   const wrapped = staged + "\nwindow.ISLAND_MAPS = window.ISLAND_MAPS || {}; window.ISLAND_MAPS.home = window.ISLAND_MAPS_STAGED.home;\nwindow.ISLAND_MAP_PREVIEW = \"mapb-staged\";\n";
+  const content = readFileSync(join(ROOT, "tools/maps/staged/home.content.js"), "utf8");
+  const contentWrapped = staged + "\n" + content + "\nwindow.ISLAND_MAPS = window.ISLAND_MAPS || {}; window.ISLAND_MAPS.home = Object.assign({}, window.ISLAND_MAPS_STAGED.home, { content: window.ISLAND_MAPS_STAGED_CONTENT.home });\nwindow.ISLAND_MAP_PREVIEW = \"mapb-content\";\n";
   const cases = [
     ["the real js/maps/home.js and js/world.js pass", realHome, [["js/world.js", readFileSync(join(ROOT, "js/world.js"), "utf8")]], false],
     ["the staged file shipped as js/maps/home.js is stopped", staged, [], true],
     ["the preview wrapper shipped as js/maps/home.js is stopped", wrapped, [], true],
     ["a format-2 map registered as the home island is stopped", realHome.replace('"format": 1', '"format": 2'), [], true],
     ["a script switching on the preview flag is stopped", realHome, [["js/extra.js", "window.ISLAND_MAP_PREVIEW = 'mapb-staged';"]], true],
+    ["the content preview's wrapper shipped as js/maps/home.js is stopped", contentWrapped, [], true],
+    ["a script naming the staged content's registry is stopped", realHome, [["js/extra.js", "var c = window.ISLAND_MAPS_STAGED_CONTENT;"]], true],
     ["the words in a comment don't stop it", realHome, [["js/extra.js", "/* ISLAND_MAPS_STAGED, \"staged\": true */\n// ISLAND_MAP_PREVIEW = x\nvar a = 1;"]], false]
   ];
   let bad = 0;

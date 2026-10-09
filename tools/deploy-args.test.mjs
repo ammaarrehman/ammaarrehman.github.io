@@ -115,7 +115,7 @@ else {
   }
   {
     const r = run(["--guard-self-test"]);
-    check(r.code === 0 && (r.out.match(/^ok {2}/gm) || []).length === 6 && nothingRan(r), "--guard-self-test: 6 of 6 as before, builds, runs and fetches nothing", JSON.stringify({ code: r.code, calls: r.calls, built: r.built, out: r.out.slice(0, 400) }));
+    check(r.code === 0 && (r.out.match(/^ok {2}/gm) || []).length === 8 && nothingRan(r), "--guard-self-test: 8 of 8 (6, and B3b's 2 for the staged content layer), builds, runs and fetches nothing", JSON.stringify({ code: r.code, calls: r.calls, built: r.built, out: r.out.slice(0, 400) }));
   }
   {
     const r = run(["--check"]);

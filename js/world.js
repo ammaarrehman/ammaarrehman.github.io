@@ -348,7 +348,12 @@
      format-2 map to decodeMap2: every other map, a non-staged format 2 among them, goes to decodeMap1 exactly
      as before (production reads format 1; a normal format-2 home, with the content its systems need, is B4's) */
   var LOOPBACK = /^(localhost|127\.0\.0\.1|\[::1\])$/.test(location.hostname);
-  function previewAsked() { return window.ISLAND_MAP_PREVIEW === "mapb-staged"; }
+  /* the preview's two modes (B3b): "mapb-staged" is the terrain-only preview (B2), exactly as before, and refuses any
+     content; "mapb-content" is the content preview, which needs the staged content layer (tools/maps/staged/
+     home.content.js, bound to this terrain) and decodes it. Any other flag value is no preview at all */
+  var PREVIEW_FLAGS = { "mapb-staged": "terrain", "mapb-content": "content" };
+  function previewMode() { var f = window.ISLAND_MAP_PREVIEW; return typeof f === "string" && Object.prototype.hasOwnProperty.call(PREVIEW_FLAGS, f) ? PREVIEW_FLAGS[f] : null; }
+  function previewAsked() { return previewMode() !== null; }
   function decodeMap(M) {
     if (M && typeof M === "object" && !Array.isArray(M) && M.format === 2 && M.staged === true) return decodeMap2(M);
     return decodeMap1(M);
@@ -373,7 +378,7 @@
     function copy(o) { return JSON.parse(JSON.stringify(o)); }
     var ID = /^[a-z0-9][a-z0-9-]{0,31}$/;
     if (!(previewAsked() && LOOPBACK)) bad("this is a staged map: it runs only in the local MAP-B preview (tools/mapb-preview.mjs, on a loopback host)");
-    only(M, "the map", ["format", "staged", "runtimeSupported", "stage", "id", "generator", "source", "sourceSha256", "tile", "w", "h", "ground", "height", "coll", "anchors", "footBlock", "edgeMask", "shapes"]);
+    only(M, "the map", ["format", "staged", "runtimeSupported", "stage", "id", "generator", "source", "sourceSha256", "tile", "w", "h", "ground", "height", "coll", "anchors", "footBlock", "edgeMask", "shapes", "content"]);
     if (M.runtimeSupported !== undefined && typeof M.runtimeSupported !== "boolean") bad("runtimeSupported must be true or false");
     if (typeof M.id !== "string" || !ID.test(M.id)) bad("id must be a short lowercase name (a to z, 0 to 9, -)");
     if (M.tile !== T) bad("tile must be " + T + " (px per tile in this engine)");
@@ -511,6 +516,80 @@
       for (var bi = 0; bi < w * h; bi++) if (D.ground[bi] === BRIDGE) onMap++;
       if (onMap !== listed) bad("shapes.bridges hold " + listed + " bridge tiles but ground has " + onMap);
     }
+    /* the content layer (B3b): only in the content preview, which must have one; the terrain preview refuses one. Its
+       records are checked against this terrain and turned into a second collision layer: contentColl (C_SOLID on whole
+       tiles) and contentFoot (pixels where feet stop on tiles that stay walkable). The terrain's own layers (D.coll,
+       D.foot) are never changed: the game paints from those alone and moves on the union of both */
+    D.content = null; D.contentColl = null; D.contentFoot = null; D.contentRecords = [];
+    if (previewMode() === "content") {
+      if (M.content === undefined) bad("the content preview needs the content layer (content), and this map has none");
+      decodeContent(M.content);
+    } else if (M.content !== undefined) bad("content runs only in the MAP-B content preview, not the terrain preview");
+    function decodeContent(C) {
+      if (!isObj(C)) bad("content must be an object");
+      only(C, "content", ["format", "staged", "schema", "id", "generator", "source", "sourceSha256", "terrainSha256", "solidTiles", "footPixels", "records"]);
+      if (C.format !== 2 || C.staged !== true) bad("content must be format 2 and staged");
+      if (C.schema !== "mapb-content-1") bad("content.schema must be mapb-content-1");
+      if (C.id !== M.id) bad("content.id must be the map's own id, " + M.id);
+      if (typeof C.terrainSha256 !== "string" || C.terrainSha256 !== M.sourceSha256) bad("content.terrainSha256 isn't this terrain's sourceSha256: the content was placed on other terrain");
+      var KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"], seen = {}, owner = {}, cc = new Uint16Array(w * h), cf = new Uint32Array((PWm * PHm + 31) >>> 5), nT = 0, nF = 0;
+      function pxBox(b, f) {
+        if (!isObj(b)) bad(f + " must be an inclusive pixel box { px0, py0, px1, py1 }");
+        only(b, f, ["px0", "py0", "px1", "py1"]);
+        int(b.px0, f + ".px0", 0, PWm - 1); int(b.py0, f + ".py0", 0, PHm - 1); int(b.px1, f + ".px1", b.px0, PWm - 1); int(b.py1, f + ".py1", b.py0, PHm - 1);
+        return b;
+      }
+      var recs = arr(C.records, "content.records").map(function (r, k) {
+        if (!isObj(r) || typeof r.id !== "string" || !ID.test(r.id)) bad("content.records[" + k + "] needs an id (a short lowercase name)");
+        var f = "content record " + r.id;
+        if (seen[r.id]) bad(f + " appears twice"); seen[r.id] = 1;
+        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "reserve", "encloses"]);
+        if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
+        var drawn = arr(r.drawnPxBoxes, f + ".drawnPxBoxes").map(function (b, j) { return pxBox(b, f + ".drawnPxBoxes[" + j + "]"); });
+        if (!drawn.length) bad(f + " draws nothing (drawnPxBoxes is empty)");
+        if (r.reserve !== undefined && (typeof r.reserve !== "string" || !ID.test(r.reserve))) bad(f + ".reserve must be a footprint id");
+        if (r.encloses !== undefined && r.encloses !== true) bad(f + ".encloses must be true or left out");
+        arr(r.footPxBoxes, f + ".footPxBoxes").forEach(function (b, j) { pxBox(b, f + ".footPxBoxes[" + j + "]"); });
+        arr(r.doorTiles, f + ".doorTiles").forEach(function (p, j) { tileAt(p, f + ".doorTiles[" + j + "]"); });
+        if (!arr(r.tiles, f + ".tiles").length && !r.footPxBoxes.length) bad(f + " blocks nothing (no tiles, no foot boxes)");
+        // whole solid tiles: on open terrain only, each in one record, and never outside what the record draws (D1)
+        function inDrawn(px, py) { for (var q = 0; q < drawn.length; q++) { var b = drawn[q]; if (px >= b.px0 && px <= b.px1 && py >= b.py0 && py <= b.py1) return true; } return false; }
+        r.tiles.forEach(function (p, j) {
+          tileAt(p, f + ".tiles[" + j + "]");
+          var i = p[1] * w + p[0], gc = g(p[0], p[1]);
+          if (owner[i]) bad(f + ": tile " + p + " is already solid in " + owner[i]);
+          if (!walk(p[0], p[1])) bad(f + ": tile " + p + " isn't walkable terrain: content goes on open ground only");
+          if (gc === BRIDGE || gc === DOCK || gc === PAD) bad(f + ": tile " + p + " is a bridge, a dock or the helipad");
+          for (var py = p[1] * T; py < p[1] * T + T; py++) for (var px = p[0] * T; px < p[0] * T + T; px++) if (!inDrawn(px, py)) bad(f + ": tile " + p + " is solid outside what it draws (pixel " + px + "," + py + "): no invisible collision");
+          owner[i] = r.id; cc[i] = C_SOLID; nT++;
+        });
+        return { r: r, inDrawn: inDrawn };
+      });
+      // foot boxes and doors, once every solid tile is known
+      recs.forEach(function (o) {
+        var r = o.r, f = "content record " + r.id;
+        r.footPxBoxes.forEach(function (b, j) {
+          for (var py = b.py0; py <= b.py1; py++) for (var px = b.px0; px <= b.px1; px++) {
+            var tx = (px / T) | 0, ty = (py / T) | 0;
+            if (!o.inDrawn(px, py)) bad(f + ".footPxBoxes[" + j + "]: pixel " + px + "," + py + " is outside what it draws: no invisible collision");
+            if (!walk(tx, ty) || cc[ty * w + tx]) bad(f + ".footPxBoxes[" + j + "]: pixel " + px + "," + py + " is on tile " + tx + "," + ty + ", which is already blocked");
+            var bb = py * PWm + px; if (!(cf[bb >>> 5] >>> (bb & 31) & 1)) { cf[bb >>> 5] |= 1 << (bb & 31); nF++; }
+          }
+        });
+        r.doorTiles.forEach(function (p) {
+          if (!walk(p[0], p[1]) || cc[p[1] * w + p[0]]) bad(f + ": door " + p + " isn't walkable");
+          if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(function (n) { return r.tiles.some(function (q) { return q[0] === p[0] + n[0] && q[1] === p[1] + n[1]; }); })) bad(f + ": door " + p + " isn't next to its solid");
+        });
+      });
+      // the spawn stays clear: its tile, and pi's feet standing there
+      var sp0 = A.spawnTile, spx = footOfTile(sp0);
+      if (cc[sp0[1] * w + sp0[0]]) bad("content: the spawn tile " + sp0 + " is solid content");
+      for (var fy2 = spx[1] - 2; fy2 <= spx[1] + 1; fy2++) for (var fx2 = spx[0] - 4; fx2 <= spx[0] + 4; fx2++) if (bit(cf, fx2, fy2)) bad("content: a foot box covers pi's feet at the spawn (pixel " + fx2 + "," + fy2 + ")");
+      if (int(C.solidTiles, "content.solidTiles", 0, w * h) !== nT) bad("content.solidTiles is " + C.solidTiles + " but the records make " + nT + " solid tiles");
+      if (int(C.footPixels, "content.footPixels", 0, PWm * PHm) !== nF) bad("content.footPixels is " + C.footPixels + " but the records make " + nF + " foot pixels");
+      D.content = { schema: C.schema, records: recs.length, solidTiles: nT, footPixels: nF, sourceSha256: typeof C.sourceSha256 === "string" ? C.sourceSha256 : null };
+      D.contentColl = cc; D.contentFoot = cf; D.contentRecords = copy(C.records);
+    }
     D.shapes = copy(S);
     // the content sections format 1 carries: none yet (B3 adds them to format 2 as its own sections)
     D.decals = {}; D.buildings = []; D.stations = {}; D.regions = { paddocks: [], compound: null, roamAreas: [], zones: {} }; D.spawns = []; D.routes = {}; D.places = {}; D.props = [];
@@ -527,23 +606,59 @@
      staged pad, so flight and landing can be checked on the bigger island. Format 1, and any
      future normal format-2 home, keep every completeness check below. The preview neither reads nor writes
      the save (see the save) */
-  var TERRAIN_ONLY = MAP.format === 2 && MAP.staged === true && previewAsked() && LOOPBACK;
+  var PREVIEW_MODE = MAP.format === 2 && MAP.staged === true && LOOPBACK ? previewMode() : null;   // "terrain", "content" or null
+  /* B3b: both preview modes keep every home system off (TERRAIN_ONLY stays true in the content preview too): the content
+     layer so far is collision only, and each later B3 batch switches its own systems on. The save, the settings and
+     every other storage stay untouched in both modes */
+  var TERRAIN_ONLY = PREVIEW_MODE !== null;
+  var CONTENT_PREVIEW = PREVIEW_MODE === "content";
   var LEGACY = MAP.format === 1;        // format 1: its legacy shapes (coast(), the terraces, the pond, the curves, the volcano) and its painter
   /* a small badge says so, only in the preview, so nobody takes it for the live island (CSSOM, no style attribute). It sits under
      the HUD row at the left, three short lines wide (clear of the HUD's buttons and title, and of the sound chip and toasts in the
      middle, at desktop and phone widths), and it comes straight after the game's canvas at z-index 0: above the picture, and under
      every other layer (the HUD, cards, dialogs, the big map, the readout), which paint over it; it takes no taps (B2e) */
   if (TERRAIN_ONLY) (function () {
-    var b = document.createElement("div"); b.className = "w-mapb-badge"; b.textContent = "MAP-B\nstaged\npreview";
+    var b = document.createElement("div"); b.className = "w-mapb-badge"; b.textContent = CONTENT_PREVIEW ? "MAP-B\ncontent\npreview" : "MAP-B\nstaged\npreview";
     var st = b.style; st.position = "absolute"; st.top = "64px"; st.left = "12px"; st.zIndex = "0"; st.pointerEvents = "none"; st.whiteSpace = "pre"; st.lineHeight = "1.25";
     st.padding = "3px 7px"; st.font = "700 11px 'Cascadia Mono', monospace"; st.color = "#111"; st.background = "#ffd166"; st.border = "2px solid #111";
-    b.setAttribute("aria-label", "MAP-B staged preview");
+    b.setAttribute("aria-label", CONTENT_PREVIEW ? "MAP-B content preview" : "MAP-B staged preview");
     var c0 = root.querySelector(".w-cv"); root.insertBefore(b, c0 ? c0.nextSibling : root.firstChild);
   })();
-  // the placements are optional in a map, but this island's creatures, welder, actors, goto spots, zones,
-  // arena, core approach and first-visit spot are built from them, so home must carry them all
+  /* a format-2 home outside the staged preview must be complete (B3b): every building, landmark, station, gate, fence and
+     wall the home's systems use, and every content section they read. The decoder refuses any format-2 map that isn't
+     staged and any staged map outside the preview, so nothing reaches this today; it is the second wall, in place before
+     a normal format-2 home exists (B4). What's checked is the decoded data, never a claim in it. The preview may load a
+     partial island (that is what staging is for), and its debug API reports what is missing */
+  var HOME2_RECORDS = [
+    ["building", ["visitor", "bunker", "depot"], "buildings (each with a door)"],
+    ["landmark", ["tower-base", "lighthouse-base"], "landmark bases"],
+    ["station", ["sign", "uplink", "tower", "lighthouse", "macbook", "tablet", "mailbox", "drink", "shrine", "cave", "boat"], "stations"],
+    ["gate", ["park-gate"], "the park gate"],
+    ["fence", ["holding-paddock", "raptor-yard"], "paddock fences (enclosing)"],
+    ["wall", ["bunker-compound", "koi-garden"], "compound walls"]
+  ];
+  var HOME2_SECTIONS = ["rooms", "anchors (cargo dock, gate, car, rex, gardener, first visit, arena, core approach)", "spawns and roam areas", "routes (welder-patrol)", "places", "zones", "props (gardener plants, cockatiel perches, nests)"];
+  function home2Missing(D) {
+    var out = [], recs = D.contentRecords || [];
+    if (!D.contentColl) out.push("the content layer");
+    HOME2_RECORDS.forEach(function (q) {
+      var miss = q[1].filter(function (id) {
+        var r = recs.filter(function (x) { return x.id === id && x.kind === q[0]; })[0];
+        return !r || (q[0] === "building" && !r.doorTiles.length) || (q[0] === "fence" && !r.encloses);
+      });
+      if (miss.length) out.push(q[2] + ": " + miss.join(", "));
+    });
+    HOME2_SECTIONS.forEach(function (s0) { out.push(s0 + " (not in the content format yet)"); });
+    if (!((D.shapes && D.shapes.water) || []).some(function (b) { return b.id === "koi-pond" && b.kind === "pond"; })) out.push("the koi pond (shapes.water koi-pond)");
+    return out;
+  }
   (function () {
     if (TERRAIN_ONLY) return;
+    if (MAP.format !== 1) {
+      var need = home2Missing(MAP);
+      if (need.length) { var e3 = new Error("pi's island: js/maps/home.js is a format-2 home without the content it needs: " + need.join("; ")); if (window.console) console.error(e3.message); throw e3; }
+      return;
+    }
     var miss = [];
     if (!Object.keys(MAP.places).length) miss.push("places");
     ["arena", "coreApproach", "firstVisit"].forEach(function (k) { if (!MAP.anchors[k]) miss.push("anchors." + k); });
@@ -800,19 +915,34 @@
   var TALL = /^e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern)/;
   var props = MAP.props;
   var nests = props.filter(function (p) { return p.kind === "e:nest0"; });     // each with a clutch of speckled eggs
-  var COLL = MAP.coll;                                                  // the collision layer, authored (the flags are above)
+  /* collision is two layers in a staged format-2 map with content (B3b): the terrain's (TCOLL, TFOOT: authored, B2a's,
+     locked) and the content's (MAP.contentColl, whole solid tiles; MAP.contentFoot, pixels where feet stop on tiles that
+     stay walkable). The ground painter reads the terrain's alone, so content can never change a painted pixel. Everything
+     else (movement, the path planner and its step cache, safe ground, landing, hop-out spots, the car, the creatures)
+     reads their union, COLL and FOOT, made here once, before anything uses them; content only ever adds blocking. In
+     format 1, and in a map with no content, there is one layer: COLL is TCOLL and FOOT is TFOOT, the same arrays */
+  var TCOLL = MAP.coll, COLL = TCOLL;                                   // the collision layer, authored (the flags are above)
+  if (MAP.contentColl) { COLL = new Uint16Array(TCOLL.length); for (var cq = 0; cq < COLL.length; cq++) COLL[cq] = TCOLL[cq] | MAP.contentColl[cq]; }
   function walkable(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH && !(COLL[y * MW + x] & C_BLOCK); }
   /* footBlock, authored: the pixels where feet stop on tiles COLL lets them onto (the river's, pond's and
      sea's wandering edges, a bridge's rails excepted). the data holds runs per pixel row; here they are one
      bit per pixel. so where feet stop is COLL and footBlock, nothing else: the painted ground (GK, below)
      is only a picture */
   var PW = MW * T, PH = MH * T;
-  var FOOT = MAP.foot;
+  var TFOOT = MAP.foot, FOOT = TFOOT;
+  if (MAP.contentFoot) { FOOT = new Uint32Array(TFOOT.length); for (var fq = 0; fq < FOOT.length; fq++) FOOT[fq] = TFOOT[fq] | MAP.contentFoot[fq]; }
   function solidPx(px, py) {
     var tx = Math.floor(px / T), ty = Math.floor(py / T);
     if (!walkable(tx, ty)) return true;
     var b = Math.floor(py) * PW + Math.floor(px);
     return (FOOT[b >>> 5] >>> (b & 31) & 1) === 1;
+  }
+  // the terrain's own answer, without content: what the painter's reports check their picture against (B3b)
+  function terrainSolidPx(px, py) {
+    var tx = Math.floor(px / T), ty = Math.floor(py / T);
+    if (tx < 0 || ty < 0 || tx >= MW || ty >= MH || (TCOLL[ty * MW + tx] & C_BLOCK)) return true;
+    var b = Math.floor(py) * PW + Math.floor(px);
+    return (TFOOT[b >>> 5] >>> (b & 31) & 1) === 1;
   }
 
   /* ════════ sprites (drawn once into little canvases) ════════ */
@@ -1312,10 +1442,10 @@
     var MASS = new Uint8Array(MW * MH), q2 = [];
     for (t = 0; t < MW * MH; t++) if (GROUND[t] === LAVA) { MASS[t] = 1; q2.push(t); }
     for (k = 0; k < q2.length; k++) { var c1 = q2[k], x1 = c1 % MW, y1 = (c1 / MW) | 0;
-      for (j = -1; j <= 1; j++) for (i = -1; i <= 1; i++) { var nx3 = x1 + i, ny3 = y1 + j, n3 = ny3 * MW + nx3; if (nx3 >= 0 && ny3 >= 0 && nx3 < MW && ny3 < MH && !MASS[n3] && (COLL[n3] & C_SOLID) && !wetG(GROUND[n3])) { MASS[n3] = 1; q2.push(n3); } } }
+      for (j = -1; j <= 1; j++) for (i = -1; i <= 1; i++) { var nx3 = x1 + i, ny3 = y1 + j, n3 = ny3 * MW + nx3; if (nx3 >= 0 && ny3 >= 0 && nx3 < MW && ny3 < MH && !MASS[n3] && (TCOLL[n3] & C_SOLID) && !wetG(GROUND[n3])) { MASS[n3] = 1; q2.push(n3); } } }
     var RIMF = new Uint8Array(MW * MH);                                  // a rim's faces: 1 south, 2 north, 4 east, 8 west (where the land is lower)
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
-      t = ty * MW + tx; if (!(COLL[t] & C_SOLID) || MASS[t] || wetG(GROUND[t])) continue;
+      t = ty * MW + tx; if (!(TCOLL[t] & C_SOLID) || MASS[t] || wetG(GROUND[t])) continue;
       var f = 0, hh = HEIGHT[t];
       [[0, 1, 1], [0, -1, 2], [1, 0, 4], [-1, 0, 8]].forEach(function (n) { var a2 = at(tx + n[0], ty + n[1]); if (land(a2) || a2 === POND || a2 === RIVER || a2 === LAVA) { if (lvl(tx + n[0], ty + n[1]) < hh) f |= n[2]; } });
       RIMF[t] = f || 16;                                                   // 16: solid, with no lower land beside it
@@ -1434,7 +1564,7 @@
     PAINT_MS.pixels = performance.now() - tm; tm = performance.now();
     // the dry lip: where pi's open ground is within 8 px, it takes that ground's look (sand, grass of its level, a path),
     // a shade darker and wetter toward the water; farther than 8 px, rock (the sharp capes' tips)
-    function walkDry(q) { var qx = q % PW, qy = (q / PW) | 0; return !(COLL[(qy >> 4) * MW + (qx >> 4)] & C_BLOCK) && !WET[q] && !bitAt(FB, q); }
+    function walkDry(q) { var qx = q % PW, qy = (q / PW) | 0; return !(TCOLL[(qy >> 4) * MW + (qx >> 4)] & C_BLOCK) && !WET[q] && !bitAt(FB, q); }
     (function () { var p, px, py, i, j, r;
     for (p = 0; p < N; p++) {
       if (cls[p] !== PC.WETSAND && cls[p] !== PC.BANK) continue;
@@ -1505,10 +1635,10 @@
     // 8. ramps: where two walkable levels meet inside a ramp, a slope (steps under a path), drawn on the higher tile's edge
     var STEPI = new Uint8Array(N);                                       // each slope pixel's step, 1 to 7 (the features redraw steps under the strokes)
     for (ty = 0; ty < MH; ty++) for (tx = 0; tx < MW; tx++) {
-      t = ty * MW + tx; if (RAMPT[t] < 0 || (COLL[t] & C_BLOCK)) continue;
+      t = ty * MW + tx; if (RAMPT[t] < 0 || (TCOLL[t] & C_BLOCK)) continue;
       [[0, 1], [0, -1], [1, 0], [-1, 0]].forEach(function (n) {
         var nx4 = tx + n[0], ny4 = ty + n[1], b4 = ny4 * MW + nx4;
-        if (nx4 < 0 || ny4 < 0 || nx4 >= MW || ny4 >= MH || RAMPT[b4] !== RAMPT[t] || (COLL[b4] & C_BLOCK) || HEIGHT[b4] >= HEIGHT[t]) return;
+        if (nx4 < 0 || ny4 < 0 || nx4 >= MW || ny4 >= MH || RAMPT[b4] !== RAMPT[t] || (TCOLL[b4] & C_BLOCK) || HEIGHT[b4] >= HEIGHT[t]) return;
         var path = GROUND[t] === PATH || GROUND[b4] === PATH;
         for (var s4 = 0; s4 < 7; s4++) for (var a4 = 0; a4 < T; a4++) {
           var qx = n[0] ? (n[0] > 0 ? tx * T + T - 1 - s4 : tx * T + s4) : tx * T + a4, qy = n[1] ? (n[1] > 0 ? ty * T + T - 1 - s4 : ty * T + s4) : ty * T + a4, q5 = qy * PW + qx;
@@ -1537,7 +1667,7 @@
       var p, px, py, t, i, j, k, x0, y0, x1, y1;
       var FK = new Uint8Array(N), EDG = new Uint8Array(N);              // the stroke kind under each pixel (1 main, 2 secondary, 3 service, 4 trail, 5 plaza) and its edge
       var CLASSN = { main: 1, secondary: 2, service: 3, trail: 4 }, Co = S2.corridors || { paths: [], plazas: [], halfWidths: {} };
-      function open(q) { var qt = ((q / PW) >> 4) * MW + ((q % PW) >> 4); return !WET[q] && !(COLL[qt] & C_BLOCK) && !bitAt(FB, q); }
+      function open(q) { var qt = ((q / PW) >> 4) * MW + ((q % PW) >> 4); return !WET[q] && !(TCOLL[qt] & C_BLOCK) && !bitAt(FB, q); }
       // the strokes: a wider class wins where two meet
       Co.paths.forEach(function (pa) {
         var kc = CLASSN[pa.class], hw = Co.halfWidths[pa.class] * T, L = pa.line;
@@ -5420,7 +5550,7 @@
       if (wetLook !== (WETm[p] === 1)) o.mismatchWet++;
       if ((GK[p] === KW) !== (WETm[p] === 1)) o.mismatchGK++;
       if (e) { o.edgePixels++; if (wetLook === (WETm[p] === 1)) o.edgeAgree++; }
-      var open = !solidPx(px, py);
+      var open = !terrainSolidPx(px, py);
       if (open && (c === PC.RIM || c === PC.FACE || c === PC.LIPROCK || c === PC.SCREE || c === PC.CONE || c === PC.LAVA || c === PC.SEAFACE || c === PC.WATER)) o.inviting++;
       if (c === PC.SEAFACE && open) o.seaFaceOpen++;
       if (c === PC.FACE && !(RF[t] & 1 && lvl(px >> 4, (py >> 4) + 1) < HEIGHT[t])) o.faceNotAbove++;
@@ -5435,8 +5565,8 @@
     (MAP.shapes.ramps || []).forEach(function (r, ri) {
       var pairs = 0, slope = 0, hard = 0;
       for (var y2 = r.y0; y2 <= r.y1; y2++) for (var x2 = r.x0; x2 <= r.x1; x2++) {
-        var a = y2 * MW + x2; if (RT[a] !== ri || (COLL[a] & C_BLOCK)) continue;
-        [[1, 0], [0, 1]].forEach(function (n) { var b = (y2 + n[1]) * MW + x2 + n[0]; if (x2 + n[0] < MW && y2 + n[1] < MH && RT[b] === ri && !(COLL[b] & C_BLOCK) && HEIGHT[b] !== HEIGHT[a]) pairs++; });
+        var a = y2 * MW + x2; if (RT[a] !== ri || (TCOLL[a] & C_BLOCK)) continue;
+        [[1, 0], [0, 1]].forEach(function (n) { var b = (y2 + n[1]) * MW + x2 + n[0]; if (x2 + n[0] < MW && y2 + n[1] < MH && RT[b] === ri && !(TCOLL[b] & C_BLOCK) && HEIGHT[b] !== HEIGHT[a]) pairs++; });
         for (var yy2 = y2 * T; yy2 < y2 * T + T; yy2++) for (var xx2 = x2 * T; xx2 < x2 * T + T; xx2++) { var q2 = yy2 * PW + xx2; if (cls[q2] === PC.SLOPE) slope++; if (cls[q2] === PC.FACE || cls[q2] === PC.RIM) hard++; }
       }
       o.ramps.push({ id: r.id, levels: r.levels, joins: pairs, slopePixels: slope, faceOnWalkable: hard });
@@ -5452,7 +5582,7 @@
     var feat = function (c) { return c === PC.PATH || c === PC.PLAZA || c === PC.DECK || c === PC.DOCK || c === PC.HELIPAD; };
     for (var p = 0; p < N; p++) {
       var c = cls[p], px = p % PW, py = (p / PW) | 0;
-      if (feat(c)) { if (WETm[p]) o.onWet++; if (solidPx(px, py)) o.onBlocked++; }
+      if (feat(c)) { if (WETm[p]) o.onWet++; if (terrainSolidPx(px, py)) o.onBlocked++; }
       if (c === PC.DIRT) o.leftoverDirt++; if (c === PC.WOOD) o.leftoverWood++;
       if (FEAT[p] === 6 && !WETm[p]) o.fallOnDry++;
     }
@@ -5464,7 +5594,7 @@
         for (var i = 0; i <= k; i++) {
           var x = Math.floor(ax + (bx - ax) * i / k), y = Math.floor(ay + (by - ay) * i / k); if (x < 0 || y < 0 || x >= PW || y >= PH) continue;
           var q = y * PW + x, cq = cls[q]; n++;
-          if (WETm[q] || solidPx(x, y)) { water++; continue; }
+          if (WETm[q] || terrainSolidPx(x, y)) { water++; continue; }
           if (!feat(cq) && cq !== PC.SLOPE) { gaps++; if (!first) first = x + "," + y; }
         }
       }
@@ -5485,7 +5615,9 @@
               shapes: Object.keys(d.shapes), ramps: (d.shapes.ramps || []).length, water: (d.shapes.water || []).length, rivers: (d.shapes.rivers || []).length, falls: (d.shapes.falls || []).length,
               bridges: (d.shapes.bridges || []).map(function (b) { return [b.id, b.tiles, b.deckAxis]; }), docks: (d.shapes.docks || []).length, helipad: d.shapes.helipad || null,
               content: { buildings: d.buildings.length, stations: Object.keys(d.stations).length, spawns: d.spawns.length, props: d.props.length, places: Object.keys(d.places).length } };
+    if (d.contentColl) o.layer = d.content;                                // B3b: the content layer's summary (the content preview only)
     if (full) { o.ground = Array.from(d.ground); o.height = Array.from(d.height); o.coll = Array.from(d.coll); o.foot = idx(d.foot); o.edge = idx(d.edge); }
+    if (full && d.contentColl) { o.contentTiles = []; for (var ct = 0; ct < d.contentColl.length; ct++) if (d.contentColl[ct]) o.contentTiles.push(ct); o.contentFoot = idx(d.contentFoot); }
     return o;
   }
 
@@ -5599,8 +5731,15 @@
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
     ground: function () { return { ms: Math.round(groundMs), png: ground.toDataURL() }; },      // the whole painted ground, for art reviews
     props: function () { return props.map(function (p) { return [p.kind, p.tx, p.ty]; }); },
-    tile: function (x, y) { return { type: at(x, y), walkable: walkable(x, y), height: lvl(x, y), flags: x >= 0 && y >= 0 && x < MW && y < MH ? COLL[y * MW + x] : C_DEEP }; },   // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
-    blocked: function (px, py) { return solidPx(px, py); },                                          // where feet stop, in world px
+    tile: function (x, y) {
+      var o = { type: at(x, y), walkable: walkable(x, y), height: lvl(x, y), flags: x >= 0 && y >= 0 && x < MW && y < MH ? COLL[y * MW + x] : C_DEEP };
+      if (MAP.contentColl) { var i0 = x >= 0 && y >= 0 && x < MW && y < MH ? y * MW + x : -1; o.terrainFlags = i0 < 0 ? C_DEEP : TCOLL[i0]; o.content = i0 >= 0 && MAP.contentColl[i0] !== 0; }   // B3b's two layers
+      return o;
+    },   // map codes: 0 deep, 1 shallows, 9 river, 10 bridge
+    blocked: function (px, py) { return solidPx(px, py); },
+    terrainBlocked: function (px, py) { return terrainSolidPx(px, py); },                           // the terrain's own answer, without content (B3b)
+    // a format-2 home's completeness (B3b): what a normal format-2 home would still need before it may load
+    completeness: function () { if (MAP.format !== 2) return null; var m = home2Missing(MAP); return { complete: !m.length, missing: m }; },                                          // where feet stop, in world px
     safe: function (tx, ty) { return safeTile(tx, ty); },
     canLand: function (px, py) { return canLand(px, py); },
     hopSpot: function (px, py, a) { return hopSpot(px, py, a); },
@@ -5629,7 +5768,7 @@
     // by index, the anchors), and the running island's own preview state
     decodeDetail: function (o) { return decodedDetail(decodeMap(o), true); },
     preview: function () {
-      return { terrainOnly: TERRAIN_ONLY, format: MAP.format, staged: !!MAP.staged, w: MW, h: MH, tileAnchors: MAP.tileAnchors || null, spawn: [SPAWN.x, SPAWN.y],
+      return { terrainOnly: TERRAIN_ONLY, previewMode: PREVIEW_MODE, content: MAP.content || null, format: MAP.format, staged: !!MAP.staged, w: MW, h: MH, tileAnchors: MAP.tileAnchors || null, spawn: [SPAWN.x, SPAWN.y],
                footPixels: MAP.footPixels, edgePixels: MAP.edgePixels === undefined ? null : MAP.edgePixels, groundMs: Math.round(groundMs), groundMsExact: groundMs, paints: PAINTS, paintMs: PAINT_MS, ground: [ground.width, ground.height],
                badge: !!root.querySelector(".w-mapb-badge"), saveLocked: saveLocked, camera: [camX, camY], zoom: zoom, view: [W / (S * zoom), H / (S * zoom)],
                // the map ui (B2e): the minimap's place on screen (css px, null when hidden) and its backing size, the big map's 1x size and scale
@@ -5652,8 +5791,10 @@
       return tiles.map(function (k2) { var xy = k2.split(",").map(Number), o = { tile: k2 }; for (var yy = xy[1] * T; yy < xy[1] * T + T; yy++) for (var xx = xy[0] * T; xx < xy[0] * T + T; xx++) { var nm = names[PCLS.cls[yy * PW + xx]]; o[nm] = (o[nm] || 0) + 1; } return o; });
     },
     layers: function () {
-      return { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
+      var L = { w: MW, h: MH, ground: Array.from(GROUND), height: Array.from(HEIGHT), collision: Array.from(COLL),
                flags: { solid: C_SOLID, shallow: C_SHALLOW, deep: C_DEEP, low: C_LOW, ledgeN: C_LEDGE_N, ledgeE: C_LEDGE_E, ledgeS: C_LEDGE_S, ledgeW: C_LEDGE_W, lava: C_LAVA, climbable: C_CLIMB } };
+      if (MAP.contentColl) { L.terrainCollision = Array.from(TCOLL); L.contentCollision = Array.from(MAP.contentColl); }   // B3b: collision is their union
+      return L;
     },
     kind: function (px, py) { return ["", "grass", "dirt", "sand", "water"][kAt(Math.floor(px), Math.floor(py))]; },
     // the ctf (Phase 9, E1): the board, the solved count, completions this visit, problems in the
