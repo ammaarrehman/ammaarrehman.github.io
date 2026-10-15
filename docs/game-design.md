@@ -390,6 +390,82 @@ MAP-B B3b, the content architecture (2026-10-09; staged only, not deployed; no c
   foot box, paths round a hut, 22 decoder refusals, the loopback and flag walls, and 7 code mutations of `js/world.js`).
 - B3c follow-ups (required): replace the overloaded `TERRAIN_ONLY` flag with explicit mode and per-system controls;
   every solid building footprint gets visible placeholder art covering it (no invisible large building hitboxes).
+  Both done in B3c1.
+
+MAP-B B3c1, preview modes and the first two buildings (2026-10-14; staged only, not deployed):
+- Modes and systems (`js/world.js`): `TERRAIN_ONLY` is gone. `PREVIEW_MODE` names the mode once: null (production),
+  `"terrain"` (the B2 terrain preview) or `"content"` (the content preview). `STAGED_PREVIEW` (either preview) carries
+  what every preview keeps: no storage read or written, the badge, no completeness wall. `SYS` says which home systems
+  run: buildings, stations, creatures, rex, birds, koi, bots, car, rift, volcano, hatch. Each system's code checks its
+  own entry, never the mode. Production runs them all, in the same order as before. The terrain preview runs none (the
+  helicopter apart, as in B2e). The content preview runs only `buildings`. A later batch turns a system on by authoring
+  its content and setting its entry. `?debug=1`'s `preview()` gives `previewMode`, `stagedPreview`, `sys`, and
+  `terrainOnly`, which now means the terrain preview only.
+- Content (`tools/maps/home.content.mjs`), two building records, each on its approved B1e footprint with the whole
+  footprint solid (D1 as modified: the placeholder art covers all of it):
+  - `visitor`: reserve `visitor-centre`, 80,69 to 88,73 (9 x 5, 45 tiles). Door 84,74, on the plaza's paving; the B1d
+    door stub (85,74 to 85,75) is beside it. Room `visitor`.
+  - `depot`: reserve `ranger-hq-depot`, 101,73 to 107,76 (7 x 4, 28 tiles). Door 104,77, on grass; the depot spur
+    starts right below it at 104,78. Room `depot`.
+  - Both doors are the B3a doorsteps (the middle of the front). In all: 73 solid tiles, 0 foot pixels.
+- Schema additions:
+  - `art`: required on a building. The only kind so far is `"placeholder"`; a real sprite later is a new art kind, with
+    no change to the footprint, the door or the collision.
+  - `room`: optional on a building; one of the game's rooms.
+  - A new compile rule, `buildings`:
+    - the building has art;
+    - its solid is one full rectangle;
+    - placeholder art is one box exactly as wide as the footprint, standing on its front edge (it may rise above it,
+      never below or beside it);
+    - a building naming a reserve fills that reserve exactly;
+    - a building with a room has exactly one door, right in front of the footprint (every B1e front is south), and
+      pi's feet in that doorway are clear of the terrain's foot-blocking pixels.
+  - `decodeMap2` checks the same things on its own, and refuses art or a room on anything but a building.
+- Runtime:
+  - Format 1 builds `BUILDINGS` from `MAP.buildings` exactly as before. The content preview builds them from the
+    building records: the footprint from the tiles, plus the authored door, the room and the art box.
+  - The doorway is `doorX(bd)` on the footprint's front edge. In format 1 that's the middle of the front, as before; for
+    a content building it's the middle of its door tile. The prompt, going in, coming out, the room build-ahead and the
+    debug state all read it.
+  - Placeholder art is drawn in the object layer, y-sorted with everything else, never on the ground canvas, so both
+    painter digests stay exact. It fills the art box with fully opaque pixels: a roof, a front wall, windows, a name
+    plate in a 3 x 5 pixel font, and the door over the door tile. The door is hinged for the visitor centre and a roller
+    for the depot, animated by the existing door code. At night the windows light and the doorway has a lamp; the
+    visitor centre has its banners and the depot its roof beacon.
+  - The static part is drawn once into a canvas.
+- Kept from format 1:
+  - [E] (or, on touch, the prompt) at the doorway goes in, with the same iris and door animation.
+  - The rooms are format 1's own `ROOMS.visitor` and `ROOMS.depot`, with the same items, words, sizes and doors.
+  - Walking out through the room's door lands on the doorway, facing out.
+  - Each building keeps its name and words, and tapping one walks pi beside it, as in format 1 (there's no tap target
+    on a building).
+- Not migrated in this batch (each waits for its own system's content):
+  - the cargo bots' stops at both doorways;
+  - the drones' pad on the depot roof (its offset is tied to format 1's 48 px sprite; B3a section 4);
+  - the depot crates and the lamps (props);
+  - the visitor centre's map wall: its pins are the eight landmarks, which aren't migrated, so it shows none for now.
+- Tests: `tools/mapb-buildings.mjs`. In Node: the records against the approved coordinates and the B1e source, and 18
+  malformed records, each caught by its rule. In Chromium and WebKit, the game:
+  - the three modes, and save isolation through both buildings;
+  - both painter digests with the buildings drawn;
+  - the content layer exactly the footprints, every footprint pixel blocking and every pixel round it answering as the
+    terrain does;
+  - the art: opaque, drawn at the footprint, and visible on screen over every footprint pixel;
+  - the doors: reachable from the spawn on the update loop; in and out of each room, with an item inside answering;
+  - walls met flush on all four sides; paths round both buildings; no trapped tile within 3 of either;
+  - an off-centre door (synthetic) used as authored;
+  - phones (the prompt as the button, a tap by the room's door walking out);
+  - format 1's buildings and rooms as before;
+  - 12 decoder refusals and 6 code mutations;
+  - the live-loop frame work and door transitions.
+  `tools/mapb-content.mjs` follows the schema change (its synthetic hut has `art`); its checks are otherwise the same.
+- Approved by Ammaar on review (2026-10-14):
+  - keep both placeholders, the footprints, doors, interactions and interiors, and the name "the supply depot";
+  - the map wall stays without pins until the landmarks move;
+  - deferred to their own batches: the drone landing spot, the cargo stops, the crates and lamps, roof refinements,
+    and the phone's first-use hint covering the name plate;
+  - real walls, fences and props come only with visible art and matching collision;
+  - the 8 unassigned building footprints stay reserved.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

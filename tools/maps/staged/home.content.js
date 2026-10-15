@@ -5,11 +5,15 @@
    deployed. Production runs the 100 x 80 island in js/maps/home.js.
    records: each content record (kind building, landmark, station, wall, fence, gate or prop): drawnPxBoxes, where its art
    is drawn (inclusive world pixels; no collision outside them); tiles, the whole tiles it makes solid; footPxBoxes, pixels
-   where feet stop on tiles that stay walkable; doorTiles. solidTiles and footPixels: the totals, which the game checks.
+   where feet stop on tiles that stay walkable; doorTiles; a building's art and room. solidTiles and footPixels: the totals,
+   which the game checks.
    The game reads the terrain's collision for painting and the union of both layers for movement. */
 (window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {
   "format": 2, "staged": true, "schema": "mapb-content-1", "id": "home", "generator": "tools/map-content.mjs",
-  "source": "tools/maps/home.content.mjs", "sourceSha256": "e071acd02a6ea69e7fc76c48fda9763f4e2eff69bc6ad065ed8d3ca4d9144603", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
-  "solidTiles": 0, "footPixels": 0,
-  "records": []
+  "source": "tools/maps/home.content.mjs", "sourceSha256": "f59ce3a80d7c31b666dcea083334286b8d840e92c898f243898d537fffb03237", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
+  "solidTiles": 73, "footPixels": 0,
+  "records": [
+    {"id":"visitor","kind":"building","drawnPxBoxes":[{"px0":1280,"py0":1104,"px1":1423,"py1":1183}],"tiles":[[80,69],[81,69],[82,69],[83,69],[84,69],[85,69],[86,69],[87,69],[88,69],[80,70],[81,70],[82,70],[83,70],[84,70],[85,70],[86,70],[87,70],[88,70],[80,71],[81,71],[82,71],[83,71],[84,71],[85,71],[86,71],[87,71],[88,71],[80,72],[81,72],[82,72],[83,72],[84,72],[85,72],[86,72],[87,72],[88,72],[80,73],[81,73],[82,73],[83,73],[84,73],[85,73],[86,73],[87,73],[88,73]],"footPxBoxes":[],"doorTiles":[[84,74]],"reserve":"visitor-centre","art":"placeholder","room":"visitor"},
+    {"id":"depot","kind":"building","drawnPxBoxes":[{"px0":1616,"py0":1168,"px1":1727,"py1":1231}],"tiles":[[101,73],[102,73],[103,73],[104,73],[105,73],[106,73],[107,73],[101,74],[102,74],[103,74],[104,74],[105,74],[106,74],[107,74],[101,75],[102,75],[103,75],[104,75],[105,75],[106,75],[107,75],[101,76],[102,76],[103,76],[104,76],[105,76],[106,76],[107,76]],"footPxBoxes":[],"doorTiles":[[104,77]],"reserve":"ranger-hq-depot","art":"placeholder","room":"depot"}
+  ]
 };

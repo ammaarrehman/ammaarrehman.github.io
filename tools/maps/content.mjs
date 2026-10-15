@@ -31,8 +31,17 @@
        },
        doorTiles: [[x, y], ...],         // optional: walkable tiles next to its solid, reachable from the spawn
        reserve: "footprint-id",          // optional: the B1e footprint it stands in (its solid must stay inside it)
-       encloses: true                    // optional: it may cut ground off (a paddock fence); nothing else may
+       encloses: true,                   // optional: it may cut ground off (a paddock fence); nothing else may
+       art: "placeholder",               // a building's (B3c1, required on one): what the game draws over its drawn box
+       room: "visitor"                   // a building's, optional (B3c1): the game's room behind its one door
      }
+
+   A building (B3c1) draws itself: art "placeholder" is the game's temporary building art, drawn exactly over the
+   record's one drawn box, until the art stage adds real sprites as a new art kind (the footprint, the door and the
+   collision stay as they are). Its solid is its footprint, one full rectangle; its art box is as wide as the
+   footprint and stands on its front edge (it may rise above it); a building naming a reserve fills that footprint
+   exactly; one with a room has exactly one door, the tile right in front of the footprint (every B1e footprint's
+   front is south), and pi's feet fit in the doorway there (clear of the terrain's foot-blocking pixels).
 
    A ring's drawn boxes are its own tiles (a fence or wall is drawn on every tile it stands on), added by the compile.
 
@@ -48,6 +57,7 @@
      overlap        no tile solid in two records
      foot           foot boxes only on tiles that stay walkable (terrain walkable, no content tile)
      reserve        a record naming a reserve stays inside it; no other record's solid enters a reserve
+     buildings      a building's art, footprint, reserve, room and door, as above (B3c1)
      open-space     nothing solid in the B1e open spaces (the rift arena's clear field)
      doors          each door tile walkable, next to its record's solid, reachable from the spawn
      route-ends     every B1d route end still reachable from the spawn
@@ -57,7 +67,11 @@ import { raster } from "./geom.mjs";
 
 export const CONTENT_SCHEMA = "mapb-content-1";
 export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"];
-export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "open-space", "doors", "route-ends", "pockets"];
+export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "open-space", "doors", "route-ends", "pockets"];
+/* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list) and the art
+   kinds the game draws for a building */
+export const ROOM_IDS = ["visitor", "bunker", "depot"];
+export const ART_KINDS = ["placeholder"];
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const T = 16;
 // terrain codes and flags, the compiler's (tools/map-compile.mjs GROUND and COLL)
@@ -120,8 +134,10 @@ export function resolveContent(content, src, m) {
     if (typeof r.id !== "string" || !ID.test(r.id)) fail("schema", `${f0} needs an id (lowercase words joined by hyphens)`);
     const f = `record ${r.id}`;
     if (seen.has(r.id)) fail("schema", `${f} appears twice`); seen.add(r.id);
-    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses"]);
+    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room"]);
     if (!KINDS.includes(r.kind)) fail("schema", `${f}.kind ${JSON.stringify(r.kind)} isn't one of ${KINDS.join(", ")}`);
+    if (r.room !== undefined && (r.kind !== "building" || !ROOM_IDS.includes(r.room))) fail("schema", `${f}.room ${JSON.stringify(r.room)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has a room" : "isn't one of the game's rooms, " + ROOM_IDS.join(", ")}`);
+    if (r.art !== undefined && (r.kind !== "building" || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
     if (!isObj(r.solid)) fail("schema", `${f}.solid must be an object`);
     only(r.solid, f + ".solid", ["tileBoxes", "tiles", "ringOfBox", "ringOfHabitat", "footPxBoxes"]);
     if (!Object.keys(r.solid).length) fail("schema", `${f}.solid is empty: a content record exists to block something`);
@@ -158,6 +174,8 @@ export function resolveContent(content, src, m) {
     const out = { id: r.id, kind: r.kind, drawnPxBoxes: drawn.concat(ringDrawn), tiles: tiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]), footPxBoxes: foot, doorTiles: doors };
     if (r.reserve) out.reserve = r.reserve;
     if (r.encloses) out.encloses = true;
+    if (r.art) out.art = r.art;
+    if (r.room) out.room = r.room;
     if (!out.drawnPxBoxes.length) fail("drawn", `${f} has solid but nothing drawn (drawnPxBoxes is empty)`);
     Object.defineProperty(out, "inner", { value: inner || [], enumerable: false });
     return out;
@@ -215,6 +233,31 @@ export function contentProblems(records, src, m) {
       if (other) { add("reserve", `${r.id}: tile ${x},${y} is inside the reserve ${other.id}, which it doesn't name`); break; }
     }
   }
+  // buildings (B3c1): art, footprint, reserve, room and door
+  for (const r of records) {
+    if (r.kind !== "building") continue;
+    const B = (msg) => add("buildings", `${r.id}: ${msg}`);
+    if (!r.art) { B("a building draws itself: it needs art (\"placeholder\" until the art stage)"); continue; }
+    if (!r.tiles.length) { B("a building's footprint is solid, and it has no solid tiles"); continue; }
+    const xs = r.tiles.map((p) => p[0]), ys = r.tiles.map((p) => p[1]);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    if (r.tiles.length !== (x1 - x0 + 1) * (y1 - y0 + 1)) B(`its solid must be one full rectangle (its footprint): ${r.tiles.length} tiles in ${x0},${y0} to ${x1},${y1}`);
+    if (r.art === "placeholder") {
+      const b = r.drawnPxBoxes;
+      if (b.length !== 1) B(`placeholder art is one drawn box, not ${b.length}`);
+      else if (b[0].px0 !== x0 * T || b[0].px1 !== x1 * T + T - 1 || b[0].py1 !== y1 * T + T - 1 || b[0].py0 > y0 * T) B(`its placeholder art must cover the footprint exactly in width and stand on its front edge (px ${x0 * T} to ${x1 * T + T - 1}, bottom ${y1 * T + T - 1}), not ${JSON.stringify(b[0])}`);
+    }
+    const own = r.reserve && RES.find((q) => q.id === r.reserve);
+    if (own && (x0 !== own.b.x0 || y0 !== own.b.y0 || x1 !== own.b.x1 || y1 !== own.b.y1)) B(`it names the reserve ${own.id} (${own.b.x0},${own.b.y0} to ${own.b.x1},${own.b.y1}) and must fill it exactly, not ${x0},${y0} to ${x1},${y1}`);
+    if (r.room) {
+      if (r.doorTiles.length !== 1) { B(`it opens into the room ${r.room}, so it has exactly one door, not ${r.doorTiles.length}`); continue; }
+      const [dx, dy] = r.doorTiles[0];
+      if (dy !== y1 + 1 || dx < x0 || dx > x1) B(`its door ${dx},${dy} must be right in front of its footprint (row ${y1 + 1}, x ${x0} to ${x1}: the front is south)`);
+      const fx = dx * T + 8, fy = dy * T + 6;
+      let hit = null; for (let py = fy - 2; py <= fy + 1 && !hit; py++) for (let px = fx - 4; px <= fx + 4; px++) if (m.px.foot[py * PW + px]) { hit = `${px},${py}`; break; }
+      if (hit) B(`its doorway (${fx},${fy}) is on the terrain's foot-blocking pixels (${hit}): pi couldn't stand in it`);
+    }
+  }
   // the open spaces (the rift arena's clear field, tested at tile centres as B1e does)
   for (const o of src.reserves.openSpaces || []) {
     const e = o.clearField;
@@ -253,6 +296,8 @@ export function serializeContent(c, meta) {
     const o = { id: r.id, kind: r.kind, drawnPxBoxes: r.drawnPxBoxes, tiles: r.tiles, footPxBoxes: r.footPxBoxes, doorTiles: r.doorTiles };
     if (r.reserve) o.reserve = r.reserve;
     if (r.encloses) o.encloses = true;
+    if (r.art) o.art = r.art;
+    if (r.room) o.room = r.room;
     return `    ${num(o)}`;
   };
   return [
@@ -263,7 +308,8 @@ export function serializeContent(c, meta) {
     `   deployed. Production runs the 100 x 80 island in js/maps/home.js.`,
     `   records: each content record (kind building, landmark, station, wall, fence, gate or prop): drawnPxBoxes, where its art`,
     `   is drawn (inclusive world pixels; no collision outside them); tiles, the whole tiles it makes solid; footPxBoxes, pixels`,
-    `   where feet stop on tiles that stay walkable; doorTiles. solidTiles and footPixels: the totals, which the game checks.`,
+    `   where feet stop on tiles that stay walkable; doorTiles; a building's art and room. solidTiles and footPixels: the totals,`,
+    `   which the game checks.`,
     `   The game reads the terrain's collision for painting and the union of both layers for movement. */`,
     `(window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {`,
     `  "format": 2, "staged": true, "schema": ${num(CONTENT_SCHEMA)}, "id": ${num(meta.id)}, "generator": "tools/map-content.mjs",`,

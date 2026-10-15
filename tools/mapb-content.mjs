@@ -1,7 +1,9 @@
 #!/usr/bin/env node
-/* mapb-content (MAP-B B3b): the content-collision architecture, on the staged 150 x 120 island. No real content exists
-   yet (tools/maps/home.content.mjs is empty on purpose); every gameplay check runs on SYNTHETIC content built here and
-   served through the content preview in memory (never written to the content source or the staged files).
+/* mapb-content (MAP-B B3b): the content-collision architecture, on the staged 150 x 120 island. Every gameplay check
+   here runs on SYNTHETIC content built here and served through the content preview in memory (never written to the
+   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings so far) is
+   checked here only as a layer (current, bound to its terrain, the painter untouched, incomplete); tools/mapb-buildings.mjs
+   tests the buildings themselves.
 
    1. Node, the content compiler (tools/maps/content.mjs, tools/map-content.mjs):
       - the tracked content file is the current compile, bound to the current terrain; the terrain's staged file is
@@ -9,7 +11,7 @@
       - the synthetic content passes every rule; each rule, broken one at a time, is caught by that rule.
    2. Browser (Chromium and WebKit; Firefox tried and reported BLOCKED if it can't launch), the game itself:
       - the terrain preview is exactly as before: no content, the terrain's collision, both locked painter digests;
-      - the content preview with the real (empty) content: loads, its badge, no storage read or written, the digests,
+      - the content preview with the real content: loads, its badge, no storage read or written, the digests,
         and the completeness report (a normal format-2 home would still be refused);
       - the content preview with synthetic content: the decoded layer is the compiler's, tile for tile and pixel for
         pixel; gameplay collision is exactly the terrain's plus the content's, the terrain's untouched; a walled room
@@ -55,7 +57,7 @@ const SYN = {
     { id: "syn-room", kind: "wall", solid: { ringOfBox: { x0: 86, y0: 40, x1: 92, y1: 45, gapTiles: [[89, 45]] } }, doorTiles: [[89, 45]] },
     { id: "syn-pen", kind: "fence", solid: { ringOfBox: { x0: 30, y0: 88, x1: 36, y1: 93 } }, encloses: true },
     { id: "syn-post", kind: "prop", drawnPxBoxes: [px(40, 92, 3, -10, 12, 12)], solid: { footPxBoxes: [px(40, 92, 5, 6, 10, 11)] } },
-    { id: "syn-hut", kind: "building", drawnPxBoxes: [tileArt(44, 92, 47, 93, 2)], solid: { tileBoxes: [{ x0: 44, y0: 92, x1: 47, y1: 93 }] }, doorTiles: [[45, 94]] }
+    { id: "syn-hut", kind: "building", art: "placeholder", drawnPxBoxes: [tileArt(44, 92, 47, 93, 2)], solid: { tileBoxes: [{ x0: 44, y0: 92, x1: 47, y1: 93 }] }, doorTiles: [[45, 94]] }
   ]
 };
 const SYN_C = compileContent(SYN, src, m);
@@ -65,7 +67,7 @@ const SYN_DATA = (() => { const c = { window: {} }; vm.runInNewContext(serialize
   const { content, contentSha256 } = await loadContent();
   const a = await buildContentText(content, contentSha256), b = await buildContentText(content, contentSha256);
   const tracked = readFileSync(CONTENT_STAGED, "utf8");
-  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (empty in B3b: no content migrated)", tracked === a.text && a.compiled.records.length === 0, `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records`);
+  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot, nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
   check("node", "two compiles give the same bytes", a.text === b.text);
   check("node", "the content is bound to the terrain it was placed on (terrainSha256 is the staged terrain's sourceSha256)", a.text.includes(`"terrainSha256": "${t.sourceSha256}"`), t.sourceSha256.slice(0, 16));
   check("node", "the staged terrain file is untouched: map-compile's own compile, byte for byte", t.current && readFileSync(STAGED_PATH, "utf8") === t.terrainText);
@@ -131,7 +133,7 @@ const REFUSE = [
   ["solid on water", (c) => { R(c, "syn-hut").tiles.push([108, 61]); R(c, "syn-hut").drawnPxBoxes.push(tileArt(108, 61, 108, 61)); c.solidTiles++; }, /tile 108,61 isn't walkable terrain/],
   ["solid on a bridge", (c) => { R(c, "syn-hut").tiles.push(BRIDGE); R(c, "syn-hut").drawnPxBoxes.push(tileArt(BRIDGE[0], BRIDGE[1], BRIDGE[0], BRIDGE[1])); c.solidTiles++; }, /is a bridge, a dock or the helipad/],
   ["solid on the helipad", (c) => { R(c, "syn-hut").tiles.push([101, 93]); R(c, "syn-hut").drawnPxBoxes.push(tileArt(101, 93, 101, 93)); c.solidTiles++; }, /tile 101,93 is a bridge, a dock or the helipad/],
-  ["solid on the spawn", (c) => { R(c, "syn-hut").tiles.push([79, 79]); R(c, "syn-hut").drawnPxBoxes.push(tileArt(79, 79, 79, 79)); c.solidTiles++; }, /the spawn tile 79,79 is solid content/],
+  ["solid on the spawn", (c) => { R(c, "syn-post").tiles.push([79, 79]); R(c, "syn-post").drawnPxBoxes.push(tileArt(79, 79, 79, 79)); c.solidTiles++; }, /the spawn tile 79,79 is solid content/],
   ["a foot box under pi's feet at the spawn", (c) => { const r = R(c, "syn-post"); r.footPxBoxes.push(px(79, 79, 6, 9, 9, 11)); r.drawnPxBoxes.push(px(79, 79, 0, 0, 15, 15)); c.footPixels += 12; }, /a foot box covers pi's feet at the spawn/],
   ["a solid tile outside what's drawn (D1)", (c) => { R(c, "syn-hut").drawnPxBoxes = [tileArt(44, 92, 46, 93, 2)]; }, /tile 47,92 is solid outside what it draws/],
   ["a foot box outside what's drawn (D1)", (c) => { R(c, "syn-post").drawnPxBoxes = [px(40, 92, 3, -10, 8, 12)]; }, /is outside what it draws: no invisible collision/],
@@ -180,8 +182,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // 2a. the terrain preview, as before
   const tp = await open(`http://127.0.0.1:${port}/${Q}`);
   const tl = tp.loaded ? await look(tp) : null;
-  check(name, "terrain preview: as before (terrain mode, no content layer, its badge, no save)", tp.loaded && !tp.errs.length && tl.v.previewMode === "terrain" && tl.v.terrainOnly && tl.v.content === null && tl.v.badge && tl.v.saveLocked,
-    tl ? `mode ${tl.v.previewMode}, content ${JSON.stringify(tl.v.content)}` : tp.errs.join("; "));
+  check(name, "terrain preview: as before (terrain mode, no content layer, its badge, no save)", tp.loaded && !tp.errs.length && tl.v.previewMode === "terrain" && tl.v.terrainOnly && tl.v.stagedPreview && tl.v.content === null && tl.v.badge && tl.v.saveLocked,
+    (tl ? `mode ${tl.v.previewMode}, content ${JSON.stringify(tl.v.content)}` : "") + (tp.errs.length ? `; errors: ${tp.errs.join("; ")}` : ""));
   check(name, "terrain preview: both locked painter digests", tl && tl.td === TERRAIN_SHA && tl.gd === GROUND_SHA, tl ? `terrain ${tl.td.slice(0, 12)}, ground ${tl.gd.slice(0, 12)}` : "");
   const tLayers = tp.loaded ? await tp.I(() => { const L = window.__island.layers(); return { coll: L.collision, keys: Object.keys(L).join() }; }) : null;
   check(name, "terrain preview: the collision is the compiler's terrain collision, and layers() has no content keys", tLayers && sameSet(tLayers.coll, Array.from(m.coll)) && tLayers.keys === "w,h,ground,height,collision,flags", tLayers ? tLayers.keys : "");
@@ -190,16 +192,16 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     check(name, "terrain preview: a map with content is refused (content runs only in the content preview)", /^content runs only in the MAP-B content preview/.test(r || ""), r || "NOT refused"); }
   const postT = tp.loaded ? await tp.I(([x, y]) => [window.__island.blocked(x, y), window.__island.safe(33, 90)], [40 * T + 7, 92 * T + 8]) : null;
 
-  // 2b. the content preview with the real (empty) content
+  // 2b. the content preview with the real content (B3c1: two buildings)
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const rp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const rl = rp.loaded ? await look(rp) : null;
-  check(name, "content preview (real content, empty): loads in content mode, its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 0,
+  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 2,
     rl ? `mode ${rl.v.previewMode}, content ${JSON.stringify(rl.v.content)}` : rp.errs.join("; "));
   const badge = rp.loaded ? await rp.page.evaluate(() => { const b = document.querySelector(".w-mapb-badge"); return { text: b.textContent, label: b.getAttribute("aria-label") }; }) : null;
   check(name, "content preview: the badge says so", badge && badge.text === "MAP-B\ncontent\npreview" && badge.label === "MAP-B content preview", JSON.stringify(badge));
-  check(name, "content preview (empty): both locked painter digests, and the painter's reports as on the terrain preview", rl && rl.td === TERRAIN_SHA && rl.gd === GROUND_SHA && tl && rl.pr === tl.pr && rl.fr === tl.fr);
-  check(name, "content preview (empty): incomplete, so a normal format-2 home made of it would be refused (the missing list)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length >= 13 && rl.comp.missing.some((s) => /^buildings/.test(s)) && rl.comp.missing.some((s) => /^stations/.test(s)),
+  check(name, "content preview (real content): both locked painter digests, and the painter's reports as on the terrain preview", rl && rl.td === TERRAIN_SHA && rl.gd === GROUND_SHA && tl && rl.pr === tl.pr && rl.fr === tl.fr);
+  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length >= 13 && rl.comp.missing.some((s) => /^buildings/.test(s)) && rl.comp.missing.some((s) => /^stations/.test(s)),
     rl ? `${rl.comp.missing.length} missing, first: ${rl.comp.missing.slice(0, 2).join(" | ")}` : "");
   if (rp.loaded) {
     await rp.page.keyboard.down("ArrowRight"); await rp.I(() => window.__island.step(20)); await rp.page.keyboard.up("ArrowRight");
@@ -286,7 +288,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     caught(MUT.noFootUnion[0], b2 === false, `post pixel blocked: ${b2}`); await P.ctx.close(); }
   { const P = await open(`http://127.0.0.1:${port}/${Q}`, { world: MUT.terrainTakesContent[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith(() => {})) : "didn't load";
     caught(MUT.terrainTakesContent[0], r === null, r === null ? "the terrain preview decoded content" : r); await P.ctx.close(); }
-  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`, { world: MUT.noD1[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith((c) => { R(c, "syn-hut").drawnPxBoxes = [tileArt(44, 92, 46, 93, 2)]; })) : "didn't load";
+  // (on the walled room: since B3c1 a building's own shape check would also refuse the narrowed hut, so it can't show D1 alone)
+  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`, { world: MUT.noD1[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith((c) => { R(c, "syn-room").drawnPxBoxes.shift(); })) : "didn't load";
     caught(MUT.noD1[0], r === null, r === null ? "invisible collision decoded" : r); await P.ctx.close(); }
   // a normal format-2 home (not staged, no flag) let past the decoder: the completeness wall still refuses it, naming what's missing
   const normalHome = (page) => page.route(/\/js\/maps\/home\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: `window.ISLAND_MAPS = { home: ${JSON.stringify(Object.assign(copy(STAGED_MAP), { staged: undefined }))} };` }));

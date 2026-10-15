@@ -23,6 +23,9 @@
 
      node tools/mapb-preview.mjs --content
 
+   B3c1: the content preview runs the home systems whose content is authored (js/world.js's SYS): so far the
+   buildings, the visitor centre and the supply depot, with their doors and rooms. The terrain preview is unchanged.
+
    Also imported by tools/mapb-decode.mjs and tools/mapb-runtime.mjs. */
 import { readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
