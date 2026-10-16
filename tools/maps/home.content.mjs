@@ -15,7 +15,13 @@
      door stub (visitor-centre-door, 85,74 to 85,75) is the tile beside it, paved too.
    - The supply depot: footprint ranger-hq-depot, 101,73 to 107,76 (7 x 4). Door 104,77, on grass; the depot spur
      (x 104 and 105 from row 78 south to the service road) starts right below it.
-   Both art boxes are the footprint exactly (no roof rising above it yet: the art stage decides that). */
+   Both art boxes are the footprint exactly (no roof rising above it yet: the art stage decides that).
+
+   B3c2: the outpost bunker, the same way, on its approved B1e footprint inside the bunker compound.
+   - The bunker: footprint bunker, 113,79 to 119,82 (7 x 4). Door 116,83, on grass: the B3a doorstep and the B1e log
+     site rack-desk-bunker. Room bunker (format 1's: the rack, the desk, the radio and the rest).
+   - The compound round it (bunker-compound, 109,76 to 124,89, gates 109,84 to 109,86) is planning metadata only: no
+     wall, gate or kit is placed here. From the gates the door is 7 tiles east and 2 north over open grass inside it. */
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -36,6 +42,12 @@ export default {
       drawnPxBoxes: [footprintPx(101, 73, 107, 76)],
       solid: { tileBoxes: [{ x0: 101, y0: 73, x1: 107, y1: 76 }] },
       doorTiles: [[104, 77]]
+    },
+    {
+      id: "bunker", kind: "building", reserve: "bunker", art: "placeholder", room: "bunker",
+      drawnPxBoxes: [footprintPx(113, 79, 119, 82)],
+      solid: { tileBoxes: [{ x0: 113, y0: 79, x1: 119, y1: 82 }] },
+      doorTiles: [[116, 83]]
     }
   ]
 };

@@ -647,7 +647,7 @@
     var all = !STAGED_PREVIEW;
     return {
       buildings: all || CONTENT_PREVIEW,      // the buildings and their rooms (B3c1: the content preview draws its building records)
-      stations: all,                          // the landmarks (and with them the tour, deep links, the map's buttons, the shrine)
+      stations: all,                          // the landmarks (and with them the logs, the tour, deep links, the map's buttons, the shrine)
       creatures: all,                         // the dinosaurs, cats and robots that roam, the t-rex's roar, the pterosaurs
       rex: all,                               // rex, in his meadow
       birds: all,                             // the cockatiels (they perch on landmarks)
@@ -857,7 +857,10 @@
 
   /* ════════ the portfolio, as landmarks ════════ */
   var GH = "https://github.com/ammaarrehman/";
-  var STATIONS = !SYS.stations ? [] : [
+  /* the words of every landmark, and of the two inside the bunker (the rack and the desk, which stand in its room, so they
+     have no place on the map). STATIONS is the landmarks the island runs (the stations system); a room's own stand with its
+     room (B3c2: the content preview has the bunker's room but no landmarks yet) */
+  var STATION_WORDS = [
     { id: "sign", name: "signpost", text: "Mossgate Reserve. the robots run it; pi is the newest intern. walk with wasd or the arrow keys, or tap where you want to go. press e or space next to anything to look at it. eight landmarks hold Ammaar's work. find all eight and something on the island wakes up. the boat at the dock takes you back. (the paddocks are fenced. please don't feed the raptors.)" },
     { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "Homelab v1, retired September 2026: high-availability DNS. Two Raspberry Pi 5 nodes ran AdGuard Home behind a keepalived VRRP floating IP, filtering DNS for my own devices. Failover and failback tested in both directions. Version two, one Pi built with Ansible, is in progress.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
     { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
@@ -871,7 +874,8 @@
     { id: "shrine", name: "an old shrine", text: "" },
     { id: "cave", name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
     { id: "boat", name: "the boat", text: "the boat back to the mainland. sail back to the site?", links: [["sail back ↩", "#exit"]] }
-  ].map(function (s) {             // an outdoor landmark's place is map data; the words are here
+  ];
+  var STATIONS = !SYS.stations ? [] : STATION_WORDS.map(function (s) {             // an outdoor landmark's place is map data; the words are here
     if (s.room) return s;
     var p = MAP.stations[s.id];
     if (!p) throw new Error("pi's island: js/maps/home.js has no place for " + s.id);
@@ -879,6 +883,7 @@
   });
   var TOTAL = STATIONS.filter(function (s) { return s.found; }).length;
   var OUT = STATIONS.filter(function (s) { return !s.room; });        // the landmarks that stand outdoors
+  var ROOM_STATIONS = SYS.buildings ? STATION_WORDS.filter(function (s) { return s.room; }) : [];   // the ones in rooms (the same objects as in STATIONS)
   /* ════════ the save ════════
      one versioned object in localStorage: the logs found, the secrets, whether pi has evolved,
      where pi was, the comfort settings, who holds the core, whether the credits have rolled.
@@ -2404,7 +2409,7 @@
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(rand() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
-    logWait = s.found && !found[s.id] ? { s: s, t: 0 } : null;
+    logWait = SYS.stations && s.found && !found[s.id] ? { s: s, t: 0 } : null;   // a log counts only where the landmarks run (B3c2: not the content preview)
     var host = window.SITE && window.SITE.CODE_HOST;                          // a repo link only once that repo is public on the host
     say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).map(function (l) {
       return l[1].indexOf("github.com/") < 0 ? l : host && window.SITE.hostUrl(l[1]) ? [l[0].replace(/github/i, host.name), window.SITE.hostUrl(l[1])] : null;
@@ -4656,7 +4661,7 @@
     var out = [];
     room.items.forEach(function (it) {
       var w = it.w || (it.id === "desk" ? 3 : 1), cx = (it.kind === "station" && it.id === "desk" ? it.x - 1 : it.x) * T + w * T / 2, cy = (it.y + (it.h || 1)) * T;
-      var v = it.kind === "station" ? STATIONS.filter(function (q) { return q.id === it.id; })[0] : { id: "roomitem", name: room.name, text: it.say };
+      var v = it.kind === "station" ? ROOM_STATIONS.filter(function (q) { return q.id === it.id; })[0] : { id: "roomitem", name: room.name, text: it.say };
       out.push({ d: Math.hypot(pi.x - cx, pi.y - cy), max: 22, v: v.id === "roomitem" ? v : Object.assign({}, v, { ax: cx, ay: it.y * T - 4 }) });
       if (v.id === "roomitem") { v.ax = cx; v.ay = it.y * T - 4; }
     });
@@ -5051,10 +5056,14 @@
      building's footprint, so every solid pixel has art over it (D1) and no art hides ground that can be walked on. It
      is replaceable on its own: a record's art says which drawing it gets, and a real sprite is a new art kind beside
      "placeholder", with no change to the footprint, the door or the collision. The static part is drawn once into a
-     canvas; the door, the lights, the banners and the beacon move on top, as the format-1 sprites' do */
+     canvas; the door, the lights, the banners and the beacon move on top, as the format-1 sprites' do. B3c2's bunker
+     keeps its format-1 look in the same frame: a concrete slab with sandbags and a radio mast on the roof, slit windows,
+     a ribbed steel door under hazard stripes */
   var PLACEHOLDER = {
     visitor: { roof: ["#7e2215", "#9e2c1b", "#b8321f"], wall: ["#b08a58", "#c9a36b", "#d8b67e"], trim: "#f2d58a", base: "#5a3e22", glass: "#2c4a5a", plate: "VISITOR CENTRE", door: "hinge", doorW: 12, doorH: 22, doorC: "#f2d58a" },
     depot: { roof: ["#4a5258", "#5a636a", "#6a737a"], wall: ["#626a72", "#7a838b", "#8a939b"], trim: "#f2c230", base: "#2c3238", glass: "#22303a", plate: "SUPPLY DEPOT", door: "roller", doorW: 24, doorH: 20, doorC: "#7a838b" },
+    bunker: { roof: ["#3a3c3a", "#50534f", "#686b66"], wall: ["#50534f", "#686b66", "#83867f"], trim: "#f2c230", base: "#2a2c2a", glass: "#4DD6E8", plate: "BUNKER", door: "hinge", doorW: 14, doorH: 22, doorC: "#4a5058",
+              top: "sandbags", sand: ["#6e6040", "#a8966a", "#c8b688"], winH: 6, steel: { rib: "#2c3034", handle: "#c8a040" }, hazard: true, mast: "#6a6d68" },
     other: { roof: ["#5a5048", "#6a5e54", "#7a6c60"], wall: ["#9a8a76", "#b09e88", "#c0ae96"], trim: "#d8c89a", base: "#4a4038", glass: "#2c3a44", plate: "", door: "hinge", doorW: 12, doorH: 20, doorC: "#d8c89a" }
   };
   // capitals in a 3 x 5 pixel font, row by row (a space is blank)
@@ -5072,16 +5081,22 @@
     var P = placeholderStyle(bd), b = bd.box, w = b.px1 - b.px0 + 1, h = b.py1 - b.py0 + 1, c = mkCanvas(); c.width = w; c.height = h;
     var g = c.getContext("2d"), roofH = Math.round(h * 0.55), D = placeholderDoor(bd), i, x, y;
     function r(x0, y0, ww, hh, col) { g.fillStyle = col; g.fillRect(x0, y0, ww, hh); }
-    // the roof: shingle rows (or metal ribs), a ridge, the eave's shadow
+    // the roof: shingle rows (or metal ribs, or the bunker's concrete slab with sandbags and a radio mast), a ridge, the eave's shadow
     r(0, 0, w, roofH, P.roof[1]);
-    if (P.door === "roller") for (x = 2; x < w - 1; x += 4) r(x, 1, 1, roofH - 2, P.roof[2]);
+    if (P.top === "sandbags") {
+      for (y = 2, i = 0; y + 5 < roofH - 12; y += 6, i++) for (x = i % 2 ? -5 : 0; x < w; x += 10) { r(x + 1, y, 9, 5, P.sand[1]); r(x + 1, y, 9, 1, P.sand[2]); r(x + 1, y + 4, 9, 1, P.sand[0]); }
+      r(w - 12, 1, 2, roofH - 4, P.mast); r(w - 15, 5, 8, 1, P.mast); r(w - 12, 1, 1, 1, "#ff5252");
+    }
+    else if (P.door === "roller") for (x = 2; x < w - 1; x += 4) r(x, 1, 1, roofH - 2, P.roof[2]);
     else for (y = 4; y < roofH - 2; y += 4) for (x = (y >> 2) % 2 ? 0 : 3; x < w; x += 6) r(x, y, 5, 1, P.roof[0]);
-    r(0, 3, w, 2, P.roof[2]); r(0, roofH - 3, w, 3, P.roof[0]);
+    if (P.top !== "sandbags") r(0, 3, w, 2, P.roof[2]);
+    r(0, roofH - 3, w, 3, P.roof[0]);
     // the front wall: boards or ribs, a base course, windows either side of the door
     r(0, roofH, w, h - roofH, P.wall[1]);
     for (y = roofH + 3; y < h - 3; y += 4) r(0, y, w, 1, P.wall[0]);
+    if (P.top === "sandbags") for (y = roofH + 3, i = 0; y < h - 3; y += 4, i++) for (x = i % 2 ? 8 : 0; x < w; x += 16) r(x, y + 1, 1, 3, P.wall[0]);   // concrete blocks
     r(0, h - 3, w, 3, P.base);
-    var winY = roofH + 5, winH = Math.max(6, Math.min(9, h - roofH - 13));
+    var winY = roofH + 5, winH = P.winH || Math.max(6, Math.min(9, h - roofH - 13));
     for (x = 8; x + 10 <= w - 6; x += 18) {
       if (x + 10 > D[0] - 4 && x < D[0] + D[2] + 4) continue;                          // keep clear of the door
       r(x - 1, winY - 1, 12, winH + 2, P.wall[2]); r(x, winY, 10, winH, P.glass); r(x + 1, winY + 1, 3, 2, "rgba(255,255,255,.35)");
@@ -5089,8 +5104,9 @@
     // the door, shut: its frame, the door, and a step
     r(D[0] - 2, D[1] - 2, D[2] + 4, D[3] + 2, P.base); r(D[0], D[1], D[2], D[3], P.doorC);
     if (D[4] === "roller") for (y = D[1] + 2; y < D[1] + D[3]; y += 3) r(D[0], y, D[2], 1, "rgba(0,0,0,.22)");
+    else if (P.steel) { for (y = D[1] + 4; y < D[1] + D[3] - 1; y += 5) r(D[0], y, D[2], 1, P.steel.rib); r(D[0] + D[2] - 4, D[1] + (D[3] >> 1), 2, 3, P.steel.handle); }   // a heavy steel door
     else r(D[0] + D[2] - 3, D[1] + (D[3] >> 1), 2, 2, P.base);
-    if (D[4] === "roller") for (i = 0; i < D[2] + 4; i += 4) r(D[0] - 2 + i, D[1] - 5, 2, 3, i % 8 ? "#1a1a1a" : P.trim);   // hazard stripes over the roller
+    if (D[4] === "roller" || P.hazard) for (i = 0; i < D[2] + 4; i += 4) r(D[0] - 2 + i, D[1] - 5, 2, 3, i % 8 ? "#1a1a1a" : P.trim);   // hazard stripes over the roller (and the bunker's steel door)
     // the name plate, on the eave, in a 3 x 5 pixel font (crisp at every scale, the same in every browser)
     if (P.plate) {
       var tw = P.plate.length * 4 - 1 + 6, pxp = Math.round((w - tw) / 2), pyp = roofH - 12;

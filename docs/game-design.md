@@ -467,6 +467,43 @@ MAP-B B3c1, preview modes and the first two buildings (2026-10-14; staged only, 
   - real walls, fences and props come only with visible art and matching collision;
   - the 8 unassigned building footprints stay reserved.
 
+MAP-B B3c2, the outpost bunker (2026-10-15; staged only, not deployed; built for Ammaar's review, not yet approved):
+- Content (`tools/maps/home.content.mjs`), one more building record, the same way as B3c1's:
+  - `bunker`: reserve `bunker`, 113,79 to 119,82 (7 x 4, 28 tiles), the whole footprint solid, placeholder art over it
+    exactly. Door 116,83, on grass: the B3a doorstep (the middle of the front) and the B1e log site `rack-desk-bunker`.
+    Room `bunker`. In all: 3 records, 101 solid tiles, 0 foot pixels.
+  - It stands in the bunker compound's reserve (109,76 to 124,89, walled later, gates 109,84 to 109,86), which stays
+    planning metadata: no wall, gate, kit or uplink is placed. The footprint is clear of the compound's wall line by 3
+    tiles to the west, 2 to the north, 4 to the east, and 5 rows below the door.
+- Compound compatibility, checked with the future wall ring (the box's edge less the 3 gates: 53 tiles, all open
+  terrain) made solid in memory only, with and without B3a's proposed outpost kit and uplink: the door is 8, 9 and 10
+  steps from the three gates over open grass with no foot-blocking pixels, 43 from the spawn through the gates, and no
+  ground inside the compound is cut off. Today, with nothing built, it is 41 steps from the spawn. The ops road's paving
+  ends at the gates (109,84 and 109,85); inside the compound is grass, so the door's approach is grass.
+- Art: the placeholder renderer gains a bunker style in the same frame (no new rendering system). It keeps format 1's
+  look: a concrete slab with three rows of sandbags and a radio mast (its red light) on the roof, the name plate, a
+  concrete block wall, slit windows, a ribbed steel door (format 1's door colour) under hazard stripes, and the door
+  lamp. At night the windows light, as the others'. The visitor centre's and the depot's art are pixel for pixel as
+  approved (checked against B3c1 in Chromium and WebKit).
+- Kept from format 1: the room is `ROOMS.bunker`, unchanged: the rack and the desk (the two bunker logs), the monitors,
+  the shelf, the cot, the map table, the UPS bank and the radio (whose display carries the Radio Static payload). [E] (or
+  the touch prompt) at the doorway goes in with the same iris and hinged door; walking out lands on the doorway facing
+  out. Every item answers as in format 1: the same prompt, dialog title, words and links.
+- One runtime change the bunker needed: the rack and the desk are landmarks (`STATIONS`), which the content preview
+  doesn't run (`SYS.stations`), so in B3c1's code the bunker room crashed on its first frame (it looked them up there).
+  Their words now sit in `STATION_WORDS`; `STATIONS` is built from it as before, and the rooms read their own
+  (`ROOM_STATIONS`, the same objects as in `STATIONS` in production). Reading the rack or the desk in the content
+  preview shows its card but counts no log, since the logs belong to the landmarks system (`SYS.stations`), which isn't
+  migrated (format 1 counts them as before). Not migrated: the compound's walls and gates, the outpost kit, the uplink,
+  the big map's pins for the rack and desk, the tour and deep links to them.
+- Tests: `tools/mapb-buildings.mjs` grows to cover the bunker: the records and the compound against B1e, the future
+  compound's reachability, two more malformed records and a decoder refusal; in Chromium and WebKit the footprint and
+  art, the door, the room swept item by item against format 1's, no log counted, five enter and leave cycles per
+  building, all three buildings in one walk, walks from each gate to the door inside the compound, paths round it and
+  its four walls, phones at 390 x 844 and 375 x 667, the live-loop frame work along all three, and two more code
+  mutations (the room's stations, the log). `tools/mapb-content.mjs` expects the three buildings; the completeness list
+  no longer names the buildings (all three are there) and still names everything else.
+
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

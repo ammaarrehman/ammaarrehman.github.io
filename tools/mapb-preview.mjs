@@ -25,6 +25,7 @@
 
    B3c1: the content preview runs the home systems whose content is authored (js/world.js's SYS): so far the
    buildings, the visitor centre and the supply depot, with their doors and rooms. The terrain preview is unchanged.
+   B3c2 adds the outpost bunker and its room.
 
    Also imported by tools/mapb-decode.mjs and tools/mapb-runtime.mjs. */
 import { readFileSync } from "node:fs";
