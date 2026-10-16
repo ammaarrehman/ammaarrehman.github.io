@@ -511,8 +511,8 @@ MAP-B B3c2, the outpost bunker (2026-10-15; staged only, not deployed; approved 
 
 
 MAP-B B3c3, the bunker compound's wall and its west entrance (2026-10-16; staged only, not deployed; complete, visually
-and architecturally approved by Ammaar, approved for commit with two final-run failures documented, committed as "Map:
-add MAP-B outpost compound perimeter (B3c3)"):
+and architecturally approved by Ammaar, approved for commit with two final-run failures documented, and committed as
+`69520facc80f821595fa05c5979b24619c1f25b9` "Map: add MAP-B outpost compound perimeter (B3c3)"):
 - Format 1, audited first: the outpost compound (17,57 to 28,65) is a ring of sandbag wall tiles (`wall`, drawn per tile
   by `drawWall`, solid in `coll`, skipped on path tiles) with its gate on the east wall: three rows left open. The gate is
   only a gap: no gate object, nothing that opens, closes or locks, no prompt, no state and no save field. Walls have no
@@ -599,6 +599,104 @@ add MAP-B outpost compound perimeter (B3c3)"):
   the gates already done after an interruption, use bounded timeouts and targeted reruns, keep the browser suites away
   from heavy builds and indexing when possible, report assertion failures, time-budget failures, launch blocks and
   timeouts as different things, and never let a passing rerun erase an earlier failure.
+
+MAP-B B3d1, the paddock fence and the raptor yard (2026-10-16; staged only, not deployed; complete, visually and
+architecturally approved by Ammaar, committed as "Map: add MAP-B raptor enclosure fence (B3d1)"):
+- Format 1, audited first: the paddocks are `regions.paddocks`, a name and a box each (the t-rex paddock 27,43 to 39,54, the
+  raptor pen 60,30 to 70,38), nothing more. Every land tile of the box's edge is a fence tile, solid in `coll`; there is no
+  gate, opening, lock or state, so each paddock is closed all round and its inside is a pocket (not safe ground: no landing,
+  no restored position, C4-2). The art (`drawFence`) is a steel post per tile with a yellow cap, three wires to the next
+  post east and south, a yellow and black warning sign on some east-west tiles, and at night the wires glow and now and
+  then spark; the post and wires are thin, the whole tile blocks. [E] next to a fence names the paddock with a line about
+  its animals, plays a zap, and next to the t-rex's starts its roar (the `roar` secret). The raptors share one roam area
+  (`roam-03`, exactly the pen's inside) and pace the inside of the fence toward pi; creatures choose targets inside their
+  roam box and move with the same `move()` and collision as pi, so the fence is what holds them. The welder bot patrols
+  round the outside (`routes.welder-patrol`); the goto place `raptors` is 64,40, two rows below the pen. The terminal's
+  `paddocks.log`, `fence.log` (the Fence Logs CTF) and `fences` command are words only. B3d1 keeps all of it and invents
+  nothing: no lock, key, gate, shock or security system.
+- The enclosure, from the approved sources (not inferred from a spawn): the B1e habitat `raptor-yard` (contained, box 119,10
+  to 127,17, 9 x 8) and the B3a plan (ring 30 tiles, inside 42, 120,11 to 126,16, which is also B3a's roam box for the three
+  raptors). No openings: format 1's pen has none and B1e gives the yard none. All of it is open level-2 highland grass with
+  no foot-blocking pixel and no path; the nearest other level is 13 tiles away (no cliff beside it) and the sea 2 tiles off
+  its north-east corner; a walkable loop of 38 tiles runs all round the outside. The paddock fence walk (a trail) ends at
+  118,18 to 118,19 by the south-west corner, the raptor yard walk ends at 123,22 by the raptor house reserve (121,20 to
+  125,21, empty), and B3a's viewing place is 123,19, all open. When the holding paddock is fenced (a later batch) the lane
+  between the two (column 118) is one tile wide at rows 12 to 15.
+- Content (`tools/maps/home.content.mjs`), one fence record:
+  - `raptor-yard`: kind fence, art placeholder, `encloses: true`, solid the ring round the habitat (`ringOfHabitat`): 30
+    tiles, each with one opaque tile of fence art and nothing more. In all: 5 records, 184 solid tiles, 0 foot pixels.
+- Schema additions:
+  - `art` is allowed on a fence (`ART_ON`: building, wall, fence); a fence must have it.
+  - A new compile rule, `fences`: a fence has art; its solid is one ring round a B1e habitat whose containment is
+    `contained` (`ringOfHabitat`) and nothing else, and its id is that habitat's (so no fence comes from anything but the
+    approved geometry); no drawn box, door, reserve or foot box of its own; openings as the walls' (open ground, reachable,
+    in a straight run, never a corner); no openings means it must say `encloses`, openings mean it mustn't.
+  - `decodeMap2` repeats it on its own: a fence's shape is checked as a wall's (art on every solid tile and nowhere else,
+    no foot boxes, the line closed round), plus the `encloses` rule. The completeness wall counts a paddock fence only with
+    its art and `encloses`; its list now names only the holding paddock's.
+- Runtime (`js/world.js`):
+  - The walls' piece builder is shared (`ringPieces`); walls are built exactly as in B3c3. `FENCES`, `FENCE_PIECES`,
+    `FENCEAT`: one piece per fence tile, a run, a corner or a post beside an opening, the middle of each east-west run
+    carrying a warning sign.
+  - Placeholder art (`fenceArt`), one opaque 16 x 16 piece per tile, drawn once per kind and blitted in the object layer,
+    y-sorted like the walls, never on the ground canvas (both painter digests exact). Format 1's electric fence on a concrete
+    footing: an east-west run is the fence face on (a top rail, chain-link mesh on a 4 px lattice between steel posts with
+    format 1's yellow caps, two live strands, a bottom rail) with the footing's south face below; a north-south run is the
+    footing from above with its posts and mesh edge on along the middle; a corner is a heavier post with the footing turning
+    under it. The footing is what makes the whole tile read as fence, so every blocking pixel has art and no art covers
+    open ground. At night the strands glow and now and then spark, as format 1's wires do.
+  - Collision is unchanged in kind: the fence tiles are content collision, so movement (pi's and the creatures' `move()`),
+    the planner, `STEPOK`, safe ground, landing and hop-out read them through the union. No new system flag.
+  - `?debug=1`: `preview().fences` (each fence's tiles, openings, `encloses`, pieces by kind, signs), `fenceMs` and
+    `fenceDraws`, and `fenceArt(id)`.
+- Not in this batch (each waits for its own): the raptors and their roam area and spawns (the format has no spawns or
+  roam areas yet); the welder's patrol; the fence's [E] words (format 1's name the animals inside, which aren't there);
+  the raptor house; the roof netting; the holding paddock's fence (the same renderer and rules, tested on its outline in
+  memory only).
+- Tests: `tools/mapb-fences.mjs` (new). In Node: the record against B1e, B3a and format 1, the ground, the ring closed
+  and joined, the inside cut off and nothing else, the outside loop, the trails, route ends and viewing place, the relief,
+  the holding paddock's fence beside it (synthetic), 17 malformed fence records each caught by its rule, and an opening in
+  a straight run allowed. In Chromium and WebKit: both digests, the layers, the art piece by piece and on screen against the
+  terrain preview, collision pixel by pixel, the tiles, pi pushed into each side and diagonally into each corner from
+  outside and from inside on the update loop, the planner round, along, into and up to the fence, trapped ground, the
+  helicopter (every 4 px, drifting descents, a real flight), phones, completeness, storage, 12 decoder refusals, the
+  synthetic holding paddock and the lane between, performance, 4 code mutations (Chromium), and review screenshots in
+  `tools/out/mapb/b3d1/` with a labelled diagnostic overlay drawn by the test only. `tools/mapb-content.mjs`'s synthetic
+  fenced pen is now a fence round the holding paddock's outline (a fence must be a habitat's), and its D1 mutation uses a
+  prop; `tools/mapb-buildings.mjs` expects the fence among the records and its inside as the only ground cut off, and
+  `MAPB_SHOTS` keeps a later regression run's screenshots out of B3c3's folder.
+- Verification (one complete regression pass on the final code, 2026-10-16, load average 2 to 7, one suite at a time,
+  `tools/out/mapb/b3d1/gates/`): every browser suite passed with Firefox BLOCKED at launch (exit 2, never counted as a
+  pass): mapb-fences 165, mapb-buildings 379, mapb-content 145, mapb-runtime 220, mapb-decode 76, mapb-painter 49 (both
+  locked digests exact), map-parity 37/37 and b0-parity 21/21 identical with `715450d` in Chromium and WebKit, scenarios
+  98, ctf 250, map-decode 250; doors (worst 3.8 ms), focus 16, map-compile, map-content and map-export `--check`, map-lint,
+  the deploy guard (8), the dry run (53 files, 41 references), deploy-args (37), html and `git diff --check` passed.
+  CSpell FAILED in that pass with 20 words, the 19 HEAD has plus "blitted" in a new comment; the comment was reworded
+  ("copied") and CSpell rerun alone: the same 19 words as HEAD. Nothing else was rerun for that comment-only change.
+  Failures while building it (development runs, `tools/out/mapb/b3d1/dev/`): one, in the new test, not the game: the
+  trapped-ground scan counted the inside reaching the spawn on the terrain preview (before any fence, as it should) as
+  wrong; fixed and the Chromium run repeated (102 ok), then WebKit (98 ok).
+- Performance (Chromium / WebKit): one fence piece 1.0 / 0.7 us a draw; walking round the yard on the live loop, frame work
+  p95 1.5 / 1.0 ms (the terrain preview's 2.5 / 1.0 in the same run); planning round the yard 1.5 to 2 ms first, 0.15 ms
+  warm; decoding the staged map 3.4 / 3.6 ms with the five records (2.8 without). A walk (a tap) to the closed-in middle
+  costs about 2.7 ms warm (no path, or a loose plan to the nearest side), against 0.7 ms for format 1's raptor pen on its
+  smaller island; the first such plan on a fresh page takes about 12 ms, the planner's step cache filling, once.
+- Approved by Ammaar on review (2026-10-16; the overhead, night, diagnostic, north-east corner, pi against the fence and
+  both phone screenshots), with no visual change: the bounds 119,10 to 127,17; the closed 30-tile electric fence; all 42
+  inside tiles closed in; the posts, chain-link panels, concrete footing, warning signs and night effects; no openings or
+  gates (format 1's pen is closed all round); no raptors or other creatures in B3d1; the raptor interaction deferred until
+  its creature systems are migrated; the north-south runs accepted as placeholder art, not redesigned now. B3d2 reuses
+  this fence for the T. rex holding paddock and must test the one-tile passage between the two paddocks (column 118, rows
+  12 to 15) for navigation and usability.
+- Pre-commit checks (lightweight, after approval; the browser suites weren't rerun, the gate run above stands):
+  map-compile and map-content `--check` current (5 records, 184 solid tiles, 0 foot pixels); the Node parts of
+  mapb-fences (35), mapb-buildings (70) and mapb-content (29); the deploy guard; the dry run (53 files, 41 references);
+  CSpell the same 19 words as HEAD (no new finding); `git diff --check`; production files, fixtures and the B1 source
+  unchanged. The only change to `js/world.js` after the gate run is the reworded comment.
+- Status: complete. The raptor yard's fence is built, closed all round as format 1's pen is; the shared fence renderer is
+  ready for B3d2. Deferred: the raptors, their roam area and the fence's [E] words, the welder patrol, the raptor house and
+  the roof netting. MAP-B stays preview-only (loopback, no storage); production is unchanged (format 1, 100 x 80, `SAVE_V`
+  2, cache `20261025`); nothing was deployed. B3d2 has not begun.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

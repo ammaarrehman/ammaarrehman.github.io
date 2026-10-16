@@ -1,9 +1,11 @@
 #!/usr/bin/env node
 /* mapb-content (MAP-B B3b): the content-collision architecture, on the staged 150 x 120 island. Every gameplay check
    here runs on SYNTHETIC content built here and served through the content preview in memory (never written to the
-   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings, B3c2's bunker and B3c3's compound wall so far) is
+   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings, B3c2's bunker, B3c3's compound wall and B3d1's raptor-yard fence so far) is
    checked here only as a layer (current, bound to its terrain, the painter untouched, incomplete); tools/mapb-buildings.mjs
-   tests the buildings and the compound wall themselves. B3c3: a wall now draws itself (art), so the synthetic walled room has art.
+   tests the buildings and the compound wall themselves, tools/mapb-fences.mjs the fence. B3c3: a wall now draws itself (art),
+   so the synthetic walled room has art. B3d1: so does a fence, and a fence is the ring round a contained B1e habitat, so the
+   synthetic fenced pen is the ring round the holding paddock's outline (synthetic: no real content puts a fence there yet).
 
    1. Node, the content compiler (tools/maps/content.mjs, tools/map-content.mjs):
       - the tracked content file is the current compile, bound to the current terrain; the terrain's staged file is
@@ -55,7 +57,7 @@ const tileArt = (x0, y0, x1, y1, up = 0) => ({ px0: x0 * T, py0: (y0 - up) * T, 
 const SYN = {
   schema: "mapb-content-1", id: "home", records: [
     { id: "syn-room", kind: "wall", art: "placeholder", solid: { ringOfBox: { x0: 86, y0: 40, x1: 92, y1: 45, gapTiles: [[89, 45]] } }, doorTiles: [[89, 45]] },
-    { id: "syn-pen", kind: "fence", solid: { ringOfBox: { x0: 30, y0: 88, x1: 36, y1: 93 } }, encloses: true },
+    { id: "holding-paddock", kind: "fence", art: "placeholder", solid: { ringOfHabitat: { habitat: "holding-paddock" } }, encloses: true },
     { id: "syn-post", kind: "prop", drawnPxBoxes: [px(40, 92, 3, -10, 12, 12)], solid: { footPxBoxes: [px(40, 92, 5, 6, 10, 11)] } },
     { id: "syn-hut", kind: "building", art: "placeholder", drawnPxBoxes: [tileArt(44, 92, 47, 93, 2)], solid: { tileBoxes: [{ x0: 44, y0: 92, x1: 47, y1: 93 }] }, doorTiles: [[45, 94]] }
   ]
@@ -67,7 +69,7 @@ const SYN_DATA = (() => { const c = { window: {} }; vm.runInNewContext(serialize
   const { content, contentSha256 } = await loadContent();
   const a = await buildContentText(content, contentSha256), b = await buildContentText(content, contentSha256);
   const tracked = readFileSync(CONTENT_STAGED, "utf8");
-  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
+  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
   check("node", "two compiles give the same bytes", a.text === b.text);
   check("node", "the content is bound to the terrain it was placed on (terrainSha256 is the staged terrain's sourceSha256)", a.text.includes(`"terrainSha256": "${t.sourceSha256}"`), t.sourceSha256.slice(0, 16));
   check("node", "the staged terrain file is untouched: map-compile's own compile, byte for byte", t.current && readFileSync(STAGED_PATH, "utf8") === t.terrainText);
@@ -100,7 +102,7 @@ const RULE_CASES = [
   ["a door that is closed", "doors", (o) => { rec(o, "syn-room").solid.ringOfBox.gapTiles = []; rec(o, "syn-room").encloses = true; }],
   ["a door not next to its solid", "doors", (o) => { rec(o, "syn-hut").doorTiles = [[45, 96]]; }],
   ["a route end walled in", "route-ends", (o) => { o.records.push({ id: "syn-cut", kind: "prop", drawnPxBoxes: [tileArt(104, 86, 104, 86)], solid: { tiles: [[104, 86]] } }); }],
-  ["ground cut off by a record that doesn't say it encloses", "pockets", (o) => { delete rec(o, "syn-pen").encloses; }]
+  ["ground cut off by a record that doesn't say it encloses", "pockets", (o) => { delete rec(o, "holding-paddock").encloses; }]
 ];
 // a cliff-rim tile and a bridge tile, from the terrain itself
 const RIM = (() => { for (let y = 30; y < 100; y++) for (let x = 30; x < 120; x++) if (m.why[y * W + x] === 1) return [x, y]; })();
@@ -190,13 +192,13 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const refusedHere = async (P, o) => P.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
   { const r = tp.loaded ? await refusedHere(tp, cWith(() => {})) : null;
     check(name, "terrain preview: a map with content is refused (content runs only in the content preview)", /^content runs only in the MAP-B content preview/.test(r || ""), r || "NOT refused"); }
-  const postT = tp.loaded ? await tp.I(([x, y]) => [window.__island.blocked(x, y), window.__island.safe(33, 90)], [40 * T + 7, 92 * T + 8]) : null;
+  const postT = tp.loaded ? await tp.I(([x, y]) => [window.__island.blocked(x, y), window.__island.safe(112, 14)], [40 * T + 7, 92 * T + 8]) : null;
 
   // 2b. the content preview with the real content (B3c1 and B3c2: the three buildings)
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const rp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const rl = rp.loaded ? await look(rp) : null;
-  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 4,
+  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 5,
     rl ? `mode ${rl.v.previewMode}, content ${JSON.stringify(rl.v.content)}` : rp.errs.join("; "));
   const badge = rp.loaded ? await rp.page.evaluate(() => { const b = document.querySelector(".w-mapb-badge"); return { text: b.textContent, label: b.getAttribute("aria-label") }; }) : null;
   check(name, "content preview: the badge says so", badge && badge.text === "MAP-B\ncontent\npreview" && badge.label === "MAP-B content preview", JSON.stringify(badge));
@@ -207,6 +209,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // B3c3: the bunker compound's wall is there (with its art), so the walls still missing are the koi garden's alone
   const wl = rl && rl.comp ? rl.comp.missing.filter((s) => /^compound walls/.test(s)) : [];
   check(name, "content preview (real content): the completeness list's compound walls name the koi garden's and no longer the bunker compound's", wl.length === 1 && wl[0] === "compound walls: koi-garden", JSON.stringify(wl));
+  // B3d1: the raptor yard's fence is there (enclosing, with its art), so the paddock fences still missing are the holding paddock's alone
+  const fl = rl && rl.comp ? rl.comp.missing.filter((s) => /^paddock fences/.test(s)) : [];
+  check(name, "content preview (real content): the completeness list's paddock fences name the holding paddock's and no longer the raptor yard's", fl.length === 1 && fl[0] === "paddock fences (enclosing): holding-paddock", JSON.stringify(fl));
   if (rp.loaded) {
     await rp.page.keyboard.down("ArrowRight"); await rp.I(() => window.__island.step(20)); await rp.page.keyboard.up("ArrowRight");
     await rp.I(() => window.__island.setSave({ v: 2, logs: ["tablet"] }));
@@ -233,7 +238,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     const L = await sp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let unionOk = true; for (let i = 0; i < W * H; i++) if (L.c[i] !== (m.coll[i] | (SYN_LAYER.tiles[i] ? 1 : 0)) || L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!SYN_LAYER.tiles[i]) { unionOk = false; break; }
     check(name, "gameplay collision is exactly the terrain's plus the content's; the terrain's own layer is the compiler's", unionOk);
-    const tiles = await sp.I(() => ["45,92", "33,88", "40,92"].map((s) => { const [x, y] = s.split(",").map(Number); return window.__island.tile(x, y); }));
+    const tiles = await sp.I(() => ["45,92", "112,10", "40,92"].map((s) => { const [x, y] = s.split(",").map(Number); return window.__island.tile(x, y); }));
     check(name, "a content tile: not walkable for play, terrain flags clear, marked content; a foot-box tile stays walkable", !tiles[0].walkable && tiles[0].terrainFlags === 0 && tiles[0].content && !tiles[1].walkable && tiles[1].content && tiles[2].walkable && !tiles[2].content, JSON.stringify(tiles));
     check(name, "synthetic content can't touch the painter: both locked digests, and its reports, exactly as on the terrain preview", sl.td === TERRAIN_SHA && sl.gd === GROUND_SHA && tl && sl.pr === tl.pr && sl.fr === tl.fr, `terrain ${sl.td.slice(0, 12)}, ground ${sl.gd.slice(0, 12)}`);
 
@@ -250,11 +255,11 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     check(name, "the walled room: walked into from the south, through its door (89,45), never over the wall", into.plan !== null && into.at.join() === "89,42" && into.seen.some((q) => q.join() === "89,45") && !onSolid(into.seen).length, into.plan === null ? "no path" : `ended ${into.at}, ${into.seen.length} tiles`);
     const round = await walk([89, 38], [89, 42]);
     check(name, "the walled room from the north: the planner goes round to the door (no way over the wall)", round.plan !== null && round.at.join() === "89,42" && round.seen.some((q) => q.join() === "89,45") && !onSolid(round.seen).length && round.plan > 10, round.plan === null ? "no path" : `${round.plan}-tile plan (straight would be 4), ended ${round.at}`);
-    // the fenced pen: cut off
-    const pen = await sp.I(() => { const I2 = window.__island; return { safe: I2.safe(33, 90), edge: I2.safe(33, 95), land: I2.canLand(33 * 16 + 8, 90 * 16 + 8), outLand: I2.canLand(38 * 16 + 8, 95 * 16 + 8) }; });
+    // the fenced pen (the synthetic fence round the holding paddock's outline): cut off
+    const pen = await sp.I(() => { const I2 = window.__island; return { safe: I2.safe(112, 14), edge: I2.safe(112, 20), land: I2.canLand(112 * 16 + 8, 14 * 16 + 8), outLand: I2.canLand(113 * 16 + 8, 21 * 16 + 8) }; });
     check(name, "the fenced pen: its inside is not safe ground and the helicopter can't land there (outside still can); on the terrain preview the same tile was safe", !pen.safe && pen.edge && !pen.land && pen.outLand && postT && postT[1] === true, JSON.stringify(pen));
-    const penWalk = await walk([33, 96], [33, 90]);
-    check(name, "the fenced pen: no walk gets inside", penWalk.plan === null || (penWalk.at.join() !== "33,90" && !penWalk.seen.some(([x, y]) => x >= 31 && x <= 35 && y >= 89 && y <= 92)), penWalk.plan === null ? "no path planned" : `ended ${penWalk.at}`);
+    const penWalk = await walk([112, 20], [112, 14]);
+    check(name, "the fenced pen: no walk gets inside", penWalk.plan === null || (penWalk.at.join() !== "112,14" && !penWalk.seen.some(([x, y]) => SYN_C.records.find((r) => r.id === "holding-paddock").inner.some((q) => q[0] === x && q[1] === y))), penWalk.plan === null ? "no path planned" : `ended ${penWalk.at}`);
     // the post's foot box: feet stop on a walkable tile
     const pb = await sp.I(([x, y]) => [window.__island.blocked(x, y), window.__island.terrainBlocked(x, y), window.__island.blocked(x - 3, y)], [40 * T + 7, 92 * T + 8]);
     check(name, "the post's foot box: its pixels block feet (blocked), the terrain's answer there is open, a pixel beside it stays open; on the terrain preview the same pixel was open", pb[0] && !pb[1] && !pb[2] && postT && postT[0] === false, JSON.stringify(pb));
@@ -292,9 +297,10 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     caught(MUT.noFootUnion[0], b2 === false, `post pixel blocked: ${b2}`); await P.ctx.close(); }
   { const P = await open(`http://127.0.0.1:${port}/${Q}`, { world: MUT.terrainTakesContent[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith(() => {})) : "didn't load";
     caught(MUT.terrainTakesContent[0], r === null, r === null ? "the terrain preview decoded content" : r); await P.ctx.close(); }
-  // (on the fenced pen: since B3c1 a building's own shape check would also refuse the narrowed hut, and since B3c3 a wall's
-  // would refuse the walled room's missing tile of art, so neither can show D1 alone; a fence has no art yet)
-  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`, { world: MUT.noD1[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith((c) => { R(c, "syn-pen").drawnPxBoxes.shift(); })) : "didn't load";
+  // (on a prop with a solid tile it doesn't draw: since B3c1 a building's own shape check would also refuse the narrowed hut,
+  // since B3c3 a wall's would refuse the walled room's missing tile of art, and since B3d1 a fence's the pen's, so none of
+  // them can show D1 alone)
+  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`, { world: MUT.noD1[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith((c) => { c.records.push({ id: "syn-crate", kind: "prop", drawnPxBoxes: [tileArt(50, 92, 50, 92)], tiles: [[51, 92]], footPxBoxes: [], doorTiles: [] }); c.solidTiles++; })) : "didn't load";
     caught(MUT.noD1[0], r === null, r === null ? "invisible collision decoded" : r); await P.ctx.close(); }
   // a normal format-2 home (not staged, no flag) let past the decoder: the completeness wall still refuses it, naming what's missing
   const normalHome = (page) => page.route(/\/js\/maps\/home\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: `window.ISLAND_MAPS = { home: ${JSON.stringify(Object.assign(copy(STAGED_MAP), { staged: undefined }))} };` }));

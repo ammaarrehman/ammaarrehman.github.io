@@ -354,7 +354,7 @@
   var PREVIEW_FLAGS = { "mapb-staged": "terrain", "mapb-content": "content" };
   /* the rooms a content building may open into (the game's ROOMS, B3c1), the art kinds the game draws: only "placeholder"
      so far (the art stage adds real sprites), and what it draws them on: a building (B3c1) and a wall (B3c3) */
-  var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall"];
+  var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall", "fence"];
   function previewMode() { var f = window.ISLAND_MAP_PREVIEW; return typeof f === "string" && Object.prototype.hasOwnProperty.call(PREVIEW_FLAGS, f) ? PREVIEW_FLAGS[f] : null; }
   function previewAsked() { return previewMode() !== null; }
   function decodeMap(M) {
@@ -549,12 +549,13 @@
         only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "reserve", "encloses", "room", "art", "compound"]);
         if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
         // a building (B3c1) draws itself (art: the only kind so far is "placeholder"; the art stage adds real sprites) and may
-        // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in. nothing else
-        // has a room or a compound, and nothing else has art the game can draw yet
+        // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in, and a fence
+        // (B3d1). nothing else has a room or a compound, and nothing else has art the game can draw yet
         if (r.room !== undefined && (r.kind !== "building" || ROOM_IDS.indexOf(r.room) < 0)) bad(f + ".room " + JSON.stringify(r.room) + (r.kind !== "building" ? ": only a building has a room" : " isn't one of the game's rooms, " + ROOM_IDS.join(", ")));
-        if (r.art !== undefined && (ART_ON.indexOf(r.kind) < 0 || ART_KINDS.indexOf(r.art) < 0)) bad(f + ".art " + JSON.stringify(r.art) + (ART_ON.indexOf(r.kind) < 0 ? ": only a building or a wall has art the game draws so far" : " isn't one of " + ART_KINDS.join(", ")));
+        if (r.art !== undefined && (ART_ON.indexOf(r.kind) < 0 || ART_KINDS.indexOf(r.art) < 0)) bad(f + ".art " + JSON.stringify(r.art) + (ART_ON.indexOf(r.kind) < 0 ? ": only a building, a wall or a fence has art the game draws so far" : " isn't one of " + ART_KINDS.join(", ")));
         if (r.kind === "building" && r.art === undefined) bad(f + " is a building with no art: a building draws itself (art \"placeholder\" until the art stage)");
         if (r.kind === "wall" && r.art === undefined) bad(f + " is a wall with no art: a wall draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
+        if (r.kind === "fence" && r.art === undefined) bad(f + " is a fence with no art: a fence draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
         if (r.compound !== undefined && (r.kind !== "wall" || typeof r.compound !== "string" || !ID.test(r.compound))) bad(f + ".compound " + JSON.stringify(r.compound) + (r.kind !== "wall" ? ": only a wall walls in a compound" : " must be a compound id"));
         var drawn = arr(r.drawnPxBoxes, f + ".drawnPxBoxes").map(function (b, j) { return pxBox(b, f + ".drawnPxBoxes[" + j + "]"); });
         if (!drawn.length) bad(f + " draws nothing (drawnPxBoxes is empty)");
@@ -577,14 +578,24 @@
         });
         if (r.kind === "building") building(r, f, drawn);
         if (r.kind === "wall") wallShape(r, f, drawn);
+        if (r.kind === "fence") fenceShape(r, f, drawn);
         return { r: r, inDrawn: inDrawn };
       });
       /* a wall's shape (B3c3): placeholder art is one opaque tile of wall on every solid tile and nowhere else (its drawn
          boxes are its tiles, one each, and nothing more: what looks solid is exactly what blocks), it stops no feet by the
-         pixel, and its tiles and openings (gapTiles) make one connected line, so every opening in it is an authored one */
-      function wallShape(r, f, drawn) {
-        if (!r.tiles.length) bad(f + " is a wall with no solid tiles");
-        if (r.footPxBoxes.length) bad(f + " is a wall with foot boxes: a wall blocks whole tiles");
+         pixel, and its tiles and openings (gapTiles) make one connected line, so every opening in it is an authored one.
+         a fence's (B3d1) is the same shape (what: "fence"), and one with no openings must say it closes ground in (encloses),
+         one with openings must not: the safe-ground flood then finds its inside cut off exactly when it says so */
+      function fenceShape(r, f, drawn) {
+        wallShape(r, f, drawn, "fence");
+        var ng = (r.gapTiles || []).length;
+        if (!ng && r.encloses !== true) bad(f + " is a fence with no openings, so it closes its ground in: it must say so (encloses)");
+        if (ng && r.encloses) bad(f + " is a fence with " + ng + " opening(s), so it doesn't close its ground in (encloses must be left out)");
+      }
+      function wallShape(r, f, drawn, what) {
+        what = what || "wall";
+        if (!r.tiles.length) bad(f + " is a " + what + " with no solid tiles");
+        if (r.footPxBoxes.length) bad(f + " is a " + what + " with foot boxes: a " + what + " blocks whole tiles");
         var own = {}, gaps = r.gapTiles || [];
         r.tiles.forEach(function (p) { own[p[1] * w + p[0]] = 1; });
         var boxes = {}; drawn.forEach(function (b) {
@@ -722,7 +733,7 @@
     HOME2_RECORDS.forEach(function (q) {
       var miss = q[1].filter(function (id) {
         var r = recs.filter(function (x) { return x.id === id && x.kind === q[0]; })[0];
-        return !r || (q[0] === "building" && (!r.doorTiles.length || !r.room || !r.art)) || (q[0] === "wall" && !r.art) || (q[0] === "fence" && !r.encloses);
+        return !r || (q[0] === "building" && (!r.doorTiles.length || !r.room || !r.art)) || (q[0] === "wall" && !r.art) || (q[0] === "fence" && (!r.encloses || !r.art));
       });
       if (miss.length) out.push(q[2] + ": " + miss.join(", "));
     });
@@ -868,24 +879,59 @@
      decoder has checked that the art covers every solid tile and nothing else, so what looks solid is exactly what
      blocks. an opening is a gap in the wall, as format 1's compound gate is: nothing opens, closes or locks. format 1's
      own walls (wall, drawWall) are unchanged */
-  var WALLS = [], WALL_PIECES = [], WALLAT = null;
-  (MAP.contentRecords || []).forEach(function (r) {
-    if (r.kind !== "wall" || r.art !== "placeholder") return;
-    if (!WALLAT) WALLAT = new Int32Array(MW * MH);
-    var own = {}, gap = {}, bx0 = 1e9, by0 = 1e9, wl = { id: r.id, compound: r.compound || null, gaps: (r.gapTiles || []).map(function (p) { return p.slice(); }), pieces: [] };
+  /* a ring's pieces, shared by the walls and (B3d1) the fences: one per solid tile of the record, with its neighbours in
+     the same record (n, s, e, w), the openings beside it (gap: north, east, south, west), its run's direction (dir: "h"
+     east-west, "v" north-south, "x" where they meet) and whether its south face shows (front: no tile of it below).
+     kindOf(pc, has, dx, dy) names the piece (pc.kind) and may mark more on it (pc.mark, drawn into its art); dx, dy are its
+     place from the record's top-left. at: the lookup grid, pieces: the list it goes in */
+  function ringPieces(r, ring, at, pieces, kindOf) {
+    var own = {}, gap = {}, bx0 = 1e9, by0 = 1e9;
     r.tiles.forEach(function (p) { own[p[1] * MW + p[0]] = 1; bx0 = Math.min(bx0, p[0]); by0 = Math.min(by0, p[1]); });
-    wl.gaps.forEach(function (p) { gap[p[1] * MW + p[0]] = 1; });
+    ring.gaps.forEach(function (p) { gap[p[1] * MW + p[0]] = 1; });
+    function has(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH && !!own[y * MW + x]; }
     r.tiles.forEach(function (p) {
       var x = p[0], y = p[1];
       function o(set, dx, dy) { var nx = x + dx, ny = y + dy; return nx >= 0 && ny >= 0 && nx < MW && ny < MH && !!set[ny * MW + nx]; }
       var n = o(own, 0, -1), s = o(own, 0, 1), e = o(own, 1, 0), w = o(own, -1, 0), g = [o(gap, 0, -1), o(gap, 1, 0), o(gap, 0, 1), o(gap, -1, 0)];
       var dir = (e || w) && !(n || s) ? "h" : (n || s) && !(e || w) ? "v" : "x";
-      var kind = g.some(Boolean) ? "post" : dir === "x" ? (n || s || e || w ? "corner" : "post") : (dir === "h" ? x - bx0 : y - by0) % 5 ? "run" : "pier";
-      var pc = { x: x, y: y, wall: wl, kind: kind, dir: dir, front: !s, n: n, s: s, e: e, w: w, gap: g, at: null };
-      pc.sig = [r.id, kind, dir, pc.front ? 1 : 0, n ? 1 : 0, s ? 1 : 0, e ? 1 : 0, w ? 1 : 0, g.map(Number).join("")].join(":");
-      WALLAT[y * MW + x] = WALL_PIECES.push(pc); wl.pieces.push(pc);
+      var pc = { x: x, y: y, kind: null, dir: dir, front: !s, n: n, s: s, e: e, w: w, gap: g, at: null, mark: "" };
+      kindOf(pc, has, x - bx0, y - by0);
+      pc.sig = [r.id, pc.kind, dir, pc.front ? 1 : 0, n ? 1 : 0, s ? 1 : 0, e ? 1 : 0, w ? 1 : 0, g.map(Number).join("")].join(":") + (pc.mark ? ":" + pc.mark : "");
+      at[y * MW + x] = pieces.push(pc); ring.pieces.push(pc);
+    });
+  }
+  var WALLS = [], WALL_PIECES = [], WALLAT = null;
+  (MAP.contentRecords || []).forEach(function (r) {
+    if (r.kind !== "wall" || r.art !== "placeholder") return;
+    if (!WALLAT) WALLAT = new Int32Array(MW * MH);
+    var wl = { id: r.id, compound: r.compound || null, gaps: (r.gapTiles || []).map(function (p) { return p.slice(); }), pieces: [] };
+    ringPieces(r, wl, WALLAT, WALL_PIECES, function (pc, has, dx, dy) {
+      pc.wall = wl;
+      pc.kind = pc.gap.some(Boolean) ? "post" : pc.dir === "x" ? (pc.n || pc.s || pc.e || pc.w ? "corner" : "post") : (pc.dir === "h" ? dx : dy) % 5 ? "run" : "pier";
     });
     WALLS.push(wl);
+  });
+  /* MAP-B's paddock fences (B3d1): each fence record of the content layer (the ring round a contained B1e habitat; the
+     decoder has checked that its art is one tile on every solid tile and nowhere else), one piece per solid tile, the
+     same way as the walls: a run, a corner, or a post beside an opening; the middle tile of each east-west run carries a
+     warning sign (mark "sign"). format 1's paddock fences (fence, drawFence) are unchanged. a fence has no interaction
+     here yet: format 1's [E] at a fence names the paddock and its animals, and waits for them (a later batch) */
+  var FENCES = [], FENCE_PIECES = [], FENCEAT = null;
+  (MAP.contentRecords || []).forEach(function (r) {
+    if (r.kind !== "fence" || r.art !== "placeholder") return;
+    if (!FENCEAT) FENCEAT = new Int32Array(MW * MH);
+    var fc = { id: r.id, encloses: !!r.encloses, gaps: (r.gapTiles || []).map(function (p) { return p.slice(); }), pieces: [] };
+    ringPieces(r, fc, FENCEAT, FENCE_PIECES, function (pc, has) {
+      pc.fence = fc;
+      pc.kind = pc.gap.some(Boolean) ? "post" : pc.dir === "x" ? "corner" : "run";
+      if (pc.kind === "run" && pc.dir === "h") {                                  // the run's ends: the tiles before the next corner
+        var xa = pc.x, xb = pc.x;
+        while (has(xa - 1, pc.y) && !has(xa - 1, pc.y - 1) && !has(xa - 1, pc.y + 1)) xa--;
+        while (has(xb + 1, pc.y) && !has(xb + 1, pc.y - 1) && !has(xb + 1, pc.y + 1)) xb++;
+        if (pc.x === Math.floor((xa + xb) / 2)) pc.mark = "sign";
+      }
+    });
+    FENCES.push(fc);
   });
 
   // height: which terrace each tile of ground (and water on the ground) sits on
@@ -5285,6 +5331,72 @@
     }
     if (DEBUG) { WALL_MS += performance.now() - t0; WALL_N++; }
   }
+  /* the paddock fences' placeholder art (B3d1): one opaque 16 x 16 piece per fence tile, drawn once per kind of piece and
+     then copied, like the walls'. Format 1's electric paddock fence on a concrete footing, which is what makes the whole
+     tile read as fence: an east-west run is the fence seen face on (a top rail, chain-link mesh between steel posts, two
+     live strands, a bottom rail) standing on the footing, whose south face shows below it; a north-south run is the
+     footing seen from above, its posts and mesh edge on along its middle; a corner is a heavier post where the runs meet,
+     with the footing turning under it. The posts are format 1's steel with its yellow caps, the warning sign its yellow
+     and black. Seams fall on world pixels (posts every tile, the mesh on a 4 px lattice), so runs join without a break and
+     the footing turns the corners unbroken. At night the strands glow as format 1's wires do, and now and then one sparks */
+  var FENCE_STYLE = {
+    "raptor-yard": { conc: ["#3b3d3a", "#5d605b", "#80837d", "#a3a69f"], steel: ["#25292d", "#454b51", "#6f777e", "#a4acb2"], mesh: ["#2f363b", "#5f686f"],
+                     cap: ["#e0b83a", "#a8862a"], wire: "#9aa1a7", glow: "rgba(140,230,255,.75)", sign: ["#1a1a1a", "#f2c230"], edge: "#202325" }
+  };
+  FENCE_STYLE.other = FENCE_STYLE["raptor-yard"];
+  var FENCE_ART = {}, FENCE_MS = 0, FENCE_N = 0, FENCE_WIRES = [3, 7];                    // the live strands' rows in a piece
+  // the columns of a piece where the fence is seen face on (its east-west panel), as [x0, x1] spans: the strands run there
+  function fenceFace(pc) { return pc.dir === "h" ? [[0, 15]] : pc.dir === "v" ? [] : [pc.w ? [0, 5] : null, pc.e ? [11, 15] : null].filter(Boolean); }
+  function fenceArt(pc) {
+    if (FENCE_ART[pc.sig]) return FENCE_ART[pc.sig];
+    var P = FENCE_STYLE[pc.fence.id] || FENCE_STYLE.other, c = mkCanvas(); c.width = T; c.height = T;
+    var g = c.getContext("2d"), x, y;
+    function r(x0, y0, ww, hh, col) { g.fillStyle = col; g.fillRect(x0, y0, ww, hh); }
+    // the footing under all of it, seen from above, outlined where the fence line ends; its south face where nothing of it is below
+    r(0, 0, T, T, P.conc[2]);
+    if (pc.dir !== "h") {
+      if (!pc.w) { r(0, 0, 1, T, P.edge); r(1, 0, 1, T, P.conc[3]); }
+      if (!pc.e) { r(T - 1, 0, 1, T, P.edge); r(T - 2, 0, 1, T, P.conc[1]); }
+      if (!pc.n) r(0, 0, T, 1, P.edge);
+      if (pc.dir === "v") r(2, T - 1, T - 4, 1, P.conc[1]);                                     // the joint between two lengths of footing
+    }
+    if (pc.front) { r(0, 13, T, 1, P.conc[3]); r(0, 14, T, 1, P.conc[1]); r(0, 15, T, 1, P.conc[0]); }
+    // the fence face on: rails, the chain-link mesh on a 4 px lattice, the two live strands, standing on the footing (row 12)
+    function face(x0, x1) {
+      r(x0, 0, x1 - x0 + 1, 1, P.steel[2]); r(x0, 1, x1 - x0 + 1, 1, P.steel[1]); r(x0, 11, x1 - x0 + 1, 1, P.steel[1]);
+      for (y = 2; y <= 10; y++) for (x = x0; x <= x1; x++) r(x, y, 1, 1, (x + y) % 4 === 0 || (x - y + 16) % 4 === 0 ? P.mesh[1] : P.mesh[0]);
+      FENCE_WIRES.forEach(function (wy) { r(x0, wy, x1 - x0 + 1, 1, P.wire); });
+      r(x0, 12, x1 - x0 + 1, 1, P.conc[1]);                                                    // the panel's shadow on the footing
+    }
+    fenceFace(pc).forEach(function (s0) { face(s0[0], s0[1]); });
+    // the mesh edge on, joining this post to the next one south along a north-south line
+    if (pc.s) { r(7, 12, 2, 4, P.steel[1]); r(7, 12, 1, 4, P.mesh[1]); }
+    // a post: rising from the footing to its yellow cap; a corner's or an opening's is heavier
+    if (pc.kind === "run") { r(7, 0, 3, 12, P.steel[2]); r(7, 0, 1, 12, P.steel[3]); r(9, 0, 1, 12, P.steel[0]); r(7, 0, 3, 1, P.cap[0]); r(10, 11, 1, 1, P.conc[1]); }
+    else { r(6, 0, 5, 13, P.steel[2]); r(6, 0, 1, 13, P.steel[3]); r(10, 0, 1, 13, P.steel[0]); r(6, 0, 5, 1, P.cap[0]); r(6, 1, 5, 1, P.cap[1]); r(11, 12, 1, 1, P.conc[1]); }
+    // the warning sign on the middle of an east-west run, left of its post (format 1's yellow and black, with a bolt)
+    if (pc.mark === "sign") {
+      r(1, 3, 6, 6, P.sign[0]); r(2, 4, 4, 4, P.sign[1]);
+      r(4, 4, 1, 1, P.sign[0]); r(3, 5, 2, 1, P.sign[0]); r(3, 6, 1, 1, P.sign[0]);
+    }
+    FENCE_ART[pc.sig] = c;
+    return c;
+  }
+  function drawFencePiece(pc) {
+    var t0 = DEBUG ? performance.now() : 0, a = fenceArt(pc), X = pc.x * T, Y = pc.y * T;
+    ctx.drawImage(skin(a), X, Y);
+    pc.at = [X, Y];
+    if (sky.dark > 0.4) {                                                                 // the live strands glow at night, as format 1's wires do
+      var P = FENCE_STYLE[pc.fence.id] || FENCE_STYLE.other;
+      ctx.fillStyle = P.glow;
+      fenceFace(pc).forEach(function (s0) { FENCE_WIRES.forEach(function (wy) { ctx.fillRect(X + s0[0], Y + wy, s0[1] - s0[0] + 1, 1); }); });
+      if (pc.s) ctx.fillRect(X + 7, Y + 12, 1, 4);
+    }
+    if (pc.e && pc.dir !== "v" && hash(pc.x * 5 + Math.floor(t * 3), pc.y) < 0.02) {          // a spark now and then, as on format 1's fence
+      ctx.fillStyle = "#e8fbff"; ctx.fillRect(X + 11 + ((hash(pc.x, Math.floor(t * 9)) * 4) | 0), Y + FENCE_WIRES[1], 2, 1); light(X + 12, Y + FENCE_WIRES[1], 8, "180,240,255", 0.8);
+    }
+    if (DEBUG) { FENCE_MS += performance.now() - t0; FENCE_N++; }
+  }
   function drawWaterfall(WF) {
     // a white ribbon off the plateau edge with streaks falling through it, and spray at the foot
     var x0 = Math.round(WF.x - 9), y0 = Math.round(WF.y), hgt = 22;
@@ -5504,6 +5616,7 @@
       if (fence[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawFence(a, b); } }); })(fx, fy);
       if (wall[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawWall(a, b); } }); })(fx, fy);
       if (WALLAT && fx >= 0 && fy >= 0 && fx < MW && fy < MH && WALLAT[fy * MW + fx]) (function (pc) { list.push({ y: (pc.y + 1) * T - 2, f: function () { drawWallPiece(pc); } }); })(WALL_PIECES[WALLAT[fy * MW + fx] - 1]);   // B3c3
+      if (FENCEAT && fx >= 0 && fy >= 0 && fx < MW && fy < MH && FENCEAT[fy * MW + fx]) (function (pc) { list.push({ y: (pc.y + 1) * T - 2, f: function () { drawFencePiece(pc); } }); })(FENCE_PIECES[FENCEAT[fy * MW + fx] - 1]);   // B3d1
     }
     props.forEach(function (p) {
       if (p.tx < x0 - 2 || p.tx > x1 + 2 || p.ty < y0 - 1 || p.ty > y1 + 4) return;
@@ -6077,6 +6190,10 @@
                // the walls (B3c3): each wall record's tiles, its openings, its pieces by kind, and what drawing them has cost
                walls: WALLS.map(function (wl) { var kinds = {}; wl.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; }); return { id: wl.id, compound: wl.compound, tiles: wl.pieces.length, gaps: wl.gaps, kinds: kinds }; }),
                wallMs: WALL_MS, wallDraws: WALL_N,
+               // the paddock fences (B3d1): each fence record's tiles, its openings, whether it closes its ground in, its pieces by
+               // kind, its warning signs, and what drawing them has cost
+               fences: FENCES.map(function (fc) { var kinds = {}, signs = []; fc.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; if (pc.mark === "sign") signs.push([pc.x, pc.y]); }); return { id: fc.id, encloses: fc.encloses, tiles: fc.pieces.length, gaps: fc.gaps, kinds: kinds, signs: signs }; }),
+               fenceMs: FENCE_MS, fenceDraws: FENCE_N,
                systems: { critters: critters.length, bots: bots.length, drones: drones.length, birds: birds.length, koi: koi.length, stations: STATIONS.length, buildings: BUILDINGS.length, car: !!car, rex: !!rex, gate: !!GATE, volcano: !!volc, falls: FALLS.length, arena: !!ARENA } };
     },
     // a content building's placeholder art (B3c1): its size, how many of its pixels are fully opaque, and the picture
@@ -6097,6 +6214,17 @@
         for (var q = 3; q < d.length; q += 4) if (d[q] === 255) n++;
         if (!png[pc.sig]) png[pc.sig] = a.toDataURL();
         return { tile: [pc.x, pc.y], kind: pc.kind, dir: pc.dir, front: pc.front, w: a.width, h: a.height, opaque: n, at: pc.at ? pc.at.slice() : null, sig: pc.sig };
+      }), png: png };
+    },
+    // a paddock fence's placeholder art (B3d1), piece by piece, as wallArt gives a wall's (mark: "sign" where it carries one)
+    fenceArt: function (id) {
+      var wl = FENCES.filter(function (q) { return q.id === id; })[0]; if (!wl) return null;
+      var png = {};
+      return { id: wl.id, gaps: wl.gaps, pieces: wl.pieces.map(function (pc) {
+        var a = fenceArt(pc), d = a.getContext("2d").getImageData(0, 0, a.width, a.height).data, n = 0;
+        for (var q = 3; q < d.length; q += 4) if (d[q] === 255) n++;
+        if (!png[pc.sig]) png[pc.sig] = a.toDataURL();
+        return { tile: [pc.x, pc.y], kind: pc.kind, dir: pc.dir, front: pc.front, mark: pc.mark, w: a.width, h: a.height, opaque: n, at: pc.at ? pc.at.slice() : null, sig: pc.sig };
       }), png: png };
     },
     // the room pi is in: its name, size, door and items (what each says), as the game holds them

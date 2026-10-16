@@ -26,6 +26,10 @@
    the live loop, and its review screenshots into tools/out/mapb/b3c3/ (with a labelled diagnostic overlay the test draws
    over the page, never the game).
 
+   B3d1 (tools/mapb-fences.mjs tests the raptor yard's fence, the first paddock fence): this suite expects that record too,
+   and its enclosed inside (42 tiles) as the only ground the content cuts off; MAPB_SHOTS sends the review screenshots
+   elsewhere, so a later batch's regression run leaves B3c3's in place.
+
    1. Node, the content and its compiler:
       - the tracked content file is the current compile, bound to the current terrain, and holds exactly the two buildings;
       - each record against the approved coordinates and the B1e source: its reserve, its footprint (every tile solid),
@@ -69,7 +73,9 @@ import { resolveContent, contentProblems, compileContent, contentLayers, seriali
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(ROOT, "tools/out/mapb/b3c3");
+// its review screenshots go to tools/out/mapb/b3c3/ (B3c3's); MAPB_SHOTS names another folder under tools/out/ for a later
+// batch's regression run, so B3c3's approved evidence isn't overwritten
+const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3c3");
 const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
 const T = 16;
 let fails = 0; const blocked = [], perf = [];
@@ -119,7 +125,7 @@ const built = await buildContentText(REAL, contentSha256), again = await buildCo
 check("node", "the tracked content file is the current compile, bound to the staged terrain; two compiles give the same bytes", readFileSync(CONTENT_STAGED, "utf8") === built.text && built.text === again.text && built.text.includes(`"terrainSha256": "${t.sourceSha256}"`) && t.current,
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records;
-check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker) and B3c3's compound wall (nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID).join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall and B3d1's raptor-yard fence (tools/mapb-fences.mjs tests it; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
 check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const LAYER = contentLayers(RECS, W, H);
 for (const id of IDS) {
@@ -207,10 +213,11 @@ for (const id of IDS) {
     kitBad.length === 0, kitBad.length ? kitBad.map((q) => q.join(" ")).join("; ") : `${KIT.length + 1} places clear`);
   const shortest = KIT.filter(([, x, y]) => onRoute(x, y));
   check("node", "and none of them is on a shortest walk from any gate to the bunker's door (the required access stays clear)", shortest.length === 0, shortest.map((q) => q.join(" ")).join("; ") || "none on the way");
-  // no new disconnected ground: everything the spawn reached on the terrain alone it still reaches, unless it's now solid
-  const before = bfs2([79, 79], (i) => m.coll[i] !== 0), lost = []; let interior = 0;
-  for (let i = 0; i < W * H; i++) { if (before[i] >= 0 && sp[i] < 0 && !LAYER.tiles[i]) lost.push([i % W, (i / W) | 0]); const x = i % W, y = (i / W) | 0; if (inComp(x, y) && !onRing(x, y) && sp[i] >= 0) interior++; }
-  check("node", "no ground cut off: every tile the spawn reached on the terrain alone is still reached, unless content now stands on it (the compound's whole open interior is reached through the entrance)", lost.length === 0 && interior > 100, `${lost.length} cut off${lost.length ? ": " + lost.slice(0, 6).join(" ") : ""}; ${interior} interior tiles reached`);
+  // no new disconnected ground: everything the spawn reached on the terrain alone it still reaches, unless it's now solid, or (B3d1)
+  // it is the inside of a record that says it closes ground in (encloses: the raptor yard's 42 tiles, exactly, and nothing else)
+  const before = bfs2([79, 79], (i) => m.coll[i] !== 0), lost = [], closed = new Set(RECS.filter((r) => r.encloses).flatMap((r) => r.inner.map(([x, y]) => y * W + x))); let interior = 0, closedLost = 0;
+  for (let i = 0; i < W * H; i++) { if (before[i] >= 0 && sp[i] < 0 && !LAYER.tiles[i]) { if (closed.has(i)) closedLost++; else lost.push([i % W, (i / W) | 0]); } const x = i % W, y = (i / W) | 0; if (inComp(x, y) && !onRing(x, y) && sp[i] >= 0) interior++; }
+  check("node", "no ground cut off: every tile the spawn reached on the terrain alone is still reached, unless content now stands on it or it is the inside of a record that encloses it (B3d1: the raptor yard's 42, all of them); the compound's whole open interior is reached through the entrance", lost.length === 0 && closedLost === 42 && closed.size === 42 && interior > 100, `${lost.length} cut off${lost.length ? ": " + lost.slice(0, 6).join(" ") : ""}; ${closedLost} enclosed on purpose (of ${closed.size}); ${interior} compound interior tiles reached`);
   // the outside of each side: a walkable lane along it, reached from the spawn
   const lane = { north: [], west: [], south: [], east: [] };
   for (let x = 108; x <= 125; x++) lane.north.push([x, 75]);
@@ -254,7 +261,8 @@ const WR = (o) => RR(o, WALL_ID);
 const WBAD = [
   ["a wall with no art", "walls", (o) => { delete WR(o).art; }],
   ["an art kind the game doesn't draw, on the wall", "schema", (o) => { WR(o).art = "sprite"; }],
-  ["art on a fence", "schema", (o) => { o.records.push({ id: "syn-fence", kind: "fence", art: "placeholder", solid: { ringOfBox: { x0: 30, y0: 88, x1: 36, y1: 93 } }, encloses: true }); }],
+  // (B3d1: a fence has art now; art on a prop still isn't allowed)
+  ["art on a prop", "schema", (o) => { o.records.push({ id: "syn-crate", kind: "prop", art: "placeholder", drawnPxBoxes: [pxOf({ x0: 33, y0: 90, x1: 33, y1: 90 })], solid: { tiles: [[33, 90]] } }); }],
   ["the wall's tiles listed instead of a ring (no compound box, no openings)", "walls", (o) => { const w = WR(o); w.solid = { tiles: RING.map((p) => p.slice()) }; w.drawnPxBoxes = RING.map(([x, y]) => pxOf({ x0: x, y0: y, x1: x, y1: y })); }, /one ring \(ringOfBox or ringOfHabitat\) and nothing else/],
   ["a drawn box of its own besides its tiles", "walls", (o) => { WR(o).drawnPxBoxes = [pxOf({ x0: 109, y0: 75, x1: 124, y1: 76 })]; }, /no drawn box of its own/],
   ["a foot box besides its ring", "walls", (o) => { WR(o).solid.footPxBoxes = [{ px0: 111 * T + 4, py0: 78 * T + 4, px1: 111 * T + 8, py1: 78 * T + 8 }]; }],
@@ -297,7 +305,7 @@ const DR = (c, id) => c.records.find((r) => r.id === id);
 const REFUSE = [
   ["a building with no art", (c) => { delete DR(c, "visitor").art; }, /^content record visitor is a building with no art/],
   ["an art kind the game doesn't draw", (c) => { DR(c, "visitor").art = "sprite"; }, /^content record visitor\.art "sprite" isn't one of placeholder$/],
-  ["art on something that isn't a building or a wall", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot\.art "placeholder": only a building or a wall has art/],
+  ["art on something that isn't a building, a wall or a fence", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot\.art "placeholder": only a building, a wall or a fence has art/],
   ["a room on something that isn't a building", (c) => { const r = DR(c, "depot"); r.kind = "station"; delete r.art; }, /^content record depot\.room "depot": only a building has a room$/],
   ["a room the game doesn't have", (c) => { DR(c, "visitor").room = "lobby"; }, /^content record visitor\.room "lobby" isn't one of the game's rooms/],
   ["two doors", (c) => { DR(c, "visitor").doorTiles.push([85, 74]); }, /^content record visitor opens into a room, so it has exactly one door, not 2$/],
@@ -309,7 +317,7 @@ const REFUSE = [
   ["a doorway on foot-blocking pixels", (c) => { c.records.push({ id: "syn-wet-door", kind: "building", drawnPxBoxes: FOOTDOOR.drawnPxBoxes, tiles: [[30, 98], [31, 98], [32, 98], [30, 99], [31, 99], [32, 99]], footPxBoxes: [], doorTiles: [[31, 100]], art: "placeholder", room: "bunker" }); c.solidTiles += 6; }, /^content record syn-wet-door: its doorway \(504,1606\) is on the terrain's foot-blocking pixels/],
   // B3c3: the wall
   ["a wall with no art", (c) => { delete DR(c, WALL_ID).art; }, /^content record bunker-compound is a wall with no art/],
-  ["art on a fence", (c) => { const r = DR(c, WALL_ID); r.kind = "fence"; delete r.compound; }, /^content record bunker-compound\.art "placeholder": only a building or a wall has art/],
+  ["art on a gate (B3d1: a fence has art now, a gate doesn't yet)", (c) => { const r = DR(c, WALL_ID); r.kind = "gate"; delete r.compound; }, /^content record bunker-compound\.art "placeholder": only a building, a wall or a fence has art/],
   ["a compound on something that isn't a wall", (c) => { DR(c, "depot").compound = WALL_ID; }, /^content record depot\.compound "bunker-compound": only a wall walls in a compound$/],
   ["a wall tile with no art over it", (c) => { const r = DR(c, WALL_ID); r.drawnPxBoxes = r.drawnPxBoxes.filter((b) => !(b.px0 === 116 * T && b.py0 === 76 * T)); }, /no invisible collision/],
   ["wall art on a tile it doesn't block", (c) => { DR(c, WALL_ID).drawnPxBoxes.push(pxOf({ x0: 110, y0: 77, x1: 110, y1: 77 })); }, /its placeholder art is one tile on each of its solid tiles and nowhere else/],
@@ -467,7 +475,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     // collision: exactly the footprints, on top of the terrain's
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the three footprints and the compound's wall (101 + 53 = 154 tiles), the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 154);
+    check(name, "collision: the content layer is exactly the three footprints, the compound's wall and (B3d1) the raptor yard's fence (101 + 53 + 30 = 184 tiles), the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 184);
     for (const id of IDS) {
       const A = APPROVED[id], b = pxOf(A.box);
       const edge = await cp.I(([b]) => {

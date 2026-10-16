@@ -31,7 +31,15 @@
      closes or locks): 109,84 and 109,85 are the ops road's paving, 109,86 is grass. The posts either side of it stand
      on the wall's own tiles 109,83 and 109,87.
    - Nothing else of the compound yet: no outpost kit, no uplink, no lamps (B3a's proposed places for them, inside the
-     wall, stay clear). */
+     wall, stay clear).
+
+   B3d1: the first paddock fence, the raptor yard's (format 1's raptor pen), on the B1e habitat raptor-yard exactly.
+   - The fence: raptor-yard, the ring of the habitat's box 119,10 to 127,17 (9 x 8): 30 solid tiles, each drawn
+     (placeholder art, one opaque tile of fence on every solid tile and nowhere else). The rule checks it is a contained
+     B1e habitat's own ring, named for it.
+   - No openings: format 1's raptor pen is a closed ring with no gate, and B1e gives the yard none. Its inside (120,11
+     to 126,16, 42 tiles) is closed in on purpose (encloses), so it is not safe ground: no landing, no saved position.
+   - Nothing else of the yard yet: no raptors, roam area, welder patrol, fence words or roof netting (later batches). */
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -62,6 +70,10 @@ export default {
     {
       id: "bunker-compound", kind: "wall", compound: "bunker-compound", art: "placeholder",
       solid: { ringOfBox: { x0: 109, y0: 76, x1: 124, y1: 89, gapTiles: [[109, 84], [109, 85], [109, 86]] } }
+    },
+    {
+      id: "raptor-yard", kind: "fence", art: "placeholder", encloses: true,
+      solid: { ringOfHabitat: { habitat: "raptor-yard" } }
     }
   ]
 };
