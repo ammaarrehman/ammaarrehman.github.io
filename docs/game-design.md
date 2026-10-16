@@ -467,7 +467,7 @@ MAP-B B3c1, preview modes and the first two buildings (2026-10-14; staged only, 
   - real walls, fences and props come only with visible art and matching collision;
   - the 8 unassigned building footprints stay reserved.
 
-MAP-B B3c2, the outpost bunker (2026-10-15; staged only, not deployed; built for Ammaar's review, not yet approved):
+MAP-B B3c2, the outpost bunker (2026-10-15; staged only, not deployed; approved by Ammaar and committed as `9e9a634`):
 - Content (`tools/maps/home.content.mjs`), one more building record, the same way as B3c1's:
   - `bunker`: reserve `bunker`, 113,79 to 119,82 (7 x 4, 28 tiles), the whole footprint solid, placeholder art over it
     exactly. Door 116,83, on grass: the B3a doorstep (the middle of the front) and the B1e log site `rack-desk-bunker`.
@@ -503,6 +503,11 @@ MAP-B B3c2, the outpost bunker (2026-10-15; staged only, not deployed; built for
   its four walls, phones at 390 x 844 and 375 x 667, the live-loop frame work along all three, and two more code
   mutations (the room's stations, the log). `tools/mapb-content.mjs` expects the three buildings; the completeness list
   no longer names the buildings (all three are there) and still names everything else.
+- Status: complete. All three format-1 buildings and their interiors are migrated to the content preview; the compound's
+  walls, fences and gates are not implemented yet. B3c3 is next. MAP-B stays preview-only (loopback, no storage) and
+  production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`). The `doors.mjs` timing flake (production)
+  failed once in B3c2's gate run and reproduced on a clean HEAD; it is recorded as a failure in `handoff.md`, budget
+  unchanged.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
