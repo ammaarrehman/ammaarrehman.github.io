@@ -509,6 +509,97 @@ MAP-B B3c2, the outpost bunker (2026-10-15; staged only, not deployed; approved 
   failed once in B3c2's gate run and reproduced on a clean HEAD; it is recorded as a failure in `handoff.md`, budget
   unchanged.
 
+
+MAP-B B3c3, the bunker compound's wall and its west entrance (2026-10-16; staged only, not deployed; complete, visually
+and architecturally approved by Ammaar, approved for commit with two final-run failures documented, committed as "Map:
+add MAP-B outpost compound perimeter (B3c3)"):
+- Format 1, audited first: the outpost compound (17,57 to 28,65) is a ring of sandbag wall tiles (`wall`, drawn per tile
+  by `drawWall`, solid in `coll`, skipped on path tiles) with its gate on the east wall: three rows left open. The gate is
+  only a gap: no gate object, nothing that opens, closes or locks, no prompt, no state and no save field. Walls have no
+  interaction (only the paddock fences say something). B3c3 keeps exactly that behaviour and invents no mechanic.
+- Content (`tools/maps/home.content.mjs`), one wall record:
+  - `bunker-compound`: kind wall, `compound: "bunker-compound"`, art placeholder, solid the ring of the B1e compound box
+    109,76 to 124,89 (16 x 14) less its three gateTiles 109,84, 109,85 and 109,86: 53 solid tiles, every one on open
+    terrain (the south-east corner 124,89 is shore sand with 40 foot-blocking pixels, as B3a recorded). In all: 4 records,
+    154 solid tiles, 0 foot pixels.
+  - The west entrance: the three gate tiles, 48 px, open ground with no foot-blocking pixel (109,84 and 109,85 are the
+    ops road's paving, 109,86 grass), straight through from 108 to 110 on each row. The posts either side stand on the
+    wall's own tiles 109,83 and 109,87, so they add no collision.
+  - Nothing else of the compound: no outpost kit, uplink, lamps, crew or drones. B3a's proposed places for the kit and
+    the uplink (and the uplink's stand 121,82) stay open, reachable ground inside, off every shortest walk from a gate to
+    the bunker's door.
+- Schema additions:
+  - `art` is allowed on a wall as well as a building (`ART_ON`); a wall must have it.
+  - `compound` (optional, on a wall only): the B1e walled compound it walls in.
+  - The compiled record of a ring now lists its openings, `gapTiles` (the game draws the posts beside them).
+  - A new compile rule, `walls`: the wall has art; its solid is one ring (ringOfBox or ringOfHabitat) and nothing else;
+    it has no drawn box of its own (its art is its tiles, which the compile adds); every opening is open ground (no
+    terrain flag, no content, no foot-blocking pixel), reachable from the spawn and never a corner; a wall naming a
+    compound is the ring of that compound's box with exactly its gateTiles as openings. Closing the entrance is caught by
+    the pockets rule.
+  - `decodeMap2` repeats it on its own (`wallShape`): art on every solid tile and nowhere else (one drawn box per tile,
+    exactly the tile), no foot boxes, openings walkable and not solid, and the tiles and openings one closed line (each
+    joins at least two others), so a tile dropped from the data is refused as a hole that isn't an opening.
+  - The completeness wall counts a compound wall only with its art; its list now names only the koi garden's wall.
+- Runtime (`js/world.js`):
+  - `WALLS`, `WALL_PIECES`, `WALLAT`: each wall record's tiles become pieces, chosen from the tile's neighbours in the
+    same record: an east-west or north-south run, a corner, a post beside an opening, or a pier every fifth tile along a
+    run; the south face shows where no wall tile stands below.
+  - Placeholder art: one opaque 16 x 16 piece per tile, drawn once per kind of piece (`wallArt`) and then blitted, in the
+    object layer, y-sorted like a building (its key the tile's bottom less 2), never on the ground canvas, so both painter
+    digests stay exact. The look is format 1's outpost in the bunker's palette: courses of sandbags lit on top and
+    shadowed underneath, concrete piers, concrete corner blocks, and concrete posts with hazard stripes facing the
+    opening and a small lamp, lit at night. Seams fall on world pixels, so runs join without a break.
+  - Collision is unchanged in kind: the wall's tiles are content collision, so movement, the planner, `STEPOK`, safe
+    ground, landing and hop-out already read them through the union. No new system flag: a wall's art comes from the
+    same record as its collision, so one can't be on without the other.
+  - `?debug=1`: `preview().walls` (each wall's tiles, openings and pieces by kind), `wallMs` and `wallDraws`, and
+    `wallArt(id)` (each piece's tile, kind, opaque pixels and where it was last drawn).
+- Tests: `tools/mapb-buildings.mjs` grows to cover the wall (the record against B1e and the brief, the closed and joined
+  ring, the entrance, the kit and uplink places, no ground cut off, the outside lanes; 14 malformed wall records and 10
+  decoder refusals; in Chromium and WebKit the collision pixel by pixel, the art, the art on screen against the terrain
+  preview, pushes from every side and into the corners, walks through each gate, across and round the compound, the
+  whole visit into the bunker and back out, a walk to a wall tile, trapped ground, the helicopter, phones tapping in
+  through the entrance, three code mutations, and the review screenshots in `tools/out/mapb/b3c3/`, with a labelled
+  diagnostic overlay drawn by the test only). `tools/mapb-content.mjs` gives its synthetic walled room art, expects the
+  four records and the koi garden's wall alone in the completeness list, and shows D1 alone on the fenced pen.
+- Found by the tests while building it:
+  - a hole in the wall's data wasn't refused at first (one connected line can still have a gap); the decoder now
+    checks that the line closes round;
+  - the outside of the compound isn't a full loop: the south-east corner meets the sea (124,90 and 125,89 are water), so
+    the south and east lanes are each reached from the spawn but don't join round that corner. The shore tile 125,88 is
+    the east lane's end: its middle is on the shore's foot-blocking pixels (pi can't stand there, before the wall or
+    after), and pi standing where feet can stand in it walks home.
+- Verification (final gate run, 2026-10-16): every gate passed with Firefox BLOCKED at launch (never counted as a pass):
+  mapb-buildings 379, mapb-content 143, mapb-runtime 220, mapb-decode 76, mapb-painter 49 (both locked digests exact),
+  map-parity 37/37 and b0-parity 21/21 identical in Chromium and WebKit, scenarios 98, ctf 250, map-decode 250, focus 16,
+  doors all under the unchanged 16 ms budget (closest: visitor cold out 15.6 ms), the deploy guard (8), the dry run (53
+  files, 41 references), deploy-args, html, CSpell (the same 19 words as HEAD) and `git diff --check`. Rerun before the
+  commit: mapb-buildings, mapb-content, the guard, the dry run and `git diff --check`. That rerun had two FAILURES, kept as
+  failures (not passes), which Ammaar accepted as documented qualifications:
+  - mapb-buildings, Chromium: the bunker's cold door exit took 16.1 ms (budget 16 ms, unchanged). In a comparison of 9
+    cold door sequences on each side, alternating, the B3c3 tree had no frame over 16 ms (worst 8.0 ms) and a clean
+    HEAD (`e4e68c2`, no wall) had one at 16.8 ms: the known intermittent door-timing flake, not caused by the wall.
+  - mapb-content, WebKit: the synthetic-content preview page didn't open within 60 s (no page error), so 13 checks
+    didn't run (130 ok, not 143). Two focused WebKit reruns passed (86 each). Its cause is unresolved (the machine was
+    loaded; Spotlight was indexing at about 210% CPU), so it is recorded as an open intermittent.
+  Evidence: `tools/out/mapb/b3c3/final/` and `tools/out/mapb/b3c3/doordiag/FINDINGS.md` (local).
+- Approved by Ammaar on review (2026-10-16): the compound overhead, the west entrance, the south-east shoreline corner,
+  the night view, the 390 px phone entrance and the diagnostic overlay. Locked: the wall's art and collision as built;
+  the entrance an open three-tile gap, as in format 1; the hazard-striped posts and their night lamps; the south-east
+  corner meeting the shore (B1 geography unchanged); no separate `SYS` switch for walls (art and collision stay coupled);
+  fence and park-gate art in their own batches; B3a's kit and uplink places kept clear; no lock, animated gate, security
+  system or new compound gameplay.
+- Status: complete. B3c3 implements the outpost's visible perimeter and its open west entrance. The three original
+  buildings and their interiors stay migrated. Still future work: the outpost kit, the uplink, NPCs, dinosaurs, the
+  paddock fences and the park gate's art. MAP-B stays preview-only (loopback, no storage); production is unchanged
+  (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing was deployed. No later B3 batch has begun. All three
+  buildings and the compound wall are done; the paddock fences, the park gate, the kit and the uplink are deferred.
+- For long test runs (recommendation only; the harness is unchanged): keep per-suite logs as each finishes, resume from
+  the gates already done after an interruption, use bounded timeouts and targeted reruns, keep the browser suites away
+  from heavy builds and indexing when possible, report assertion failures, time-budget failures, launch blocks and
+  timeouts as different things, and never let a passing rerun erase an earlier failure.
+
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

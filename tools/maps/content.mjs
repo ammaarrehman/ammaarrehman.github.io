@@ -32,8 +32,9 @@
        doorTiles: [[x, y], ...],         // optional: walkable tiles next to its solid, reachable from the spawn
        reserve: "footprint-id",          // optional: the B1e footprint it stands in (its solid must stay inside it)
        encloses: true,                   // optional: it may cut ground off (a paddock fence); nothing else may
-       art: "placeholder",               // a building's (B3c1, required on one): what the game draws over its drawn box
-       room: "visitor"                   // a building's, optional (B3c1): the game's room behind its one door
+       art: "placeholder",               // a building's or a wall's (B3c1, B3c3; required on each): what the game draws
+       room: "visitor",                  // a building's, optional (B3c1): the game's room behind its one door
+       compound: "bunker-compound"       // a wall's, optional (B3c3): the B1e walled compound it walls in
      }
 
    A building (B3c1) draws itself: art "placeholder" is the game's temporary building art, drawn exactly over the
@@ -45,8 +46,17 @@
 
    A ring's drawn boxes are its own tiles (a fence or wall is drawn on every tile it stands on), added by the compile.
 
+   A wall (B3c3) draws itself too: art "placeholder" is the game's temporary wall art, one opaque tile of it on every
+   solid tile of the wall and nowhere else, so what looks solid is exactly what blocks. Its solid is one ring (round a
+   box or a habitat) and nothing else, and it has no drawn box of its own (the compile adds its tiles). Its openings are
+   the ring's gaps: open ground, clear of all content, reachable from the spawn, never a corner (a corner joins two runs;
+   an opening there leads nowhere). A wall naming a B1e compound is that compound's wall: the ring of its compoundBox,
+   with exactly its gateTiles as the openings. An opening is a plain gap, as format 1's compound gate is: nothing opens,
+   closes or locks.
+
    The compiled record (the staged content file and the game): { id, kind, drawnPxBoxes, tiles, footPxBoxes, doorTiles,
-   reserve?, encloses? }, every solid as an explicit tile list, so the game derives its layer without knowing any shape.
+   gapTiles?, reserve?, encloses?, art?, room?, compound? }, every solid as an explicit tile list, so the game derives its
+   layer without knowing any shape; gapTiles (a ring's openings, B3c3) let the game draw the posts either side of them.
 
    The rules, each named (the compile throws on the first broken one; contentProblems() lists them all):
      schema         fields, types, kinds, ids unique, everything inside the map
@@ -58,6 +68,7 @@
      foot           foot boxes only on tiles that stay walkable (terrain walkable, no content tile)
      reserve        a record naming a reserve stays inside it; no other record's solid enters a reserve
      buildings      a building's art, footprint, reserve, room and door, as above (B3c1)
+     walls          a wall's art, ring, openings and compound, as above (B3c3)
      open-space     nothing solid in the B1e open spaces (the rift arena's clear field)
      doors          each door tile walkable, next to its record's solid, reachable from the spawn
      route-ends     every B1d route end still reachable from the spawn
@@ -67,11 +78,12 @@ import { raster } from "./geom.mjs";
 
 export const CONTENT_SCHEMA = "mapb-content-1";
 export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"];
-export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "open-space", "doors", "route-ends", "pockets"];
-/* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list) and the art
-   kinds the game draws for a building */
+export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "open-space", "doors", "route-ends", "pockets"];
+/* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list), the art
+   kinds the game draws, and what it draws them on (a building since B3c1, a wall since B3c3) */
 export const ROOM_IDS = ["visitor", "bunker", "depot"];
 export const ART_KINDS = ["placeholder"];
+export const ART_ON = ["building", "wall"];
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const T = 16;
 // terrain codes and flags, the compiler's (tools/map-compile.mjs GROUND and COLL)
@@ -134,10 +146,11 @@ export function resolveContent(content, src, m) {
     if (typeof r.id !== "string" || !ID.test(r.id)) fail("schema", `${f0} needs an id (lowercase words joined by hyphens)`);
     const f = `record ${r.id}`;
     if (seen.has(r.id)) fail("schema", `${f} appears twice`); seen.add(r.id);
-    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room"]);
+    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound"]);
     if (!KINDS.includes(r.kind)) fail("schema", `${f}.kind ${JSON.stringify(r.kind)} isn't one of ${KINDS.join(", ")}`);
     if (r.room !== undefined && (r.kind !== "building" || !ROOM_IDS.includes(r.room))) fail("schema", `${f}.room ${JSON.stringify(r.room)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has a room" : "isn't one of the game's rooms, " + ROOM_IDS.join(", ")}`);
-    if (r.art !== undefined && (r.kind !== "building" || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
+    if (r.art !== undefined && (!ART_ON.includes(r.kind) || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${!ART_ON.includes(r.kind) ? "is on a " + r.kind + ": only a building or a wall has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
+    if (r.compound !== undefined && (r.kind !== "wall" || !(src.reserves.compounds || []).some((q) => q.id === r.compound && q.walled === true))) fail("schema", `${f}.compound ${JSON.stringify(r.compound)} ${r.kind !== "wall" ? "is on a " + r.kind + ": only a wall walls in a compound" : "isn't one of B1e's walled compounds"}`);
     if (!isObj(r.solid)) fail("schema", `${f}.solid must be an object`);
     only(r.solid, f + ".solid", ["tileBoxes", "tiles", "ringOfBox", "ringOfHabitat", "footPxBoxes"]);
     if (!Object.keys(r.solid).length) fail("schema", `${f}.solid is empty: a content record exists to block something`);
@@ -146,12 +159,12 @@ export function resolveContent(content, src, m) {
     let inner = null;
     if (r.solid.tileBoxes !== undefined) list(r.solid.tileBoxes, f + ".solid.tileBoxes").forEach((b, j) => { tileBox(b, `${f}.solid.tileBoxes[${j}]`, W, H); for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) put(x, y); });
     if (r.solid.tiles !== undefined) list(r.solid.tiles, f + ".solid.tiles").forEach((p, j) => { tile(p, `${f}.solid.tiles[${j}]`, W, H); put(p[0], p[1]); });
-    const ringDrawn = [];
+    const ringDrawn = [], gapTiles = [];
     const addRing = (mask, gaps, fr) => {
       const gapSet = new Set(list(gaps === undefined ? [] : gaps, fr + ".gapTiles").map((p, j) => { tile(p, `${fr}.gapTiles[${j}]`, W, H); return p[1] * W + p[0]; }));
       const { ring, inner: ins } = ringOf(mask, W, H);
       for (const g of gapSet) if (!ring.some(([x, y]) => y * W + x === g)) fail("schema", `${fr}.gapTiles: ${g % W},${(g - g % W) / W} isn't on the ring`);
-      for (const [x, y] of ring) if (!gapSet.has(y * W + x)) { put(x, y); ringDrawn.push({ px0: x * T, py0: y * T, px1: x * T + T - 1, py1: y * T + T - 1 }); }
+      for (const [x, y] of ring) if (!gapSet.has(y * W + x)) { put(x, y); ringDrawn.push({ px0: x * T, py0: y * T, px1: x * T + T - 1, py1: y * T + T - 1 }); } else gapTiles.push([x, y]);
       inner = (inner || []).concat(ins);
     };
     if (r.solid.ringOfBox !== undefined) {
@@ -172,12 +185,16 @@ export function resolveContent(content, src, m) {
     if (r.encloses !== undefined && r.encloses !== true) fail("schema", `${f}.encloses must be true or left out`);
     if (r.encloses && !inner) fail("schema", `${f}.encloses needs a ring (ringOfBox or ringOfHabitat)`);
     const out = { id: r.id, kind: r.kind, drawnPxBoxes: drawn.concat(ringDrawn), tiles: tiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]), footPxBoxes: foot, doorTiles: doors };
+    if (gapTiles.length) out.gapTiles = gapTiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
     if (r.reserve) out.reserve = r.reserve;
     if (r.encloses) out.encloses = true;
     if (r.art) out.art = r.art;
     if (r.room) out.room = r.room;
+    if (r.compound) out.compound = r.compound;
     if (!out.drawnPxBoxes.length) fail("drawn", `${f} has solid but nothing drawn (drawnPxBoxes is empty)`);
     Object.defineProperty(out, "inner", { value: inner || [], enumerable: false });
+    // what the walls rule (B3c3) needs of the source: which solid shapes it used, its ring's box, and its own drawn boxes
+    Object.defineProperty(out, "shape", { value: { solid: Object.keys(r.solid), box: r.solid.ringOfBox ? { x0: r.solid.ringOfBox.x0, y0: r.solid.ringOfBox.y0, x1: r.solid.ringOfBox.x1, y1: r.solid.ringOfBox.y1 } : null, ownDrawn: drawn.length }, enumerable: false });
     return out;
   });
   return records;
@@ -273,6 +290,28 @@ export function contentProblems(records, src, m) {
     else if (!after[i]) add("doors", `${r.id}: door ${x},${y} can't be reached from the spawn`);
   }
   for (const e of (src.corridors && src.corridors.routeEnds) || []) if (!after[at(...e.endTile)]) add("route-ends", `route end ${e.id} ${e.endTile} can't be reached from the spawn`);
+  // walls (B3c3): art, one ring and nothing else, its art its own tiles, its openings, and its compound
+  for (const r of records) {
+    if (r.kind !== "wall") continue;
+    const B = (msg) => add("walls", `${r.id}: ${msg}`), S = r.shape || { solid: [], box: null, ownDrawn: 0 }, gaps = r.gapTiles || [];
+    if (!r.art) B("a wall draws itself: it needs art (\"placeholder\" until the art stage)");
+    const rings = S.solid.filter((k) => k === "ringOfBox" || k === "ringOfHabitat").length;
+    if (rings !== 1 || S.solid.length !== 1) B(`a wall's solid is one ring (ringOfBox or ringOfHabitat) and nothing else, not ${S.solid.join(", ") || "nothing"}`);
+    if (S.ownDrawn) B(`its art is drawn on its own tiles exactly (the compile adds them), so it has no drawn box of its own, not ${S.ownDrawn}`);
+    for (const [x, y] of gaps) {
+      const i = at(x, y);
+      let wet = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) wet += m.px.foot[py * PW + px] || L.foot[py * PW + px] ? 1 : 0;
+      if (S.box && (x === S.box.x0 || x === S.box.x1) && (y === S.box.y0 || y === S.box.y1)) B(`its opening ${x},${y} is a corner: a corner joins two runs, and an opening there leads nowhere`);
+      else if (!tWalk(i) || L.tiles[i] || wet) B(`its opening ${x},${y} isn't open ground (${!tWalk(i) ? "terrain coll " + m.coll[i] : L.tiles[i] ? "solid content" : wet + " foot-blocking pixels"})`);
+      else if (!after[i]) B(`its opening ${x},${y} can't be reached from the spawn`);
+    }
+    if (r.compound) {
+      const c = (src.reserves.compounds || []).find((q) => q.id === r.compound), b = S.box, cb = c && c.compoundBox;
+      const key = (l) => l.map((p) => p.join()).sort().join(" ");
+      if (!b || !cb || b.x0 !== cb.x0 || b.y0 !== cb.y0 || b.x1 !== cb.x1 || b.y1 !== cb.y1) B(`it walls in ${r.compound}, so its ring is that compound's box ${cb ? `${cb.x0},${cb.y0} to ${cb.x1},${cb.y1}` : "(none)"}, not ${b ? `${b.x0},${b.y0} to ${b.x1},${b.y1}` : "a habitat's outline"}`);
+      if (c && key(gaps) !== key(c.gateTiles || [])) B(`it walls in ${r.compound}, so its openings are exactly that compound's gates ${key(c.gateTiles || [])}, not ${key(gaps) || "none"}`);
+    }
+  }
   const enclosed = new Set(); for (const r of records) if (r.encloses) for (const [x, y] of r.inner) enclosed.add(at(x, y));
   let lost = 0, first = null;
   for (let i = 0; i < W * H; i++) if (before[i] && !after[i] && !L.tiles[i] && !enclosed.has(i)) { lost++; if (!first) first = `${i % W},${(i - i % W) / W}`; }
@@ -294,10 +333,12 @@ export function serializeContent(c, meta) {
   const num = (v) => JSON.stringify(v);
   const rec = (r) => {
     const o = { id: r.id, kind: r.kind, drawnPxBoxes: r.drawnPxBoxes, tiles: r.tiles, footPxBoxes: r.footPxBoxes, doorTiles: r.doorTiles };
+    if (r.gapTiles) o.gapTiles = r.gapTiles;
     if (r.reserve) o.reserve = r.reserve;
     if (r.encloses) o.encloses = true;
     if (r.art) o.art = r.art;
     if (r.room) o.room = r.room;
+    if (r.compound) o.compound = r.compound;
     return `    ${num(o)}`;
   };
   return [
@@ -308,8 +349,8 @@ export function serializeContent(c, meta) {
     `   deployed. Production runs the 100 x 80 island in js/maps/home.js.`,
     `   records: each content record (kind building, landmark, station, wall, fence, gate or prop): drawnPxBoxes, where its art`,
     `   is drawn (inclusive world pixels; no collision outside them); tiles, the whole tiles it makes solid; footPxBoxes, pixels`,
-    `   where feet stop on tiles that stay walkable; doorTiles; a building's art and room. solidTiles and footPixels: the totals,`,
-    `   which the game checks.`,
+    `   where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; a building's or a wall's art; a`,
+    `   building's room; a wall's compound. solidTiles and footPixels: the totals, which the game checks.`,
     `   The game reads the terrain's collision for painting and the union of both layers for movement. */`,
     `(window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {`,
     `  "format": 2, "staged": true, "schema": ${num(CONTENT_SCHEMA)}, "id": ${num(meta.id)}, "generator": "tools/map-content.mjs",`,

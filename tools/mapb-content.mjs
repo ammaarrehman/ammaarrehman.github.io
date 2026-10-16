@@ -1,9 +1,9 @@
 #!/usr/bin/env node
 /* mapb-content (MAP-B B3b): the content-collision architecture, on the staged 150 x 120 island. Every gameplay check
    here runs on SYNTHETIC content built here and served through the content preview in memory (never written to the
-   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings and B3c2's bunker so far) is
+   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings, B3c2's bunker and B3c3's compound wall so far) is
    checked here only as a layer (current, bound to its terrain, the painter untouched, incomplete); tools/mapb-buildings.mjs
-   tests the buildings themselves.
+   tests the buildings and the compound wall themselves. B3c3: a wall now draws itself (art), so the synthetic walled room has art.
 
    1. Node, the content compiler (tools/maps/content.mjs, tools/map-content.mjs):
       - the tracked content file is the current compile, bound to the current terrain; the terrain's staged file is
@@ -54,7 +54,7 @@ const tileArt = (x0, y0, x1, y1, up = 0) => ({ px0: x0 * T, py0: (y0 - up) * T, 
 // the synthetic content: open grass in the galli meadow (the walled room) and round the cottage-row reserve (the rest)
 const SYN = {
   schema: "mapb-content-1", id: "home", records: [
-    { id: "syn-room", kind: "wall", solid: { ringOfBox: { x0: 86, y0: 40, x1: 92, y1: 45, gapTiles: [[89, 45]] } }, doorTiles: [[89, 45]] },
+    { id: "syn-room", kind: "wall", art: "placeholder", solid: { ringOfBox: { x0: 86, y0: 40, x1: 92, y1: 45, gapTiles: [[89, 45]] } }, doorTiles: [[89, 45]] },
     { id: "syn-pen", kind: "fence", solid: { ringOfBox: { x0: 30, y0: 88, x1: 36, y1: 93 } }, encloses: true },
     { id: "syn-post", kind: "prop", drawnPxBoxes: [px(40, 92, 3, -10, 12, 12)], solid: { footPxBoxes: [px(40, 92, 5, 6, 10, 11)] } },
     { id: "syn-hut", kind: "building", art: "placeholder", drawnPxBoxes: [tileArt(44, 92, 47, 93, 2)], solid: { tileBoxes: [{ x0: 44, y0: 92, x1: 47, y1: 93 }] }, doorTiles: [[45, 94]] }
@@ -67,7 +67,7 @@ const SYN_DATA = (() => { const c = { window: {} }; vm.runInNewContext(serialize
   const { content, contentSha256 } = await loadContent();
   const a = await buildContentText(content, contentSha256), b = await buildContentText(content, contentSha256);
   const tracked = readFileSync(CONTENT_STAGED, "utf8");
-  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
+  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
   check("node", "two compiles give the same bytes", a.text === b.text);
   check("node", "the content is bound to the terrain it was placed on (terrainSha256 is the staged terrain's sourceSha256)", a.text.includes(`"terrainSha256": "${t.sourceSha256}"`), t.sourceSha256.slice(0, 16));
   check("node", "the staged terrain file is untouched: map-compile's own compile, byte for byte", t.current && readFileSync(STAGED_PATH, "utf8") === t.terrainText);
@@ -196,7 +196,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const rp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const rl = rp.loaded ? await look(rp) : null;
-  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 3,
+  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 4,
     rl ? `mode ${rl.v.previewMode}, content ${JSON.stringify(rl.v.content)}` : rp.errs.join("; "));
   const badge = rp.loaded ? await rp.page.evaluate(() => { const b = document.querySelector(".w-mapb-badge"); return { text: b.textContent, label: b.getAttribute("aria-label") }; }) : null;
   check(name, "content preview: the badge says so", badge && badge.text === "MAP-B\ncontent\npreview" && badge.label === "MAP-B content preview", JSON.stringify(badge));
@@ -204,6 +204,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // B3c2: with the bunker the three buildings are all there, so buildings has left the list; everything else is still missing
   check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list: no longer the buildings, still the stations and the rest)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length >= 12 && !rl.comp.missing.some((s) => /^buildings/.test(s)) && rl.comp.missing.some((s) => /^stations/.test(s)),
     rl ? `${rl.comp.missing.length} missing, first: ${rl.comp.missing.slice(0, 2).join(" | ")}` : "");
+  // B3c3: the bunker compound's wall is there (with its art), so the walls still missing are the koi garden's alone
+  const wl = rl && rl.comp ? rl.comp.missing.filter((s) => /^compound walls/.test(s)) : [];
+  check(name, "content preview (real content): the completeness list's compound walls name the koi garden's and no longer the bunker compound's", wl.length === 1 && wl[0] === "compound walls: koi-garden", JSON.stringify(wl));
   if (rp.loaded) {
     await rp.page.keyboard.down("ArrowRight"); await rp.I(() => window.__island.step(20)); await rp.page.keyboard.up("ArrowRight");
     await rp.I(() => window.__island.setSave({ v: 2, logs: ["tablet"] }));
@@ -289,8 +292,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     caught(MUT.noFootUnion[0], b2 === false, `post pixel blocked: ${b2}`); await P.ctx.close(); }
   { const P = await open(`http://127.0.0.1:${port}/${Q}`, { world: MUT.terrainTakesContent[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith(() => {})) : "didn't load";
     caught(MUT.terrainTakesContent[0], r === null, r === null ? "the terrain preview decoded content" : r); await P.ctx.close(); }
-  // (on the walled room: since B3c1 a building's own shape check would also refuse the narrowed hut, so it can't show D1 alone)
-  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`, { world: MUT.noD1[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith((c) => { R(c, "syn-room").drawnPxBoxes.shift(); })) : "didn't load";
+  // (on the fenced pen: since B3c1 a building's own shape check would also refuse the narrowed hut, and since B3c3 a wall's
+  // would refuse the walled room's missing tile of art, so neither can show D1 alone; a fence has no art yet)
+  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`, { world: MUT.noD1[1](WORLD) }); const r = P.loaded ? await refusedHere(P, cWith((c) => { R(c, "syn-pen").drawnPxBoxes.shift(); })) : "didn't load";
     caught(MUT.noD1[0], r === null, r === null ? "invisible collision decoded" : r); await P.ctx.close(); }
   // a normal format-2 home (not staged, no flag) let past the decoder: the completeness wall still refuses it, naming what's missing
   const normalHome = (page) => page.route(/\/js\/maps\/home\.js/, (r) => r.fulfill({ status: 200, contentType: "text/javascript", body: `window.ISLAND_MAPS = { home: ${JSON.stringify(Object.assign(copy(STAGED_MAP), { staged: undefined }))} };` }));

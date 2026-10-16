@@ -20,8 +20,18 @@
    B3c2: the outpost bunker, the same way, on its approved B1e footprint inside the bunker compound.
    - The bunker: footprint bunker, 113,79 to 119,82 (7 x 4). Door 116,83, on grass: the B3a doorstep and the B1e log
      site rack-desk-bunker. Room bunker (format 1's: the rack, the desk, the radio and the rest).
-   - The compound round it (bunker-compound, 109,76 to 124,89, gates 109,84 to 109,86) is planning metadata only: no
-     wall, gate or kit is placed here. From the gates the door is 7 tiles east and 2 north over open grass inside it. */
+   - The compound round it (bunker-compound, 109,76 to 124,89, gates 109,84 to 109,86) was planning metadata only in
+     B3c2. From the gates the door is 7 tiles east and 2 north over open grass inside it.
+
+   B3c3: the compound's wall, on the B1e compound's box exactly, with its three gates as the west entrance.
+   - The wall: bunker-compound, the ring round 109,76 to 124,89 (16 x 14) less the gates 109,84, 109,85 and 109,86: 53
+     solid tiles, each drawn (placeholder art, one opaque tile of wall on every solid tile and nowhere else). The rule
+     checks it is the B1e compound's own box and gates.
+   - The west entrance is the three gates, open as format 1's compound gate is (a gap in the wall, nothing that opens,
+     closes or locks): 109,84 and 109,85 are the ops road's paving, 109,86 is grass. The posts either side of it stand
+     on the wall's own tiles 109,83 and 109,87.
+   - Nothing else of the compound yet: no outpost kit, no uplink, no lamps (B3a's proposed places for them, inside the
+     wall, stay clear). */
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -48,6 +58,10 @@ export default {
       drawnPxBoxes: [footprintPx(113, 79, 119, 82)],
       solid: { tileBoxes: [{ x0: 113, y0: 79, x1: 119, y1: 82 }] },
       doorTiles: [[116, 83]]
+    },
+    {
+      id: "bunker-compound", kind: "wall", compound: "bunker-compound", art: "placeholder",
+      solid: { ringOfBox: { x0: 109, y0: 76, x1: 124, y1: 89, gapTiles: [[109, 84], [109, 85], [109, 86]] } }
     }
   ]
 };
