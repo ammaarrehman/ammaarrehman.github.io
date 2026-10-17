@@ -3,8 +3,10 @@
    pen), the record raptor-yard, kind fence: the ring round the B1e habitat raptor-yard (119,10 to 127,17), 30 tiles, every
    one drawn, no openings, its 42-tile inside closed in on purpose. Real content, served through the content preview
    (tools/mapb-preview.mjs --content); a few synthetic variants are built here in memory (never written anywhere), among
-   them the same fence renderer on the holding paddock's outline (B3a's next fence: proof the art and collision are
-   reusable, not the T. rex paddock itself, which isn't in the content).
+   them, in B3d1, the same fence renderer on the holding paddock's outline (B3a's next fence: proof the art and collision
+   were reusable). B3d2 built that fence (tools/mapb-paddock.mjs tests it): the checks here that used the synthetic one now
+   run on the real content, the yard's west side is the lane between the two paddocks (column 118), and the ground cut off
+   is both insides.
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile, bound to the current terrain, and holds the fence beside B3c's
@@ -16,8 +18,8 @@
         two neighbours along it, so no corner touches only diagonally), the inside cut off and nothing else, a walkable loop
         all round the outside, every trail, route end and the B3a viewing place still reached, the raptor house reserve
         untouched, the nearest cliff and the sea;
-      - the holding paddock's fence beside it (synthetic, in memory): it compiles with the real content, both insides are
-        the only ground cut off, and the one-tile lane between them (column 118) stays open;
+      - the holding paddock's fence beside it (real since B3d2): both insides are the only ground cut off, and the
+        one-tile lane between them (column 118) stays open;
       - malformed fence records, one fault at a time, each caught by its rule (schema, fences, pockets); an opening
         authored in a straight run passes (the format allows one, the yard has none).
    2. Browser (Chromium and WebKit; Firefox tried and reported BLOCKED if it can't launch), the game itself:
@@ -36,14 +38,15 @@
       - phones (390 x 844 and 375 x 667, touch): a tap inside from outside never walks pi in;
       - the completeness report, storage untouched, the terrain preview and production with no fence;
       - the decoder refuses malformed fences, one fault at a time; code mutations each caught;
-      - the synthetic holding paddock beside the yard: drawn the same way, and pi walks the lane between them;
+      - the holding paddock beside the yard (real since B3d2): drawn the same way, and pi walks the lane between them;
       - performance: the fence's draw cost and the frame work walking round it beside the terrain preview, planning round
         it, decoding;
       - review screenshots (not baselines) into tools/out/mapb/b3d1/, with a labelled diagnostic overlay the test draws over
         the page (never the game).
 
      node tools/mapb-fences.mjs
-     ENGINES=chromium node tools/mapb-fences.mjs */
+     ENGINES=chromium node tools/mapb-fences.mjs
+     MAPB_SHOTS=mapb/b3d2/regress-fences node tools/mapb-fences.mjs */
 import { chromium, firefox, webkit } from "playwright";
 import { readFileSync, mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
@@ -52,11 +55,13 @@ import vm from "node:vm";
 import { serve } from "./serve.mjs";
 import { startPreview } from "./mapb-preview.mjs";
 import { STAGED_PATH } from "./map-compile.mjs";
-import { resolveContent, contentProblems, compileContent, contentLayers, serializeContent, habitatMask, ContentError } from "./maps/content.mjs";
+import { resolveContent, contentProblems, compileContent, contentLayers, habitatMask, ContentError } from "./maps/content.mjs";
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(ROOT, "tools/out/mapb/b3d1");
+// its review screenshots go to tools/out/mapb/b3d1/ (B3d1's); MAPB_SHOTS names another folder under tools/out/ for a later
+// batch's regression run, so B3d1's approved evidence stays as it was
+const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3d1");
 const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
 const T = 16;
 let fails = 0; const blocked = [], perf = [];
@@ -78,9 +83,10 @@ const LOOP = []; for (let y = BOX.y0 - 1; y <= BOX.y1 + 1; y++) for (let x = BOX
 // format 1's raptor pen and its raptors' roam box (js/maps/home.js), for the comparison
 const F1PEN = [60, 30, 70, 38], F1ROAM = [61, 31, 69, 37];
 // pi walked into the fence: [side, from, the tile pi starts on, the keys held]; each side from outside and from inside (pi is
-// put inside with the debug teleport only: nothing in the game reaches it), then diagonally into each corner from both
+// put inside with the debug teleport only: nothing in the game reaches it), then diagonally into each corner from both. Since
+// B3d2 the outside of the west side is the lane between the paddocks (118,13; 117,13 is the holding paddock's fence)
 const PUSH = [["north", "outside", [123, 8], ["ArrowDown"]], ["north", "inside", [123, 13], ["ArrowUp"]], ["south", "outside", [123, 19], ["ArrowUp"]], ["south", "inside", [123, 13], ["ArrowDown"]],
-  ["west", "outside", [117, 13], ["ArrowRight"]], ["west", "inside", [123, 13], ["ArrowLeft"]], ["east", "outside", [129, 13], ["ArrowLeft"]], ["east", "inside", [123, 13], ["ArrowRight"]]];
+  ["west", "outside", [118, 13], ["ArrowRight"]], ["west", "inside", [123, 13], ["ArrowLeft"]], ["east", "outside", [129, 13], ["ArrowLeft"]], ["east", "inside", [123, 13], ["ArrowRight"]]];
 const CPUSH = [["north-west", "outside", [117, 9], ["ArrowRight", "ArrowDown"]], ["north-east", "outside", [128, 9], ["ArrowLeft", "ArrowDown"]], ["south-west", "outside", [117, 19], ["ArrowRight", "ArrowUp"]], ["south-east", "outside", [129, 19], ["ArrowLeft", "ArrowUp"]],
   ["north-west", "inside", [121, 12], ["ArrowLeft", "ArrowUp"]], ["north-east", "inside", [125, 12], ["ArrowRight", "ArrowUp"]], ["south-west", "inside", [121, 15], ["ArrowLeft", "ArrowDown"]], ["south-east", "inside", [125, 15], ["ArrowRight", "ArrowDown"]]];
 const key = (l) => (l || []).map((p) => p.join()).sort().join(" ");
@@ -93,8 +99,8 @@ const built = await buildContentText(REAL, contentSha256), again = await buildCo
 check("node", "the tracked content file is the current compile, bound to the staged terrain; two compiles give the same bytes", readFileSync(CONTENT_STAGED, "utf8") === built.text && built.text === again.text && built.text.includes(`"terrainSha256": "${t.sourceSha256}"`) && t.current,
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records, LAYER = contentLayers(RECS, W, H), F = RECS.find((r) => r.id === FENCE_ID);
-check("node", "the content holds B3c's three buildings and compound wall as before, and B3d1's raptor-yard fence (nothing else)", RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
-check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles (154 before B3d1, 30 more), ${built.compiled.footPixels} foot pixels`);
+check("node", "the content holds B3c's three buildings and compound wall as before, B3d1's raptor-yard fence and B3d2's holding-paddock fence (nothing else)", RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles (154 before B3d1, 30 more, then B3d2's 36), ${built.compiled.footPixels} foot pixels`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
 {
   const hab = src.habitats.find((q) => q.id === FENCE_ID);
@@ -128,10 +134,12 @@ const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) f
 }
 const bfs = (from, block) => { const dist = new Int32Array(W * H).fill(-1), q = [from[1] * W + from[0]]; dist[q[0]] = 0; for (let h = 0; h < q.length; h++) { const i = q[h], x = i % W, y = (i / W) | 0; for (const [ax, ay] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const nx = x + ax, ny = y + ay, j = ny * W + nx; if (nx < 0 || ny < 0 || nx >= W || ny >= H || block(j) || dist[j] >= 0) continue; dist[j] = dist[i] + 1; q.push(j); } } return dist; };
 const SPAWN = m.anchors.spawnTile, before = bfs(SPAWN, (i) => m.coll[i] !== 0), after = bfs(SPAWN, (i) => m.coll[i] !== 0 || LAYER.tiles[i] === 1);
+// B3d2: the holding paddock's fence (real) and its inside, the other ground the content closes in
+const HP_REC = RECS.find((r) => r.id === "holding-paddock"), HP_INNER = HP_REC ? HP_REC.inner : [], isHPIn = new Set(HP_INNER.map((p) => p.join()));
 {
   const lost = []; for (let i = 0; i < W * H; i++) if (before[i] >= 0 && after[i] < 0 && !LAYER.tiles[i]) lost.push([i % W, (i / W) | 0]);
-  check("node", "the inside is closed in on purpose, and it is all that is: on the terrain alone the spawn reached all 42 inside tiles; with the content it reaches none, and every other tile it reached it still does",
-    INNER.every(([x, y]) => before[y * W + x] >= 0 && after[y * W + x] < 0) && key(lost) === key(INNER), `${lost.length} cut off, ${lost.filter(([x, y]) => !inside(x, y)).length} of them outside the yard`);
+  check("node", "the inside is closed in on purpose, and with the holding paddock's (B3d2, 35) it is all that is: on the terrain alone the spawn reached all 42 inside tiles; with the content it reaches none, and every other tile it reached it still does",
+    INNER.every(([x, y]) => before[y * W + x] >= 0 && after[y * W + x] < 0) && key(lost) === key(INNER.concat(HP_INNER)) && HP_INNER.length === 35, `${lost.length} cut off, ${lost.filter(([x, y]) => !inside(x, y) && !isHPIn.has(`${x},${y}`)).length} of them outside both paddocks`);
   // the outside: one step out all round, walkable, reached, and a loop on its own (pi can walk all the way round)
   const isL = new Set(LOOP.map((p) => p.join())), lseen = new Set([LOOP[0].join()]), q = [LOOP[0]];
   while (q.length) { const [x, y] = q.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const k = `${x + dx},${y + dy}`; if (isL.has(k) && !lseen.has(k)) { lseen.add(k); q.push([x + dx, y + dy]); } } }
@@ -156,15 +164,14 @@ const SPAWN = m.anchors.spawnTile, before = bfs(SPAWN, (i) => m.coll[i] !== 0), 
     lv >= 10 && wet === 2, `nearest other level ${lv} tiles out, nearest water ${wet}`);
   perf.push(`node: the fence's ground: the nearest other level is ${lv} tiles from the yard, the nearest water ${wet}; the spawn to the viewing place ${after[PLACE[1] * W + PLACE[0]]} steps`);
 }
-{ // the holding paddock's fence beside it (synthetic, in memory: B3a's next fence, not built): the same rules, both insides alone
-  // cut off, and the lane between them (column 118, rows 12 to 15: one tile between the two rings) stays open
-  const HP = copy(REAL); HP.records.push({ id: "holding-paddock", kind: "fence", art: "placeholder", encloses: true, solid: { ringOfHabitat: { habitat: "holding-paddock" } } });
-  let ok = null, err = null; try { ok = compileContent(HP, src, m); } catch (e) { err = e.message; }
+{ // the holding paddock's fence beside it (synthetic in B3d1; real since B3d2): both insides alone cut off, and the lane between
+  // them (column 118, rows 12 to 15: one tile between the two rings) stays open
+  let ok = null, err = null; try { ok = compileContent(REAL, src, m); } catch (e) { err = e.message; }
   const hp = ok && ok.records.find((r) => r.id === "holding-paddock"), HL = ok && contentLayers(ok.records, W, H);
   const aft = HL && bfs(SPAWN, (i) => m.coll[i] !== 0 || HL.tiles[i] === 1), lost = []; if (aft) for (let i = 0; i < W * H; i++) if (before[i] >= 0 && aft[i] < 0 && !HL.tiles[i]) lost.push([i % W, (i / W) | 0]);
   const lane = []; for (let y = 9; y <= 18; y++) lane.push([118, y]);
   const laneOpen = aft && lane.every(([x, y]) => !HL.tiles[y * W + x] && aft[y * W + x] >= 0), between = hp && [12, 13, 14, 15].every((y) => hp.tiles.some((p) => p[0] === 117 && p[1] === y));
-  check("node", "reuse (synthetic, in memory): the holding paddock's fence (the ring round its B1e outline, 36 tiles, 35 inside, as B3a counts) compiles beside the real content with no problem; the two insides are the only ground cut off; column 118 between the two rings (one tile wide at rows 12 to 15) stays open and reached from 9 to 18",
+  check("node", "reuse (real since B3d2): the holding paddock's fence (the ring round its B1e outline, 36 tiles, 35 inside, as B3a counts) compiles beside the yard's with no problem; the two insides are the only ground cut off; column 118 between the two rings (one tile wide at rows 12 to 15) stays open and reached from 9 to 18",
     !!ok && hp.tiles.length === 36 && hp.inner.length === 35 && key(lost) === key(INNER.concat(hp.inner)) && laneOpen && between, err || `${hp.tiles.length} tiles, ${hp.inner.length} inside, ${lost.length} cut off; lane ${laneOpen ? "open" : "BLOCKED"}`);
 }
 // malformed fence records, each alone: [label, the rule that must catch it, the change to the authored content]
@@ -201,12 +208,10 @@ for (const [label, rule, fn] of FBAD) {
 }
 
 /* ════════ 2. the game ════════ */
-const toData = (c) => { const ctx = { window: {} }; vm.runInNewContext(serializeContent(c, { id: "home", sourceSha256: "0".repeat(64), terrainSha256: t.sourceSha256 }), ctx); return ctx.window.ISLAND_MAPS_STAGED_CONTENT.home; };
 const STAGED_MAP = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(STAGED_PATH, "utf8"), c); return c.window.ISLAND_MAPS_STAGED.home; })();
 const REAL_DATA = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); return c.window.ISLAND_MAPS_STAGED_CONTENT.home; })();
-// synthetic: the real content and the holding paddock's fence (B3a's next one), to see the renderer on an outline that isn't a box
-const HPC = compileContent(realWith((o) => o.records.push({ id: "holding-paddock", kind: "fence", art: "placeholder", encloses: true, solid: { ringOfHabitat: { habitat: "holding-paddock" } } })), src, m);
-const HP_DATA = toData(HPC), HP_REC = HPC.records.find((r) => r.id === "holding-paddock"), HPL = contentLayers(HPC.records, W, H);
+// the real content with the holding paddock's fence (synthetic in B3d1; real since B3d2), the renderer on an outline that isn't a box
+const HPC = built.compiled, HPL = contentLayers(HPC.records, W, H);
 const WORLD = readFileSync(join(ROOT, "js/world.js"), "utf8");
 const DIGEST = async () => { const g = window.__island.ground(), img = new Image(); img.src = g.png; await img.decode(); const c = document.createElement("canvas"); c.width = img.width; c.height = img.height; const x = c.getContext("2d"); x.drawImage(img, 0, 0);
   const d = x.getImageData(0, 0, c.width, c.height).data, h = await crypto.subtle.digest("SHA-256", d); return [...new Uint8Array(h)].map((v) => v.toString(16).padStart(2, "0")).join(""); };
@@ -239,7 +244,7 @@ for (const [k, [, fn]] of Object.entries(MUT)) if (fn(WORLD) === WORLD) check("n
 check("node", "the diagnostic overlay and its legend are this test's own (drawn over the page for a review screenshot): js/world.js has no trace of them", !/b3d1-(overlay|legend)/.test(WORLD));
 
 const port = 9600 + Math.floor(Math.random() * 80);
-const terrainPv = await startPreview(port), contentPv = await startPreview(port + 1, { content: true }), hpPv = await startPreview(port + 2, { content: HP_DATA }), plain = await serve(port + 3);
+const terrainPv = await startPreview(port), contentPv = await startPreview(port + 1, { content: true }), plain = await serve(port + 3);
 mkdirSync(join(OUT, "dev"), { recursive: true });
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 const Q = "?debug=1&step=1&islandhour=11#island";
@@ -287,9 +292,10 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const sortK = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k2) => [k2, o[k2]]));
-  check(name, "content preview: loads with the five records (184 solid tiles), only the buildings system on; the fence as its record says: 30 tiles, no openings, closing its ground in, 4 corners and 26 runs, warning signs on the middle of the north and south runs",
-    cp.loaded && !cp.errs.length && cv.content.records === 5 && cv.content.solidTiles === 184 && cv.sys.buildings === true && cv.fences.length === 1 && cv.fences[0].id === FENCE_ID && cv.fences[0].tiles === 30 && cv.fences[0].encloses === true && !cv.fences[0].gaps.length && sortK(cv.fences[0].kinds) === sortK({ corner: 4, run: 26 }) && key(cv.fences[0].signs) === key(SIGNS),
-    cv ? JSON.stringify(cv.fences) : cp.errs.join("; "));
+  const cf = cv && cv.fences.find((f) => f.id === FENCE_ID);
+  check(name, "content preview: loads with the six records (220 solid tiles, B3d2's holding paddock among them), only the buildings system on; the yard's fence as its record says: 30 tiles, no openings, closing its ground in, 4 corners and 26 runs, warning signs on the middle of the north and south runs",
+    cp.loaded && !cp.errs.length && cv.content.records === 6 && cv.content.solidTiles === 220 && cv.sys.buildings === true && cv.fences.map((f) => f.id).join() === "raptor-yard,holding-paddock" && cf.tiles === 30 && cf.encloses === true && !cf.gaps.length && sortK(cf.kinds) === sortK({ corner: 4, run: 26 }) && key(cf.signs) === key(SIGNS),
+    cv ? JSON.stringify(cf) : cp.errs.join("; "));
   check(name, "content preview: B3c's buildings and the compound wall as they were (three buildings; the wall's 53 tiles, its three gates, 40 runs, 7 piers, 4 corners, 2 posts)",
     cv && cv.buildings.map((b) => b.id).join() === "visitor,depot,bunker" && cv.walls.length === 1 && cv.walls[0].tiles === 53 && sortK(cv.walls[0].kinds) === sortK({ corner: 4, run: 40, pier: 7, post: 2 }), cv ? `${cv.buildings.length} buildings, wall ${JSON.stringify(cv.walls[0] && cv.walls[0].kinds)}` : "");
   if (cp.loaded) {
@@ -300,7 +306,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       `terrain ${cDig.td.slice(0, 12)}, ground ${cDig.gd.slice(0, 12)}`);
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the compiler's (184 tiles, the fence's 30 among them), kept apart from the terrain's (the compiler's, untouched); gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 184 && RING.every(([x, y]) => L.k[y * W + x] !== 0));
+    check(name, "collision: the content layer is exactly the compiler's (220 tiles, the fence's 30 among them), kept apart from the terrain's (the compiler's, untouched); gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 220 && RING.every(([x, y]) => L.k[y * W + x] !== 0));
     // the art: one opaque tile per fence tile
     const art = await cp.I((id) => { const a = window.__island.fenceArt(id); delete a.png; return a; }, FENCE_ID);
     const pieceAt = (x, y) => art.pieces.find((q) => q.tile[0] === x && q.tile[1] === y) || {};
@@ -346,9 +352,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         r.bad === 0 && stayed, `ended ${Math.floor(r.p.x / 16)},${Math.floor(r.p.y / 16)}${r.bad ? `; feet on solid ${r.bad} times` : ""}${stayed ? "" : "; CROSSED: " + r.tiles.join(" ")}`);
     }
     // the planner: round it, along it, never into it
-    { const r = await walk(cp, tilePx([117, 13]), [129, 13]);
-      check(name, "planner: from the west side (117,13) to the east side (129,13), pi goes round the yard on the update loop, never on the fence or inside", r.plan !== null && r.at.join() === "129,13" && !onFence(r.seen).length && !r.seen.some(([x, y]) => inside(x, y)) && r.plan > 12 + 6,
-        r.plan === null ? "no path" : `a ${r.plan}-tile plan (straight would be 12), ${r.seen.length} tiles walked`); }
+    { const r = await walk(cp, tilePx([118, 13]), [129, 13]);
+      check(name, "planner: from the west side (the lane, 118,13) to the east side (129,13), pi goes round the yard on the update loop, never on a fence or inside", r.plan !== null && r.at.join() === "129,13" && !onFence(r.seen).length && !r.seen.some(([x, y]) => inside(x, y) || isHPIn.has(`${x},${y}`)) && r.plan > 11 + 6,
+        r.plan === null ? "no path" : `a ${r.plan}-tile plan (straight would be 11), ${r.seen.length} tiles walked`); }
     for (const [side, a, b] of [["north", [118, 9], [128, 9]], ["east", [128, 9], [128, 18]], ["south", [128, 18], [118, 18]], ["west", [118, 18], [118, 9]]]) {
       const r = await walk(cp, tilePx(a), b), straight = Math.abs(a[0] - b[0]) + Math.abs(a[1] - b[1]);
       check(name, `outside: pi walks the length of the ${side} side outside the fence (${a} to ${b}) on the update loop, beside it all the way, never on it`, r.plan !== null && r.at.join() === b.join() && !onFence(r.seen).length && r.seen.every(([x, y]) => !inBox(x, y)) && r.plan <= straight + 2,
@@ -366,15 +372,16 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       check(name, "planner: from the spawn to B3a's viewing place below the south fence (123,19), pi walks there on the update loop, never on content", r.plan !== null && r.at.join() === PLACE.join() && !onFence(r.seen).length, r.plan === null ? "no path" : `a ${r.plan}-tile plan, ended ${r.at}`); }
     // trapped ground: from every walkable tile in and within 3 of the yard, pi standing there: outside, a path to the spawn; inside, none
     // (closed in on purpose); on the terrain preview, the same inside tiles had one
-    const trapScan = (P) => P.I(([b2]) => {
-      const I2 = window.__island, cut = []; let n = 0, inReached = 0, inClosed = 0;
+    // (since B3d2 the holding paddock's inside, closed in too, reaches into the scan at 116,13 and 116,14: it is left out here)
+    const trapScan = (P) => P.I(([b2, hpIn]) => {
+      const I2 = window.__island, cut = [], hp = new Set(hpIn.map((p) => p.join())); let n = 0, inReached = 0, inClosed = 0;
       for (let y = b2.y0 - 3; y <= b2.y1 + 3; y++) for (let x = b2.x0 - 3; x <= b2.x1 + 3; x++) {
-        if (!I2.tile(x, y).walkable) continue; n++;
+        if (!I2.tile(x, y).walkable || hp.has(x + "," + y)) continue; n++;
         I2.teleport(x * 16 + 8, y * 16 + 10); const ok = I2.walkTo(79, 79, false) !== null;
         if (x > b2.x0 && x < b2.x1 && y > b2.y0 && y < b2.y1) { if (ok) inReached++; else inClosed++; } else if (!ok) cut.push(x + "," + y);
       }
       return { n, cut, inReached, inClosed };
-    }, [BOX]);
+    }, [BOX, HP_INNER]);
     const ct = await trapScan(cp), tt = tp.loaded ? await trapScan(tp) : null;
     check(name, `trapped ground: from all ${ct.n} walkable tiles in and within 3 of the yard, pi has a path to the spawn from every one outside it and from none of the 42 inside (on the terrain preview, before the fence, from all ${tt ? tt.n : "?"}, the inside too)`,
       ct.n > 150 && ct.cut.length === 0 && ct.inClosed === 42 && ct.inReached === 0 && tt && tt.cut.length === 0 && tt.inReached === 42 && tt.inClosed === 0,
@@ -384,15 +391,17 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const I2 = window.__island, isRI = new Set(ring.concat(inner).map((p) => p.join()));
       let pts = 0, ok = 0; for (const [x, y] of ring.concat(inner)) for (let py = y * 16; py < y * 16 + 16; py += 4) for (let px = x * 16; px < x * 16 + 16; px += 4) { pts++; if (I2.canLand(px, py)) ok++; }
       const foot = (h) => [[0, 0], [9, 7], [-9, 7], [9, -7], [-9, -7]].map(([dx, dy]) => [Math.floor((h[0] + dx) / 16), Math.floor((h[1] + dy) / 16)]);
-      const runs = [[123, 20, 0, -150], [123, 8, 0, 150], [116, 13, 150, 0], [129, 14, -150, 0]].map(([x, y, vx, vy]) => { const r = I2.landingFrom(x * 16 + 8, y * 16 + 8, vx, vy), pt = [Math.floor(r.pi[0] / 16), Math.floor(r.pi[1] / 16)]; return { from: [x, y], state: r.state, heli: r.heli.map(Math.round), over: foot(r.heli).filter((q) => isRI.has(q.join())).length, pi: pt, piSafe: I2.safe(pt[0], pt[1]), piIn: isRI.has(pt.join()) }; });
+      // (each begun where E may land; since B3d2 the west one starts in the lane's two-tile south mouth, 117.5,17, the only ground
+      // west of the yard with room for the skids, and drifts east at the fence)
+      const runs = [[123, 20, 0, -150], [123, 8, 0, 150], [117.5, 17, 150, 0], [129, 14, -150, 0]].map(([x, y, vx, vy]) => { const ok0 = I2.canLand(x * 16 + 8, y * 16 + 8), r = I2.landingFrom(x * 16 + 8, y * 16 + 8, vx, vy), pt = [Math.floor(r.pi[0] / 16), Math.floor(r.pi[1] / 16)]; return { from: [x, y], ok0, state: r.state, heli: r.heli.map(Math.round), over: foot(r.heli).filter((q) => isRI.has(q.join())).length, pi: pt, piSafe: I2.safe(pt[0], pt[1]), piIn: isRI.has(pt.join()) }; });
       return { pts, ok, outside: I2.canLand(place[0] * 16 + 8, (place[1] + 2) * 16 + 8), runs };
     }, [RING, INNER, PLACE]);
-    check(name, `helicopter: it can't set down anywhere on the fence or inside it (${hl.pts} spots, every 4 px), can just outside (123,21); four descents drifting at the fence from each side park with no part over the fence or the inside, pi out on safe ground`,
-      hl.ok === 0 && hl.pts === 72 * 16 && hl.outside && hl.runs.every((r) => r.state === "parked" && r.over === 0 && r.piSafe && !r.piIn), `${hl.ok} of ${hl.pts} allow a landing; ` + hl.runs.map((r) => `from ${r.from}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.over ? " OVER THE YARD" : ""}`).join("; "));
+    check(name, `helicopter: it can't set down anywhere on the fence or inside it (${hl.pts} spots, every 4 px), can just outside (123,21); four descents begun where E may land, drifting at the fence from each side, park with no part over the fence or the inside, pi out on safe ground`,
+      hl.ok === 0 && hl.pts === 72 * 16 && hl.outside && hl.runs.every((r) => r.ok0 && r.state === "parked" && r.over === 0 && r.piSafe && !r.piIn), `${hl.ok} of ${hl.pts} allow a landing; ` + hl.runs.map((r) => `from ${r.from}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.over ? " OVER THE YARD" : ""}`).join("; "));
     // the completeness report and storage
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: a normal format-2 home made of this content would still be refused; its paddock fences item names only the holding paddock's now", comp && !comp.complete && comp.missing.filter((q) => /^paddock fences/.test(q)).join() === "paddock fences (enclosing): holding-paddock",
-      comp ? comp.missing.filter((q) => /^paddock fences/.test(q)).join() + `; ${comp.missing.length} items missing` : "");
+    check(name, "completeness: a normal format-2 home made of this content would still be refused; with B3d2's holding paddock its paddock fences item is gone", comp && !comp.complete && !comp.missing.some((q) => /^paddock fences/.test(q)),
+      comp ? (comp.missing.filter((q) => /^paddock fences/.test(q)).join() || "no paddock fences item") + `; ${comp.missing.length} items missing` : "");
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the pushes, walks, landings and a reload)", (await storeOf(cp)) === JSON.stringify(Object.keys(store).sort().map((k) => [k, store[k]])));
     // the decoder refuses malformed fences
@@ -478,19 +487,19 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     await P.ctx.close();
   }
 
-  // 2f. reuse (synthetic): the holding paddock's fence beside the yard, drawn the same way, and the lane between the two
-  { const P = await open(`http://127.0.0.1:${port + 2}/${Q}`);
+  // 2f. reuse (real since B3d2): the holding paddock's fence beside the yard, drawn the same way, and the lane between the two
+  { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`);
     if (P.loaded) {
       const v = await P.I(() => window.__island.preview()), ha = await P.I(() => { const a = window.__island.fenceArt("holding-paddock"); delete a.png; return a; });
       const kinds = v.fences.find((f) => f.id === "holding-paddock");
-      check(name, "reuse (synthetic): the holding paddock's fence (its B1e outline, not a box) loads beside the yard's: 36 pieces, every one a full opaque 16 x 16 tile on its own tile, its corners and runs from the same renderer, closing its ground in",
+      check(name, "reuse (real since B3d2): the holding paddock's fence (its B1e outline, not a box) loads beside the yard's: 36 pieces, every one a full opaque 16 x 16 tile on its own tile, its corners and runs from the same renderer, closing its ground in",
         !P.errs.length && v.fences.length === 2 && kinds && kinds.tiles === 36 && kinds.encloses && ha.pieces.length === 36 && ha.pieces.every((q) => q.w === T && q.h === T && q.opaque === 256) && key(ha.pieces.map((q) => q.tile)) === key(HP_REC.tiles) && kinds.kinds.corner > 4,
         kinds ? JSON.stringify(kinds.kinds) : P.errs.join("; "));
       const r = await walk(P, tilePx([118, 9]), [118, 18]);
-      check(name, "reuse (synthetic): pi walks the lane between the two fences (column 118, one tile wide at rows 12 to 15) from 118,9 to 118,18 on the update loop, never on either fence", r.plan !== null && r.at.join() === "118,18" && !onFence(r.seen, HPL).length && r.seen.every(([x]) => x === 118),
+      check(name, "reuse (real since B3d2): pi walks the lane between the two fences (column 118, one tile wide at rows 12 to 15) from 118,9 to 118,18 on the update loop, never on either fence", r.plan !== null && r.at.join() === "118,18" && !onFence(r.seen, HPL).length && r.seen.every(([x]) => x === 118),
         r.plan === null ? "no path" : `a ${r.plan}-tile plan through ${r.seen.join(" ")}`);
-      if (name !== "firefox") { await P.I(() => window.__island.play()); await P.I(() => window.__island.teleport(118 * 16 + 8, 13 * 16 + 10)); await P.page.waitForTimeout(1200); await P.page.evaluate(() => { const d = document.querySelector(".w-debug"); if (d) d.style.visibility = "hidden"; }); await shoot(P, `dev/${name}-synthetic-holding-paddock.png`); }
-    } else check(name, "reuse (synthetic)", false, "didn't load");
+      if (name !== "firefox") { await P.I(() => window.__island.play()); await P.I(() => window.__island.teleport(118 * 16 + 8, 13 * 16 + 10)); await P.page.waitForTimeout(1200); await P.page.evaluate(() => { const d = document.querySelector(".w-debug"); if (d) d.style.visibility = "hidden"; }); await shoot(P, `dev/${name}-holding-paddock.png`); }
+    } else check(name, "reuse (real since B3d2)", false, "didn't load");
     await P.ctx.close(); }
 
   // 2g. performance: the fence's draw cost and the frame work walking round it on the live loop, beside the terrain preview; planning
@@ -518,9 +527,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     check(name, "performance: walking round the yard on the live loop, the content preview's frame work p95 is under 16.7 ms (the game's target)", lc && lc.n > 100 && lc.p95 < 16.7 && !lc.errs.length, `content ${fmt(lc)}; terrain ${fmt(lt)}`);
     const P2 = await open(`http://127.0.0.1:${port + 1}/${Q}`);
     if (P2.loaded) {
-      const across = (P) => P.I(() => { const I2 = window.__island; I2.teleport(117 * 16 + 8, 13 * 16 + 10); let a = performance.now(); const n = I2.walkTo(129, 13, false); const cold = performance.now() - a; a = performance.now(); for (let i = 0; i < 20; i++) I2.walkTo(129, 13, false); const warm = (performance.now() - a) / 20; a = performance.now(); const n2 = I2.walkTo(123, 13, false); return [cold, warm, n, performance.now() - a, n2]; });
+      const across = (P) => P.I(() => { const I2 = window.__island; I2.teleport(118 * 16 + 8, 13 * 16 + 10); let a = performance.now(); const n = I2.walkTo(129, 13, false); const cold = performance.now() - a; a = performance.now(); for (let i = 0; i < 20; i++) I2.walkTo(129, 13, false); const warm = (performance.now() - a) / 20; a = performance.now(); const n2 = I2.walkTo(123, 13, false); return [cold, warm, n, performance.now() - a, n2]; });
       const xc = await across(P2), xt = await across(tp);
-      perf.push(`${name}: path planning across the yard (117,13 to 129,13; ms first / warm, tiles): content ${xc[0].toFixed(2)} / ${xc[1].toFixed(2)}, ${xc[2]} tiles; terrain preview ${xt[0].toFixed(2)} / ${xt[1].toFixed(2)}, ${xt[2]} tiles; a walk to the yard's middle: content ${xc[3].toFixed(2)} ms (${xc[4] === null ? "no path" : xc[4] + " tiles"}), terrain preview ${xt[3].toFixed(2)} ms`);
+      perf.push(`${name}: path planning across the yard (118,13 to 129,13; ms first / warm, tiles): content ${xc[0].toFixed(2)} / ${xc[1].toFixed(2)}, ${xc[2]} tiles; terrain preview ${xt[0].toFixed(2)} / ${xt[1].toFixed(2)}, ${xt[2]} tiles; a walk to the yard's middle: content ${xc[3].toFixed(2)} ms (${xc[4] === null ? "no path" : xc[4] + " tiles"}), terrain preview ${xt[3].toFixed(2)} ms`);
       /* a walk (a tap) to the closed-in middle, strict and loose, first and warm, from below the yard; and format 1's own raptor pen in
          production (65,34 from its viewing place 64,40), which has always been closed in the same way: what planning to ground that
          can't be reached costs */
@@ -530,7 +539,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       perf.push(`${name}: a walk to the closed-in middle (first / warm): MAP-B yard (123,19 to 123,13) ${mf(mc)}; format 1's raptor pen in production (64,40 to 65,34) ${mf(mp)}`);
       const dec = await P2.I(([mm]) => { const I2 = window.__island; const a = performance.now(); for (let i = 0; i < 5; i++) I2.decodeMap(mm); return (performance.now() - a) / 5; }, [cWith(() => {})]);
       const decT = await tp.I(([mm]) => { const I2 = window.__island; const a = performance.now(); for (let i = 0; i < 5; i++) I2.decodeMap(mm); return (performance.now() - a) / 5; }, [STAGED_MAP]);
-      perf.push(`${name}: decoding the staged map: ${dec.toFixed(1)} ms with the content layer (five records), ${decT.toFixed(1)} ms without (terrain preview)`);
+      perf.push(`${name}: decoding the staged map: ${dec.toFixed(1)} ms with the content layer (${REAL_DATA.records.length} records), ${decT.toFixed(1)} ms without (terrain preview)`);
     }
     await P2.ctx.close();
   }
@@ -599,7 +608,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     const P = await open(`http://127.0.0.1:${port + 1}/?debug=1&islandhour=11#island`, { wait: 2600 });
     if (P.loaded) {
       await hideDbg(P);
-      for (const [f, x, y] of [["side-north", 123, 8], ["side-south", 123, 19], ["side-west", 117, 13], ["side-east", 129, 13], ["corner-nw", 117, 9], ["corner-ne", 128, 9], ["corner-sw", 117, 19], ["corner-se", 129, 19], ["pi-beside", 121, 18]]) { await at(P, x, y); await shoot(P, `${name}-${f}.png`); }
+      for (const [f, x, y] of [["side-north", 123, 8], ["side-south", 123, 19], ["side-west", 118, 13], ["side-east", 129, 13], ["corner-nw", 117, 9], ["corner-ne", 128, 9], ["corner-sw", 117, 19], ["corner-se", 129, 19], ["pi-beside", 121, 18]]) { await at(P, x, y); await shoot(P, `${name}-${f}.png`); }
       await at(P, 125, 19, 600); await P.page.keyboard.down("ArrowUp"); await P.page.waitForTimeout(1000);
       await shoot(P, `${name}-pi-push.png`); await P.page.keyboard.up("ArrowUp");
       await at(P, 129, 15, 600); await P.page.keyboard.down("ArrowLeft"); await P.page.keyboard.down("ArrowUp"); await P.page.waitForTimeout(1000);
@@ -614,7 +623,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   }
   await browser.close();
 }
-terrainPv.close(); contentPv.close(); hpPv.close(); plain.close();
+terrainPv.close(); contentPv.close(); plain.close();
 if (perf.length) { console.log("\nperformance (measured, for the record):"); perf.forEach((l) => console.log("  " + l)); }
 console.log(`\n${fails ? fails + " failed" : "all passed"}${blocked.length ? `; BLOCKED: ${blocked.join(", ")} (not a pass)` : ""}`);
 process.exit(fails ? 1 : blocked.length ? 2 : 0);

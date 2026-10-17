@@ -28,7 +28,8 @@
 
    B3d1 (tools/mapb-fences.mjs tests the raptor yard's fence, the first paddock fence): this suite expects that record too,
    and its enclosed inside (42 tiles) as the only ground the content cuts off; MAPB_SHOTS sends the review screenshots
-   elsewhere, so a later batch's regression run leaves B3c3's in place.
+   elsewhere, so a later batch's regression run leaves B3c3's in place. B3d2 (tools/mapb-paddock.mjs tests the holding
+   paddock's fence): this suite expects that record too, and its inside (35) cut off beside the yard's.
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile, bound to the current terrain, and holds exactly the two buildings;
@@ -125,7 +126,7 @@ const built = await buildContentText(REAL, contentSha256), again = await buildCo
 check("node", "the tracked content file is the current compile, bound to the staged terrain; two compiles give the same bytes", readFileSync(CONTENT_STAGED, "utf8") === built.text && built.text === again.text && built.text.includes(`"terrainSha256": "${t.sourceSha256}"`) && t.current,
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records;
-check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall and B3d1's raptor-yard fence (tools/mapb-fences.mjs tests it; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence and B3d2's holding-paddock fence (tools/mapb-fences.mjs and tools/mapb-paddock.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
 check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const LAYER = contentLayers(RECS, W, H);
 for (const id of IDS) {
@@ -214,10 +215,11 @@ for (const id of IDS) {
   const shortest = KIT.filter(([, x, y]) => onRoute(x, y));
   check("node", "and none of them is on a shortest walk from any gate to the bunker's door (the required access stays clear)", shortest.length === 0, shortest.map((q) => q.join(" ")).join("; ") || "none on the way");
   // no new disconnected ground: everything the spawn reached on the terrain alone it still reaches, unless it's now solid, or (B3d1)
-  // it is the inside of a record that says it closes ground in (encloses: the raptor yard's 42 tiles, exactly, and nothing else)
+  // it is the inside of a record that says it closes ground in (encloses: the raptor yard's 42 tiles and, B3d2, the holding paddock's
+  // 35, exactly, and nothing else)
   const before = bfs2([79, 79], (i) => m.coll[i] !== 0), lost = [], closed = new Set(RECS.filter((r) => r.encloses).flatMap((r) => r.inner.map(([x, y]) => y * W + x))); let interior = 0, closedLost = 0;
   for (let i = 0; i < W * H; i++) { if (before[i] >= 0 && sp[i] < 0 && !LAYER.tiles[i]) { if (closed.has(i)) closedLost++; else lost.push([i % W, (i / W) | 0]); } const x = i % W, y = (i / W) | 0; if (inComp(x, y) && !onRing(x, y) && sp[i] >= 0) interior++; }
-  check("node", "no ground cut off: every tile the spawn reached on the terrain alone is still reached, unless content now stands on it or it is the inside of a record that encloses it (B3d1: the raptor yard's 42, all of them); the compound's whole open interior is reached through the entrance", lost.length === 0 && closedLost === 42 && closed.size === 42 && interior > 100, `${lost.length} cut off${lost.length ? ": " + lost.slice(0, 6).join(" ") : ""}; ${closedLost} enclosed on purpose (of ${closed.size}); ${interior} compound interior tiles reached`);
+  check("node", "no ground cut off: every tile the spawn reached on the terrain alone is still reached, unless content now stands on it or it is the inside of a record that encloses it (B3d1: the raptor yard's 42; B3d2: the holding paddock's 35; all of them); the compound's whole open interior is reached through the entrance", lost.length === 0 && closedLost === 77 && closed.size === 77 && interior > 100, `${lost.length} cut off${lost.length ? ": " + lost.slice(0, 6).join(" ") : ""}; ${closedLost} enclosed on purpose (of ${closed.size}); ${interior} compound interior tiles reached`);
   // the outside of each side: a walkable lane along it, reached from the spawn
   const lane = { north: [], west: [], south: [], east: [] };
   for (let x = 108; x <= 125; x++) lane.north.push([x, 75]);
@@ -475,7 +477,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     // collision: exactly the footprints, on top of the terrain's
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the three footprints, the compound's wall and (B3d1) the raptor yard's fence (101 + 53 + 30 = 184 tiles), the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 184);
+    check(name, "collision: the content layer is exactly the three footprints, the compound's wall and the paddock fences (B3d1's raptor yard, B3d2's holding paddock: 101 + 53 + 30 + 36 = 220 tiles), the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 220);
     for (const id of IDS) {
       const A = APPROVED[id], b = pxOf(A.box);
       const edge = await cp.I(([b]) => {

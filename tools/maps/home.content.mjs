@@ -39,7 +39,18 @@
      B1e habitat's own ring, named for it.
    - No openings: format 1's raptor pen is a closed ring with no gate, and B1e gives the yard none. Its inside (120,11
      to 126,16, 42 tiles) is closed in on purpose (encloses), so it is not safe ground: no landing, no saved position.
-   - Nothing else of the yard yet: no raptors, roam area, welder patrol, fence words or roof netting (later batches). */
+   - Nothing else of the yard yet: no raptors, roam area, welder patrol, fence words or roof netting (later batches).
+
+   B3d2: the second paddock fence, the T. rex holding paddock's (format 1's t-rex paddock; temporary, until Ironwood), on the
+   B1e habitat holding-paddock exactly, with the same fence.
+   - The fence: holding-paddock, the ring of the habitat's outline (its tiles with any of the 8 neighbours outside it), the
+     box 106,10 to 117,17: 36 solid tiles, each drawn. The outline is the approved smooth one, so the ring steps round it.
+   - No openings: format 1's t-rex paddock is a closed ring with no gate, and B1e gives the paddock none. Its inside (35
+     tiles, 108,11 to 116,16 at most, B3a's T. rex roam box) is closed in on purpose (encloses).
+   - Between the two paddocks, column 118 stays open: one tile wide at rows 12 to 15, the paddock's east fence (x 117) on
+     one side and the raptor yard's west fence (x 119) on the other.
+   - Nothing else of the paddock yet: no T. rex, roam area, roar zone, fence words or bones (later batches). B1e's
+     planning label "double fence, high security" isn't built: one ring, as B3a plans and format 1 has. */
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -74,6 +85,10 @@ export default {
     {
       id: "raptor-yard", kind: "fence", art: "placeholder", encloses: true,
       solid: { ringOfHabitat: { habitat: "raptor-yard" } }
+    },
+    {
+      id: "holding-paddock", kind: "fence", art: "placeholder", encloses: true,
+      solid: { ringOfHabitat: { habitat: "holding-paddock" } }
     }
   ]
 };

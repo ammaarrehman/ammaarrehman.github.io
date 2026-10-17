@@ -1,11 +1,12 @@
 #!/usr/bin/env node
 /* mapb-content (MAP-B B3b): the content-collision architecture, on the staged 150 x 120 island. Every gameplay check
    here runs on SYNTHETIC content built here and served through the content preview in memory (never written to the
-   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings, B3c2's bunker, B3c3's compound wall and B3d1's raptor-yard fence so far) is
+   content source or the staged files). The real content (tools/maps/home.content.mjs: B3c1's two buildings, B3c2's bunker, B3c3's compound wall, B3d1's raptor-yard fence and B3d2's holding-paddock fence so far) is
    checked here only as a layer (current, bound to its terrain, the painter untouched, incomplete); tools/mapb-buildings.mjs
    tests the buildings and the compound wall themselves, tools/mapb-fences.mjs the fence. B3c3: a wall now draws itself (art),
    so the synthetic walled room has art. B3d1: so does a fence, and a fence is the ring round a contained B1e habitat, so the
-   synthetic fenced pen is the ring round the holding paddock's outline (synthetic: no real content puts a fence there yet).
+   synthetic fenced pen is the ring round the holding paddock's outline (synthetic content of its own, built here; since B3d2
+   the real content has that fence too, tested in tools/mapb-paddock.mjs).
 
    1. Node, the content compiler (tools/maps/content.mjs, tools/map-content.mjs):
       - the tracked content file is the current compile, bound to the current terrain; the terrain's staged file is
@@ -69,7 +70,7 @@ const SYN_DATA = (() => { const c = { window: {} }; vm.runInNewContext(serialize
   const { content, contentSha256 } = await loadContent();
   const a = await buildContentText(content, contentSha256), b = await buildContentText(content, contentSha256);
   const tracked = readFileSync(CONTENT_STAGED, "utf8");
-  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
+  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; B3d2: the holding paddock's fence; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard,holding-paddock", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
   check("node", "two compiles give the same bytes", a.text === b.text);
   check("node", "the content is bound to the terrain it was placed on (terrainSha256 is the staged terrain's sourceSha256)", a.text.includes(`"terrainSha256": "${t.sourceSha256}"`), t.sourceSha256.slice(0, 16));
   check("node", "the staged terrain file is untouched: map-compile's own compile, byte for byte", t.current && readFileSync(STAGED_PATH, "utf8") === t.terrainText);
@@ -198,20 +199,21 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const rp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const rl = rp.loaded ? await look(rp) : null;
-  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 5,
+  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 6,
     rl ? `mode ${rl.v.previewMode}, content ${JSON.stringify(rl.v.content)}` : rp.errs.join("; "));
   const badge = rp.loaded ? await rp.page.evaluate(() => { const b = document.querySelector(".w-mapb-badge"); return { text: b.textContent, label: b.getAttribute("aria-label") }; }) : null;
   check(name, "content preview: the badge says so", badge && badge.text === "MAP-B\ncontent\npreview" && badge.label === "MAP-B content preview", JSON.stringify(badge));
   check(name, "content preview (real content): both locked painter digests, and the painter's reports as on the terrain preview", rl && rl.td === TERRAIN_SHA && rl.gd === GROUND_SHA && tl && rl.pr === tl.pr && rl.fr === tl.fr);
   // B3c2: with the bunker the three buildings are all there, so buildings has left the list; everything else is still missing
-  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list: no longer the buildings, still the stations and the rest)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length >= 12 && !rl.comp.missing.some((s) => /^buildings/.test(s)) && rl.comp.missing.some((s) => /^stations/.test(s)),
+  // (B3d2: with both paddock fences there the list is 11 items, not 12; the count is pinned so an item leaving it is noticed)
+  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list, 11 items: no longer the buildings or the paddock fences, still the stations and the rest)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length === 11 && !rl.comp.missing.some((s) => /^(buildings|paddock fences)/.test(s)) && rl.comp.missing.some((s) => /^stations/.test(s)),
     rl ? `${rl.comp.missing.length} missing, first: ${rl.comp.missing.slice(0, 2).join(" | ")}` : "");
   // B3c3: the bunker compound's wall is there (with its art), so the walls still missing are the koi garden's alone
   const wl = rl && rl.comp ? rl.comp.missing.filter((s) => /^compound walls/.test(s)) : [];
   check(name, "content preview (real content): the completeness list's compound walls name the koi garden's and no longer the bunker compound's", wl.length === 1 && wl[0] === "compound walls: koi-garden", JSON.stringify(wl));
-  // B3d1: the raptor yard's fence is there (enclosing, with its art), so the paddock fences still missing are the holding paddock's alone
+  // B3d1: the raptor yard's fence is there (enclosing, with its art); B3d2: so is the holding paddock's, so no paddock fence is missing
   const fl = rl && rl.comp ? rl.comp.missing.filter((s) => /^paddock fences/.test(s)) : [];
-  check(name, "content preview (real content): the completeness list's paddock fences name the holding paddock's and no longer the raptor yard's", fl.length === 1 && fl[0] === "paddock fences (enclosing): holding-paddock", JSON.stringify(fl));
+  check(name, "content preview (real content): the completeness list no longer names paddock fences (B3d1's raptor yard and B3d2's holding paddock are both there)", fl.length === 0, JSON.stringify(fl));
   if (rp.loaded) {
     await rp.page.keyboard.down("ArrowRight"); await rp.I(() => window.__island.step(20)); await rp.page.keyboard.up("ArrowRight");
     await rp.I(() => window.__island.setSave({ v: 2, logs: ["tablet"] }));

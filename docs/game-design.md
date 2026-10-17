@@ -601,7 +601,8 @@ and architecturally approved by Ammaar, approved for commit with two final-run f
   timeouts as different things, and never let a passing rerun erase an earlier failure.
 
 MAP-B B3d1, the paddock fence and the raptor yard (2026-10-16; staged only, not deployed; complete, visually and
-architecturally approved by Ammaar, committed as "Map: add MAP-B raptor enclosure fence (B3d1)"):
+architecturally approved by Ammaar, committed as "Map: add MAP-B raptor enclosure fence (B3d1)",
+`e80243165c499e02ba217ff683c7568655518633`):
 - Format 1, audited first: the paddocks are `regions.paddocks`, a name and a box each (the t-rex paddock 27,43 to 39,54, the
   raptor pen 60,30 to 70,38), nothing more. Every land tile of the box's edge is a fence tile, solid in `coll`; there is no
   gate, opening, lock or state, so each paddock is closed all round and its inside is a pocket (not safe ground: no landing,
@@ -696,7 +697,135 @@ architecturally approved by Ammaar, committed as "Map: add MAP-B raptor enclosur
 - Status: complete. The raptor yard's fence is built, closed all round as format 1's pen is; the shared fence renderer is
   ready for B3d2. Deferred: the raptors, their roam area and the fence's [E] words, the welder patrol, the raptor house and
   the roof netting. MAP-B stays preview-only (loopback, no storage); production is unchanged (format 1, 100 x 80, `SAVE_V`
-  2, cache `20261025`); nothing was deployed. B3d2 has not begun.
+  2, cache `20261025`); nothing was deployed. B3d2 (below) followed.
+
+MAP-B B3d2, the T. rex holding paddock (2026-10-16; staged only, not deployed; complete, visually and architecturally
+approved by Ammaar 2026-10-17, committed as "Map: add MAP-B T. rex holding paddock (B3d2)"):
+- Read first: B1e's habitat `holding-paddock` (contained; planning labels "temporary predator holding (T. rex, until
+  Ironwood)" and "double fence, high security"; an outline, a closed smooth curve through six named points: west 107,13,
+  north 112,10.5, north-east 117,11, east 118,16, south 113,17.5, south-west 107,17), B3a's plan (ring 36 tiles, inside
+  35, the T. rex roam box roam-02 108,11 to 116,16 with its spawn 112,14, the goto place `paddock` 112,19, the roar zone
+  104,8.5 to 120,20), this file's B3d1 notes on the lane, and format 1's t-rex paddock.
+- Format 1, audited: the t-rex paddock is `regions.paddocks` "t-rex paddock", the box 27,43 to 39,54 (a 46-tile ring,
+  110 inside), nothing more: no gate, opening, lock or state, closed all round; its one T. rex (spawn 33,48) roams roam-02,
+  exactly the inside (28,44 to 38,53), pacing the fence toward pi; `regions.zones.trex-roar` (25,41.5 to 42,56) wraps it, and
+  pi strictly inside that zone and within 150 px of the T. rex makes it roar (the `roar` secret); [E] at the fence names
+  the paddock, zaps and starts the roar; a bones decal lies inside; the goto place `paddock` is 41,51. The T. rex is
+  85 x 45 px. B3d2 keeps all of it for later and invents nothing.
+- The enclosure, from the approved sources: the ring of the B1e outline as the compiler rasters it (tile centres inside the
+  curve: 71 tiles), its tiles with any of their 8 neighbours outside it. 36 fence tiles, by row: 10: 112 to 115; 11: 109,
+  110, 111, 112, 115, 116; 12: 108, 109, 116, 117; 13: 107, 108, 117; 14: 106, 107, 117; 15: 106, 107, 116, 117; 16: 107,
+  108, 109, 112 to 116; 17: 109 to 112 (the box 106,10 to 117,17). Inside, 35 tiles: 11: 113, 114; 12: 110 to 115; 13:
+  109 to 116; 14: 108 to 116; 15: 108 to 115; 16: 110, 111 (within B3a's roam box, touching each edge; the spawn 112,14 is
+  inside). The curve steps, so the ring does: 24 corner pieces and 12 runs (10 east-west, 2 north-south), a warning sign on
+  the middle of each of its five east-west runs (113,10, 110,11, 108,16, 114,16, 110,17). At the west tip the raster puts a
+  2 x 2 block of fence (106 to 107, 14 to 15): one line still, closed even to a diagonal step. No openings (format 1's
+  paddock has none, B1e gives it none). All of it is open level-2 highland grass with no foot-blocking pixel and no path;
+  the nearest other level is 13 tiles away, the sea 2 tiles off its north-west side. The 44 tiles one step out all round
+  are open ground and join into one loop (the coast's 6 foot-blocking pixels on 108,10 are the only ones among them). The
+  paddock fence walk (a trail, rows 18 and 19) runs along the south fence to 118,19; the viewing place 112,19 is on it.
+- Not built: B1e's planning label "double fence, high security". B3a plans one ring and format 1 has one; a second ring
+  would need geometry nobody has approved (and room the site doesn't have on the north-west and east). A decision for
+  Ammaar (below).
+- The lane between the paddocks: column 118, open from row 9 to row 18, one tile wide at rows 12 to 15 (the paddock's
+  fence at x 117, the yard's at x 119), two wide at its mouths (117 to 118 at rows 10 and 11, and 16 and 17). Measured in
+  Chromium and WebKit on the update loop:
+  - Movement: pi's feet are 9 px wide (move()'s half-width 4) in the 16 px lane, so pi's middle has 7 px of play (x 1892
+    to 1899) and its feet clear each fence by 3 to 4 px in the middle. Pushed sideways it stops flush, never on a solid
+    pixel.
+  - Keyboard (and the joystick, which drives the same way): going straight in from either end, pi gets through when its
+    middle is in that 8 px window (8 of the 24 px across the two-tile mouth); anywhere else it stops at the end of the
+    paddock's fence (row 11 or 16) and has to step sideways. Diagonally toward the yard (down and right, up and right),
+    pi slides along the yard's straight west fence into the lane and through, from beside the mouth and from 4 tiles off;
+    diagonally toward the paddock it stops at the paddock's step. No foot ever on a solid pixel, never through a fence.
+  - Tap to walk and the planner: through it both ways, and across between the paddocks (it is the shortest way between
+    the north strip and the fence walk, so the planner uses it), with no stall. On phones (390 x 844 and 375 x 667) the
+    lane is 32 CSS px wide, taps in it and through it walk pi there, and the touch joystick takes pi through it (a little
+    off straight down toward the yard slides in; straight down from the paddock's side stops at the fence end).
+  - Visibility: pi's white body shows fully in the lane (the same light pixels on screen as on open grass, every row).
+  - The helicopter: no landing anywhere in the one-tile lane (its skids would be over a fence), E there is refused in
+    flight; it may land where the lane opens out, clear of both fences.
+  - Assessment (approved): not a meaningful problem; no change. The lane is open, safe ground, never the only way round (the
+    north strip joins the coast west of the paddock and the ground east of the yard), and every way of moving gets
+    through it. The one rough edge is the 8 px window for a straight keyboard or joystick entry, the same as any one-tile
+    gap in the game (move() has no corner assist). Widening it would change B1 geometry; a corner assist would be a new
+    movement mechanic. Both are for Ammaar, neither is needed (below).
+- Content (`tools/maps/home.content.mjs`), one fence record: `holding-paddock`, kind fence, art placeholder, `encloses: true`,
+  solid the ring round the habitat (`ringOfHabitat`). In all: 6 records, 220 solid tiles, 0 foot pixels.
+- Schema and runtime: unchanged. The fence schema, the `fences` compile rule, the decoder's checks, the renderer
+  (`ringPieces`, `fenceArt`, the night glow and sparks) and the collision are B3d1's, used as they are; the holding paddock
+  takes the yard's style (`FENCE_STYLE.other`). `js/world.js` is not changed. The completeness wall no longer lists
+  paddock fences (both are there with art and `encloses`); a normal format-2 home is still refused (the koi garden's
+  wall, the stations, the creatures and the rest).
+- Containment (Chromium and WebKit, the update loop, move() as the creatures use it): pi walked into the fence from every
+  tile touching it, inside (35) and outside (44), in every direction whose next tile is fence: 166 pushes (70 from inside,
+  96 from outside), straight ones stopping flush (within 3 px), diagonal ones into all 24 corners from outside and the 22
+  that face the inside from inside (106,14 and 106,15 stand behind the west tip's other two), never through, feet never
+  on a solid pixel. Every fence pixel blocks; the pixels round it answer as the terrain does; inside nothing is blocked.
+  The inside is not safe ground (no landing, no restored position); the outside and the lane are. The planner goes round
+  and along it, never in; a walk to the middle never enters; no ground outside is cut off. The helicopter can't set down
+  on it or inside it (every 4 px), descents drifting at it from each side park clear, and in flight E over the middle is
+  refused and lands beside it.
+- Not in this batch (each waits for its own): the T. rex, its roam area and spawn, its fence pacing and roar (the format has
+  no spawns, roam areas or zones yet); the roar zone; the fence's [E] words and zap; the bones; the double fence; the
+  Ironwood move (a later phase).
+- Tests: `tools/mapb-paddock.mjs` (new; Node and Chromium and WebKit; review screenshots in `tools/out/mapb/b3d2/`, with a
+  labelled diagnostic overlay drawn by the test only). `tools/mapb-fences.mjs`: its synthetic holding paddock is now the
+  real one, the yard's west side is the lane (118,13; 117,13 is the paddock's fence now), both insides are the ground cut
+  off, and `MAPB_SHOTS` keeps a later run's screenshots out of B3d1's folder. `tools/mapb-content.mjs` and
+  `tools/mapb-buildings.mjs` expect the sixth record, 220 tiles and the 77 tiles closed in.
+- Verification (one regression pass on the final code, 2026-10-16, one suite at a time, each log kept as it finished,
+  `tools/out/mapb/b3d2/gates/`; load average 5 to 41, another process busy for part of it). Firefox BLOCKED at launch in
+  every browser suite (exit 2, never counted as a pass). Passed: map-compile, map-content (6 records, 220 tiles), map-lint
+  (187), map-export `--check` (50), map-decode 250, mapb-decode 76, mapb-painter 49 (both locked digests exact in Chromium
+  and WebKit: terrain `8fdd2afe...`, ground `0263dc4f...`), mapb-runtime 220, map-parity 37/37 and b0-parity 21/21
+  identical with `715450d` in both, scenarios 98, ctf 250, doors (worst 3.7 ms), focus 16, mapb-paddock 142,
+  mapb-buildings 379, the deploy guard (8), the dry run (53 files, 41 references), deploy-args (37), html, `git diff
+  --check`. CSpell exits 1 as it does at HEAD: the same 19 findings (6 words, all in `js/world.js`, which B3d2 doesn't
+  touch), none new.
+  FAILED in that pass, two suites, each one check in Chromium and WebKit, both in the tests B3d2 changed, not the game:
+  - mapb-content (143 ok, 2 failed): the completeness list was expected to have at least 12 items; with both paddock
+    fences there it has 11 (a format-2 home is still refused). The check now pins exactly 11 (stricter, not looser).
+  - mapb-fences (163 ok, 2 failed): the yard's west-side helicopter descent, moved by B3d2 off the paddock's inside to
+    118,10, started where the game refuses E (the skids would be over the yard's fence), and parked there. It now starts
+    in the lane's two-tile south mouth (117.5,17), and every descent checks it starts where E may land.
+  Both rerun alone after the fix (`*-rerun.log`): mapb-fences 165 and mapb-content 145, all passed, Firefox BLOCKED.
+  After that, one wording change in mapb-fences (its decode timing said "five records"; it now counts them), checked
+  with its Node part only.
+  Failures while building it (development runs, `tools/out/mapb/b3d2/dev/`), all in the new test's expectations, none in
+  the game: the ring is not a simple cycle (the west tip's 2 x 2 block), two fence tiles can't be walked into from inside,
+  a helicopter descent started in the lane (where E is refused), part of the ring off screen at the first framing, the
+  overlay's legend over the paddock, and the lane mouths (two wide) allowing landings clear of the fences.
+- Performance (gate run, Chromium / WebKit): one fence piece 0.98 / 1.12 us a draw; walking round the paddock and down
+  the lane on the live loop, frame work p95 1.8 / 2.0 ms (the terrain preview's 1.5 / 1.0 in the same run), max 10.1 /
+  5.0 ms; planning round the paddock 1.8 / 2.0 ms first, 0.16 / 0.20 ms warm; decoding the staged map with six records
+  3.7 / 4.4 ms. A walk (a tap) to the closed-in middle costs about 2.8 ms warm (11 to 12 ms the first time on a fresh
+  page), against 0.6 to 0.8 ms for format 1's t-rex paddock on its smaller island; the same pattern B3d1 measured for the
+  yard. In one WebKit development run under heavy load a single 84 ms frame showed up (p95 2.0 ms); the gate run's worst
+  WebKit frame was 5 ms.
+- Approved by Ammaar on review (2026-10-17; both paddocks day and night, the diagnostic overlay, the corners, the lane,
+  collision and both phones), with no change. His decisions:
+  1. The paddock keeps B1e's exact geometry: 36 fence tiles, 35 closed in. The raptor yard stays exactly as B3d1 left it.
+  2. Both enclosures stay closed: no gates or openings.
+  3. The existing electric fence art and renderer stay; the stepped fence and the thicker west tip are accepted as
+     placeholder art.
+  4. The one-tile lane (x 118, y 12 to 15) is accepted, with movement collision and path planning as they are. Its narrow
+     alignment window for a straight keyboard or joystick entry (8 px of the 24 px mouth) is documented here; no global
+     corner assist is added.
+  5. The second, high-security ring (B1e's "double fence" label) is not built; the question stays open for a later review.
+  6. No dinosaurs, creature AI, welder patrol, raptor house content or new interactions in B3d2.
+  7. The T. rex's migration must prove that its body (about 85 x 45 px) can spawn, turn, move and stay contained in this
+     35-tile irregular inside (9 x 6 at most), B3a's risk 4.
+- Pre-commit checks (lightweight, after approval; the browser suites weren't rerun, the gate run and the two targeted reruns
+  above stand; `tools/out/mapb/b3d2/final/`): map-compile and map-content `--check` current (6 records, 220 solid tiles, 0
+  foot pixels); the five earlier records byte for byte as at B3d1 and the paddock's 36 tiles closed with no openings; the
+  Node parts of mapb-paddock (32), mapb-fences (35), mapb-content (29) and mapb-buildings (70); the deploy guard; the dry
+  run (53 files, 41 references); CSpell the same 19 findings (all in `js/world.js`); `js/`, the pages, the B1 source, the
+  staged terrain, the painter fixtures and the deploy tools unchanged from HEAD (so both locked digests stand as measured).
+- Status: complete. Both predator enclosures, the raptor yard and the T. rex holding paddock, are now built as structure
+  (fence, collision, art), on one shared fence system; their animals and interactions come later. MAP-B stays
+  preview-only (loopback, no storage); production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`);
+  nothing was deployed. B3d3 has not begun.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
