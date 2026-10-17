@@ -354,7 +354,7 @@
   var PREVIEW_FLAGS = { "mapb-staged": "terrain", "mapb-content": "content" };
   /* the rooms a content building may open into (the game's ROOMS, B3c1), the art kinds the game draws: only "placeholder"
      so far (the art stage adds real sprites), and what it draws them on: a building (B3c1) and a wall (B3c3) */
-  var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall", "fence"];
+  var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall", "fence", "gate"];
   function previewMode() { var f = window.ISLAND_MAP_PREVIEW; return typeof f === "string" && Object.prototype.hasOwnProperty.call(PREVIEW_FLAGS, f) ? PREVIEW_FLAGS[f] : null; }
   function previewAsked() { return previewMode() !== null; }
   function decodeMap(M) {
@@ -546,16 +546,20 @@
         if (!isObj(r) || typeof r.id !== "string" || !ID.test(r.id)) bad("content.records[" + k + "] needs an id (a short lowercase name)");
         var f = "content record " + r.id;
         if (seen[r.id]) bad(f + " appears twice"); seen[r.id] = 1;
-        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "reserve", "encloses", "room", "art", "compound"]);
+        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker"]);
         if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
         // a building (B3c1) draws itself (art: the only kind so far is "placeholder"; the art stage adds real sprites) and may
-        // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in, and a fence
-        // (B3d1). nothing else has a room or a compound, and nothing else has art the game can draw yet
+        // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in, a fence (B3d1)
+        // and a gate (B3d3), which names the marker it stands on. nothing else has a room, a compound or a marker, and
+        // nothing else has art the game can draw yet
         if (r.room !== undefined && (r.kind !== "building" || ROOM_IDS.indexOf(r.room) < 0)) bad(f + ".room " + JSON.stringify(r.room) + (r.kind !== "building" ? ": only a building has a room" : " isn't one of the game's rooms, " + ROOM_IDS.join(", ")));
-        if (r.art !== undefined && (ART_ON.indexOf(r.kind) < 0 || ART_KINDS.indexOf(r.art) < 0)) bad(f + ".art " + JSON.stringify(r.art) + (ART_ON.indexOf(r.kind) < 0 ? ": only a building, a wall or a fence has art the game draws so far" : " isn't one of " + ART_KINDS.join(", ")));
+        if (r.art !== undefined && (ART_ON.indexOf(r.kind) < 0 || ART_KINDS.indexOf(r.art) < 0)) bad(f + ".art " + JSON.stringify(r.art) + (ART_ON.indexOf(r.kind) < 0 ? ": only a building, a wall, a fence or a gate has art the game draws so far" : " isn't one of " + ART_KINDS.join(", ")));
         if (r.kind === "building" && r.art === undefined) bad(f + " is a building with no art: a building draws itself (art \"placeholder\" until the art stage)");
         if (r.kind === "wall" && r.art === undefined) bad(f + " is a wall with no art: a wall draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
         if (r.kind === "fence" && r.art === undefined) bad(f + " is a fence with no art: a fence draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
+        if (r.kind === "gate" && r.art === undefined) bad(f + " is a gate with no art: a gate draws itself (art \"placeholder\" until the art stage), so neither post is invisible");
+        if (r.marker !== undefined && (r.kind !== "gate" || typeof r.marker !== "string" || !ID.test(r.marker))) bad(f + ".marker " + JSON.stringify(r.marker) + (r.kind !== "gate" ? ": only a gate stands on a marker" : " must be a marker id"));
+        if (r.terrainTiles !== undefined && r.kind !== "wall") bad(f + ".terrainTiles: only a wall's ring is closed by the terrain");
         if (r.compound !== undefined && (r.kind !== "wall" || typeof r.compound !== "string" || !ID.test(r.compound))) bad(f + ".compound " + JSON.stringify(r.compound) + (r.kind !== "wall" ? ": only a wall walls in a compound" : " must be a compound id"));
         var drawn = arr(r.drawnPxBoxes, f + ".drawnPxBoxes").map(function (b, j) { return pxBox(b, f + ".drawnPxBoxes[" + j + "]"); });
         if (!drawn.length) bad(f + " draws nothing (drawnPxBoxes is empty)");
@@ -564,6 +568,7 @@
         arr(r.footPxBoxes, f + ".footPxBoxes").forEach(function (b, j) { pxBox(b, f + ".footPxBoxes[" + j + "]"); });
         arr(r.doorTiles, f + ".doorTiles").forEach(function (p, j) { tileAt(p, f + ".doorTiles[" + j + "]"); });
         if (r.gapTiles !== undefined) arr(r.gapTiles, f + ".gapTiles").forEach(function (p, j) { tileAt(p, f + ".gapTiles[" + j + "]"); });
+        if (r.terrainTiles !== undefined) arr(r.terrainTiles, f + ".terrainTiles").forEach(function (p, j) { tileAt(p, f + ".terrainTiles[" + j + "]"); });
         if (!arr(r.tiles, f + ".tiles").length && !r.footPxBoxes.length) bad(f + " blocks nothing (no tiles, no foot boxes)");
         // whole solid tiles: on open terrain only, each in one record, and never outside what the record draws (D1)
         function inDrawn(px, py) { for (var q = 0; q < drawn.length; q++) { var b = drawn[q]; if (px >= b.px0 && px <= b.px1 && py >= b.py0 && py <= b.py1) return true; } return false; }
@@ -579,11 +584,14 @@
         if (r.kind === "building") building(r, f, drawn);
         if (r.kind === "wall") wallShape(r, f, drawn);
         if (r.kind === "fence") fenceShape(r, f, drawn);
+        if (r.kind === "gate") gateShape(r, f, drawn);
         return { r: r, inDrawn: inDrawn };
       });
       /* a wall's shape (B3c3): placeholder art is one opaque tile of wall on every solid tile and nowhere else (its drawn
          boxes are its tiles, one each, and nothing more: what looks solid is exactly what blocks), it stops no feet by the
          pixel, and its tiles and openings (gapTiles) make one connected line, so every opening in it is an authored one.
+         where the terrain closes it (terrainTiles, B3d3: a cliff rim) the line runs on through the terrain's own solid land,
+         never through anything a foot could cross.
          a fence's (B3d1) is the same shape (what: "fence"), and one with no openings must say it closes ground in (encloses),
          one with openings must not: the safe-ground flood then finds its inside cut off exactly when it says so */
       function fenceShape(r, f, drawn) {
@@ -604,7 +612,14 @@
           boxes[ty * w + tx] = 1;
         });
         r.tiles.forEach(function (p) { if (!boxes[p[1] * w + p[0]]) bad(f + ": its solid tile " + p + " has no art over it: no invisible collision"); });
-        var all = {}, n = 0, start = -1; r.tiles.concat(gaps).forEach(function (p) { var i = p[1] * w + p[0]; if (!all[i]) { all[i] = 1; n++; start = i; } });
+        var terr = r.terrainTiles || [];
+        terr.forEach(function (p) {
+          var i = p[1] * w + p[0];
+          if (own[i]) bad(f + ": " + p + " is closed by the terrain and is one of its own solid tiles too");
+          if (gaps.some(function (q) { return q[0] === p[0] && q[1] === p[1]; })) bad(f + ": " + p + " is closed by the terrain and is one of its openings too");
+          if (D.coll[i] !== C_SOLID) bad(f + ": " + p + " is listed as closed by the terrain, but the terrain there isn't solid land (" + (walk(p[0], p[1]) ? "a foot could cross it" : "coll " + D.coll[i]) + ")");
+        });
+        var all = {}, n = 0, start = -1; r.tiles.concat(gaps, terr).forEach(function (p) { var i = p[1] * w + p[0]; if (!all[i]) { all[i] = 1; n++; start = i; } });
         gaps.forEach(function (p) { if (own[p[1] * w + p[0]]) bad(f + ": its opening " + p + " is one of its own solid tiles"); });
         var seenW = {}, q = [start], c2 = 0; seenW[start] = 1;
         while (q.length) { var i = q.pop(), x = i % w, y = (i - x) / w; c2++; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var j = (y + d[1]) * w + x + d[0]; if (x + d[0] >= 0 && x + d[0] < w && all[j] && !seenW[j]) { seenW[j] = 1; q.push(j); } }); }
@@ -614,6 +629,19 @@
           var i = +i0, x = i % w, y = (i - x) / w, nb = [[1, 0], [-1, 0], [0, 1], [0, -1]].filter(function (d) { return x + d[0] >= 0 && x + d[0] < w && all[(y + d[1]) * w + x + d[0]]; }).length;
           if (nb < 2) bad(f + ": its tiles and openings don't close round: " + x + "," + y + " joins " + nb + " (a hole in it isn't one of its openings)");
         });
+      }
+      /* a gate's shape (B3d3): format 1's park gate, an arch over a road. it is named for the marker it stands on; its solid
+         is exactly its two posts, two tiles in one row with three between them (format 1's posts, 2 either side of the
+         marker); its art is one box from the west post's west edge to the east post's east edge, standing on their bottom
+         edge (it rises above them, never below or beside); it has no foot box, door, opening list, reserve or enclosure.
+         its opening (the three tiles between the posts) and the road through it are checked once every solid is known */
+      function gateShape(r, f, drawn) {
+        if (r.marker === undefined || r.marker !== r.id) bad(f + " is a gate, so it stands on a marker and is named for it (marker " + JSON.stringify(r.marker) + ")");
+        if (r.footPxBoxes.length || r.doorTiles.length || r.gapTiles !== undefined || r.reserve !== undefined || r.encloses !== undefined) bad(f + " is a gate: its posts block whole tiles, and it has no foot box, door, opening list, reserve or enclosure");
+        var p = r.tiles, a = p[0], b = p[1];
+        if (p.length !== 2 || a[1] !== b[1] || Math.abs(a[0] - b[0]) !== 4) bad(f + ": a gate's solid is its two posts, two tiles in one row with three between them, not " + JSON.stringify(p));
+        var x0 = Math.min(a[0], b[0]), y = a[1], d = drawn[0];
+        if (drawn.length !== 1 || d.px0 !== x0 * T || d.px1 !== (x0 + 4) * T + T - 1 || d.py1 !== y * T + T - 1 || d.py0 > y * T) bad(f + ": its placeholder art is one box from its west post's west edge to its east post's east edge, standing on their bottom edge (px " + x0 * T + " to " + ((x0 + 4) * T + T - 1) + ", bottom " + (y * T + T - 1) + ")");
       }
       /* a building's shape (B3c1): its solid is one full rectangle of tiles (its footprint); its placeholder art is one box
          as wide as the footprint, standing on its front edge (it may rise above it, never below or beside it); one with a
@@ -652,6 +680,16 @@
         r.doorTiles.forEach(function (p) {
           if (!walk(p[0], p[1]) || cc[p[1] * w + p[0]]) bad(f + ": door " + p + " isn't walkable");
           if (![[1, 0], [-1, 0], [0, 1], [0, -1]].some(function (n) { return r.tiles.some(function (q) { return q[0] === p[0] + n[0] && q[1] === p[1] + n[1]; }); })) bad(f + ": door " + p + " isn't next to its solid");
+        });
+      });
+      // a gate's opening, and the road through it (B3d3): open ground, once every solid tile and foot box is known
+      recs.forEach(function (o) {
+        var r = o.r, f = "content record " + r.id;
+        if (r.kind !== "gate") return;
+        var gx = Math.min(r.tiles[0][0], r.tiles[1][0]) + 2, gy = r.tiles[0][1];
+        [[gx - 1, gy, "its opening"], [gx, gy, "its opening"], [gx + 1, gy, "its opening"], [gx, gy - 1, "the road behind it"], [gx, gy + 1, "the road in front of it"]].forEach(function (q) {
+          var wet = 0; for (var py = q[1] * T; py < q[1] * T + T; py++) for (var px = q[0] * T; px < q[0] * T + T; px++) if (bit(D.foot, px, py) || bit(cf, px, py)) wet++;
+          if (!walk(q[0], q[1]) || cc[q[1] * w + q[0]] || wet) bad(f + ": " + q[2] + " at " + q[0] + "," + q[1] + " isn't open ground (" + (!walk(q[0], q[1]) ? "terrain" : cc[q[1] * w + q[0]] ? "solid content" : wet + " foot-blocking pixels") + ")");
         });
       });
       // the spawn stays clear: its tile, and pi's feet standing there
@@ -733,7 +771,7 @@
     HOME2_RECORDS.forEach(function (q) {
       var miss = q[1].filter(function (id) {
         var r = recs.filter(function (x) { return x.id === id && x.kind === q[0]; })[0];
-        return !r || (q[0] === "building" && (!r.doorTiles.length || !r.room || !r.art)) || (q[0] === "wall" && !r.art) || (q[0] === "fence" && (!r.encloses || !r.art));
+        return !r || (q[0] === "building" && (!r.doorTiles.length || !r.room || !r.art)) || (q[0] === "wall" && !r.art) || (q[0] === "fence" && (!r.encloses || !r.art)) || (q[0] === "gate" && !r.art);
       });
       if (miss.length) out.push(q[2] + ": " + miss.join(", "));
     });
@@ -878,36 +916,50 @@
      gapTiles), or a pier every fifth tile along a run; and its south face shows when no wall tile stands below it. the
      decoder has checked that the art covers every solid tile and nothing else, so what looks solid is exactly what
      blocks. an opening is a gap in the wall, as format 1's compound gate is: nothing opens, closes or locks. format 1's
-     own walls (wall, drawWall) are unchanged */
+     own walls (wall, drawWall) are unchanged. B3d3: a piece beside where the terrain closes the ring (the koi garden's
+     wall at the cliff rim) is an end: a pier that stops at the cliff */
   /* a ring's pieces, shared by the walls and (B3d1) the fences: one per solid tile of the record, with its neighbours in
      the same record (n, s, e, w), the openings beside it (gap: north, east, south, west), its run's direction (dir: "h"
      east-west, "v" north-south, "x" where they meet) and whether its south face shows (front: no tile of it below).
      kindOf(pc, has, dx, dy) names the piece (pc.kind) and may mark more on it (pc.mark, drawn into its art); dx, dy are its
-     place from the record's top-left. at: the lookup grid, pieces: the list it goes in */
+     place from the record's top-left. at: the lookup grid, pieces: the list it goes in. B3d3: where the terrain closes the
+     ring (a wall's terrainTiles, the cliff rim), a piece beside it knows (cliff: north, east, south, west) and ends there;
+     the terrain tile itself is the painter's cliff, not a piece */
   function ringPieces(r, ring, at, pieces, kindOf) {
-    var own = {}, gap = {}, bx0 = 1e9, by0 = 1e9;
+    var own = {}, gap = {}, cliff = {}, bx0 = 1e9, by0 = 1e9;
     r.tiles.forEach(function (p) { own[p[1] * MW + p[0]] = 1; bx0 = Math.min(bx0, p[0]); by0 = Math.min(by0, p[1]); });
     ring.gaps.forEach(function (p) { gap[p[1] * MW + p[0]] = 1; });
+    (ring.terrain || []).forEach(function (p) { cliff[p[1] * MW + p[0]] = 1; });
     function has(x, y) { return x >= 0 && y >= 0 && x < MW && y < MH && !!own[y * MW + x]; }
     r.tiles.forEach(function (p) {
       var x = p[0], y = p[1];
       function o(set, dx, dy) { var nx = x + dx, ny = y + dy; return nx >= 0 && ny >= 0 && nx < MW && ny < MH && !!set[ny * MW + nx]; }
       var n = o(own, 0, -1), s = o(own, 0, 1), e = o(own, 1, 0), w = o(own, -1, 0), g = [o(gap, 0, -1), o(gap, 1, 0), o(gap, 0, 1), o(gap, -1, 0)];
+      var cl = [o(cliff, 0, -1), o(cliff, 1, 0), o(cliff, 0, 1), o(cliff, -1, 0)];
       var dir = (e || w) && !(n || s) ? "h" : (n || s) && !(e || w) ? "v" : "x";
-      var pc = { x: x, y: y, kind: null, dir: dir, front: !s, n: n, s: s, e: e, w: w, gap: g, at: null, mark: "" };
+      var pc = { x: x, y: y, kind: null, dir: dir, front: !s, n: n, s: s, e: e, w: w, gap: g, cliff: cl, at: null, mark: "" };
       kindOf(pc, has, x - bx0, y - by0);
-      pc.sig = [r.id, pc.kind, dir, pc.front ? 1 : 0, n ? 1 : 0, s ? 1 : 0, e ? 1 : 0, w ? 1 : 0, g.map(Number).join("")].join(":") + (pc.mark ? ":" + pc.mark : "");
+      pc.sig = [r.id, pc.kind, dir, pc.front ? 1 : 0, n ? 1 : 0, s ? 1 : 0, e ? 1 : 0, w ? 1 : 0, g.map(Number).join("")].join(":") + (cl.some(Boolean) ? ":c" + cl.map(Number).join("") : "") + (pc.mark ? ":" + pc.mark : "");
       at[y * MW + x] = pieces.push(pc); ring.pieces.push(pc);
     });
   }
+  /* each wall's look, by its id (the art itself is drawn further down, with the buildings'): the bunker compound's
+     sandbags and concrete (B3c3); the koi garden's (B3d3) a garden wall, look "garden": mossy fieldstone under flat
+     capstones, with dressed-stone piers and gateposts. a wall with no style of its own takes the bunker compound's */
+  var WALL_STYLE = {
+    "bunker-compound": { sand: ["#6e6040", "#a8966a", "#c8b688"], edge: "#2e2618", conc: ["#3a3c3a", "#50534f", "#686b66", "#83867f"], hazard: ["#f2c230", "#1a1a1a"], lamp: ["#2a2c2a", "#a8742a", "#ffe07a"] },
+    "koi-garden": { look: "garden", stone: ["#3e3a33", "#615b50", "#7d766a", "#9a9384", "#b9b2a1"], cap: ["#7c776c", "#a39d8f", "#c4beae", "#ddd7c6"], moss: ["#3b5a2a", "#527a34", "#6f9a42", "#94bd5c"], edge: "#2a2722", lamp: ["#3e3a33", "#a8742a", "#ffd890"] }
+  };
+  WALL_STYLE.other = WALL_STYLE["bunker-compound"];
   var WALLS = [], WALL_PIECES = [], WALLAT = null;
   (MAP.contentRecords || []).forEach(function (r) {
     if (r.kind !== "wall" || r.art !== "placeholder") return;
     if (!WALLAT) WALLAT = new Int32Array(MW * MH);
-    var wl = { id: r.id, compound: r.compound || null, gaps: (r.gapTiles || []).map(function (p) { return p.slice(); }), pieces: [] };
+    var wl = { id: r.id, compound: r.compound || null, gaps: (r.gapTiles || []).map(function (p) { return p.slice(); }), terrain: (r.terrainTiles || []).map(function (p) { return p.slice(); }), pieces: [] };
     ringPieces(r, wl, WALLAT, WALL_PIECES, function (pc, has, dx, dy) {
       pc.wall = wl;
-      pc.kind = pc.gap.some(Boolean) ? "post" : pc.dir === "x" ? (pc.n || pc.s || pc.e || pc.w ? "corner" : "post") : (pc.dir === "h" ? dx : dy) % 5 ? "run" : "pier";
+      pc.kind = pc.gap.some(Boolean) ? "post" : pc.cliff.some(Boolean) ? "end" : pc.dir === "x" ? (pc.n || pc.s || pc.e || pc.w ? "corner" : "post") : (pc.dir === "h" ? dx : dy) % 5 ? "run" : "pier";
+      if (WALL_STYLE[wl.id] && WALL_STYLE[wl.id].look === "garden" && (pc.kind === "run" || pc.kind === "pier")) pc.mark = "v" + ((pc.x * 7 + pc.y * 3) % 3);   // three stone patterns, so a run doesn't repeat
     });
     WALLS.push(wl);
   });
@@ -932,6 +984,17 @@
       }
     });
     FENCES.push(fc);
+  });
+  /* MAP-B's park gate (B3d3): each gate record of the content layer (the decoder has checked its shape: two posts, two
+     tiles in one row with three between them, and one drawn box over them standing on their bottom edge). Format 1's park
+     gate (GATE, drawGate) is unchanged; this one is drawn from its record, as an arch over the road: two posts, a
+     crossbeam and a sign, torches on the posts. Like format 1's it is art and two solid posts: nothing opens, closes or
+     locks, and nothing about it is saved */
+  var GATES = [];
+  (MAP.contentRecords || []).forEach(function (r) {
+    if (r.kind !== "gate" || r.art !== "placeholder") return;
+    var x0 = Math.min(r.tiles[0][0], r.tiles[1][0]), y = r.tiles[0][1], b = r.drawnPxBoxes[0];
+    GATES.push({ id: r.id, marker: r.marker, x: x0 + 2, y: y, posts: [[x0, y], [x0 + 4, y]], opening: [[x0 + 1, y], [x0 + 2, y], [x0 + 3, y]], box: { px0: b.px0, py0: b.py0, px1: b.px1, py1: b.py1 }, art: null, at: null });
   });
 
   // height: which terrace each tile of ground (and water on the ground) sits on
@@ -5261,11 +5324,11 @@
      compound's keeps format 1's outpost look in the same palette as the bunker: courses of sandbags, each lit on top
      and shadowed underneath, between concrete piers, with a concrete corner block where two runs meet; the posts either
      side of the entrance are concrete with hazard stripes facing the opening and a small lamp, lit at night. The light
-     comes from the upper left, as everywhere. Seams fall on world pixels (a bag is 8 px), so runs join without a break */
-  var WALL_STYLE = {
-    "bunker-compound": { sand: ["#6e6040", "#a8966a", "#c8b688"], edge: "#2e2618", conc: ["#3a3c3a", "#50534f", "#686b66", "#83867f"], hazard: ["#f2c230", "#1a1a1a"], lamp: ["#2a2c2a", "#a8742a", "#ffe07a"] }
-  };
-  WALL_STYLE.other = WALL_STYLE["bunker-compound"];
+     comes from the upper left, as everywhere. Seams fall on world pixels (a bag is 8 px), so runs join without a break.
+     The koi garden's (B3d3, look "garden") is a low garden wall instead: flat capstones with moss on them over courses of
+     fieldstone (three patterns of joints, so a run doesn't repeat tile by tile), dressed-stone piers along it and at its
+     corners, where it stops at the cliff (an end) and either side of each opening (a gatepost, with a small lantern in
+     it, lit at night as the bunker compound's lamps are). Every piece is as opaque, and its courses fall on the same rows */
   var WALL_ART = {}, WALL_MS = 0, WALL_N = 0;
   function wallLamp(pc) { return pc.front ? [7, 1] : [7, 7]; }                   // the lens's top-left in the piece (posts only)
   function wallArt(pc) {
@@ -5273,6 +5336,7 @@
     var P = WALL_STYLE[pc.wall.id] || WALL_STYLE.other, c = mkCanvas(); c.width = T; c.height = T;
     var g = c.getContext("2d"), x, y, k;
     function r(x0, y0, ww, hh, col) { g.fillStyle = col; g.fillRect(x0, y0, ww, hh); }
+    if (P.look === "garden") { gardenWallArt(pc, P, r); WALL_ART[pc.sig] = c; return c; }
     var top1 = pc.front ? 3 : 15;                                                     // the top runs to row 3 when the south face shows
     // bags seen from above: an east-west run's tops (seams every 8 px), a north-south run's two rows of bags end to end
     function bagTops(y0, y1, dir) {
@@ -5319,6 +5383,46 @@
     if (!pc.e) r(T - 1, 0, 1, T, P.edge);
     WALL_ART[pc.sig] = c;
     return c;
+  }
+  function gardenWallArt(pc, P, r) {
+    var top1 = pc.front ? 4 : 15, v = +(pc.mark.charAt(1) || 0), x, y;
+    var MOSS = [[[2, 1], [3, 1], [3, 2], [12, 2]], [[5, 2], [6, 2], [6, 1], [10, 1]], [[1, 2], [13, 1], [14, 1], [13, 2]]];
+    function tufts(dy) { MOSS[v].forEach(function (q) { r(q[0], q[1] + dy, 1, 1, P.moss[1]); }); r(MOSS[v][0][0], MOSS[v][0][1] + dy, 1, 1, P.moss[3]); r(MOSS[v][3][0], MOSS[v][3][1] + dy, 1, 1, P.moss[0]); }
+    r(0, 0, T, T, P.stone[2]);
+    // the capstones seen from above: slabs 8 px long, lit along their top (an east-west run, or any piece whose face shows),
+    // or end to end down a north-south run
+    function capsH(h) { r(0, 0, T, h, P.cap[1]); r(0, 0, T, 1, P.cap[3]); r(0, 1, T, 1, P.cap[2]); r(7, 0, 1, h, P.cap[0]); r(15, 0, 1, h, P.cap[0]); if (pc.front) r(0, h - 1, T, 1, P.cap[0]); }
+    function capsV() { r(0, 0, T, T, P.cap[1]); r(1, 0, 1, T, P.cap[3]); r(2, 0, 1, T, P.cap[2]); r(14, 0, 1, T, P.cap[0]); r(0, 7, T, 1, P.cap[0]); r(0, 15, T, 1, P.cap[0]); r(1, 8, 2, 1, P.cap[3]); r(1, 0, 2, 1, P.cap[3]); }
+    // the fieldstone face: three courses on fixed rows, joints where this piece's pattern puts them, each stone lit on top
+    var JOINTS = [[[5, 12], [1, 9], [4, 11]], [[3, 10], [6, 14], [1, 8]], [[7, 14], [3, 11], [6, 13]]][v];
+    function fieldFace() {
+      r(0, 5, T, 11, P.stone[2]);
+      [[5, 8], [9, 12], [13, 15]].forEach(function (cr, i) {
+        r(0, cr[0], T, 1, P.stone[3]); r(0, cr[1], T, 1, i === 2 ? P.stone[0] : P.stone[1]);
+        JOINTS[i].forEach(function (jx) { r(jx, cr[0], 1, cr[1] - cr[0] + 1, P.stone[0]); if (jx + 1 < T) r(jx + 1, cr[0], 1, 1, P.stone[4]); });
+      });
+      r(0, 8, T, 1, P.stone[0]); r(0, 12, T, 1, P.stone[0]);
+      r(JOINTS[2][0] - 1, 14, 2, 1, P.moss[0]); r(JOINTS[1][1] + 1, 11, 1, 1, P.moss[1]);              // moss in the joints
+    }
+    // dressed stone: a capstone block seen from above, and its face in two big courses
+    function block(x0, ww, h) { r(x0, 0, ww, h, P.cap[2]); r(x0, 0, ww, 1, P.cap[3]); r(x0, 0, 1, h, P.cap[3]); r(x0 + ww - 1, 0, 1, h, P.cap[0]); r(x0, h - 1, ww, 1, P.cap[0]); r(x0 + 2, 2, ww - 4, Math.max(1, h - 4), P.cap[1]); }
+    function blockFace(x0, ww) { r(x0, 5, ww, 11, P.stone[3]); r(x0, 5, ww, 1, P.stone[4]); r(x0, 10, ww, 1, P.stone[1]); r(x0, 14, ww, 2, P.stone[0]); r(x0, 5, 1, 9, P.stone[4]); r(x0 + ww - 1, 5, 1, 9, P.stone[1]); r(x0 + (ww >> 1), 5, 1, 5, P.stone[1]); r(x0 + (ww >> 2), 11, 1, 3, P.stone[1]); r(x0 + ww - (ww >> 2) - 1, 11, 1, 3, P.stone[1]); }
+    if (pc.kind === "run" || pc.kind === "pier") {
+      if (pc.front || pc.dir === "h") { capsH(top1 + 1); tufts(0); if (pc.front) fieldFace(); }
+      else { capsV(); tufts(5); }
+      if (pc.kind === "pier" && (pc.front || pc.dir === "h")) { block(3, 10, top1 + 1); if (pc.front) blockFace(3, 10); }
+      if (pc.kind === "pier" && !pc.front && pc.dir === "v") block(0, T, 10);
+    } else {                                                                                   // a corner, an end at the cliff or a gatepost
+      block(0, T, top1 + 1);
+      if (pc.front) blockFace(0, T);
+      r(11, 1, 2, 1, P.moss[2]); r(12, 2, 1, 1, P.moss[1]);
+      if (pc.kind === "post") { var L = wallLamp(pc); r(L[0] - 1, L[1] - 1 + (pc.front ? 1 : 0), 4, 4, P.lamp[0]); r(L[0], L[1] + (pc.front ? 1 : 0), 2, 2, P.lamp[1]); }
+    }
+    // the outline where the wall ends (as the bunker compound's)
+    if (!pc.n) r(0, 0, T, 1, P.edge);
+    if (pc.front) r(0, T - 1, T, 1, P.edge);
+    if (!pc.w) r(0, 0, 1, T, P.edge);
+    if (!pc.e) r(T - 1, 0, 1, T, P.edge);
   }
   function drawWallPiece(pc) {
     var t0 = DEBUG ? performance.now() : 0, a = wallArt(pc), X = pc.x * T, Y = pc.y * T;
@@ -5396,6 +5500,62 @@
       ctx.fillStyle = "#e8fbff"; ctx.fillRect(X + 11 + ((hash(pc.x, Math.floor(t * 9)) * 4) | 0), Y + FENCE_WIRES[1], 2, 1); light(X + 12, Y + FENCE_WIRES[1], 8, "180,240,255", 0.8);
     }
     if (DEBUG) { FENCE_MS += performance.now() - t0; FENCE_N++; }
+  }
+  /* the park gate's placeholder art (B3d3), drawn once: format 1's look (a timber arch with a red sign and torches), but
+     each post as wide as the tile it stands on, so the two solid tiles are exactly the two posts, opaque from edge to
+     edge, and nothing else of it touches the ground: between the posts it is open down to the road. The posts stand on
+     stone footings, iron-banded; the crossbeam rests on them, and the sign hangs from it on two chains, lettered with the
+     reserve's name in the buildings' 3 x 5 font. The torches burn in iron bowls on the posts (drawn live, as format 1's).
+     Unlike format 1's it casts no shadow: a shadow would fall on the road in front of the posts, art on ground pi walks */
+  var GATE_STYLE = { wood: ["#2e1c10", "#4a2f1a", "#6a4428", "#8a5a34", "#a8743f"], iron: ["#1e1e20", "#55555c"], stone: ["#3e3a33", "#615b50", "#8c8579", "#aaa293"],
+                     sign: ["#2a140c", "#8e2418", "#b8321f", "#d8503a"], text: "#f2d58a", plate: ["MOSSGATE", "RESERVE"] };
+  var GATE_MS = 0, GATE_N = 0;
+  function gateArt(gt) {
+    if (gt.art) return gt.art;
+    var P = GATE_STYLE, b = gt.box, w = b.px1 - b.px0 + 1, h = b.py1 - b.py0 + 1, c = mkCanvas(); c.width = w; c.height = h;
+    var g = c.getContext("2d"), i, q;
+    function r(x0, y0, ww, hh, col) { g.fillStyle = col; g.fillRect(x0, y0, ww, hh); }
+    function post(x0) {
+      r(x0, 6, T, h - 6, P.wood[2]);                                                    // the post, lit on its left
+      r(x0 + 1, 6, 2, h - 6, P.wood[3]); r(x0 + 1, 6, 1, h - 6, P.wood[4]); r(x0 + 13, 6, 2, h - 6, P.wood[1]);
+      r(x0 + 6, 12, 1, 30, P.wood[1]); r(x0 + 10, 20, 1, 26, P.wood[1]);                 // the grain
+      [16, 32, 46].forEach(function (by) { r(x0, by, T, 2, P.iron[0]); r(x0 + 1, by, T - 2, 1, P.iron[1]); });   // iron bands
+      r(x0 + 3, 3, 10, 4, P.iron[0]); r(x0 + 4, 3, 8, 1, P.iron[1]);                     // the torch's bowl on top
+      r(x0, h - 8, T, 8, P.stone[2]); r(x0, h - 8, T, 1, P.stone[3]); r(x0, h - 8, 1, 8, P.stone[3]); r(x0 + T - 1, h - 8, 1, 8, P.stone[1]);   // its stone footing
+      r(x0 + 8, h - 7, 1, 6, P.stone[1]); r(x0, h - 1, T, 1, P.stone[0]);
+      r(x0, 6, 1, h - 14, P.wood[0]); r(x0 + T - 1, 6, 1, h - 14, P.wood[0]); r(x0, 6, T, 1, P.wood[0]);   // its outline
+    }
+    post(0); post(w - T);
+    // the crossbeam, resting on both posts
+    r(2, 8, w - 4, 6, P.wood[2]); r(2, 8, w - 4, 1, P.wood[4]); r(2, 9, w - 4, 1, P.wood[3]); r(2, 13, w - 4, 1, P.wood[0]); r(2, 8, 1, 6, P.wood[0]); r(w - 3, 8, 1, 6, P.wood[0]);
+    // the sign on two chains, and the reserve's name on it
+    var sx = 17, sw = w - 34, sy = 17, sh = 19;
+    [sx + 5, sx + sw - 6].forEach(function (cx) { for (q = 14; q < sy; q++) r(cx, q, 1, 1, q % 2 ? P.iron[1] : P.iron[0]); });
+    r(sx, sy, sw, sh, P.sign[0]); r(sx + 1, sy + 1, sw - 2, sh - 2, P.sign[2]); r(sx + 1, sy + 1, sw - 2, 1, P.sign[3]); r(sx + 1, sy + sh - 2, sw - 2, 1, P.sign[1]);
+    P.plate.forEach(function (word, li) {
+      var tx = sx + Math.round((sw - (word.length * 4 - 1)) / 2), ty = sy + 3 + li * 8;
+      for (i = 0; i < word.length; i++) { var gl = GLYPH3[word.charAt(i)] || ""; for (q = 0; q < gl.length; q++) if (gl.charAt(q) === "1") { r(tx + i * 4 + q % 3 + 1, ty + ((q / 3) | 0) + 1, 1, 1, P.sign[1]); r(tx + i * 4 + q % 3, ty + ((q / 3) | 0), 1, 1, P.text); } }
+    });
+    gt.art = c;
+    return c;
+  }
+  function drawGatePiece(gt) {
+    var t0 = DEBUG ? performance.now() : 0, a = gateArt(gt), b = gt.box;
+    // pi behind it (north of its foot, under the arch's art): the arch goes see-through, as a format-1 building does
+    var behind = pi.y < gt.y * T + 14 && pi.y > b.py0 + 6 && pi.x > b.px0 - 6 && pi.x < b.px1 + 6;
+    if (behind) ctx.globalAlpha = 0.45;
+    ctx.drawImage(skin(a), b.px0, b.py0);
+    ctx.globalAlpha = 1;
+    gt.at = [b.px0, b.py0, a.width, a.height, behind];
+    [b.px0 + 8, b.px1 - 7].forEach(function (fx, i) {                                       // the torches flicker, as format 1's do
+      for (var j = 0; j < 7; j++) {
+        var fl = Math.sin(t * 11 + j * 1.7 + i * 3), fw = Math.max(1, 5 - j * 0.7 + fl);
+        ctx.fillStyle = j < 2 ? "#ffe07a" : j < 4 ? "#ff9a30" : "#e85414";
+        ctx.fillRect(Math.round(fx - fw / 2 + fl * 0.5), b.py0 + 3 - j, Math.round(fw), 1);
+      }
+      light(fx, b.py0 + 1, 34, "255,170,80", 0.95);
+    });
+    if (DEBUG) { GATE_MS += performance.now() - t0; GATE_N++; }
   }
   function drawWaterfall(WF) {
     // a white ribbon off the plateau edge with streaks falling through it, and spray at the foot
@@ -5611,6 +5771,7 @@
     if (car) list.push({ y: car.y + 8, f: drawCar });
     if (heli.z < 12) list.push({ y: heli.y + 12, f: drawHeli });
     if (GATE) list.push({ y: GATE.y * T + 14, f: drawGate });
+    GATES.forEach(function (gt) { if (gt.x >= x0 - 6 && gt.x <= x1 + 6 && gt.y >= y0 - 1 && gt.y <= y1 + 5) list.push({ y: gt.y * T + 14, f: function () { drawGatePiece(gt); } }); });   // B3d3
     if (volc) list.push({ y: VOLC.y + 24, f: drawVolcano });
     for (var fy = y0; fy <= y1 + 1; fy++) for (var fx = x0 - 1; fx <= x1 + 1; fx++) {
       if (fence[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawFence(a, b); } }); })(fx, fy);
@@ -6188,8 +6349,11 @@
                buildings: BUILDINGS.map(function (b) { return { id: b.id, name: b.name, x0: b.x0, y0: b.y0, w: b.w, h: b.h, door: b.door || doorstep(b), doorway: [doorX(b), (b.y0 + b.h) * T + 6], room: b.room, art: b.art || "sprite", box: b.box || null, drawn: b._drawn || null }; }),
                buildMs: BUILD_MS, buildDraws: BUILD_N,
                // the walls (B3c3): each wall record's tiles, its openings, its pieces by kind, and what drawing them has cost
-               walls: WALLS.map(function (wl) { var kinds = {}; wl.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; }); return { id: wl.id, compound: wl.compound, tiles: wl.pieces.length, gaps: wl.gaps, kinds: kinds }; }),
+               walls: WALLS.map(function (wl) { var kinds = {}; wl.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; }); return { id: wl.id, compound: wl.compound, tiles: wl.pieces.length, gaps: wl.gaps, terrain: wl.terrain, kinds: kinds, look: (WALL_STYLE[wl.id] || WALL_STYLE.other).look || "sandbags" }; }),
                wallMs: WALL_MS, wallDraws: WALL_N,
+               // the park gate (B3d3): its marker, posts, opening and drawn box; where it was last drawn (and whether see-through)
+               gates: GATES.map(function (gt) { return { id: gt.id, marker: gt.marker, at: [gt.x, gt.y], posts: gt.posts, opening: gt.opening, box: [gt.box.px0, gt.box.py0, gt.box.px1, gt.box.py1], drawn: gt.at ? gt.at.slice() : null }; }),
+               gateMs: GATE_MS, gateDraws: GATE_N,
                // the paddock fences (B3d1): each fence record's tiles, its openings, whether it closes its ground in, its pieces by
                // kind, its warning signs, and what drawing them has cost
                fences: FENCES.map(function (fc) { var kinds = {}, signs = []; fc.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; if (pc.mark === "sign") signs.push([pc.x, pc.y]); }); return { id: fc.id, encloses: fc.encloses, tiles: fc.pieces.length, gaps: fc.gaps, kinds: kinds, signs: signs }; }),
@@ -6215,6 +6379,17 @@
         if (!png[pc.sig]) png[pc.sig] = a.toDataURL();
         return { tile: [pc.x, pc.y], kind: pc.kind, dir: pc.dir, front: pc.front, w: a.width, h: a.height, opaque: n, at: pc.at ? pc.at.slice() : null, sig: pc.sig };
       }), png: png };
+    },
+    // the park gate's placeholder art (B3d3): its size, how much of each post's tile it covers opaquely (all 256 pixels), and
+    // how much of it lies on the ground between the posts (none: the opening is open down to the road)
+    gateArt: function (id) {
+      var gt = GATES.filter(function (q) { return q.id === id; })[0]; if (!gt) return null;
+      var a = gateArt(gt), d = a.getContext("2d").getImageData(0, 0, a.width, a.height).data, b = gt.box;
+      function opaque(px0, py0, px1, py1) { var n = 0; for (var py = py0; py <= py1; py++) for (var px = px0; px <= px1; px++) if (d[((py - b.py0) * a.width + px - b.px0) * 4 + 3] === 255) n++; return n; }
+      function any(px0, py0, px1, py1) { var n = 0; for (var py = py0; py <= py1; py++) for (var px = px0; px <= px1; px++) if (d[((py - b.py0) * a.width + px - b.px0) * 4 + 3] > 0) n++; return n; }
+      return { id: gt.id, w: a.width, h: a.height, png: a.toDataURL(),
+        posts: gt.posts.map(function (p) { return { tile: p, opaque: opaque(p[0] * T, p[1] * T, p[0] * T + T - 1, p[1] * T + T - 1) }; }),
+        opening: gt.opening.map(function (p) { return { tile: p, drawn: any(p[0] * T, p[1] * T, p[0] * T + T - 1, p[1] * T + T - 1) }; }) };
     },
     // a paddock fence's placeholder art (B3d1), piece by piece, as wallArt gives a wall's (mark: "sign" where it carries one)
     fenceArt: function (id) {

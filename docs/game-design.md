@@ -700,7 +700,8 @@ architecturally approved by Ammaar, committed as "Map: add MAP-B raptor enclosur
   2, cache `20261025`); nothing was deployed. B3d2 (below) followed.
 
 MAP-B B3d2, the T. rex holding paddock (2026-10-16; staged only, not deployed; complete, visually and architecturally
-approved by Ammaar 2026-10-17, committed as "Map: add MAP-B T. rex holding paddock (B3d2)"):
+approved by Ammaar 2026-10-17, committed as "Map: add MAP-B T. rex holding paddock (B3d2)",
+`16b0e47011d988c021b67ce54c87d4f333618c84`):
 - Read first: B1e's habitat `holding-paddock` (contained; planning labels "temporary predator holding (T. rex, until
   Ironwood)" and "double fence, high security"; an outline, a closed smooth curve through six named points: west 107,13,
   north 112,10.5, north-east 117,11, east 118,16, south 113,17.5, south-west 107,17), B3a's plan (ring 36 tiles, inside
@@ -825,7 +826,196 @@ approved by Ammaar 2026-10-17, committed as "Map: add MAP-B T. rex holding paddo
 - Status: complete. Both predator enclosures, the raptor yard and the T. rex holding paddock, are now built as structure
   (fence, collision, art), on one shared fence system; their animals and interactions come later. MAP-B stays
   preview-only (loopback, no storage); production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`);
-  nothing was deployed. B3d3 has not begun.
+  nothing was deployed. (B3d3 followed, below.)
+
+MAP-B B3d3, the koi garden's wall and the park gate (2026-10-17; staged only, not deployed; complete, visually and
+architecturally approved by Ammaar 2026-10-17, committed as "Map: add MAP-B koi garden perimeter and park gate (B3d3)"):
+- Read first: B1e's compound `koi-garden` (walled; box 103,54 to 119,70; seven gate tiles 110,54, 111,54, 112,54, 103,61,
+  103,62, 119,63, 119,64), the habitat `koi-garden` (a walled garden, 104,55 to 117,68; planning labels "koi garden: the
+  cats and the koi" and "walled, two gates (the koi-garden compound)"; that label is older wording, kept as it is in the
+  B1e source and the study: the compound's own gate tiles, which B3d3 builds, make three openings), the koi pond body (52
+  tiles), the koi garden's
+  trails (north gate, west gate, the loop round the pond, the bay overlook), the route end `koi-garden` 108,68, the koi
+  pavilion's footprint 113,66 to 116,68; the r2.1 study's "garden wall" (the same box and gates) and gate anchor 74,38;
+  B1e's marker `park-gate` 74,38 and the park-gate ramp 71,34 to 77,39; B3a's plan (koi garden: 53 wall tiles, its 4 edge
+  path tiles all gates; the park gate on its marker, posts 72,38 and 76,38, provisional until real collision and navigation
+  tests pass; the lamp place 78,38; the goto places `pond` 110,57 and `gate` 74,40; the macbook 105,57, its stand 105,58,
+  the log site 106,58; the cats' roam box 105,56 to 117,68); format 1's park gate and koi pond.
+- Format 1, audited. The park gate is `anchors.gate` (48,33): a sprite (`SPR.gate`, 92 x 60 px: two timber posts, a red
+  sign reading "PI'S ISLAND", a torch on each post, flickering, lit at night) drawn over the north road, and two posts 2
+  tiles either side of it (46,33 and 50,33) solid in the map's collision (the decoder checks it). Nothing else: no
+  interaction, prompt, lock, progression or saved state, and the ground either side of it is open (pi can walk round it).
+  Its pillars are 12 px wide on 16 px post tiles, so 4 px on the inner side of each post block feet with nothing drawn
+  there. The koi pond has no wall in format 1 (its garden is new MAP-B structure B3a approved); "feed the koi" is offered
+  next to any pond tile and the koi swim in the pond's shape; none of that is part of B3d3.
+- The koi garden's wall, from the approved sources: the ring round the compound's box, less its seven gates. Its east side
+  runs over the meadow terrace's cliff rim at 119,56 to 119,59 (solid in the terrain, the koi bay's beach below it): the
+  cliff closes the ring there and no wall is built on it. 53 solid tiles (the edge's 64 less 7 gates and 4 rim tiles:
+  B3a's count), all open level-1 ground with no path, ramp or foot-blocking pixel. Three openings: north 110 to 112,54
+  (where the koi-north-gate trail comes down from the koi-headland road; 110 and 111 are the trail, 112 grass), west 103,61
+  to 103,62 (the koi-west-gate trail and grass), east 119,63 to 119,64 (the overlook trail and grass). Wall, cliff and
+  openings make one loop of 64 tiles (each joined to two); with the openings shut it closes the inside even to a diagonal
+  step; with them open all 173 walkable inside tiles are reached. Each opening is straight through (2 steps from outside
+  to inside). The south wall (row 70) stands on the cliff top over the lowland, the east wall at 119,60 to 62 over the koi
+  bay. Inside: the koi pond, the loop path, the route end, B3a's places by the garden, the pavilion's reserve (unused; its
+  front row open) and the cats' roam box.
+- Access: every walkable tile beside the koi pond's water (28, where format 1 offers feeding) is reached from the spawn,
+  none solid. The spawn's walk to the route end 108,68 is now 52 tiles (40 before: the shortest way in used to cross the
+  garden's west edge south of the west gate, now walled; it goes through the west opening). The koi bay overlook (120,63) and the ledge east of
+  the wall (54 tiles, 120 to 130, rows 63 to 71, ringed by cliff) are reached only through the east opening, as B1e laid
+  them out (the overlook trail leaves the loop through that gate); 63 tiles from the spawn (57 before). Nothing is cut
+  off: every tile the spawn reached on the terrain alone it still reaches, but for content tiles and the paddocks' insides.
+- The park gate, from the approved sources: on the marker 74,38 (the study's anchor), at the foot of the park-gate ramp
+  where the main walk climbs to the highland; posts 72,38 and 76,38 (format 1's rule, B3a's tiles), on the ramp's grass,
+  level 1, no path, no foot-blocking pixel; its opening the main walk's three paved tiles 73 to 75,38, the road running on
+  through it (74,37 and 74,39). As in format 1 it is decorative: the ground beside it stays open (the ramp's edge tiles 71
+  and 77, and the meadow beyond), the main walk is open every tile, and the walk from the spawn to the highland junction
+  is as long as before (52 tiles).
+- Content (`tools/maps/home.content.mjs`), two records: `koi-garden`, kind wall, compound koi-garden, art placeholder, solid
+  the ring of the compound's box with its gates as openings and the four rim tiles as `terrainTiles`; `park-gate`, kind
+  gate, marker park-gate, art placeholder, one drawn box (72,38's west edge to 76,38's east edge, 60 px tall, standing on
+  their bottom edge), solid its two posts. In all: 8 records, 275 solid tiles (220 + 53 + 2), 0 foot pixels. The six
+  earlier records compile byte for byte as at B3d2.
+- Schema (`tools/maps/content.mjs`), extended where needed, each with positive and negative tests:
+  - `terrainTiles` on a ring box: ring tiles the terrain itself closes (a cliff rim). Each must be on the ring, not an
+    opening, and solid land in the terrain (coll 1, never water or open ground); they are neither solid content nor drawn
+    (the painter's cliff is their art), and any other ring tile on unwalkable terrain is still refused (`terrain`). Only a
+    wall has them.
+  - A gate (the kind existed, unused): art, a `marker` (a B1e marker, the record named for it), solid exactly its two
+    posts at the marker's x - 2 and x + 2 on its row (format 1's rule), one drawn box over them as above, no door, foot
+    box, opening list or reserve; its opening (the three tiles between) and the road in front of and behind it open
+    ground, reached. A new compile rule, `gates`. The format would take a gate on another marker with room for one (the
+    test proves it on the research gate, synthetic); B3d3 builds the park gate alone.
+- Runtime (`js/world.js`, the content preview only; format 1 untouched):
+  - The decoder takes `terrainTiles` (on walls only: each solid land in the terrain, not one of the wall's tiles or
+    openings; the wall's line runs through them, so it still closes round) and gates (art, marker, the posts' shape, the
+    drawn box, the opening and the road through it clear once every solid is known). A gate has art now, so "art on
+    something that isn't a building, a wall, a fence or a gate" names the gate too.
+  - The wall pieces know where the terrain closes the ring: a piece beside it is an end (a pier that stops at the cliff).
+  - Garden wall art (`WALL_STYLE["koi-garden"]`, look "garden", `gardenWallArt`): flat capstones with moss over three
+    courses of fieldstone (three joint patterns, so a run doesn't repeat tile by tile), dressed-stone piers every fifth tile
+    and at the corners and ends, gateposts either side of each opening with a small lantern, lit at night like the bunker
+    compound's lamps. One opaque 16 x 16 piece on each wall tile and nowhere else, drawn in the object layer. The bunker
+    compound keeps its sandbags (`WALL_STYLE` moved up beside the walls' construction, unchanged).
+  - The park gate (`GATES`, `gateArt`, `drawGatePiece`), drawn from its record: format 1's look (timber posts, iron bands,
+    a crossbeam, a red sign on chains, a torch on each post flickering as format 1's and lit at night), but each post as
+    wide as its tile and opaque over it, on a stone footing, so the two solid tiles are exactly the two posts; between them
+    it is open down to the road. The sign reads "MOSSGATE RESERVE" (the approved reserve name; format 1's reads "PI'S
+    ISLAND"). No shadow (it would fall on the road). When pi is behind it (north of its foot, under its art) it is drawn
+    see-through, as a format-1 building is. Nothing opens, closes or locks; nothing is saved. Format 1's gate (`GATE`,
+    `drawGate`) is unchanged.
+  - The completeness wall counts a gate only with its art. With the koi garden's wall and the park gate there, a normal
+    format-2 home's missing list is 9 items (landmark bases, stations and the seven sections the format doesn't have yet);
+    it is still refused.
+  - `?debug=1`: `preview().gates` (marker, posts, opening, box, where last drawn and whether see-through), `gateMs` /
+    `gateDraws`; `preview().walls` gains `terrain` and `look`; `gateArt(id)` (each post tile's opaque pixels, anything
+    drawn on the opening).
+- Unchanged: B1's terrain, coast, levels, paths and collision; the B2 painter and both locked digests; B3c's buildings,
+  rooms and compound wall; both paddock fences, their insides, art and the lane at x 118; every earlier record's compiled
+  bytes; the eight unused building reserves (the koi pavilion's among them); format 1 (map-parity and b0-parity identical).
+- Not in this batch: koi, cats, the koi pavilion, Moss, feeding (B3g scopes it to the koi pond); B3a's lamp beside the gate
+  (78,38) and every other prop; stations (the macbook), places, the gate anchor; any lock, gate that opens, pass,
+  checkpoint or transport.
+- Tests: `tools/mapb-koi-gate.mjs` (new; Node and Chromium and WebKit; review screenshots in `tools/out/mapb/b3d3/`, with
+  labelled diagnostic overlays drawn by the test only). The wall against B1e, the study and the terrain tile by tile;
+  closure (diagonal too) and every opening straight through; access (trails, route ends, B3a's places, the pond's edge,
+  the overlook, no ground cut off); the gate against B1e, the study and format 1; 26 malformed records each caught by its
+  rule and one allowed (a gate on the research-gate marker, synthetic); the painter digests; collision pixel by pixel; 277
+  pushes on the update loop (155 into the wall and the cliff from inside, 106 from outside, 16 into the posts from every
+  side), straight ones stopping flush within 3 px, diagonal ones never through a corner; every whole pixel across each
+  opening on the keyboard (pi gets in exactly where its 9 px feet fit: 40 positions north, 29 west, 29 east) and across
+  the road at the gate against the terrain preview (all 40 px of the opening, and beside the posts exactly as the ramp
+  allows; stopped flush below a post at the 48 px where pi's feet meet one); the planner in, out, across the wall (round
+  through an opening), to the pavilion's front, through the gate and round a post; trapped ground against the terrain
+  preview; the three buildings' doors and rooms; the helicopter (no landing on the wall, rim or posts every 4 px; six
+  drifting descents park clear; in flight E over the wall and a post refused, and it lands inside the garden); the screen
+  against the terrain preview (art over every wall tile and post, nothing on the openings or the gate's opening; the
+  minimap folded with the game's own click); under the arch see-through every frame pi is behind it; phones (taps through
+  the north and west openings and the gate, a tap on the wall stops beside it, the joystick); completeness (9 items);
+  storage; 19 decoder refusals; 3 code mutations (Chromium). `mapb-paddock.mjs`, `mapb-fences.mjs`, `mapb-content.mjs`
+  and `mapb-buildings.mjs` follow the two records (8 records, 275 tiles, the completeness list pinned at 9, a wall turned
+  into a gate refused by the gate's own shape now that a gate has art).
+- Verification (2026-10-17, the final code, one suite at a time, each log kept as it finished,
+  `tools/out/mapb/b3d3/gates/`; load average 3 to 21). Firefox BLOCKED at launch in every browser suite (exit 2, never
+  counted as a pass). No assertion failure, no timeout, no performance-budget failure. Passed: mapb-koi-gate 183 (Node 52,
+  Chromium 67, WebKit 64), map-compile and map-content `--check` (8 records, 275 tiles), map-lint 187, map-export `--check`
+  50, map-decode 250, mapb-decode 76, mapb-painter 49 (both locked digests exact in Chromium and WebKit: terrain
+  `8fdd2afe...`, ground `0263dc4f...`), mapb-runtime 220, map-parity 37/37 and b0-parity 21/21 identical with `715450d` in
+  both, scenarios 98, ctf 250, doors (worst frame 4.5 ms, budget 16), focus 16, mapb-content 145, mapb-paddock 142,
+  mapb-fences 165, mapb-buildings 379, the deploy guard (8), the dry run (53 files, 41 references), deploy-args 37, html,
+  `git diff --check`. CSpell exits 1 as at HEAD: the same 19 findings in `js/world.js`, none new.
+  Failures while building it (development runs, `tools/out/mapb/b3d3/dev/`), all in the new test, none in the game: the
+  koi pond's water id (0, not 1); path rasters running over 6 pond and 12 sea tiles (the checks take walkable path tiles);
+  a malformed-record case caught by a different rule than written; the east opening's keyboard scan starting on the cliff
+  rim (it now starts on the overlook and skips spots pi can't stand on); the gate scan expecting pi through beside the
+  posts where the ramp's own edges stop it (it now compares with the terrain preview); trapped ground compared against
+  the spawn (it now compares with the terrain preview); a flight that stopped beside the post, not over it; the screen
+  comparison reading a page that hadn't drawn yet (black) and the minimap painted over the garden's corner (it now waits
+  for a drawn frame and folds the minimap with the game's own click); phone taps aimed at pond water and a shore tile.
+  One change to the game came out of it: the gate's post shadows, which put 1 px of shading on the road in front of each
+  post, were removed.
+- Performance (gate run, Chromium / WebKit; WebKit's clock is 1 ms coarse): walking round the garden, in through its north
+  opening and up through the gate on the live loop, frame work p95 1.8 / 1.0 ms (the terrain preview's 1.6 / 1.0), max
+  3.6 / 3.0 ms; one wall piece 2.0 / 1.8 us a draw, the gate 8.3 / 15 us a draw (one 80 x 60 image and its torches);
+  planning the spawn to the koi garden's route end 1.2 / 2.1 ms warm (52 tiles; 0.6 / 1.4 ms and 40 tiles before),
+  across the west wall 0.06 / 0.10 ms warm (round through the opening, 10 tiles), up through the gate as before (0.29 /
+  0.6 ms); decoding the staged map with eight records 4.5 / 7.4 ms in the gate run (5 cold decodes under load). Warm, 20
+  decodes each, alternating with HEAD in Chromium: 2.8 ms against B3d2's 2.4 ms.
+- Found on the way (the terrain's, before B3d3, unchanged by it): the trapped-ground scan starts pi in the middle of each
+  tile and asks pi's own planner for a way out; 17 tiles by the garden get none, on the terrain preview exactly as on the
+  content preview. 15 are the koi bay's beach below the east cliff (120 to 122, rows 53 to 63), with no path for pi's feet
+  from there at all; 2 are beside the koi pond (107,59 and 114,59), where the tile's middle is on the pond's shore pixels
+  (117 foot-blocking pixels each; 30 spots on each still fit pi's feet). The tile flood reaches all 17. Worth a look when
+  the koi feeding and the cats come (B3g).
+- Questions put to Ammaar at review (2026-10-17; his answers are the decisions below):
+  1. The park gate's posts on B3a's tiles 72,38 and 76,38, at the foot of the park-gate ramp (B3a marked them provisional
+     until collision and navigation tests passed; they have). As in format 1, the gate stands in open ground: pi can walk
+     round either post (the ramp's edge tiles 71 and 77 and the meadow beyond). Keep it decorative, or does it want side
+     fencing (new structure, not in any plan)?
+  2. The gate's art: a new placeholder in format 1's look rather than format 1's sprite, because that sprite's pillars are
+     12 px on 16 px post tiles (4 px of each post would block with nothing drawn). Its sign reads "MOSSGATE RESERVE" (the
+     approved reserve name); format 1's still reads "PI'S ISLAND" (section 8 of the handoff notes it). Keep the wording?
+  3. No shadow under the posts (format 1 draws one; here it would fall on the road), and the arch turns see-through when
+     pi is behind it (as format 1's buildings do; format 1's gate doesn't).
+  4. The koi garden's planning label says "walled, two gates", but B1e's compound (and the study) gives seven gate tiles in
+     three openings: north, west and east (the east one to the bay overlook). Built as the geometry says: three openings.
+  5. The overlook and the cliff-ringed ledge east of the wall (54 tiles) are reached only through the garden's east
+     opening; the spawn's walk to the koi garden's route end grows from 40 to 52 tiles. Both follow from the approved box.
+  6. The garden wall's look (mossy fieldstone, stone piers, lanterns in the gateposts lit at night) is new placeholder art;
+     the lanterns are art on the posts, not lamp props. The south wall stands right on the cliff top (row 70 over row 71's
+     rim), where the cliff already stops pi; it is the approved box's edge.
+  7. The cliff closing the east side: four tiles where the terrain's rim is the boundary, with the wall ending on a stone
+     pier at each side (119,55 and 119,60). Is the painted cliff enough of a boundary there visually, or should the art
+     stage add a low parapet (art only; the rim is already solid)?
+- Approved by Ammaar on review (2026-10-17; the garden day and night, the diagnostic overlays, the openings, corners and
+  cliff stretch, the gate close up, passing through and at night, both phones), with no change. His decisions:
+  1. The park gate stays decorative, with no interaction or saved state; walking round its posts is intended, as in
+     format 1.
+  2. The placeholder wooden arch, the red "MOSSGATE RESERVE" sign and the torches are approved.
+  3. The posts' shadows stay removed.
+  4. The arch's see-through effect when pi is behind it is accepted as temporary; its rendering doesn't change in B3d3.
+  5. The koi garden keeps its three openings exactly as B1e's geometry gives them. The "two gates" wording is clarified
+     here only; the B1e source, the study and earlier records are not changed.
+  6. The east overlook reached through the garden is approved.
+  7. The 52-tile walk from the spawn to the garden's route end is accepted.
+  8. The mossy fieldstone wall and its lanterns at night are approved.
+  9. The four cliff-rim tiles forming part of the boundary are approved.
+  10. The 17 tiles with no planner path from their middle (the same on the terrain preview) stay documented as a follow-up
+      for B3g's koi feeding; terrain collision and pathfinding don't change in B3d3.
+- Pre-commit checks (lightweight, after approval; the browser suites weren't rerun: no code changed after the gate run,
+  every source and test file being older than its start, so the gate run and the reviewed screenshots stand;
+  `tools/out/mapb/b3d3/final/`): map-compile and map-content `--check` current (8 records, 275 solid tiles, 0 foot
+  pixels); two compiles give the same bytes, and the six earlier records are byte for byte as at B3d2; the Node parts of
+  mapb-koi-gate (52), mapb-paddock (32), mapb-fences (35), mapb-content (29) and mapb-buildings (70); the deploy guard (8);
+  the dry run (53 files, 41 references); deploy-args (37); `git diff --check`; CSpell the same 19 pre-existing findings in
+  `js/world.js`. Unchanged from HEAD: the B1 source and staged terrain, the compiler, the painter fixtures, the preview and
+  painter tests, `js/maps/`, the pages, the deploy tools; in `js/world.js` no hunk touches the ground painter, the save or
+  format 1's decoder (the gate run measured both locked digests exact on this code: terrain `8fdd2afe...`, ground
+  `0263dc4f...`). `SAVE_V` 2, cache `20261025`. Firefox is BLOCKED, not passed.
+- Status: complete. The koi garden's wall and the park gate are built as structure (collision and art); the format-2
+  completeness list is down to 9 items and a normal format-2 home is still refused. MAP-B stays preview-only (loopback, no
+  storage); production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing was deployed. B3e has not
+  begun.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

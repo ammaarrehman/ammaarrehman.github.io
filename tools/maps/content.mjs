@@ -24,7 +24,9 @@
        solid: {                          // what blocks (all optional, at least one)
          tileBoxes: [tileBox, ...],      //   whole tiles
          tiles: [[x, y], ...],           //   whole tiles
-         ringOfBox: { ...tileBox, gapTiles: [[x, y], ...] },   // a wall or fence round a box's edge, minus its gaps
+         ringOfBox: { ...tileBox, gapTiles: [[x, y], ...], terrainTiles: [[x, y], ...] },
+                                                               // a wall or fence round a box's edge, minus its gaps and
+                                                               //   (B3d3) the tiles of it the terrain itself closes
          ringOfHabitat: { habitat, gapTiles: [[x, y], ...] },  // round a B1e habitat outline: its tiles with any of the
                                                                //   8 neighbours outside it (a 4-connected ring)
          footPxBoxes: [pxBox, ...]       //   pixels where feet stop on a tile that stays walkable (a post, a sign's base)
@@ -32,10 +34,11 @@
        doorTiles: [[x, y], ...],         // optional: walkable tiles next to its solid, reachable from the spawn
        reserve: "footprint-id",          // optional: the B1e footprint it stands in (its solid must stay inside it)
        encloses: true,                   // optional: it may cut ground off (a paddock fence); nothing else may
-       art: "placeholder",               // a building's, a wall's or a fence's (B3c1, B3c3, B3d1; required on each): what the
-                                         //   game draws
+       art: "placeholder",               // a building's, a wall's, a fence's or a gate's (B3c1, B3c3, B3d1, B3d3; required on
+                                         //   each): what the game draws
        room: "visitor",                  // a building's, optional (B3c1): the game's room behind its one door
-       compound: "bunker-compound"       // a wall's, optional (B3c3): the B1e walled compound it walls in
+       compound: "bunker-compound",      // a wall's, optional (B3c3): the B1e walled compound it walls in
+       marker: "park-gate"               // a gate's (B3d3, required): the B1e marker it stands on
      }
 
    A building (B3c1) draws itself: art "placeholder" is the game's temporary building art, drawn exactly over the
@@ -53,7 +56,10 @@
    the ring's gaps: open ground, clear of all content, reachable from the spawn, never a corner (a corner joins two runs;
    an opening there leads nowhere). A wall naming a B1e compound is that compound's wall: the ring of its compoundBox,
    with exactly its gateTiles as the openings. An opening is a plain gap, as format 1's compound gate is: nothing opens,
-   closes or locks.
+   closes or locks. Where the ring runs over terrain that is itself solid land (a cliff rim: the koi garden's east side,
+   B3d3), the terrain closes it and no wall is built there: those tiles are listed (terrainTiles), each on the ring, not an
+   opening, and solid land in the terrain (never water); they are neither solid content nor drawn (the terrain painter
+   draws the cliff), and any other ring tile on terrain a foot can't walk is still refused (terrain).
 
    A fence (B3d1) draws itself the same way: art "placeholder" is the game's temporary paddock fence, one opaque tile of
    it on every solid tile and nowhere else. A fence is a paddock's: its solid is the ring of one B1e habitat whose
@@ -64,9 +70,19 @@
    (encloses: true); one with openings doesn't. Nothing in a fence opens, closes, locks or shocks: like format 1's paddock
    fences it is collision and art.
 
+   A gate (B3d3) is format 1's park gate: an arch over a road, standing on a B1e marker (marker; the record is named for
+   it). Its solid is exactly its two posts, the tiles 2 either side of the marker on its row (format 1's rule: posts at
+   x - 2 and x + 2, solid), and nothing else (no ring, box, foot box, door or reserve). Its art (placeholder: the game's
+   temporary arch, two timber posts each as wide as its tile, a crossbeam and a sign) is one drawn box from the west
+   post's west edge to the east post's east edge, standing on the posts' bottom edge (it rises above them: the posts and
+   the sign stand up). Its opening is the three tiles between the posts: open ground (walkable, no content, no
+   foot-blocking pixels), reached from the spawn, with open ground right in front of and behind its middle, so the road
+   goes through. Nothing in it opens, closes or locks: like format 1's it is art and two posts.
+
    The compiled record (the staged content file and the game): { id, kind, drawnPxBoxes, tiles, footPxBoxes, doorTiles,
-   gapTiles?, reserve?, encloses?, art?, room?, compound? }, every solid as an explicit tile list, so the game derives its
-   layer without knowing any shape; gapTiles (a ring's openings, B3c3) let the game draw the posts either side of them.
+   gapTiles?, terrainTiles?, reserve?, encloses?, art?, room?, compound?, marker? }, every solid as an explicit tile list,
+   so the game derives its layer without knowing any shape; gapTiles (a ring's openings, B3c3) let the game draw the posts
+   either side of them; terrainTiles (B3d3) are where the terrain closes a wall's ring.
 
    The rules, each named (the compile throws on the first broken one; contentProblems() lists them all):
      schema         fields, types, kinds, ids unique, everything inside the map
@@ -78,8 +94,9 @@
      foot           foot boxes only on tiles that stay walkable (terrain walkable, no content tile)
      reserve        a record naming a reserve stays inside it; no other record's solid enters a reserve
      buildings      a building's art, footprint, reserve, room and door, as above (B3c1)
-     walls          a wall's art, ring, openings and compound, as above (B3c3)
+     walls          a wall's art, ring, openings, compound and the tiles the terrain closes, as above (B3c3, B3d3)
      fences         a fence's art, habitat ring, name, openings and enclosure, as above (B3d1)
+     gates          a gate's art, marker, posts, drawn box and opening, as above (B3d3)
      open-space     nothing solid in the B1e open spaces (the rift arena's clear field)
      doors          each door tile walkable, next to its record's solid, reachable from the spawn
      route-ends     every B1d route end still reachable from the spawn
@@ -89,12 +106,13 @@ import { raster } from "./geom.mjs";
 
 export const CONTENT_SCHEMA = "mapb-content-1";
 export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"];
-export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "open-space", "doors", "route-ends", "pockets"];
+export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "open-space", "doors", "route-ends", "pockets"];
 /* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list), the art
-   kinds the game draws, and what it draws them on (a building since B3c1, a wall since B3c3, a fence since B3d1) */
+   kinds the game draws, and what it draws them on (a building since B3c1, a wall since B3c3, a fence since B3d1, a gate
+   since B3d3) */
 export const ROOM_IDS = ["visitor", "bunker", "depot"];
 export const ART_KINDS = ["placeholder"];
-export const ART_ON = ["building", "wall", "fence"];
+export const ART_ON = ["building", "wall", "fence", "gate"];
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const T = 16;
 // terrain codes and flags, the compiler's (tools/map-compile.mjs GROUND and COLL)
@@ -157,11 +175,12 @@ export function resolveContent(content, src, m) {
     if (typeof r.id !== "string" || !ID.test(r.id)) fail("schema", `${f0} needs an id (lowercase words joined by hyphens)`);
     const f = `record ${r.id}`;
     if (seen.has(r.id)) fail("schema", `${f} appears twice`); seen.add(r.id);
-    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound"]);
+    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker"]);
     if (!KINDS.includes(r.kind)) fail("schema", `${f}.kind ${JSON.stringify(r.kind)} isn't one of ${KINDS.join(", ")}`);
     if (r.room !== undefined && (r.kind !== "building" || !ROOM_IDS.includes(r.room))) fail("schema", `${f}.room ${JSON.stringify(r.room)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has a room" : "isn't one of the game's rooms, " + ROOM_IDS.join(", ")}`);
-    if (r.art !== undefined && (!ART_ON.includes(r.kind) || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${!ART_ON.includes(r.kind) ? "is on a " + r.kind + ": only a building, a wall or a fence has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
+    if (r.art !== undefined && (!ART_ON.includes(r.kind) || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${!ART_ON.includes(r.kind) ? "is on a " + r.kind + ": only a building, a wall, a fence or a gate has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
     if (r.compound !== undefined && (r.kind !== "wall" || !(src.reserves.compounds || []).some((q) => q.id === r.compound && q.walled === true))) fail("schema", `${f}.compound ${JSON.stringify(r.compound)} ${r.kind !== "wall" ? "is on a " + r.kind + ": only a wall walls in a compound" : "isn't one of B1e's walled compounds"}`);
+    if (r.marker !== undefined && (r.kind !== "gate" || !(src.reserves.markers || []).some((q) => q.id === r.marker))) fail("schema", `${f}.marker ${JSON.stringify(r.marker)} ${r.kind !== "gate" ? "is on a " + r.kind + ": only a gate stands on a marker" : "isn't one of B1e's markers"}`);
     if (!isObj(r.solid)) fail("schema", `${f}.solid must be an object`);
     only(r.solid, f + ".solid", ["tileBoxes", "tiles", "ringOfBox", "ringOfHabitat", "footPxBoxes"]);
     if (!Object.keys(r.solid).length) fail("schema", `${f}.solid is empty: a content record exists to block something`);
@@ -170,19 +189,25 @@ export function resolveContent(content, src, m) {
     let inner = null;
     if (r.solid.tileBoxes !== undefined) list(r.solid.tileBoxes, f + ".solid.tileBoxes").forEach((b, j) => { tileBox(b, `${f}.solid.tileBoxes[${j}]`, W, H); for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) put(x, y); });
     if (r.solid.tiles !== undefined) list(r.solid.tiles, f + ".solid.tiles").forEach((p, j) => { tile(p, `${f}.solid.tiles[${j}]`, W, H); put(p[0], p[1]); });
-    const ringDrawn = [], gapTiles = [];
-    const addRing = (mask, gaps, fr) => {
-      const gapSet = new Set(list(gaps === undefined ? [] : gaps, fr + ".gapTiles").map((p, j) => { tile(p, `${fr}.gapTiles[${j}]`, W, H); return p[1] * W + p[0]; }));
+    const ringDrawn = [], gapTiles = [], terrainTiles = [];
+    const addRing = (mask, gaps, fr, terr) => {
+      const at2 = (p, j, what) => { tile(p, `${fr}.${what}[${j}]`, W, H); return p[1] * W + p[0]; };
+      const gapSet = new Set(list(gaps === undefined ? [] : gaps, fr + ".gapTiles").map((p, j) => at2(p, j, "gapTiles")));
+      const terrSet = new Set(list(terr === undefined ? [] : terr, fr + ".terrainTiles").map((p, j) => at2(p, j, "terrainTiles")));
       const { ring, inner: ins } = ringOf(mask, W, H);
       for (const g of gapSet) if (!ring.some(([x, y]) => y * W + x === g)) fail("schema", `${fr}.gapTiles: ${g % W},${(g - g % W) / W} isn't on the ring`);
-      for (const [x, y] of ring) if (!gapSet.has(y * W + x)) { put(x, y); ringDrawn.push({ px0: x * T, py0: y * T, px1: x * T + T - 1, py1: y * T + T - 1 }); } else gapTiles.push([x, y]);
+      for (const g of terrSet) {
+        if (!ring.some(([x, y]) => y * W + x === g)) fail("schema", `${fr}.terrainTiles: ${g % W},${(g - g % W) / W} isn't on the ring`);
+        if (gapSet.has(g)) fail("schema", `${fr}.terrainTiles: ${g % W},${(g - g % W) / W} is an opening too`);
+      }
+      for (const [x, y] of ring) if (terrSet.has(y * W + x)) terrainTiles.push([x, y]); else if (!gapSet.has(y * W + x)) { put(x, y); ringDrawn.push({ px0: x * T, py0: y * T, px1: x * T + T - 1, py1: y * T + T - 1 }); } else gapTiles.push([x, y]);
       inner = (inner || []).concat(ins);
     };
     if (r.solid.ringOfBox !== undefined) {
-      const b = tileBox(r.solid.ringOfBox, f + ".solid.ringOfBox", W, H, ["gapTiles"]);
+      const b = tileBox(r.solid.ringOfBox, f + ".solid.ringOfBox", W, H, ["gapTiles", "terrainTiles"]);
       if (b.x1 - b.x0 < 2 || b.y1 - b.y0 < 2) fail("schema", `${f}.solid.ringOfBox must be at least 3 x 3`);
       const mask = new Uint8Array(W * H); for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) mask[y * W + x] = 1;
-      addRing(mask, b.gapTiles, f + ".solid.ringOfBox");
+      addRing(mask, b.gapTiles, f + ".solid.ringOfBox", b.terrainTiles);
     }
     if (r.solid.ringOfHabitat !== undefined) {
       const o = r.solid.ringOfHabitat; if (!isObj(o)) fail("schema", `${f}.solid.ringOfHabitat must be { habitat, gapTiles }`);
@@ -197,15 +222,17 @@ export function resolveContent(content, src, m) {
     if (r.encloses && !inner) fail("schema", `${f}.encloses needs a ring (ringOfBox or ringOfHabitat)`);
     const out = { id: r.id, kind: r.kind, drawnPxBoxes: drawn.concat(ringDrawn), tiles: tiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]), footPxBoxes: foot, doorTiles: doors };
     if (gapTiles.length) out.gapTiles = gapTiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
+    if (terrainTiles.length) out.terrainTiles = terrainTiles.sort((a, b) => a[1] - b[1] || a[0] - b[0]);
     if (r.reserve) out.reserve = r.reserve;
     if (r.encloses) out.encloses = true;
     if (r.art) out.art = r.art;
     if (r.room) out.room = r.room;
     if (r.compound) out.compound = r.compound;
+    if (r.marker) out.marker = r.marker;
     if (!out.drawnPxBoxes.length) fail("drawn", `${f} has solid but nothing drawn (drawnPxBoxes is empty)`);
     Object.defineProperty(out, "inner", { value: inner || [], enumerable: false });
     // what the walls rule (B3c3) needs of the source: which solid shapes it used, its ring's box, and its own drawn boxes
-    // and the fences rule (B3d1): which habitat its ring is round
+    // and the fences rule (B3d1): which habitat its ring is round; the gates rule (B3d3) uses the shapes and drawn boxes
     Object.defineProperty(out, "shape", { value: { solid: Object.keys(r.solid), box: r.solid.ringOfBox ? { x0: r.solid.ringOfBox.x0, y0: r.solid.ringOfBox.y0, x1: r.solid.ringOfBox.x1, y1: r.solid.ringOfBox.y1 } : null, habitat: r.solid.ringOfHabitat ? r.solid.ringOfHabitat.habitat : null, ownDrawn: drawn.length }, enumerable: false });
     return out;
   });
@@ -317,6 +344,11 @@ export function contentProblems(records, src, m) {
       else if (!tWalk(i) || L.tiles[i] || wet) B(`its opening ${x},${y} isn't open ground (${!tWalk(i) ? "terrain coll " + m.coll[i] : L.tiles[i] ? "solid content" : wet + " foot-blocking pixels"})`);
       else if (!after[i]) B(`its opening ${x},${y} can't be reached from the spawn`);
     }
+    // the tiles the terrain closes (B3d3): solid land in the terrain (a cliff rim), never water or open ground
+    for (const [x, y] of r.terrainTiles || []) {
+      const i = at(x, y);
+      if (m.coll[i] !== 1) B(`${x},${y} is listed as closed by the terrain, but the terrain there is ${m.coll[i] === 0 ? "open ground (build the wall there)" : "coll " + m.coll[i] + ", not solid land (a wall is closed by a cliff, never by water)"}`);
+    }
     if (r.compound) {
       const c = (src.reserves.compounds || []).find((q) => q.id === r.compound), b = S.box, cb = c && c.compoundBox;
       const key = (l) => l.map((p) => p.join()).sort().join(" ");
@@ -347,6 +379,28 @@ export function contentProblems(records, src, m) {
     if (!gaps.length && !r.encloses) B("it has no openings, so it closes its habitat in: it must say so (encloses: true)");
     if (gaps.length && r.encloses) B(`it has ${gaps.length} opening(s), so it doesn't close its habitat in (leave encloses out)`);
   }
+  // only a wall is closed by the terrain (B3d3)
+  for (const r of records) if (r.kind !== "wall" && r.terrainTiles) add("walls", `${r.id}: only a wall is closed by the terrain (terrainTiles), not a ${r.kind}`);
+  // gates (B3d3): art, a B1e marker it is named for, its two posts 2 either side of it, one drawn box over them, its opening
+  for (const r of records) {
+    if (r.marker !== undefined && r.kind !== "gate") add("gates", `${r.id}: only a gate stands on a marker`);
+    if (r.kind !== "gate") continue;
+    const B = (msg) => add("gates", `${r.id}: ${msg}`), S = r.shape || { solid: [], ownDrawn: 0 };
+    if (!r.art) B("a gate draws itself: it needs art (\"placeholder\" until the art stage)");
+    const mk = r.marker && (src.reserves.markers || []).find((q) => q.id === r.marker);
+    if (!mk) { B("a gate stands on a B1e marker (marker), and it names none"); continue; }
+    if (r.id !== r.marker) B(`it is the gate on the marker ${r.marker}, so it is named for it, not ${r.id}`);
+    const [mx, my] = mk.markerTile, posts = [[mx - 2, my], [mx + 2, my]];
+    if (S.solid.length !== 1 || S.solid[0] !== "tiles") B(`a gate's solid is its two posts (tiles) and nothing else, not ${S.solid.join(", ") || "nothing"}`);
+    const key = (l) => l.map((p) => p.join()).sort().join(" ");
+    if (key(r.tiles) !== key(posts)) B(`its posts are the tiles 2 either side of its marker ${mx},${my} (format 1's rule), ${key(posts)}, not ${key(r.tiles) || "none"}`);
+    if (r.footPxBoxes.length || r.doorTiles.length || r.reserve || r.encloses || r.gapTiles) B(`a gate has no ${r.footPxBoxes.length ? "foot box (its posts block whole tiles)" : r.doorTiles.length ? "door" : r.reserve ? "reserve" : r.encloses ? "enclosure" : "openings list (its opening is between its posts)"}`);
+    const d = r.drawnPxBoxes;
+    if (d.length !== 1 || d[0].px0 !== (mx - 2) * T || d[0].px1 !== (mx + 2) * T + T - 1 || d[0].py1 !== my * T + T - 1 || d[0].py0 > my * T) B(`its art is one box from its west post's west edge to its east post's east edge, standing on their bottom edge (px ${(mx - 2) * T} to ${(mx + 2) * T + T - 1}, bottom ${my * T + T - 1}; it may rise above), not ${JSON.stringify(d)}`);
+    const open = (x, y) => { const i = at(x, y); let wet = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) wet += m.px.foot[py * PW + px] || L.foot[py * PW + px] ? 1 : 0; return !tWalk(i) ? "terrain coll " + m.coll[i] : L.tiles[i] ? "solid content" : wet ? wet + " foot-blocking pixels" : !after[i] ? "not reached from the spawn" : null; };
+    for (const [x, y] of [[mx - 1, my], [mx, my], [mx + 1, my]]) { const why = open(x, y); if (why) B(`its opening ${x},${y} isn't open ground (${why})`); }
+    for (const [x, y] of [[mx, my - 1], [mx, my + 1]]) { const why = open(x, y); if (why) B(`the road through it is blocked at ${x},${y}, ${y < my ? "behind" : "in front of"} its opening (${why})`); }
+  }
   const enclosed = new Set(); for (const r of records) if (r.encloses) for (const [x, y] of r.inner) enclosed.add(at(x, y));
   let lost = 0, first = null;
   for (let i = 0; i < W * H; i++) if (before[i] && !after[i] && !L.tiles[i] && !enclosed.has(i)) { lost++; if (!first) first = `${i % W},${(i - i % W) / W}`; }
@@ -369,11 +423,13 @@ export function serializeContent(c, meta) {
   const rec = (r) => {
     const o = { id: r.id, kind: r.kind, drawnPxBoxes: r.drawnPxBoxes, tiles: r.tiles, footPxBoxes: r.footPxBoxes, doorTiles: r.doorTiles };
     if (r.gapTiles) o.gapTiles = r.gapTiles;
+    if (r.terrainTiles) o.terrainTiles = r.terrainTiles;
     if (r.reserve) o.reserve = r.reserve;
     if (r.encloses) o.encloses = true;
     if (r.art) o.art = r.art;
     if (r.room) o.room = r.room;
     if (r.compound) o.compound = r.compound;
+    if (r.marker) o.marker = r.marker;
     return `    ${num(o)}`;
   };
   return [
@@ -384,9 +440,9 @@ export function serializeContent(c, meta) {
     `   deployed. Production runs the 100 x 80 island in js/maps/home.js.`,
     `   records: each content record (kind building, landmark, station, wall, fence, gate or prop): drawnPxBoxes, where its art`,
     `   is drawn (inclusive world pixels; no collision outside them); tiles, the whole tiles it makes solid; footPxBoxes, pixels`,
-    `   where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; encloses, a ring that closes ground`,
-    `   in; a building's, a wall's or a fence's art; a building's room; a wall's compound. solidTiles and footPixels: the`,
-    `   totals, which the game checks.`,
+    `   where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; terrainTiles, where the terrain`,
+    `   closes a wall's ring; encloses, a ring that closes ground in; a building's, a wall's, a fence's or a gate's art; a`,
+    `   building's room; a wall's compound; a gate's marker. solidTiles and footPixels: the totals, which the game checks.`,
     `   The game reads the terrain's collision for painting and the union of both layers for movement. */`,
     `(window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {`,
     `  "format": 2, "staged": true, "schema": ${num(CONTENT_SCHEMA)}, "id": ${num(meta.id)}, "generator": "tools/map-content.mjs",`,

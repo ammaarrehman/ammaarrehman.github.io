@@ -50,7 +50,24 @@
    - Between the two paddocks, column 118 stays open: one tile wide at rows 12 to 15, the paddock's east fence (x 117) on
      one side and the raptor yard's west fence (x 119) on the other.
    - Nothing else of the paddock yet: no T. rex, roam area, roar zone, fence words or bones (later batches). B1e's
-     planning label "double fence, high security" isn't built: one ring, as B3a plans and format 1 has. */
+     planning label "double fence, high security" isn't built: one ring, as B3a plans and format 1 has.
+
+   B3d3: the koi garden's wall and the park gate.
+   - The koi garden's wall: koi-garden, the ring round the B1e compound koi-garden's box 103,54 to 119,70 (17 x 17) less
+     its seven gates, as the r2.1 study's "garden wall": three openings, north 110,54 to 112,54 (the koi-north-gate trail,
+     from the koi-headland road), west 103,61 to 103,62 (the koi-west-gate trail) and east 119,63 to 119,64 (out to the koi
+     bay overlook, 120,63). On the east side, 119,56 to 119,59 are the terrace's cliff rim over the koi bay's beach, solid
+     terrain: the cliff closes the ring there and no wall is built on it (terrainTiles). 53 solid tiles, each drawn (B3a's
+     count: the edge's 64 tiles less the 7 gates and the 4 rim tiles). The south wall (row 70) stands on the cliff top over
+     the lowland; the koi pond, the garden loop, the koi pavilion's reserve (113,66 to 116,68, unused) and the route end
+     koi-garden (108,68) are inside it, reached through any of the openings. Placeholder art in a garden wall's look (not
+     the outpost's sandbags). No koi, cats, pavilion, Moss or feeding here (later batches).
+   - The park gate: park-gate, on the B1e marker park-gate (74,38, the study's gate anchor), at the foot of the park-gate
+     ramp where the main walk climbs to the highland. Its posts are format 1's rule, the tiles 2 either side of it, 72,38
+     and 76,38 (B3a's), solid; its opening is the main walk's three paved tiles between them, 73,38 to 75,38. The arch's
+     art is the box from 72,38's west edge to 76,38's east edge, 60 px tall (format 1's sprite's height). As in format 1 it
+     is decorative: nothing opens, closes or locks, and the ground either side of it stays open. Format 1's lamp beside it
+     (B3a's 78,38) is a later batch's. */
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -89,6 +106,17 @@ export default {
     {
       id: "holding-paddock", kind: "fence", art: "placeholder", encloses: true,
       solid: { ringOfHabitat: { habitat: "holding-paddock" } }
+    },
+    {
+      id: "koi-garden", kind: "wall", compound: "koi-garden", art: "placeholder",
+      solid: { ringOfBox: { x0: 103, y0: 54, x1: 119, y1: 70,
+        gapTiles: [[110, 54], [111, 54], [112, 54], [103, 61], [103, 62], [119, 63], [119, 64]],
+        terrainTiles: [[119, 56], [119, 57], [119, 58], [119, 59]] } }
+    },
+    {
+      id: "park-gate", kind: "gate", marker: "park-gate", art: "placeholder",
+      drawnPxBoxes: [{ px0: 72 * T, py0: 38 * T + T - 60, px1: 76 * T + T - 1, py1: 38 * T + T - 1 }],
+      solid: { tiles: [[72, 38], [76, 38]] }
     }
   ]
 };

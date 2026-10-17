@@ -29,7 +29,9 @@
    B3d1 (tools/mapb-fences.mjs tests the raptor yard's fence, the first paddock fence): this suite expects that record too,
    and its enclosed inside (42 tiles) as the only ground the content cuts off; MAPB_SHOTS sends the review screenshots
    elsewhere, so a later batch's regression run leaves B3c3's in place. B3d2 (tools/mapb-paddock.mjs tests the holding
-   paddock's fence): this suite expects that record too, and its inside (35) cut off beside the yard's.
+   paddock's fence): this suite expects that record too, and its inside (35) cut off beside the yard's. B3d3
+   (tools/mapb-koi-gate.mjs tests the koi garden's wall and the park gate): this suite expects both records too, the koi
+   garden's wall as a second wall beside the compound's, and a gate refused by its own shape now that a gate has art.
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile, bound to the current terrain, and holds exactly the two buildings;
@@ -126,7 +128,7 @@ const built = await buildContentText(REAL, contentSha256), again = await buildCo
 check("node", "the tracked content file is the current compile, bound to the staged terrain; two compiles give the same bytes", readFileSync(CONTENT_STAGED, "utf8") === built.text && built.text === again.text && built.text.includes(`"terrainSha256": "${t.sourceSha256}"`) && t.current,
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records;
-check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence and B3d2's holding-paddock fence (tools/mapb-fences.mjs and tools/mapb-paddock.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence and B3d3's koi garden wall and park gate (tools/mapb-fences.mjs, tools/mapb-paddock.mjs and tools/mapb-koi-gate.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock", "koi-garden", "park-gate").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence" && RECS[6].kind === "wall" && RECS[7].kind === "gate", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
 check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const LAYER = contentLayers(RECS, W, H);
 for (const id of IDS) {
@@ -307,7 +309,7 @@ const DR = (c, id) => c.records.find((r) => r.id === id);
 const REFUSE = [
   ["a building with no art", (c) => { delete DR(c, "visitor").art; }, /^content record visitor is a building with no art/],
   ["an art kind the game doesn't draw", (c) => { DR(c, "visitor").art = "sprite"; }, /^content record visitor\.art "sprite" isn't one of placeholder$/],
-  ["art on something that isn't a building, a wall or a fence", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot\.art "placeholder": only a building, a wall or a fence has art/],
+  ["art on something that isn't a building, a wall, a fence or a gate", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot\.art "placeholder": only a building, a wall, a fence or a gate has art/],
   ["a room on something that isn't a building", (c) => { const r = DR(c, "depot"); r.kind = "station"; delete r.art; }, /^content record depot\.room "depot": only a building has a room$/],
   ["a room the game doesn't have", (c) => { DR(c, "visitor").room = "lobby"; }, /^content record visitor\.room "lobby" isn't one of the game's rooms/],
   ["two doors", (c) => { DR(c, "visitor").doorTiles.push([85, 74]); }, /^content record visitor opens into a room, so it has exactly one door, not 2$/],
@@ -319,7 +321,8 @@ const REFUSE = [
   ["a doorway on foot-blocking pixels", (c) => { c.records.push({ id: "syn-wet-door", kind: "building", drawnPxBoxes: FOOTDOOR.drawnPxBoxes, tiles: [[30, 98], [31, 98], [32, 98], [30, 99], [31, 99], [32, 99]], footPxBoxes: [], doorTiles: [[31, 100]], art: "placeholder", room: "bunker" }); c.solidTiles += 6; }, /^content record syn-wet-door: its doorway \(504,1606\) is on the terrain's foot-blocking pixels/],
   // B3c3: the wall
   ["a wall with no art", (c) => { delete DR(c, WALL_ID).art; }, /^content record bunker-compound is a wall with no art/],
-  ["art on a gate (B3d1: a fence has art now, a gate doesn't yet)", (c) => { const r = DR(c, WALL_ID); r.kind = "gate"; delete r.compound; }, /^content record bunker-compound\.art "placeholder": only a building, a wall or a fence has art/],
+  // (B3d3: a gate has art now, so the wall turned into a gate is refused by the gate's own shape instead)
+  ["the wall turned into a gate (B3d3: a gate has art, and is two posts on a marker)", (c) => { const r = DR(c, WALL_ID); r.kind = "gate"; delete r.compound; }, /^content record bunker-compound is a gate, so it stands on a marker and is named for it/],
   ["a compound on something that isn't a wall", (c) => { DR(c, "depot").compound = WALL_ID; }, /^content record depot\.compound "bunker-compound": only a wall walls in a compound$/],
   ["a wall tile with no art over it", (c) => { const r = DR(c, WALL_ID); r.drawnPxBoxes = r.drawnPxBoxes.filter((b) => !(b.px0 === 116 * T && b.py0 === 76 * T)); }, /no invisible collision/],
   ["wall art on a tile it doesn't block", (c) => { DR(c, WALL_ID).drawnPxBoxes.push(pxOf({ x0: 110, y0: 77, x1: 110, y1: 77 })); }, /its placeholder art is one tile on each of its solid tiles and nowhere else/],
@@ -477,7 +480,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     // collision: exactly the footprints, on top of the terrain's
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the three footprints, the compound's wall and the paddock fences (B3d1's raptor yard, B3d2's holding paddock: 101 + 53 + 30 + 36 = 220 tiles), the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 220);
+    check(name, "collision: the content layer is exactly the three footprints, the compound's wall, the paddock fences (B3d1's raptor yard, B3d2's holding paddock) and B3d3's koi garden wall and park gate posts: 101 + 53 + 30 + 36 + 53 + 2 = 275 tiles; the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 275);
     for (const id of IDS) {
       const A = APPROVED[id], b = pxOf(A.box);
       const edge = await cp.I(([b]) => {
@@ -611,7 +614,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     {
       const wv = (await cp.I(() => window.__island.preview())).walls, sortK = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k2) => [k2, o[k2]]));
       check(name, "wall: the content preview has the compound's wall as its record says: 53 tiles, the three west gates as its openings; 40 runs, 7 piers, 4 corners and the 2 posts beside the entrance",
-        wv.length === 1 && wv[0].id === WALL_ID && wv[0].compound === WALL_ID && wv[0].tiles === 53 && JSON.stringify(wv[0].gaps) === JSON.stringify(COMP.gates) && sortK(wv[0].kinds) === sortK({ corner: 4, run: 40, pier: 7, post: 2 }), JSON.stringify(wv));
+        wv.map((q) => q.id).join() === WALL_ID + ",koi-garden" && wv[0].id === WALL_ID && wv[0].compound === WALL_ID && wv[0].tiles === 53 && !wv[0].terrain.length && JSON.stringify(wv[0].gaps) === JSON.stringify(COMP.gates) && sortK(wv[0].kinds) === sortK({ corner: 4, run: 40, pier: 7, post: 2 }), JSON.stringify(wv));
       const art = await cp.I((id) => { const a = window.__island.wallArt(id); delete a.png; return a; }, WALL_ID);
       const kindAt = (x, y) => (art.pieces.find((q) => q.tile[0] === x && q.tile[1] === y) || {}).kind;
       check(name, "wall: every piece of its art is one 16 x 16 tile, all 256 pixels fully opaque, one on each of its 53 tiles; the corners are corner blocks and the two tiles beside the entrance are its posts",
@@ -711,9 +714,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       }, [RING]);
       check(name, "helicopter: it can't set down on any of the wall's 53 tiles, can inside the compound (121,86), and four descents drifting at the wall (from inside east, outside north, inside west, and in through the entrance) park with no part over the wall and pi out on safe ground",
         hl.landOnWall === 0 && hl.inside && hl.runs.every((r) => r.state === "parked" && r.onWall === 0 && r.piSafe && !r.piOnWall), `${hl.landOnWall} wall tiles allow a landing; ` + hl.runs.map((r) => `from ${r.from}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.onWall ? " OVER THE WALL" : ""}`).join("; "));
-      // the content preview's completeness report: the bunker compound's wall is there, the koi garden's still missing
+      // the content preview's completeness report: the bunker compound's wall is there, and (B3d3) the koi garden's
       const comp = await cp.I(() => window.__island.completeness());
-      check(name, "completeness: a normal format-2 home made of this content would still be refused; its compound walls item names only the koi garden's now", comp && !comp.complete && comp.missing.filter((q) => /^compound walls/.test(q)).join() === "compound walls: koi-garden", comp ? comp.missing.filter((q) => /^compound walls/.test(q)).join() + `; ${comp.missing.length} items missing` : "");
+      check(name, "completeness: a normal format-2 home made of this content would still be refused; it no longer names compound walls (B3d3's koi garden wall is there too)", comp && !comp.complete && !comp.missing.some((q) => /^compound walls/.test(q)), comp ? (comp.missing.filter((q) => /^compound walls/.test(q)).join() || "no compound walls item") + `; ${comp.missing.length} items missing` : "");
     }
     // storage: through entering and leaving both buildings (above), walking, setSave and a reload, nothing read or written
     await cp.I(() => window.__island.setSave({ v: 2, logs: ["tablet"] }));
