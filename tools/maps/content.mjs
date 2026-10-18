@@ -34,8 +34,8 @@
        doorTiles: [[x, y], ...],         // optional: walkable tiles next to its solid, reachable from the spawn
        reserve: "footprint-id",          // optional: the B1e footprint it stands in (its solid must stay inside it)
        encloses: true,                   // optional: it may cut ground off (a paddock fence); nothing else may
-       art: "placeholder",               // a building's, a wall's, a fence's or a gate's (B3c1, B3c3, B3d1, B3d3; required on
-                                         //   each): what the game draws
+       art: "placeholder",               // a building's, a wall's, a fence's, a gate's or a landmark's (B3c1, B3c3, B3d1, B3d3,
+                                         //   B3d4a; required on each): what the game draws
        room: "visitor",                  // a building's, optional (B3c1): the game's room behind its one door
        compound: "bunker-compound",      // a wall's, optional (B3c3): the B1e walled compound it walls in
        marker: "park-gate"               // a gate's (B3d3, required): the B1e marker it stands on
@@ -79,6 +79,14 @@
    foot-blocking pixels), reached from the spawn, with open ground right in front of and behind its middle, so the road
    goes through. Nothing in it opens, closes or locks: like format 1's it is art and two posts.
 
+   A landmark base (B3d4a) is the body of a landmark that stands on a B1e landmark footprint (the tower's, the
+   lighthouse's): named for it (its id is the footprint's id with "-base"), naming it as its reserve, its solid that
+   footprint exactly (one full rectangle), and its art (placeholder: the game's temporary tower or lighthouse) one drawn
+   box as wide as the footprint, standing on its front edge (it rises above it: the structure stands tall), opaque over
+   every tile of the footprint. No door, foot box, opening or room; the tile in the middle of its front (floor(x0 + w / 2),
+   y1 + 1: where the landmark is approached from, B3a's) is open ground reached from the spawn. A base is structure only:
+   the landmark's interaction (its station: the log, the tour stop, the links) is a station record's, a later batch's.
+
    The compiled record (the staged content file and the game): { id, kind, drawnPxBoxes, tiles, footPxBoxes, doorTiles,
    gapTiles?, terrainTiles?, reserve?, encloses?, art?, room?, compound?, marker? }, every solid as an explicit tile list,
    so the game derives its layer without knowing any shape; gapTiles (a ring's openings, B3c3) let the game draw the posts
@@ -97,6 +105,7 @@
      walls          a wall's art, ring, openings, compound and the tiles the terrain closes, as above (B3c3, B3d3)
      fences         a fence's art, habitat ring, name, openings and enclosure, as above (B3d1)
      gates          a gate's art, marker, posts, drawn box and opening, as above (B3d3)
+     landmarks      a landmark base's art, footprint, name, drawn box and approach, as above (B3d4a)
      open-space     nothing solid in the B1e open spaces (the rift arena's clear field)
      doors          each door tile walkable, next to its record's solid, reachable from the spawn
      route-ends     every B1d route end still reachable from the spawn
@@ -106,13 +115,13 @@ import { raster } from "./geom.mjs";
 
 export const CONTENT_SCHEMA = "mapb-content-1";
 export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"];
-export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "open-space", "doors", "route-ends", "pockets"];
+export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "landmarks", "open-space", "doors", "route-ends", "pockets"];
 /* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list), the art
    kinds the game draws, and what it draws them on (a building since B3c1, a wall since B3c3, a fence since B3d1, a gate
-   since B3d3) */
+   since B3d3, a landmark since B3d4a) */
 export const ROOM_IDS = ["visitor", "bunker", "depot"];
 export const ART_KINDS = ["placeholder"];
-export const ART_ON = ["building", "wall", "fence", "gate"];
+export const ART_ON = ["building", "wall", "fence", "gate", "landmark"];
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const T = 16;
 // terrain codes and flags, the compiler's (tools/map-compile.mjs GROUND and COLL)
@@ -178,7 +187,7 @@ export function resolveContent(content, src, m) {
     only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker"]);
     if (!KINDS.includes(r.kind)) fail("schema", `${f}.kind ${JSON.stringify(r.kind)} isn't one of ${KINDS.join(", ")}`);
     if (r.room !== undefined && (r.kind !== "building" || !ROOM_IDS.includes(r.room))) fail("schema", `${f}.room ${JSON.stringify(r.room)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has a room" : "isn't one of the game's rooms, " + ROOM_IDS.join(", ")}`);
-    if (r.art !== undefined && (!ART_ON.includes(r.kind) || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${!ART_ON.includes(r.kind) ? "is on a " + r.kind + ": only a building, a wall, a fence or a gate has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
+    if (r.art !== undefined && (!ART_ON.includes(r.kind) || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${!ART_ON.includes(r.kind) ? "is on a " + r.kind + ": only a building, a wall, a fence, a gate or a landmark has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
     if (r.compound !== undefined && (r.kind !== "wall" || !(src.reserves.compounds || []).some((q) => q.id === r.compound && q.walled === true))) fail("schema", `${f}.compound ${JSON.stringify(r.compound)} ${r.kind !== "wall" ? "is on a " + r.kind + ": only a wall walls in a compound" : "isn't one of B1e's walled compounds"}`);
     if (r.marker !== undefined && (r.kind !== "gate" || !(src.reserves.markers || []).some((q) => q.id === r.marker))) fail("schema", `${f}.marker ${JSON.stringify(r.marker)} ${r.kind !== "gate" ? "is on a " + r.kind + ": only a gate stands on a marker" : "isn't one of B1e's markers"}`);
     if (!isObj(r.solid)) fail("schema", `${f}.solid must be an object`);
@@ -400,6 +409,25 @@ export function contentProblems(records, src, m) {
     const open = (x, y) => { const i = at(x, y); let wet = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) wet += m.px.foot[py * PW + px] || L.foot[py * PW + px] ? 1 : 0; return !tWalk(i) ? "terrain coll " + m.coll[i] : L.tiles[i] ? "solid content" : wet ? wet + " foot-blocking pixels" : !after[i] ? "not reached from the spawn" : null; };
     for (const [x, y] of [[mx - 1, my], [mx, my], [mx + 1, my]]) { const why = open(x, y); if (why) B(`its opening ${x},${y} isn't open ground (${why})`); }
     for (const [x, y] of [[mx, my - 1], [mx, my + 1]]) { const why = open(x, y); if (why) B(`the road through it is blocked at ${x},${y}, ${y < my ? "behind" : "in front of"} its opening (${why})`); }
+  }
+  // landmark bases (B3d4a): art, a B1e landmark footprint it is named for and fills, one drawn box over it, its approach
+  for (const r of records) {
+    if (r.kind !== "landmark") continue;
+    const B = (msg) => add("landmarks", `${r.id}: ${msg}`), S = r.shape || { solid: [], ownDrawn: 0 };
+    if (!r.art) B("a landmark base draws itself: it needs art (\"placeholder\" until the art stage)");
+    const fp = r.reserve && (src.reserves.footprints || []).find((q) => q.id === r.reserve);
+    if (!fp || fp.kind !== "landmark" || !fp.footprintBox) { B(`a landmark base stands on a B1e landmark footprint (reserve), and ${r.reserve ? r.reserve + " isn't one" : "it names none"}`); continue; }
+    const b = fp.footprintBox, w = b.x1 - b.x0 + 1;
+    if (r.id !== fp.id + "-base") B(`it is the base on the footprint ${fp.id}, so it is named ${fp.id}-base, not ${r.id}`);
+    if (S.solid.length !== 1 || S.solid[0] !== "tileBoxes") B(`a landmark base's solid is its footprint (one tile box) and nothing else, not ${S.solid.join(", ") || "nothing"}`);
+    const key = (l) => l.map((p) => p.join()).sort().join(" "), want = []; for (let y = b.y0; y <= b.y1; y++) for (let x = b.x0; x <= b.x1; x++) want.push([x, y]);
+    if (key(r.tiles) !== key(want)) B(`its solid is its footprint ${b.x0},${b.y0} to ${b.x1},${b.y1} exactly, not ${r.tiles.length} other tiles`);
+    if (r.footPxBoxes.length || r.doorTiles.length || r.gapTiles || r.encloses || r.room || r.compound || r.marker) B("a landmark base has no foot box, door, opening, enclosure, room, compound or marker");
+    const d = r.drawnPxBoxes;
+    if (d.length !== 1 || d[0].px0 !== b.x0 * T || d[0].px1 !== b.x1 * T + T - 1 || d[0].py1 !== b.y1 * T + T - 1 || d[0].py0 > b.y0 * T) B(`its art is one box as wide as its footprint, standing on its front edge (px ${b.x0 * T} to ${b.x1 * T + T - 1}, bottom ${b.y1 * T + T - 1}; it may rise above), not ${JSON.stringify(d)}`);
+    const ax = Math.floor(b.x0 + w / 2), ay = b.y1 + 1, ai = at(ax, ay);
+    let wet = 0; for (let py = ay * T; py < ay * T + T; py++) for (let px = ax * T; px < ax * T + T; px++) wet += m.px.foot[py * PW + px] || L.foot[py * PW + px] ? 1 : 0;
+    if (!tWalk(ai) || L.tiles[ai] || wet || !after[ai]) B(`its approach ${ax},${ay} (the middle of its front) isn't open ground reached from the spawn`);
   }
   const enclosed = new Set(); for (const r of records) if (r.encloses) for (const [x, y] of r.inner) enclosed.add(at(x, y));
   let lost = 0, first = null;

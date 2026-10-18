@@ -354,7 +354,7 @@
   var PREVIEW_FLAGS = { "mapb-staged": "terrain", "mapb-content": "content" };
   /* the rooms a content building may open into (the game's ROOMS, B3c1), the art kinds the game draws: only "placeholder"
      so far (the art stage adds real sprites), and what it draws them on: a building (B3c1) and a wall (B3c3) */
-  var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall", "fence", "gate"];
+  var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall", "fence", "gate", "landmark"];
   function previewMode() { var f = window.ISLAND_MAP_PREVIEW; return typeof f === "string" && Object.prototype.hasOwnProperty.call(PREVIEW_FLAGS, f) ? PREVIEW_FLAGS[f] : null; }
   function previewAsked() { return previewMode() !== null; }
   function decodeMap(M) {
@@ -550,14 +550,15 @@
         if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
         // a building (B3c1) draws itself (art: the only kind so far is "placeholder"; the art stage adds real sprites) and may
         // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in, a fence (B3d1)
-        // and a gate (B3d3), which names the marker it stands on. nothing else has a room, a compound or a marker, and
-        // nothing else has art the game can draw yet
+        // and a gate (B3d3), which names the marker it stands on, and a landmark base (B3d4a). nothing else has a room, a
+        // compound or a marker, and nothing else has art the game can draw yet
         if (r.room !== undefined && (r.kind !== "building" || ROOM_IDS.indexOf(r.room) < 0)) bad(f + ".room " + JSON.stringify(r.room) + (r.kind !== "building" ? ": only a building has a room" : " isn't one of the game's rooms, " + ROOM_IDS.join(", ")));
-        if (r.art !== undefined && (ART_ON.indexOf(r.kind) < 0 || ART_KINDS.indexOf(r.art) < 0)) bad(f + ".art " + JSON.stringify(r.art) + (ART_ON.indexOf(r.kind) < 0 ? ": only a building, a wall, a fence or a gate has art the game draws so far" : " isn't one of " + ART_KINDS.join(", ")));
+        if (r.art !== undefined && (ART_ON.indexOf(r.kind) < 0 || ART_KINDS.indexOf(r.art) < 0)) bad(f + ".art " + JSON.stringify(r.art) + (ART_ON.indexOf(r.kind) < 0 ? ": only a building, a wall, a fence, a gate or a landmark has art the game draws so far" : " isn't one of " + ART_KINDS.join(", ")));
         if (r.kind === "building" && r.art === undefined) bad(f + " is a building with no art: a building draws itself (art \"placeholder\" until the art stage)");
         if (r.kind === "wall" && r.art === undefined) bad(f + " is a wall with no art: a wall draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
         if (r.kind === "fence" && r.art === undefined) bad(f + " is a fence with no art: a fence draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
         if (r.kind === "gate" && r.art === undefined) bad(f + " is a gate with no art: a gate draws itself (art \"placeholder\" until the art stage), so neither post is invisible");
+        if (r.kind === "landmark" && r.art === undefined) bad(f + " is a landmark with no art: a landmark base draws itself (art \"placeholder\" until the art stage), so none of it is invisible");
         if (r.marker !== undefined && (r.kind !== "gate" || typeof r.marker !== "string" || !ID.test(r.marker))) bad(f + ".marker " + JSON.stringify(r.marker) + (r.kind !== "gate" ? ": only a gate stands on a marker" : " must be a marker id"));
         if (r.terrainTiles !== undefined && r.kind !== "wall") bad(f + ".terrainTiles: only a wall's ring is closed by the terrain");
         if (r.compound !== undefined && (r.kind !== "wall" || typeof r.compound !== "string" || !ID.test(r.compound))) bad(f + ".compound " + JSON.stringify(r.compound) + (r.kind !== "wall" ? ": only a wall walls in a compound" : " must be a compound id"));
@@ -585,6 +586,7 @@
         if (r.kind === "wall") wallShape(r, f, drawn);
         if (r.kind === "fence") fenceShape(r, f, drawn);
         if (r.kind === "gate") gateShape(r, f, drawn);
+        if (r.kind === "landmark") landmarkShape(r, f, drawn);
         return { r: r, inDrawn: inDrawn };
       });
       /* a wall's shape (B3c3): placeholder art is one opaque tile of wall on every solid tile and nowhere else (its drawn
@@ -643,6 +645,19 @@
         var x0 = Math.min(a[0], b[0]), y = a[1], d = drawn[0];
         if (drawn.length !== 1 || d.px0 !== x0 * T || d.px1 !== (x0 + 4) * T + T - 1 || d.py1 !== y * T + T - 1 || d.py0 > y * T) bad(f + ": its placeholder art is one box from its west post's west edge to its east post's east edge, standing on their bottom edge (px " + x0 * T + " to " + ((x0 + 4) * T + T - 1) + ", bottom " + (y * T + T - 1) + ")");
       }
+      /* a landmark base's shape (B3d4a): its solid is one full rectangle of tiles (its footprint); its placeholder art is one
+         box as wide as the footprint, standing on its front edge (it rises above it, never below or beside); no foot box,
+         door, opening, room, compound or marker. the tile in the middle of its front (where it is approached from) is
+         checked once every solid is known */
+      function landmarkShape(r, f, drawn) {
+        if (!r.tiles.length) bad(f + " is a landmark with no solid tiles: its footprint is solid");
+        var x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1;
+        r.tiles.forEach(function (p) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+        if (r.tiles.length !== (x1 - x0 + 1) * (y1 - y0 + 1)) bad(f + ": a landmark base's solid must be one full rectangle (its footprint), and " + r.tiles.length + " tiles in " + x0 + "," + y0 + " to " + x1 + "," + y1 + " isn't");
+        if (r.footPxBoxes.length || r.doorTiles.length || r.gapTiles !== undefined || r.encloses !== undefined || r.room !== undefined || r.compound !== undefined || r.marker !== undefined) bad(f + " is a landmark base: it blocks whole tiles, and it has no foot box, door, opening, enclosure, room, compound or marker");
+        var b = drawn[0];
+        if (drawn.length !== 1 || b.px0 !== x0 * T || b.px1 !== x1 * T + T - 1 || b.py1 !== y1 * T + T - 1 || b.py0 > y0 * T) bad(f + ": its placeholder art is one box as wide as its footprint, standing on its front edge (px " + x0 * T + " to " + (x1 * T + T - 1) + ", bottom " + (y1 * T + T - 1) + ")");
+      }
       /* a building's shape (B3c1): its solid is one full rectangle of tiles (its footprint); its placeholder art is one box
          as wide as the footprint, standing on its front edge (it may rise above it, never below or beside it); one with a
          room has exactly one door, the tile right in front of the footprint (the front is south), and pi's feet fit in its
@@ -691,6 +706,13 @@
           var wet = 0; for (var py = q[1] * T; py < q[1] * T + T; py++) for (var px = q[0] * T; px < q[0] * T + T; px++) if (bit(D.foot, px, py) || bit(cf, px, py)) wet++;
           if (!walk(q[0], q[1]) || cc[q[1] * w + q[0]] || wet) bad(f + ": " + q[2] + " at " + q[0] + "," + q[1] + " isn't open ground (" + (!walk(q[0], q[1]) ? "terrain" : cc[q[1] * w + q[0]] ? "solid content" : wet + " foot-blocking pixels") + ")");
         });
+      });
+      // a landmark base's approach (B3d4a): the middle of its front, open ground
+      recs.forEach(function (o) {
+        var r = o.r; if (r.kind !== "landmark") return;
+        var x0 = 1e9, x1 = -1, y1 = -1; r.tiles.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+        var ax = Math.floor(x0 + (x1 - x0 + 1) / 2), ay = y1 + 1;
+        if (!walk(ax, ay) || cc[ay * w + ax]) bad("content record " + r.id + ": its approach " + ax + "," + ay + " (the middle of its front) isn't open ground");
       });
       // the spawn stays clear: its tile, and pi's feet standing there
       var sp0 = A.spawnTile, spx = footOfTile(sp0);
@@ -771,7 +793,7 @@
     HOME2_RECORDS.forEach(function (q) {
       var miss = q[1].filter(function (id) {
         var r = recs.filter(function (x) { return x.id === id && x.kind === q[0]; })[0];
-        return !r || (q[0] === "building" && (!r.doorTiles.length || !r.room || !r.art)) || (q[0] === "wall" && !r.art) || (q[0] === "fence" && (!r.encloses || !r.art)) || (q[0] === "gate" && !r.art);
+        return !r || (q[0] === "building" && (!r.doorTiles.length || !r.room || !r.art)) || (q[0] === "wall" && !r.art) || (q[0] === "fence" && (!r.encloses || !r.art)) || (q[0] === "gate" && !r.art) || (q[0] === "landmark" && !r.art);
       });
       if (miss.length) out.push(q[2] + ": " + miss.join(", "));
     });
@@ -995,6 +1017,17 @@
     if (r.kind !== "gate" || r.art !== "placeholder") return;
     var x0 = Math.min(r.tiles[0][0], r.tiles[1][0]), y = r.tiles[0][1], b = r.drawnPxBoxes[0];
     GATES.push({ id: r.id, marker: r.marker, x: x0 + 2, y: y, posts: [[x0, y], [x0 + 4, y]], opening: [[x0 + 1, y], [x0 + 2, y], [x0 + 3, y]], box: { px0: b.px0, py0: b.py0, px1: b.px1, py1: b.py1 }, art: null, at: null });
+  });
+  /* MAP-B's landmark bases (B3d4a): each landmark record of the content layer, the body of the tower or the lighthouse on its
+     B1e footprint (the decoder has checked its shape: the footprint one full rectangle, one drawn box as wide, standing on
+     its front edge). Structure only: the landmark's station (its log, the tour, the links, the map pins, the tower's live
+     trace and the lighthouse's turning beam) is format 1's and isn't migrated (SYS.stations is off in the content preview) */
+  var LANDMARKS = [];
+  (MAP.contentRecords || []).forEach(function (r) {
+    if (r.kind !== "landmark" || r.art !== "placeholder") return;
+    var x0 = 1e9, y0 = 1e9, x1 = -1, y1 = -1, b = r.drawnPxBoxes[0];
+    r.tiles.forEach(function (p) { x0 = Math.min(x0, p[0]); y0 = Math.min(y0, p[1]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+    LANDMARKS.push({ id: r.id, reserve: r.reserve || null, x0: x0, y0: y0, x1: x1, y1: y1, approach: [Math.floor(x0 + (x1 - x0 + 1) / 2), y1 + 1], box: { px0: b.px0, py0: b.py0, px1: b.px1, py1: b.py1 }, art: null, at: null });
   });
 
   // height: which terrace each tile of ground (and water on the ground) sits on
@@ -5557,6 +5590,85 @@
     });
     if (DEBUG) { GATE_MS += performance.now() - t0; GATE_N++; }
   }
+  /* the landmark bases' placeholder art (B3d4a), drawn once each, in format 1's look at the approved size. Each is opaque
+     over the whole of its footprint (a stone platform the structure stands on), so what blocks is exactly what's drawn,
+     and rises above it as the structure. The tower: format 1's timber watchtower, a cabin with a dark window on four legs
+     and a ladder, on a flagstone platform; its window glows at night. The lighthouse: format 1's red and white stripes,
+     tapering, an iron gallery and a lantern, on a square stone plinth with a door; its lantern glows at night (format 1's
+     turning beam belongs to the lighthouse's station, a later batch's). Pi behind one sees through it, as behind the gate */
+  var LANDMARK_STYLE = {
+    "tower-base": { look: "tower", wood: ["#2e1c10", "#4a2f1a", "#6a4428", "#8a5a34", "#a8743f"], roof: ["#2e2016", "#4e3624", "#6e4c32"], stone: ["#3e3a33", "#615b50", "#8c8579", "#aaa293", "#c6bfae"], glass: "#14261c" },
+    "lighthouse-base": { look: "lighthouse", red: ["#6e1c14", "#b8321f", "#d8503a"], white: ["#a8acb4", "#dfe2e7", "#f6f7f9"], stone: ["#3e3a33", "#615b50", "#8c8579", "#aaa293", "#c6bfae"], iron: ["#1a1a1e", "#34343c", "#55555e"], lamp: ["#b89040", "#ffe08a", "#fff6d0"] }
+  };
+  var LANDMARK_MS = 0, LANDMARK_N = 0;
+  function landmarkArt(lm) {
+    if (lm.art) return lm.art;
+    var P = LANDMARK_STYLE[lm.id] || LANDMARK_STYLE["tower-base"], b = lm.box, w = b.px1 - b.px0 + 1, h = b.py1 - b.py0 + 1, c = mkCanvas(); c.width = w; c.height = h;
+    var g = c.getContext("2d"), fy = h - (lm.y1 - lm.y0 + 1) * T, x, y, i;     // fy: the footprint's top row in the art
+    function r(x0, y0, ww, hh, col) { g.fillStyle = col; g.fillRect(x0, y0, ww, hh); }
+    // the platform under it: flagstones seen from above, lit on the top and left edges, and its front face (8 px)
+    function platform(slab) {
+      var fh = 8, top = h - fh;
+      r(0, fy, w, h - fy, P.stone[2]);
+      for (y = fy; y < top; y += 8) { r(0, y, w, 1, P.stone[1]); for (x = ((y - fy) / 8) % 2 ? slab / 2 : 0; x < w; x += slab) r(x, y, 1, 8, P.stone[1]); }
+      r(0, fy, w, 1, P.stone[4]); r(0, fy, 1, top - fy, P.stone[3]); r(w - 1, fy, 1, top - fy, P.stone[1]);
+      r(0, top, w, fh, P.stone[1]); r(0, top, w, 1, P.stone[3]); r(0, top + 4, w, 1, P.stone[0]);
+      for (x = 6; x < w; x += 12) r(x, top + 1, 1, 3, P.stone[0]); for (x = 0; x < w; x += 12) r(x, top + 5, 1, 2, P.stone[0]);
+      r(0, h - 1, w, 1, P.stone[0]); r(0, fy, 1, h - fy, P.stone[0]); r(w - 1, fy, 1, h - fy, P.stone[0]);
+    }
+    if (P.look === "tower") {
+      platform(12);
+      var legTop = 24, frontFoot = h - 12, backFoot = fy + 10;
+      // the back legs, then the front legs, the ladder between them, and cross braces
+      [[10, backFoot], [w - 13, backFoot]].forEach(function (q) { r(q[0], legTop, 3, q[1] - legTop, P.wood[1]); r(q[0], legTop, 1, q[1] - legTop, P.wood[2]); });
+      for (y = legTop + 8; y < backFoot - 2; y += 12) r(12, y, w - 24, 2, P.wood[1]);
+      [[5, frontFoot], [w - 9, frontFoot]].forEach(function (q) { r(q[0], legTop, 4, q[1] - legTop, P.wood[2]); r(q[0], legTop, 1, q[1] - legTop, P.wood[4]); r(q[0] + 3, legTop, 1, q[1] - legTop, P.wood[0]); r(q[0] - 1, q[1] - 1, 6, 2, P.wood[0]); });
+      var lx0 = (w >> 1) - 5, lx1 = (w >> 1) + 4;
+      r(lx0, legTop + 2, 2, frontFoot - legTop - 2, P.wood[3]); r(lx1, legTop + 2, 2, frontFoot - legTop - 2, P.wood[3]);
+      for (y = legTop + 6; y < frontFoot - 2; y += 6) r(lx0 + 2, y, lx1 - lx0 - 2, 1, P.wood[3]);
+      r(9, legTop + 20, w - 18, 2, P.wood[1]); r(9, legTop + 21, w - 18, 1, P.wood[0]);
+      // the cabin: plank walls, a floor beam, the window
+      r(3, 8, w - 6, legTop - 6, P.wood[2]);
+      for (y = 11; y < legTop; y += 3) r(3, y, w - 6, 1, P.wood[1]);
+      r(3, 8, 1, legTop - 6, P.wood[4]); r(w - 4, 8, 1, legTop - 6, P.wood[0]);
+      r(1, legTop - 1, w - 2, 4, P.wood[1]); r(1, legTop - 1, w - 2, 1, P.wood[3]); r(1, legTop + 2, w - 2, 1, P.wood[0]);
+      r(9, 11, w - 18, 9, P.wood[0]); r(10, 12, w - 20, 7, P.glass); r(11, 13, 4, 2, "rgba(255,255,255,.18)");
+      // the roof: overhanging boards, lit along the ridge
+      r(0, 2, w, 7, P.roof[1]); r(2, 0, w - 4, 2, P.roof[1]); r(2, 0, w - 4, 1, P.roof[2]); r(0, 2, w, 1, P.roof[2]);
+      for (x = 3; x < w; x += 5) r(x, 3, 1, 5, P.roof[0]); r(0, 8, w, 1, P.roof[0]);
+    } else {
+      platform(16);
+      var cx = w / 2, bodyTop = 22, bodyBot = h - 12;
+      // the tower, tapering upward, banded red and white, lit on its left
+      for (y = bodyTop; y < bodyBot; y++) {
+        var hw = Math.round(6 + (y - bodyTop) / (bodyBot - bodyTop) * 4), band = Math.floor((y - bodyTop) / 11) % 2, C = band ? P.white : P.red;
+        r(Math.round(cx - hw), y, hw * 2, 1, C[1]); r(Math.round(cx - hw), y, 2, 1, C[2]); r(Math.round(cx + hw) - 2, y, 2, 1, C[0]);
+      }
+      r(Math.round(cx - 3), bodyBot - 9, 6, 9, P.iron[1]); r(Math.round(cx - 2), bodyBot - 8, 4, 8, P.iron[0]);   // the door
+      [bodyTop + 14, bodyTop + 36].forEach(function (wy) { r(Math.round(cx - 1), wy, 2, 4, P.iron[0]); });            // window slits
+      // the gallery, the lantern and its cap
+      r(Math.round(cx - 10), bodyTop - 5, 20, 5, P.iron[1]); r(Math.round(cx - 10), bodyTop - 5, 20, 1, P.iron[2]); r(Math.round(cx - 10), bodyTop - 1, 20, 1, P.iron[0]);
+      for (x = Math.round(cx - 9); x < cx + 9; x += 3) r(x, bodyTop - 4, 1, 3, P.iron[0]);
+      r(Math.round(cx - 6), 7, 12, 10, P.iron[0]); r(Math.round(cx - 5), 8, 10, 8, P.lamp[1]); r(Math.round(cx - 5), 8, 3, 8, P.lamp[2]); r(Math.round(cx), 8, 1, 8, P.iron[1]);
+      r(Math.round(cx - 7), 4, 14, 3, P.iron[1]); r(Math.round(cx - 5), 2, 10, 2, P.iron[1]); r(Math.round(cx - 3), 1, 6, 1, P.iron[2]); r(Math.round(cx - 1), 0, 2, 1, P.iron[2]);
+    }
+    lm.art = c;
+    return c;
+  }
+  function drawLandmark(lm) {
+    var t0 = DEBUG ? performance.now() : 0, a = landmarkArt(lm), b = lm.box, sortY = (lm.y1 + 1) * T - 2;
+    var behind = pi.y < sortY && pi.y > b.py0 + 6 && pi.x > b.px0 - 6 && pi.x < b.px1 + 6;
+    if (behind) ctx.globalAlpha = 0.45;
+    ctx.drawImage(skin(a), b.px0, b.py0);
+    ctx.globalAlpha = 1;
+    lm.at = [b.px0, b.py0, a.width, a.height, behind];
+    var P = LANDMARK_STYLE[lm.id] || LANDMARK_STYLE["tower-base"], cxl = (b.px0 + b.px1 + 1) / 2;
+    if (sky.dark > 0.4) {
+      if (P.look === "tower") { ctx.fillStyle = "rgba(255,214,120,.55)"; ctx.fillRect(b.px0 + 10, b.py0 + 12, a.width - 20, 7); light(cxl, b.py0 + 16, 22, "255,214,140", 0.55); }
+      else { ctx.fillStyle = "rgba(255,240,180,.7)"; ctx.fillRect(Math.round(cxl - 5), b.py0 + 8, 10, 8); light(cxl, b.py0 + 12, 46, "255,226,138", 0.85); }
+    }
+    if (DEBUG) { LANDMARK_MS += performance.now() - t0; LANDMARK_N++; }
+  }
   function drawWaterfall(WF) {
     // a white ribbon off the plateau edge with streaks falling through it, and spray at the foot
     var x0 = Math.round(WF.x - 9), y0 = Math.round(WF.y), hgt = 22;
@@ -5772,6 +5884,7 @@
     if (heli.z < 12) list.push({ y: heli.y + 12, f: drawHeli });
     if (GATE) list.push({ y: GATE.y * T + 14, f: drawGate });
     GATES.forEach(function (gt) { if (gt.x >= x0 - 6 && gt.x <= x1 + 6 && gt.y >= y0 - 1 && gt.y <= y1 + 5) list.push({ y: gt.y * T + 14, f: function () { drawGatePiece(gt); } }); });   // B3d3
+    LANDMARKS.forEach(function (lm) { if (lm.x1 >= x0 - 4 && lm.x0 <= x1 + 4 && lm.y1 >= y0 - 1 && lm.y0 <= y1 + 7) list.push({ y: (lm.y1 + 1) * T - 2, f: function () { drawLandmark(lm); } }); });   // B3d4a
     if (volc) list.push({ y: VOLC.y + 24, f: drawVolcano });
     for (var fy = y0; fy <= y1 + 1; fy++) for (var fx = x0 - 1; fx <= x1 + 1; fx++) {
       if (fence[k(fx, fy)]) (function (a, b) { list.push({ y: b * T + 13, f: function () { drawFence(a, b); } }); })(fx, fy);
@@ -6354,6 +6467,9 @@
                // the park gate (B3d3): its marker, posts, opening and drawn box; where it was last drawn (and whether see-through)
                gates: GATES.map(function (gt) { return { id: gt.id, marker: gt.marker, at: [gt.x, gt.y], posts: gt.posts, opening: gt.opening, box: [gt.box.px0, gt.box.py0, gt.box.px1, gt.box.py1], drawn: gt.at ? gt.at.slice() : null }; }),
                gateMs: GATE_MS, gateDraws: GATE_N,
+               // the landmark bases (B3d4a): footprint, approach, drawn box, where last drawn (and whether see-through)
+               landmarks: LANDMARKS.map(function (lm) { return { id: lm.id, reserve: lm.reserve, box: [lm.x0, lm.y0, lm.x1, lm.y1], approach: lm.approach.slice(), art: [lm.box.px0, lm.box.py0, lm.box.px1, lm.box.py1], drawn: lm.at ? lm.at.slice() : null }; }),
+               landmarkMs: LANDMARK_MS, landmarkDraws: LANDMARK_N,
                // the paddock fences (B3d1): each fence record's tiles, its openings, whether it closes its ground in, its pieces by
                // kind, its warning signs, and what drawing them has cost
                fences: FENCES.map(function (fc) { var kinds = {}, signs = []; fc.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; if (pc.mark === "sign") signs.push([pc.x, pc.y]); }); return { id: fc.id, encloses: fc.encloses, tiles: fc.pieces.length, gaps: fc.gaps, kinds: kinds, signs: signs }; }),
@@ -6390,6 +6506,14 @@
       return { id: gt.id, w: a.width, h: a.height, png: a.toDataURL(),
         posts: gt.posts.map(function (p) { return { tile: p, opaque: opaque(p[0] * T, p[1] * T, p[0] * T + T - 1, p[1] * T + T - 1) }; }),
         opening: gt.opening.map(function (p) { return { tile: p, drawn: any(p[0] * T, p[1] * T, p[0] * T + T - 1, p[1] * T + T - 1) }; }) };
+    },
+    // a landmark base's placeholder art (B3d4a): its size, how many of its footprint's pixels it covers opaquely (all of
+    // them), and anything of it drawn on the approach tile in front (nothing)
+    landmarkArt: function (id) {
+      var lm = LANDMARKS.filter(function (q) { return q.id === id; })[0]; if (!lm) return null;
+      var a = landmarkArt(lm), d = a.getContext("2d").getImageData(0, 0, a.width, a.height).data, b = lm.box, n = 0, tot = 0;
+      for (var ty = lm.y0; ty <= lm.y1; ty++) for (var tx = lm.x0; tx <= lm.x1; tx++) for (var py = ty * T; py < ty * T + T; py++) for (var px = tx * T; px < tx * T + T; px++) { tot++; if (d[((py - b.py0) * a.width + px - b.px0) * 4 + 3] === 255) n++; }
+      return { id: lm.id, w: a.width, h: a.height, png: a.toDataURL(), footprint: tot, opaque: n };
     },
     // a paddock fence's placeholder art (B3d1), piece by piece, as wallArt gives a wall's (mark: "sign" where it carries one)
     fenceArt: function (id) {

@@ -8,7 +8,8 @@
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile and holds B3c's records, B3d1's raptor yard exactly as approved, and
-        the holding paddock's fence (and since B3d3 the koi garden's wall and the park gate, tools/mapb-koi-gate.mjs; nothing else);
+        the holding paddock's fence (and since B3d3 the koi garden's wall and the park gate, tools/mapb-koi-gate.mjs, and B3d4a's landmark bases,
+        tools/mapb-landmarks.mjs; nothing else);
       - the record against B1e (the habitat's own outline points, contained, temporary until Ironwood), B3a (ring 36, inside
         35, the T. rex roam box 108,11 to 116,16 and its spawn 112,14, the viewing place 112,19) and format 1 (a closed ring,
         no gate, the roam box its inside); its ring and inside, tile by tile; each fence tile drawn and nothing else;
@@ -92,8 +93,8 @@ check("node", "the tracked content file is the current compile, bound to the sta
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records, LAYER = contentLayers(RECS, W, H), F = RECS.find((r) => r.id === HP), Y = RECS.find((r) => r.id === YARD);
 // B3d3 adds the koi garden's wall and the park gate after this batch's record (tools/mapb-koi-gate.mjs tests them)
-check("node", "the content holds B3c's three buildings and compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence and B3d3's koi garden wall and park gate (nothing else)", RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
-check("node", "the content passes every rule: 275 solid tiles (184 before B3d2, its 36, then B3d3's 53 + 2), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 275 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
+check("node", "the content holds B3c's three buildings and compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence, B3d3's koi garden wall and park gate and B3d4a's tower and lighthouse bases (nothing else)", RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content passes every rule: 288 solid tiles (184 before B3d2, its 36, then B3d3's 53 + 2 and B3d4a's 9 + 4), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
 {
   const hab = src.habitats.find((q) => q.id === HP), pts = hab && hab.outline ? hab.outline.points.map((p) => [p.id, p.x, p.y]) : [];
@@ -288,8 +289,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const sortK = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k2) => [k2, o[k2]]));
   const fv = cv && cv.fences.find((f) => f.id === HP), yv = cv && cv.fences.find((f) => f.id === YARD);
-  check(name, "content preview: loads with the eight records (275 solid tiles, B3d3's two among them); the paddock's fence as its record says: 36 tiles, no openings, closing its ground in, 24 corners and 12 runs, a warning sign on the middle of each of its five east-west runs",
-    cp.loaded && !cp.errs.length && cv.content.records === 8 && cv.content.solidTiles === 275 && cv.sys.buildings === true && cv.fences.length === 2 && fv && fv.tiles === 36 && fv.encloses === true && !fv.gaps.length && sortK(fv.kinds) === sortK({ corner: 24, run: 12 }) && key(fv.signs) === key(SIGNS),
+  check(name, "content preview: loads with the ten records (288 solid tiles, B3d3's and B3d4a's among them); the paddock's fence as its record says: 36 tiles, no openings, closing its ground in, 24 corners and 12 runs, a warning sign on the middle of each of its five east-west runs",
+    cp.loaded && !cp.errs.length && cv.content.records === 10 && cv.content.solidTiles === 288 && cv.sys.buildings === true && cv.fences.length === 2 && fv && fv.tiles === 36 && fv.encloses === true && !fv.gaps.length && sortK(fv.kinds) === sortK({ corner: 24, run: 12 }) && key(fv.signs) === key(SIGNS),
     cv ? JSON.stringify(fv) : cp.errs.join("; "));
   check(name, "content preview: B3d1's raptor yard exactly as approved (30 tiles, 4 corners and 26 runs, signs at 123,10 and 123,17, closing its ground in), and B3c's buildings and compound wall as they were (B3d3's koi garden wall beside it)",
     yv && yv.tiles === 30 && yv.encloses === true && !yv.gaps.length && sortK(yv.kinds) === sortK({ corner: 4, run: 26 }) && key(yv.signs) === "123,10 123,17" && cv.buildings.map((b) => b.id).join() === "visitor,depot,bunker" && cv.walls.map((q) => q.id).join() === "bunker-compound,koi-garden" && cv.walls[0].tiles === 53,
@@ -301,7 +302,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       `terrain ${cDig.td.slice(0, 12)}, ground ${cDig.gd.slice(0, 12)}`);
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the compiler's (275 tiles, the paddock's 36 among them), kept apart from the terrain's (the compiler's, untouched); gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 275 && RING.every(([x, y]) => L.k[y * W + x] !== 0));
+    check(name, "collision: the content layer is exactly the compiler's (288 tiles, the paddock's 36 among them), kept apart from the terrain's (the compiler's, untouched); gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 288 && RING.every(([x, y]) => L.k[y * W + x] !== 0));
     // the art: one opaque tile per fence tile
     const art = await cp.I((id) => { const a = window.__island.fenceArt(id); delete a.png; return a; }, HP);
     const pieceAt = (x, y) => art.pieces.find((q) => q.tile[0] === x && q.tile[1] === y) || {};

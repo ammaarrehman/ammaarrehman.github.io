@@ -11,7 +11,7 @@
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile: B3c's and B3d1-B3d2's six records exactly as they were (their
-        compiled bytes pinned), then the two new ones; 275 solid tiles, no foot pixel;
+        compiled bytes pinned), then the two new ones (and B3d4a's two landmark bases after them); 288 solid tiles, no foot pixel;
       - the wall against B1e (the compound, its box and gates, the r2.1 study's "garden wall") and the terrain (the four rim
         tiles, every other edge tile open ground), tile by tile; its art one tile on each solid tile; closed and joined
         (wall, cliff and openings one loop), closed even to a diagonal step with its openings shut, every inside tile reached
@@ -97,10 +97,10 @@ const RECS = built.compiled.records, LAYER = contentLayers(RECS, W, H), K = RECS
 const DATA = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); return c.window.ISLAND_MAPS_STAGED_CONTENT.home; })();
 // B3d2's six compiled records, as committed at 16b0e47 (the sha256 of their JSON, in order)
 const SIX = "65125cd792117f2acb8ff68df9d767da18478a8c482356095784f9c1efd94413";
-check("node", "the content: B3c's three buildings and compound wall, B3d1's raptor yard and B3d2's holding paddock exactly as committed (their compiled records byte for byte), then B3d3's koi garden wall and park gate; nothing else",
-  RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate" && createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 6))).digest("hex") === SIX,
+check("node", "the content: B3c's three buildings and compound wall, B3d1's raptor yard and B3d2's holding paddock exactly as committed (their compiled records byte for byte), then B3d3's koi garden wall and park gate (and since B3d4a the tower's and the lighthouse's bases after them, tools/mapb-landmarks.mjs); nothing else",
+  RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark" && createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 6))).digest("hex") === SIX,
   RECS.map((r) => r.id).join(", "));
-check("node", "the content passes every rule: 275 solid tiles (220 before B3d3, then 53 of wall and 2 posts), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 275 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
+check("node", "the content passes every rule: 288 solid tiles (220 before B3d3, then 53 of wall and 2 posts, and B3d4a's 13), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
 const pathId = (x, y) => { const k = m.pathOf[y * W + x]; return k >= 0 ? src.corridors.paths[k].id : null; };
 { // the wall against B1e and the study
@@ -355,8 +355,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const sortK = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k2) => [k2, o[k2]]));
   const kv = cv && cv.walls.find((q) => q.id === KOI), gv = cv && cv.gates.find((q) => q.id === GATE);
-  check(name, "content preview: loads with the eight records (275 solid tiles), only the buildings system on; the koi garden's wall as its record says: 53 tiles, its 7 gates as openings, the 4 rim tiles closing it, the garden look; 32 runs, 9 piers, 4 corners, 6 posts (either side of each opening) and 2 ends (at the cliff)",
-    cp.loaded && !cp.errs.length && cv.content.records === 8 && cv.content.solidTiles === 275 && cv.sys.buildings === true && kv && kv.compound === KOI && kv.tiles === 53 && key(kv.gaps) === key(GAPS) && key(kv.terrain) === key(TERR) && kv.look === "garden" && sortK(kv.kinds) === sortK({ corner: 4, run: 32, pier: 9, post: 6, end: 2 }),
+  check(name, "content preview: loads with the ten records (288 solid tiles), only the buildings system on; the koi garden's wall as its record says: 53 tiles, its 7 gates as openings, the 4 rim tiles closing it, the garden look; 32 runs, 9 piers, 4 corners, 6 posts (either side of each opening) and 2 ends (at the cliff)",
+    cp.loaded && !cp.errs.length && cv.content.records === 10 && cv.content.solidTiles === 288 && cv.sys.buildings === true && kv && kv.compound === KOI && kv.tiles === 53 && key(kv.gaps) === key(GAPS) && key(kv.terrain) === key(TERR) && kv.look === "garden" && sortK(kv.kinds) === sortK({ corner: 4, run: 32, pier: 9, post: 6, end: 2 }),
     kv ? JSON.stringify({ kinds: kv.kinds, look: kv.look }) : cp.errs.join("; "));
   check(name, "content preview: the park gate as its record says (on the marker 74,38, posts 72,38 and 76,38, its opening 73 to 75,38, its box), alone; format 1's anchor gate isn't there (systems.gate false)",
     cv && cv.gates.length === 1 && gv && gv.marker === GATE && gv.at.join() === "74,38" && key(gv.posts) === key(GPOSTS) && key(gv.opening) === key(GOPEN) && gv.box.join() === [GBOX.px0, GBOX.py0, GBOX.px1, GBOX.py1].join() && cv.systems.gate === false,
@@ -371,7 +371,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       `terrain ${cDig.td.slice(0, 12)}, ground ${cDig.gd.slice(0, 12)}`);
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the compiler's (275 tiles: the wall's 53 and the gate's 2 among them, nothing on the rim tiles, the openings or between the posts), kept apart from the terrain's (the compiler's, untouched); gameplay is their union",
+    check(name, "collision: the content layer is exactly the compiler's (288 tiles: the wall's 53 and the gate's 2 among them, nothing on the rim tiles, the openings or between the posts), kept apart from the terrain's (the compiler's, untouched); gameplay is their union",
       lay && RING.every(([x, y]) => L.k[y * W + x] !== 0) && GPOSTS.every(([x, y]) => L.k[y * W + x] !== 0) && TERR.concat(GAPS, GOPEN).every(([x, y]) => L.k[y * W + x] === 0) && TERR.every(([x, y]) => L.t[y * W + x] === 1));
     // the art
     const art = await cp.I((id) => { const a = window.__island.wallArt(id); delete a.png; return a; }, KOI);
@@ -507,8 +507,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       hh.ok === 0 && hh.pts === (53 + 2 + 4) * 16 && hh.inGarden && hh.runs.every((r) => r.ok0 && r.state === "parked" && r.over === 0 && r.piSafe && !r.piOn), `${hh.ok} of ${hh.pts} allow a landing; ` + hh.runs.map((r) => `from ${r.from}${r.ok0 ? "" : " (E REFUSED THERE)"}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.over ? " OVER A SOLID" : ""}`).join("; "));
     // completeness and storage
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: with the koi garden's wall and the park gate there (each with its art) neither item is left; a normal format-2 home made of this content would still be refused (9 items: the landmark bases, the stations, and the sections not in the format yet)",
-      comp && !comp.complete && comp.missing.length === 9 && !comp.missing.some((q) => /^(compound walls|the park gate|paddock fences|buildings)/.test(q)) && comp.missing.some((q) => /^landmark bases/.test(q)) && comp.missing.some((q) => /^stations/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
+    check(name, "completeness: with the koi garden's wall and the park gate there (each with its art) neither item is left; a normal format-2 home made of this content would still be refused (8 items since B3d4a's landmark bases: the stations, and the sections not in the format yet)",
+      comp && !comp.complete && comp.missing.length === 8 && !comp.missing.some((q) => /^(compound walls|the park gate|paddock fences|buildings)/.test(q)) && comp.missing.some((q) => /^stations/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the pushes, walks, rooms, landings and a reload)", (await storeOf(cp)) === JSON.stringify(Object.keys(store).sort().map((k) => [k, store[k]])));
     // the decoder refuses malformed walls and gates

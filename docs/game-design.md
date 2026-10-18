@@ -1017,6 +1017,141 @@ architecturally approved by Ammaar 2026-10-17, committed as "Map: add MAP-B koi 
   storage); production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing was deployed. B3e has not
   begun.
 
+MAP-B B3d4a, the tower's and the lighthouse's landmark bases (2026-10-17; staged only, not deployed; complete, visually and
+architecturally approved by Ammaar 2026-10-18, committed as "Map: add MAP-B tower and lighthouse landmark bases (B3d4a)"):
+- Read first: B1e's landmark footprints `tower` (94,25 to 96,27, 3 x 3) and `lighthouse` (139,42 to 140,43, 2 x 2, "the
+  base; the sprite stands much taller"), both kind landmark, front south; B1e's planning log sites (tower 95,28, lighthouse
+  140,45); the r2.1 study's landmark bases (the same corners; the lighthouse's 3 x 3 there, 2 x 2 as approved) and stations
+  (tower 95,27, lighthouse 140,44); B3a's plan (the tower's station on the base's front centre, 95,27, pi standing at 95,28;
+  the lighthouse's 140,43, pi at 140,44; all 9 and all 4 base tiles solid); the format-2 completeness list's ids
+  `tower-base` and `lighthouse-base`; format 1's tower and lighthouse.
+- Format 1, audited: the tower (58,21) and the lighthouse (89,37) are stations, one tile each, solid in the map's collision,
+  each drawn from a sprite by the station code (the watchtower 24 x 40 px: a timber cabin on four legs with a ladder; the
+  lighthouse 20 x 50 px: red and white stripes on a grey stone base, a black gallery, a yellow lantern). The station code
+  also runs their live details (the tower's green monitoring trace and glow; the lighthouse's lamp light, turning beam and
+  its sweep over the water at night) and their [E]: the log card (the tower "projects", the lighthouse "experience"), the
+  found log, the tour stop (the tour starts at the lighthouse), the deep links, `goto`, the map pins. Nothing in format 1 is
+  a base.
+- The bases, from the approved sources only: each footprint solid as a whole (D1, as the buildings'), named for it (the
+  completeness list's ids), approached from the middle of its front (floor(x0 + w / 2), y1 + 1: 95,28 on the tower trail,
+  B1e's log site; 140,44 on the headland, a step above the koi-headland road's end and the route end lighthouse-headland,
+  140,45). Both footprints are open level-2 grass with no path, ramp or foot-blocking pixel. Round the tower all 16 tiles
+  one step out are open; round the lighthouse 11 of 12 (its north-east corner, 141,41, is the sea; 140,41 carries a little
+  of the shore's foot-blocking pixels). Nothing is cut off and no walking distance changes (the spawn to the tower's
+  approach 71 tiles, to the lighthouse's 96, as before); the tower trail, the koi-headland road and the keeper cottage's door
+  trail are open, the keeper cottage's reserve unused, every route end and marker reached.
+- Content (`tools/maps/home.content.mjs`), two records: `tower-base` and `lighthouse-base`, kind landmark, reserve the
+  footprint, art placeholder, solid the footprint (`tileBoxes`), one drawn box as wide as the footprint standing on its
+  front edge (the tower's 48 x 80 px, the lighthouse's 32 x 96: format 1's proportions at the approved size). In all: 10
+  records, 288 solid tiles (275 + 9 + 4), 0 foot pixels; the eight earlier records compile byte for byte as at B3d3.
+- Schema (`tools/maps/content.mjs`): a landmark has art now, and a new compile rule `landmarks`: art; a B1e landmark
+  footprint as its reserve and the id `<footprint>-base`; its solid that footprint exactly (one tile box); one drawn box as
+  wide as it, standing on its front edge (it may rise above); no door, foot box, opening, enclosure, room, compound or
+  marker; its approach open ground reached from the spawn. The reserve rule (B3c1's) keeps anything else's solid off the
+  footprint.
+- Runtime (`js/world.js`, the content preview only; format 1 untouched):
+  - The decoder takes landmark art and checks a base's shape (`landmarkShape`: one full rectangle, the drawn box as above,
+    nothing else) and its approach (open ground) once every solid is known. "Art on something that isn't a building, a wall,
+    a fence, a gate or a landmark" now names the landmark too. The completeness wall counts a landmark base only with its
+    art: with both there the list is 8 items (the stations and the seven sections not in the format yet); a normal format-2
+    home is still refused.
+  - `LANDMARKS`, `landmarkArt`, `drawLandmark`: placeholder art in format 1's look, drawn once, opaque over the whole
+    footprint (a stone platform the structure stands on) and rising above it as the structure: the tower a timber
+    watchtower (cabin with a dark window, four legs, a ladder, braces; the window glows at night), the lighthouse red and
+    white bands tapering up, a door, window slits, an iron gallery, a lantern and cap (the lantern glows at night and lights
+    the headland). See-through when pi is behind it (north of its foot, under its art), as a format-1 building is. Drawn in
+    the object layer, sorted by its front edge.
+  - Not migrated, and off in the content preview (`SYS.stations` false, so `systems.stations` 0): the stations, so no [E] at
+    either base, no log card, found log, tour stop, deep link, `goto` place, map pin, cockatiel perch or drone stop; the
+    tower's monitoring trace and the lighthouse's turning beam (station details). No secret, log id or progression changes.
+  - `?debug=1`: `preview().landmarks` (footprint, approach, art box, where last drawn and whether see-through),
+    `landmarkMs` / `landmarkDraws`; `landmarkArt(id)` (the footprint's opaque pixels).
+- Tests: `tools/mapb-landmarks.mjs` (new; Node and Chromium and WebKit; review screenshots in `tools/out/mapb/b3d4a/`, with a
+  labelled diagnostic overlay drawn by the test only): the records against B1e, the study, B3a and format 1; the ground under
+  and round each, the approaches, roads, route ends and markers; 16 malformed records each caught by its rule; the painter
+  digests; collision pixel by pixel; pushes on the update loop from every walkable tile round each base in every direction
+  that meets it (32 at the tower, 19 at the lighthouse; all four sides and every corner), straight ones stopping flush
+  within 3 px; the planner to, round and onto each; trapped ground against the terrain preview; the stations off ([E] at
+  each approach does nothing); the helicopter (no landing on either, every 4 px; six drifting descents park clear; in
+  flight E over each refused, and it lands beside the lighthouse); the screen against the terrain preview (art over every
+  footprint pixel, nothing on the ground round it); see-through behind each; phones (taps, the joystick); completeness (8);
+  storage; 9 decoder refusals; 3 code mutations (Chromium). `mapb-paddock.mjs`, `mapb-fences.mjs`, `mapb-content.mjs`,
+  `mapb-buildings.mjs` and `mapb-koi-gate.mjs` follow the two records (10 records, 288 tiles, the completeness list pinned
+  at 8, a building turned into a landmark refused by the landmark's own shape now that a landmark has art).
+- Verification (2026-10-17 to 18, the final code, one suite at a time, each log kept as it finished,
+  `tools/out/mapb/b3d4a/gates/`; load average 2.6 to 37). Firefox BLOCKED at launch in every browser suite (exit 2, never
+  counted as a pass). Passed: mapb-landmarks 132 (Node 33, Chromium 51, WebKit 48), map-compile and map-content `--check`
+  (10 records, 288 tiles), map-lint 187, map-export `--check` 50, map-decode 250, mapb-decode 76, mapb-painter 49 (both
+  locked digests exact in Chromium and WebKit: terrain `8fdd2afe...`, ground `0263dc4f...`), mapb-runtime 220, map-parity
+  37/37 and b0-parity 21/21 identical with `715450d` in both, scenarios 98, ctf 250, doors (worst frame 4.5 ms, budget 16),
+  focus 16, mapb-content 145, mapb-paddock 142, mapb-fences 165, mapb-buildings 382, the deploy guard (8), the dry run (53
+  files, 41 references), deploy-args 37, html, `git diff --check`. CSpell exits 1 as at HEAD: the same 19 findings in
+  `js/world.js`, none new. No assertion failure and no performance-budget failure.
+  **BROWSER TIMEOUT in that pass, recorded:** mapb-koi-gate stopped after 54 checks (Node 52, Chromium 2, all passing) when
+  the content preview page didn't finish loading within Playwright's 30 s (`page.goto: Timeout 30000ms exceeded`). It did
+  the same twice more on its own soon after (one more 30 s timeout, once it hung until stopped), at the same step, under
+  low load (about 3 to 5). A replica of the suite's setup, and a copy of the suite with request tracing, loaded every page
+  in under a second and passed; then the suite, unchanged, passed in Chromium (119) and the whole suite in both engines
+  (183, Firefox BLOCKED; `mapb-koi-gate-rerun.log`). The cause isn't proven (no failed request, no page error was caught
+  in the passing runs; nothing listened on the test ports); timeouts unchanged. It is not fixed, only not reproduced since:
+  a later failure there should be investigated, not rerun away. Evidence kept: `gates/mapb-koi-gate.log` (the first
+  timeout), `dev/koi-gate-chromium-diag.log` (the third), `dev/replica.mjs`, `dev/hang.mjs`, `dev/koi-copy.mjs` and its
+  run log (the passing traced copy), `dev/koi-gate-chromium-again.log` and `gates/mapb-koi-gate-rerun.log` (the passing
+  reruns; the second attempt, which hung after 54 passing checks, wrote its log to the file that rerun later replaced).
+  Development failures (all the new test's,
+  `tools/out/mapb/b3d4a/dev/`): the format-1 station count (13 with the room's rack and desk, not 11), the tall art cut off
+  in a 1280 x 800 frame (the checks and overviews use 1280 x 1000), and WebKit's intro card read as a station's card (the
+  check now compares the cards before and after [E]); and in the suites B3d4a updated, a building turned into a landmark
+  now caught by the landmarks rule (a prop now tests art on a kind with none).
+- Performance (gate run, Chromium / WebKit; WebKit's clock is 1 ms coarse): walking round both bases on the live loop,
+  frame work p95 1.0 / 1.0 ms (the terrain preview's 0.8 / 1.0), max 10.7 / 11.0 ms (the terrain preview's 11.7 / 4.0 in the
+  same run); one landmark base 7.5 / 11.0 us a draw; planning round the tower 0.05 / 0.10 ms warm (8 tiles, 4 before),
+  from the spawn to the lighthouse's approach 3.6 / 3.7 ms warm (96 tiles, as before); decoding the staged map with ten
+  records, warm, 3.3 / 4.0 ms (1.9 / 3.3 without content).
+- Questions put to Ammaar at review (2026-10-18; his answers are the decisions below):
+  1. The stations on the bases (B3d4b). B3a puts the tower's station on its base (95,27) and the lighthouse's on its base
+     too (140,43); the r2.1 study put the lighthouse's at 140,44, which on the approved 2 x 2 base is the approach tile in
+     front of it. A station record can't be solid on a base's tile (the overlap and reserve rules), and a record that blocks
+     nothing isn't allowed yet. B3d4b needs a decision: a station that is an interaction point with no collision of its
+     own (standing on its base, used from the approach), or the base carrying its station, or the stations on the
+     approach tiles (which would block the approach).
+  2. The art: new placeholders in format 1's look at the approved size, rising above the footprint (the tower 2 tiles,
+     the lighthouse 4, over the headland's edge), each on a stone platform that makes the footprint read solid; the
+     heights (80 and 96 px) keep format 1's proportions. Format 1's sprites aren't used.
+  3. Night: the tower's window and the lighthouse's lantern glow and light round them; the lighthouse's turning beam, its
+     sweep over the water and the tower's monitoring trace are format 1's station details and wait for the stations.
+  4. See-through when pi is behind either (as the park gate and format 1's buildings), accepted as temporary for the gate.
+  5. Behind the lighthouse a strip of the headland (138 to 140, row 41) stays walkable, reached from the west, a dead end
+     between the lighthouse and the shore.
+- Approved by Ammaar on review (2026-10-18; both landmarks day and night, close up, every side, the diagnostic overlays,
+  both phones), with no change. His decisions:
+  1. Both placeholder designs and their heights are approved.
+  2. The watchtower keeps its timber build and its ladder, which is decoration: no climbing.
+  3. The lighthouse keeps its red and white body and its lit lantern.
+  4. The watchtower's window keeps its glow at night.
+  5. The lighthouse's turning beam and the tower's monitoring trace stay deferred (station details).
+  6. Both keep the see-through effect when pi is behind them.
+  7. The small dead end behind the lighthouse is accepted.
+  8. The tower close-up cropping under the toolbar is accepted; the HUD doesn't change.
+  9. The footprints and approaches stay as they are: the tower 94,25 to 96,27, approached from 95,28; the lighthouse
+     139,42 to 140,43, approached from 140,44.
+- The direction for B3d4b (approved as architecture only, not as permission to build it): each landmark's station is an
+  interaction-only anchor with no collision of its own, tied to its landmark: the tower's at 95,27 on its base, used from
+  95,28; the lighthouse's at 140,43 on its base, used from 140,44. No second solid record on either base, and no station
+  collision on an approach tile. The stations keep their ids, logs, tour behaviour and progression when they migrate.
+- Pre-commit checks (lightweight, after approval; the browser suites weren't rerun: no code changed after the gate run,
+  every source and test file being older than its start; `tools/out/mapb/b3d4a/final/`): map-compile and map-content
+  `--check` current (10 records, 288 solid tiles, 0 foot pixels); two compiles give the same bytes; the eight earlier records
+  byte for byte as at B3d3, the two bases on their footprints; the Node parts of mapb-landmarks (33), mapb-koi-gate (52),
+  mapb-paddock (32), mapb-fences (35), mapb-content (29) and mapb-buildings (71); the deploy guard (8); the dry run (53 files,
+  41 references); `git diff --check`; CSpell the same 19 pre-existing findings. Unchanged from HEAD: the B1 source and staged
+  terrain, the compiler, the painter fixtures and test, the preview, `js/maps/`, the pages, `img/`, the deploy tools; in
+  `js/world.js` no hunk touches the ground painter, the save or format 1's decoder, so the gate run's digests (exact on
+  this code) and format-1 parity (identical) stand. `SAVE_V` 2, cache `20261025`. Firefox is BLOCKED, not passed.
+- Status: complete. Both landmark bases are built as structure; their stations come with B3d4b, which hasn't begun. MAP-B
+  stays preview-only (loopback, no storage); production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`);
+  nothing was deployed.
+
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

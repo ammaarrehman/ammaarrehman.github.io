@@ -32,6 +32,8 @@
    paddock's fence): this suite expects that record too, and its inside (35) cut off beside the yard's. B3d3
    (tools/mapb-koi-gate.mjs tests the koi garden's wall and the park gate): this suite expects both records too, the koi
    garden's wall as a second wall beside the compound's, and a gate refused by its own shape now that a gate has art.
+   B3d4a (tools/mapb-landmarks.mjs tests the tower's and the lighthouse's bases): both records expected too, and a landmark
+   refused by its own shape now that a landmark has art.
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile, bound to the current terrain, and holds exactly the two buildings;
@@ -128,7 +130,7 @@ const built = await buildContentText(REAL, contentSha256), again = await buildCo
 check("node", "the tracked content file is the current compile, bound to the staged terrain; two compiles give the same bytes", readFileSync(CONTENT_STAGED, "utf8") === built.text && built.text === again.text && built.text.includes(`"terrainSha256": "${t.sourceSha256}"`) && t.current,
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records;
-check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence and B3d3's koi garden wall and park gate (tools/mapb-fences.mjs, tools/mapb-paddock.mjs and tools/mapb-koi-gate.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock", "koi-garden", "park-gate").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence" && RECS[6].kind === "wall" && RECS[7].kind === "gate", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence, B3d3's koi garden wall and park gate and B3d4a's tower and lighthouse bases (tools/mapb-fences.mjs, tools/mapb-paddock.mjs, tools/mapb-koi-gate.mjs and tools/mapb-landmarks.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock", "koi-garden", "park-gate", "tower-base", "lighthouse-base").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence" && RECS[6].kind === "wall" && RECS[7].kind === "gate" && RECS[8].kind === "landmark" && RECS[9].kind === "landmark", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
 check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const LAYER = contentLayers(RECS, W, H);
 for (const id of IDS) {
@@ -241,7 +243,8 @@ const FOOTDOOR = { id: "syn-wet-door", kind: "building", art: "placeholder", roo
 const BAD = [
   ["a building with no art", "buildings", (o) => { delete RR(o, "visitor").art; }],
   ["an art kind the game doesn't draw", "schema", (o) => { RR(o, "visitor").art = "sprite"; }],
-  ["art on something that isn't a building", "schema", (o) => { const r = RR(o, "depot"); r.kind = "landmark"; delete r.room; }],
+  ["art on something that has none the game draws (a prop)", "schema", (o) => { const r = RR(o, "depot"); r.kind = "prop"; delete r.room; }],
+  ["the depot as a landmark (B3d4a: a landmark has art, but stands on a landmark footprint and has no door)", "landmarks", (o) => { const r = RR(o, "depot"); r.kind = "landmark"; delete r.room; }],
   ["a room on something that isn't a building", "schema", (o) => { const r = RR(o, "depot"); r.kind = "station"; delete r.art; }],
   ["a room the game doesn't have", "schema", (o) => { RR(o, "visitor").room = "lobby"; }],
   ["two doors", "buildings", (o) => { RR(o, "visitor").doorTiles.push([85, 74]); }],
@@ -309,7 +312,10 @@ const DR = (c, id) => c.records.find((r) => r.id === id);
 const REFUSE = [
   ["a building with no art", (c) => { delete DR(c, "visitor").art; }, /^content record visitor is a building with no art/],
   ["an art kind the game doesn't draw", (c) => { DR(c, "visitor").art = "sprite"; }, /^content record visitor\.art "sprite" isn't one of placeholder$/],
-  ["art on something that isn't a building, a wall, a fence or a gate", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot\.art "placeholder": only a building, a wall, a fence or a gate has art/],
+  // (B3d4a: a landmark has art now, so the depot turned into a landmark is refused by the landmark base's own shape, and art
+  // on a kind with none yet is checked on a prop)
+  ["art on something that isn't a building, a wall, a fence, a gate or a landmark", (c) => { const r = DR(c, "depot"); r.kind = "prop"; delete r.room; }, /^content record depot\.art "placeholder": only a building, a wall, a fence, a gate or a landmark has art/],
+  ["the depot turned into a landmark (B3d4a: a landmark base has no door)", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot is a landmark base: it blocks whole tiles, and it has no foot box, door/],
   ["a room on something that isn't a building", (c) => { const r = DR(c, "depot"); r.kind = "station"; delete r.art; }, /^content record depot\.room "depot": only a building has a room$/],
   ["a room the game doesn't have", (c) => { DR(c, "visitor").room = "lobby"; }, /^content record visitor\.room "lobby" isn't one of the game's rooms/],
   ["two doors", (c) => { DR(c, "visitor").doorTiles.push([85, 74]); }, /^content record visitor opens into a room, so it has exactly one door, not 2$/],
@@ -480,7 +486,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     // collision: exactly the footprints, on top of the terrain's
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the three footprints, the compound's wall, the paddock fences (B3d1's raptor yard, B3d2's holding paddock) and B3d3's koi garden wall and park gate posts: 101 + 53 + 30 + 36 + 53 + 2 = 275 tiles; the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 275);
+    check(name, "collision: the content layer is exactly the three footprints, the compound's wall, the paddock fences (B3d1's raptor yard, B3d2's holding paddock) B3d3's koi garden wall and park gate posts, and B3d4a's tower and lighthouse bases: 101 + 53 + 30 + 36 + 53 + 2 + 9 + 4 = 288 tiles; the terrain's layer is the compiler's, gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 288);
     for (const id of IDS) {
       const A = APPROVED[id], b = pxOf(A.box);
       const edge = await cp.I(([b]) => {

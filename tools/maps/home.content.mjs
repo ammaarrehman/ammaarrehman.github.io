@@ -67,7 +67,19 @@
      and 76,38 (B3a's), solid; its opening is the main walk's three paved tiles between them, 73,38 to 75,38. The arch's
      art is the box from 72,38's west edge to 76,38's east edge, 60 px tall (format 1's sprite's height). As in format 1 it
      is decorative: nothing opens, closes or locks, and the ground either side of it stays open. Format 1's lamp beside it
-     (B3a's 78,38) is a later batch's. */
+     (B3a's 78,38) is a later batch's.
+
+   B3d4a: the two landmark bases, the tower's and the lighthouse's, each on its approved B1e landmark footprint (the whole
+   footprint solid, as the buildings', D1), named for it (the format-2 completeness list's ids, tower-base and
+   lighthouse-base). Placeholder art in format 1's look, as wide as the footprint and standing on its front edge, rising
+   above it (format 1's sprites are 24 x 40 and 20 x 50 px on one tile; here the same proportions on the approved bases).
+   - The tower base: footprint tower, 94,25 to 96,27 (3 x 3), on the open highland north of the tower trail; approached
+     from 95,28 (the middle of its front, on the trail: B3a's stand for the tower's station and B1e's log site). Art 48 x 80.
+   - The lighthouse base: footprint lighthouse, 139,42 to 140,43 (2 x 2), on the headland plateau near its tip; approached
+     from 140,44 (the middle of its front, B3a's stand), a step above the koi-headland road's end and the route end
+     lighthouse-headland (140,45). Art 32 x 96.
+   - Structure only: no station (the log, the tour stop, the deep links, the map pins, the tower's live trace and the
+     lighthouse's turning beam are format 1's station, a later batch's). */
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -117,6 +129,16 @@ export default {
       id: "park-gate", kind: "gate", marker: "park-gate", art: "placeholder",
       drawnPxBoxes: [{ px0: 72 * T, py0: 38 * T + T - 60, px1: 76 * T + T - 1, py1: 38 * T + T - 1 }],
       solid: { tiles: [[72, 38], [76, 38]] }
+    },
+    {
+      id: "tower-base", kind: "landmark", reserve: "tower", art: "placeholder",
+      drawnPxBoxes: [{ px0: 94 * T, py0: 27 * T + T - 80, px1: 96 * T + T - 1, py1: 27 * T + T - 1 }],
+      solid: { tileBoxes: [{ x0: 94, y0: 25, x1: 96, y1: 27 }] }
+    },
+    {
+      id: "lighthouse-base", kind: "landmark", reserve: "lighthouse", art: "placeholder",
+      drawnPxBoxes: [{ px0: 139 * T, py0: 43 * T + T - 96, px1: 140 * T + T - 1, py1: 43 * T + T - 1 }],
+      solid: { tileBoxes: [{ x0: 139, y0: 42, x1: 140, y1: 43 }] }
     }
   ]
 };
