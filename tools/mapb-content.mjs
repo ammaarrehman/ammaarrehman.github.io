@@ -70,7 +70,7 @@ const SYN_DATA = (() => { const c = { window: {} }; vm.runInNewContext(serialize
   const { content, contentSha256 } = await loadContent();
   const a = await buildContentText(content, contentSha256), b = await buildContentText(content, contentSha256);
   const tracked = readFileSync(CONTENT_STAGED, "utf8");
-  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; B3d2: the holding paddock's fence; B3d3: the koi garden's wall and the park gate; B3d4a: the tower's and the lighthouse's bases; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard,holding-paddock,koi-garden,park-gate,tower-base,lighthouse-base", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
+  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; B3d2: the holding paddock's fence; B3d3: the koi garden's wall and the park gate; B3d4a: the tower's and the lighthouse's bases; B3d4b: the eleven stations; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard,holding-paddock,koi-garden,park-gate,tower-base,lighthouse-base,sign,uplink,tower,lighthouse,macbook,tablet,mailbox,drink,shrine,cave,boat", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
   check("node", "two compiles give the same bytes", a.text === b.text);
   check("node", "the content is bound to the terrain it was placed on (terrainSha256 is the staged terrain's sourceSha256)", a.text.includes(`"terrainSha256": "${t.sourceSha256}"`), t.sourceSha256.slice(0, 16));
   check("node", "the staged terrain file is untouched: map-compile's own compile, byte for byte", t.current && readFileSync(STAGED_PATH, "utf8") === t.terrainText);
@@ -90,7 +90,8 @@ const RULE_CASES = [
   ["solid on a cliff rim", "terrain", (o) => { const r = RIM; o.records.push({ id: "syn-rim", kind: "prop", drawnPxBoxes: [tileArt(r[0], r[1], r[0], r[1])], solid: { tiles: [r] } }); }],
   ["solid on a bridge", "terrain", (o) => { const b = BRIDGE; o.records.push({ id: "syn-bridge", kind: "prop", drawnPxBoxes: [tileArt(b[0], b[1], b[0], b[1])], solid: { tiles: [b] } }); }],
   ["solid on the helipad", "terrain", (o) => { o.records.push({ id: "syn-pad", kind: "prop", drawnPxBoxes: [tileArt(101, 93, 101, 93)], solid: { tiles: [[101, 93]] } }); }],
-  ["solid on the spawn tile", "spawn", (o) => { o.records.push({ id: "syn-spawn", kind: "station", drawnPxBoxes: [tileArt(79, 79, 79, 79)], solid: { tiles: [[79, 79]] } }); }],
+  // (a prop since B3d4b: a station is an interaction point that can't be solid at all, which the schema refuses first)
+  ["solid on the spawn tile", "spawn", (o) => { o.records.push({ id: "syn-spawn", kind: "prop", drawnPxBoxes: [tileArt(79, 79, 79, 79)], solid: { tiles: [[79, 79]] } }); }],
   ["a foot box under pi's feet at the spawn", "spawn", (o) => { o.records.push({ id: "syn-spawn-foot", kind: "prop", drawnPxBoxes: [px(79, 79, 0, 0, 15, 15)], solid: { footPxBoxes: [px(79, 79, 6, 9, 9, 11)] } }); }],
   ["a solid tile outside what's drawn (D1)", "drawn", (o) => { rec(o, "syn-hut").drawnPxBoxes = [tileArt(44, 92, 46, 93, 2)]; }],
   ["a foot box outside what's drawn (D1)", "drawn", (o) => { rec(o, "syn-post").solid.footPxBoxes = [px(40, 92, 5, 6, 14, 14)]; }],
@@ -199,15 +200,15 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const rp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const rl = rp.loaded ? await look(rp) : null;
-  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 10,
+  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 21,
     rl ? `mode ${rl.v.previewMode}, content ${JSON.stringify(rl.v.content)}` : rp.errs.join("; "));
   const badge = rp.loaded ? await rp.page.evaluate(() => { const b = document.querySelector(".w-mapb-badge"); return { text: b.textContent, label: b.getAttribute("aria-label") }; }) : null;
   check(name, "content preview: the badge says so", badge && badge.text === "MAP-B\ncontent\npreview" && badge.label === "MAP-B content preview", JSON.stringify(badge));
   check(name, "content preview (real content): both locked painter digests, and the painter's reports as on the terrain preview", rl && rl.td === TERRAIN_SHA && rl.gd === GROUND_SHA && tl && rl.pr === tl.pr && rl.fr === tl.fr);
   // B3c2: with the bunker the three buildings are all there, so buildings has left the list; everything else is still missing
   // (B3d2: with both paddock fences there the list is 11 items, not 12; B3d3: with the koi garden's wall and the park gate, 9;
-  // B3d4a: with both landmark bases, 8; the count is pinned so an item leaving it is noticed)
-  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list, 8 items: no longer the buildings, the paddock fences, the compound walls, the park gate or the landmark bases, still the stations and the rest)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length === 8 && !rl.comp.missing.some((s) => /^(buildings|paddock fences|compound walls|the park gate|landmark bases)/.test(s)) && rl.comp.missing.some((s) => /^stations/.test(s)),
+  // B3d4a: with both landmark bases, 8; B3d4b: with the eleven stations, 7; the count is pinned so an item leaving it is noticed)
+  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list, 7 items: no longer the buildings, the paddock fences, the compound walls, the park gate, the landmark bases or the stations, still the sections not in the format yet)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length === 7 && !rl.comp.missing.some((s) => /^(buildings|paddock fences|compound walls|the park gate|landmark bases|stations)/.test(s)) && rl.comp.missing.some((s) => /^spawns and roam areas/.test(s)),
     rl ? `${rl.comp.missing.length} missing, first: ${rl.comp.missing.slice(0, 2).join(" | ")}` : "");
   // B3c3: the bunker compound's wall is there (with its art); B3d3: so is the koi garden's, and the park gate (with its art)
   const wl = rl && rl.comp ? rl.comp.missing.filter((s) => /^(compound walls|the park gate)/.test(s)) : [];

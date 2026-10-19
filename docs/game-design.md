@@ -1148,9 +1148,248 @@ architecturally approved by Ammaar 2026-10-18, committed as "Map: add MAP-B towe
   terrain, the compiler, the painter fixtures and test, the preview, `js/maps/`, the pages, `img/`, the deploy tools; in
   `js/world.js` no hunk touches the ground painter, the save or format 1's decoder, so the gate run's digests (exact on
   this code) and format-1 parity (identical) stand. `SAVE_V` 2, cache `20261025`. Firefox is BLOCKED, not passed.
-- Status: complete. Both landmark bases are built as structure; their stations come with B3d4b, which hasn't begun. MAP-B
+- Status: complete. Both landmark bases are built as structure; their stations came with B3d4b (below). MAP-B
   stays preview-only (loopback, no storage); production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`);
   nothing was deployed.
+
+MAP-B B3d4b, the outdoor stations (2026-10-18 to 19; staged only, not deployed; complete, **approved by Ammaar** 2026-10-19
+after his architectural and visual review and two rounds of review corrections, committed as "Map: enable MAP-B outdoor
+stations (B3d4b)"):
+- Read first: `handoff.md`; this document (B3a's decisions, B3c2's `STATION_WORDS` / `ROOM_STATIONS`, B3d4a's bases and the
+  approved B3d4b direction); B3a's plan (the eleven station places and their stands, D3 the shrine, D5 the boat, the
+  completeness list); B1e's sources the places come from (the markers shrine 14,19 and cave-mouth 66,24 with their
+  approach tiles, the planning log sites, the plazas arrival-plaza and village-square, the south exit's berth 79,97, the
+  tower and lighthouse footprints); format 1's station code in `js/world.js`.
+- Format 1, audited. Eleven outdoor stations (`MAP.stations` in `js/maps/home.js`, one tile each, every one solid in its
+  collision) and two in the bunker's room (the rack and the desk), their words in `STATION_WORDS`. What the stations system
+  (`SYS.stations`) runs: [E] (or space or enter; on touch, the prompt) within 26 px of a station's point, the prompt above
+  its sprite, a tap on its sprite walking pi toward the tile south of it and using it on arrival (the planner's loose goal:
+  that tile or one next to it); the card (title, words, links); the logs (eight: the rack, the desk, the uplink, the tower,
+  the lighthouse, the macbook, the tablet, the mailbox; a card open 1.5 s, or read to its end, counts its log), the HUD's
+  eight pips, the chevron toward the nearest log still to find; four logs wake the terminal's `./evolve`; eight break the
+  shrine's seal (a camera cut to it) and then ask for the orbs' fight (the rift); the shrine (sealed words with the count,
+  then its step through to the side scene); the cave (the terminal and the CTF); the drink stand (zoom, its secret); the
+  boat (sail back, leaving the island); the tour (eight stops, from the lighthouse to the mailbox); the deep links
+  (`#island/<name>`, `ROUTES`); `goto` (the tile south of the station); the big map's pins and travel; the menu's landmark
+  buttons; the minimap's pins; the visitor centre's map wall pins; the cockatiels' perches and the drones' stops (the birds'
+  and the bots' systems); the tower's monitoring trace and the lighthouse's turning beam (drawn with the sprites).
+- Placements, each from B3a's plan and tied to the approved source it belongs to (`place`); the anchor is the station's
+  tile (the point [E] reaches to), the approach the tile pi uses it from:
+
+  | station | anchor | approach | tied to |
+  |---|---|---|---|
+  | sign | 74,76 | 74,77 | the arrival plaza (B1e), 7 tiles from the spawn |
+  | uplink | 121,81 | 121,82 | the log site uplink (121,82), inside the bunker compound |
+  | tower | 95,27 | 95,28 | the base tower-base: the middle of its front row; the base's approach, the log site |
+  | lighthouse | 140,43 | 140,44 | the base lighthouse-base: the middle of its front row; the base's approach |
+  | macbook | 105,57 | 105,58 | the log site macbook (106,58, beside the approach), inside the koi garden |
+  | tablet | 82,48 | 82,49 | the log site tablet (82,49) |
+  | mailbox | 50,81 | 50,82 | the log site mailbox (50,82), outside the post office's reserve |
+  | drink | 53,87 | 53,88 | the village square (B1e) |
+  | shrine | 14,19 | 14,20 | the B1e marker shrine and its approach (D3: 1 x 1) |
+  | cave | 66,24 | 66,25 | the B1e marker cave-mouth and its approach |
+  | boat | 79,97 | 79,96 | the south exit's berth (D5), at sea; the ferry pier's end north of it |
+
+  Every approach is open ground with pi's feet clear of every foot-blocking pixel, reached from the spawn (7 to 124 tiles),
+  14 px from its station (the boat's 18), inside [E]'s 26. The tower's and the lighthouse's are Ammaar's approved anchors
+  and approaches (B3d4a decision 9 and the B3d4b direction). No coordinate conflict was found, and no approved geography
+  changed. B1e's lighthouse log site is 140,45 (the route end), one tile below the approved approach: the station is used
+  from 140,44 as approved.
+- Content (`tools/maps/home.content.mjs`): eleven station records after B3d4a's ten, `{ id, kind: "station", anchor,
+  approach, place }`, no solid, no drawn box. 21 records, still 288 solid tiles and 0 foot pixels (the content layer is
+  B3d4a's tile for tile); the ten earlier records compile byte for byte.
+- Schema (`tools/maps/content.mjs`): a station record has an anchor, an approach and a place (`{ landmark | marker |
+  logSite | plaza | berth: id }`) and nothing else (no solid, drawn box, door, reserve, enclosure, art, room, compound or
+  marker: the schema refuses each); no other kind may carry an anchor, an approach or a place. A new compile rule,
+  `stations`: the id is one of the game's eleven outdoor stations (`STATION_IDS`) and its place the approved one
+  (`STATION_PLACES`, B3a's); a landmark's station stands in the middle of its base's front row, used from the base's
+  approach, one a base; a marker's is the marker, used from its approach tile; a log site's approach is the site or next to
+  it; a plaza's anchor is inside the plaza; the berth's anchor is the berth, at sea; any other anchor is open land outside
+  every B1e footprint (not a bridge, a dock or the pad); no two stations share an anchor; the approach is the tile south of
+  the anchor (north for the boat), open ground with pi's feet clear, outside every footprint, reached from the spawn, within
+  [E]'s reach; and nothing that isn't a station takes a station's id.
+- Runtime (`js/world.js`, the content preview only; format 1's stations, words and behaviour unchanged):
+  - The decoder checks each station on its own (`stationShape` and the checks once every solid is known): the id, nothing
+    solid or drawn, the place's shape, the approach a step from the anchor; a landmark's on its base's front middle, one a
+    base; the boat's at sea; any other on open land; no shared anchor; the approach open ground with pi's feet clear, in
+    reach, and reached on foot from the spawn (its own flood over terrain and content).
+  - `SYS.stations` is on in the content preview when the content carries all eleven station records and the bunker with
+    its room (where the rack and the desk, two of the eight logs, stand). Every other home system stays off (creatures, rex,
+    birds, koi, bots, car, rift, volcano, hatching). The terrain preview, and a content preview without the stations, keep
+    them off.
+  - `STATIONS` takes a content station's place from its record: `x`, `y` (the anchor), `stand` (the approach: `goto`, a
+    tap and the tour go there) and `lm` (the landmark base it stands on). A station on a base isn't drawn by the station
+    code (its base draws it); a tap anywhere on the base's art is a tap on the station; its prompt floats above the base's
+    art. The nine others are drawn with format 1's sprites at their anchors.
+  - Progression runs in memory: the logs, the HUD's pips, `./evolve`, the seal's cut at the shrine and the shrine opening,
+    the secrets (zoom, root, evolve, deity among them). The content preview reads and writes no storage (B3c1's lock,
+    unchanged), so a reload starts it fresh and a production save beside it is never touched. The rack's and the desk's
+    logs now count in the preview, as in format 1 (B3c2 held them back until the stations came).
+  - What isn't migrated stays off, and the stations no longer reach it: after eight logs the orbs' fight is asked for only
+    where the rift runs (`SYS.rift`); in the cave terminal `feed koi`, `cat koi.csv` and `drive` say "the koi aren't on this
+    island yet." / "the car isn't on this island yet.", and `sudo ./rift --wake` grants access and finds the root secret
+    as before, then says "the orbs aren't on this island yet." instead of waking them (new lines, only where those systems
+    don't run). `goto` and the chevron no longer read a car that isn't there. Format 1 runs every system, so each of these
+    takes format 1's path exactly as before.
+  - Not migrated: the tower's monitoring trace and the lighthouse's turning beam (deferred, B3d4a decision 5); the
+    cockatiels' perches and the drones' stops (their systems); `goto`'s other places (the places section); the rift.
+  - `?debug=1`: `preview().stations` (anchor, approach, base, name, section, log, found, draws), `preview().logs` (found,
+    total, seal, the cut, sealed), `tour`, `term`, `side`.
+- The completeness wall no longer lists the stations: a normal format-2 home's missing list is 7 items (the sections not
+  in the content format yet); it is still refused.
+- Tests: `tools/mapb-stations.mjs` (new; Node and Chromium and WebKit, Firefox tried and reported BLOCKED; review screenshots
+  in `tools/out/mapb/b3d4b/`, with a labelled diagnostic overlay drawn by the test only):
+  - Node (72): the ten earlier records pinned byte for byte, then the eleven stations, 288 tiles exactly B3d4a's layer;
+    each station against the approved table and its source (B1e marker, log site, plaza, berth, the B3d4a base); anchor and
+    approach ground, reach and walking distance; format 1's same ids (each solid there); the compiler's, the decoder's, the
+    completeness list's and `STATION_WORDS`' ids the same; the cards, secrets, deep links, tour, goto places, verbs, the
+    shrine's lines and the terminal's files byte for byte as at B3d4a, and every one of B3d4a's 2,605 string literals in
+    `js/world.js` still there (checked by presence, never printed); 28 malformed records each caught by its rule.
+  - Browser (Chromium 74, WebKit 69): production's stations as before and their cards as the reference; the terrain
+    preview without stations; the content preview's systems (only the buildings and the stations); both painter digests
+    with every station drawn; the collision layer unchanged and every free-standing station's tile answering as the
+    terrain (pi walks over it); the planner from the spawn to every approach; [E] at every approach (the card's title,
+    words by hash and links the same as format 1's; the cave's terminal; the logs counted); space and enter; the tower and
+    the lighthouse from their approaches and the tiles beside them, pi pushed up stopping at the base; progression (four
+    logs and `./evolve`, the terminal's commands, the rack and the desk, eight logs and the seal's cut, the shrine opened and
+    stepped through, the boat leaving); the tour against production's; all 18 deep links; `goto` to every station; the big
+    map's travel and the menu's buttons; phones (taps on the bases' art and on sprites, the touch prompt); storage
+    isolation through all of it; completeness (7); 16 decoder refusals; 5 code mutations (Chromium); performance.
+  - The other MAP-B suites follow the eleven records (21 records, the completeness list pinned at 7; `mapb-landmarks`'
+    "stations stay off" check is now "[E] at each approach opens the landmark's card"; `mapb-buildings` counts the rack's
+    and the desk's logs in the preview, and its log mutation is now "the logs held back"; `mapb-koi-gate` leaves the three
+    tiles under the macbook's sprite out of the wall's screen comparison; two synthetic cases that used a solid "station"
+    use a prop, since a station can't be solid).
+- Verification (2026-10-18, the final code, one suite at a time, each log kept as it finished, `tools/out/mapb/b3d4b/gates/`;
+  load average 2.8 to 33). Firefox BLOCKED at launch in every browser suite (never counted as a pass). Passed:
+  - **Content and map tools:** map-compile and map-content `--check` (21 records, 288 tiles); map-lint 187; map-export
+    `--check` 50; map-decode 250; mapb-decode 76.
+  - **MAP-B suites:** mapb-stations 215 (Node 72, Chromium 74, WebKit 69); mapb-painter 49 (both locked digests exact,
+    terrain `8fdd2afe...`, ground `0263dc4f...`); mapb-runtime 220; mapb-landmarks 132; mapb-content 145; mapb-paddock 142;
+    mapb-fences 165.
+  - **Format 1 and production:** map-parity 37/37 and b0-parity 21/21 identical with `715450d` in both engines; scenarios
+    98; ctf 250; doors (worst frame 3.7 ms, budget 16); focus 16.
+  - **Deploy tooling and the rest:** the deploy guard (8); the dry run (53 files, 41 references); deploy-args 37; html;
+    `git diff --check`. CSpell exits 1 as at B3d4a: the same 19 findings in `js/world.js`, none new.
+  - **FAILURES in that pass, recorded:**
+    - **mapb-koi-gate:** 2 (Chromium and WebKit), the koi garden's wall check that the open tiles touching the wall look
+      as on the terrain preview. 104,57 differs by 37% because the macbook's sprite (anchor 105,57) reaches over it. That
+      is station art, not wall art: a test expectation.
+    - **mapb-buildings:** 3:
+      - a synthetic "room on a station" record, now caught first by the station's own check (twice);
+      - the mutation "the room's rack and desk looked up in `STATIONS`", which relied on `STATIONS` being empty in the
+        preview.
+      Both are test expectations B3d4b invalidated.
+  - Fixed in the tests only and rerun alone, both engines: mapb-koi-gate 183 (`mapb-koi-gate-rerun.log`) and
+    mapb-buildings 382 (`mapb-buildings-rerun.log`; door transitions 3.2 to 3.7 ms). The fixes:
+    - the three tiles under the macbook's sprite are left out of the wall comparison;
+    - the synthetic record is a prop;
+    - the mutation turns the stations off too.
+    No game code changed after the gate run.
+  - B3d4a's mapb-koi-gate page-load timeout didn't recur: both runs reached the end. It stays unexplained, not fixed.
+  - **Development failures** (`tools/out/mapb/b3d4b/dev/` and `light/`):
+    - the new suite's phone check expected a tapped station to walk pi exactly to its approach with the prompt drawn.
+      Format 1's tap uses the planner's loose goal (the tile or one next to it) and opens the card on arrival, so the test
+      now expects that and checks the touch prompt at the approach separately;
+    - Node parts: mapb-content (the record list pin; its spawn-rule case used a solid "station") and mapb-buildings (the
+      record list pin), each updated.
+- Performance (gate run, Chromium / WebKit; WebKit's clock is 1 ms coarse):
+  - walking past the sign, the tower and the lighthouse on the live loop: frame work p95 1.8 / 2.0 ms, max 12.9 / 6.0 ms
+    (the terrain preview's p95 1.4 / 2.0, max 31.9 / 2.0);
+  - decoding the staged map warm: 3.3 / 4.2 ms with 21 records, 3.1 / 3.0 with B3d4a's ten (the station checks and their
+    flood from the spawn);
+  - the planner from the spawn to the furthest station (the shrine, 124 tiles) on the update loop: 2,076 frames, no stall.
+- For Ammaar's review:
+  1. Zero collision, as directed: the nine free-standing stations no longer block their tile (format 1's each do). Pi can
+     walk onto the signpost's, the mailbox's or the tablet's tile and be drawn in front of or behind its sprite. Keep, or
+     a later batch could give each a small foot box under its sprite (D1: no collision outside the art).
+  2. The cave mouth: format 1's 60 x 46 hillside sprite at the marker 66,24 sits against the volcano's solid mass, but its
+     side boulders lie over walkable tiles (64,23 to 67,24), which pi can cross.
+  3. New player-facing lines, only where those systems don't run yet (the content preview), each in the terminal:
+     - "feed: the koi aren't on this island yet.";
+     - "cat: koi.csv: the koi aren't on this island yet.";
+     - "drive: the car isn't on this island yet.";
+     - after the sudo password, "the orbs aren't on this island yet." in place of waking the orbs.
+     Format 1 answers as before.
+  4. The tower's and the lighthouse's tap area is their base's whole art (format 1's covered the sprite), and their prompt
+     floats above it.
+  5. Pins: with the stations, the visitor centre's map wall, the minimap and the big map show their pins in the preview
+     (B3c1 deferred the wall's pins "until the landmarks move"). On the big map the uplink's label sat over the rack's,
+     beside the bunker: corrected after review (below).
+  6. After eight logs the seal breaks with its cut to the shrine, and nothing more happens in the preview. Format 1's orb
+     fight is the rift's, not migrated.
+  7. Deferred as approved: the tower's trace, the lighthouse's beam.
+- Visual review corrections (2026-10-19, after Ammaar's visual review; targeted, not a new batch):
+  - **Big-map labels.** Compared with format 1 first:
+    - format 1's map has the same kind of overlap beside its bunker (the uplink's label over the desk's; at phone widths
+      two overlaps, four labels over a pin and one label past the edge), so the bunker crowding is inherited;
+    - the lighthouse label running past the map's east edge is new (MAP-B's headland reaches the edge);
+    - so does the macbook's label covering the tablet's pin on phones.
+  - **The correction** (format 2 only, in `paintMap`; format 1's placement is untouched):
+    - every pin is drawn first;
+    - then each label takes the first of above or below (format 1's order), right, left, or those sides shifted along, that
+      stays inside the map and keeps a pixel clear of every other label and pin (if none does, the one covering least).
+    - Only labels move: every pin stays exactly at its station, so a click on the map travels where it always did, and
+      nothing in gameplay or the station coordinates changed.
+    - `?debug=1` gives the pins and labels (`preview().ui.mapPins`, `mapLabels`, `mapCss`).
+    - Checked in Chromium and WebKit at 1280 x 800, 390 x 844 and 375 x 667: all eight labels inside the map, none over
+      another label or pin, every pin at its station, a click on the tower's pin travelling to its approach; format 1's
+      labels exactly where format 1 always put them.
+  - **The dark screenshot** (`*-eight-logs.png`, the root secret's toast still showing) was the fade at the end of the
+    seal's cut: format 1's effect (`drawFade`, unchanged), which lifts a little each frame the game draws. The test had run
+    200 updates with a single draw, so the fade had barely lifted. On the live loop the screen is back to daytime
+    brightness at the same spot without a reload, in the content preview and in production alike: from about 10 to 16 back
+    to 90% of 103 to 108 (mean brightness) about 0.27 s after the cut ends, in both engines. Not changed. The review
+    screenshot now lets the fade clear first, and a live one (`*-eight-logs-live.png`) is added.
+  - **Phones, the lighthouse** (390 x 844 and 375 x 667, Chromium and WebKit): at its approach the touch prompt is on
+    screen and on top. Tapping it opens the card, which is on screen; its link is on screen and is the topmost element
+    where it's drawn. A tap on the island closes the card (format 1's: the first tap finishes the words).
+  - **Tests:** `tools/mapb-stations.mjs` gained these checks (237: Node 72, Chromium 85, WebKit 80).
+  - **Focused reruns** (`tools/out/mapb/b3d4b/review/gates/`), Firefox BLOCKED in each browser suite: all passed.
+    - map-content `--check`; mapb-stations 237; mapb-runtime 220; mapb-painter 49 (both digests exact); mapb-landmarks 132;
+    - map-parity 37/37 and b0-parity 21/21 identical; focus 16;
+    - guard 8; the dry run; html; `git diff --check`; CSpell the same 19.
+  - **Reused unchanged** from the B3d4b gate run (the correction touches only the big map's labels in `js/world.js`, and
+    the test file): map-lint, map-export, map-decode, mapb-decode, scenarios, ctf, doors, mapb-content, mapb-paddock,
+    mapb-fences, mapb-koi-gate (its rerun) and mapb-buildings (its rerun).
+  - **The preview badge over the big map** (Ammaar's final review, 2026-10-19). On a 375 px phone the yellow "MAP-B content
+    preview" badge sat over the open big map's title.
+    - The change: `badgeShown()` in `js/world.js`, used by `toggleMap` and on leaving the island. In either staged preview
+      the badge is hidden while the big map is open and shown again the moment it closes (the m key, the close button,
+      leaving).
+    - Production has no badge, so nothing there changes. No CSS, map, label, pin, save or painter code was touched.
+    - `?debug=1` gives `preview().badgeVisible`.
+    - Checked in Chromium and WebKit at 1280 x 800, 390 x 844 and 375 x 667, in both previews and production: the badge is
+      shown while exploring, hidden with the map open and back after closing it by either way. With the map open, its title,
+      close button, picture and landmark buttons are each on screen and the topmost element where drawn.
+    - Focused reruns (`tools/out/mapb/b3d4b/badge/gates/`), Firefox BLOCKED: mapb-stations 255 (Node 72, Chromium 94,
+      WebKit 89, the label and pin checks among them), mapb-runtime 220 (B2e's badge checks), map-parity 37/37 and
+      b0-parity 21/21 identical, guard 8, html, `git diff --check`, CSpell the same 19.
+    - Before and after screenshots: `tools/out/mapb/b3d4b/badge/before/` and `badge/after/`.
+- Approved by Ammaar (2026-10-19). Accepted:
+  - the outdoor stations as built;
+  - the format-2 map label placement on desktop and phones;
+  - the fade after the seal's cut and its recovery, unchanged;
+  - the lighthouse's phone interaction and card;
+  - the preview badge hidden while the big map is open;
+  - every other B3d4b implementation and test result.
+  The earlier failures and reruns above stay on record as they happened.
+- Pre-commit checks (lightweight; browser suites not rerun, `tools/out/mapb/b3d4b/final/`):
+  - The code is unchanged since the final focused browser run (`js/world.js` and `tools/mapb-stations.mjs` are older than
+    its start), so its results stand: mapb-stations 255, both painter digests exact, map-parity 37/37 and b0-parity 21/21
+    identical, completeness 7 items.
+  - Content: map-compile and map-content `--check` current; 21 records, 288 solid tiles, 0 foot pixels; all eleven stations
+    there; the ten earlier records byte for byte.
+  - The Node parts of mapb-stations (72), mapb-landmarks (33), mapb-koi-gate (52), mapb-paddock (32), mapb-fences (35),
+    mapb-content (29) and mapb-buildings (71).
+  - The deploy guard (8), the dry run (53 files, 41 references) and `git diff --check`.
+  - `SAVE_V` 2; cache `20261025` (9 references in `index.html`, 22 in the repo); production files, the B1 terrain, the
+    painter, its fixtures and the preview untouched.
+  - The normal format-2 completeness wall is unchanged and still enforced (7 items missing).
+  - Firefox BLOCKED, not passed.
+- Status: complete and approved. B3e hasn't begun. MAP-B stays
+  preview-only (loopback, no storage). Production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`). Nothing
+  was deployed.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

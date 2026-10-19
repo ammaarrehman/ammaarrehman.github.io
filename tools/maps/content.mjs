@@ -41,6 +41,10 @@
        marker: "park-gate"               // a gate's (B3d3, required): the B1e marker it stands on
      }
 
+     station record (B3d4b): { id, kind: "station", anchor: [x, y], approach: [x, y], place: { <kind>: "<id>" } }
+                                         // no solid, drawnPxBoxes, doorTiles, reserve, encloses, art, room, compound or
+                                         //   marker: a station blocks nothing and draws nothing of its own here
+
    A building (B3c1) draws itself: art "placeholder" is the game's temporary building art, drawn exactly over the
    record's one drawn box, until the art stage adds real sprites as a new art kind (the footprint, the door and the
    collision stay as they are). Its solid is its footprint, one full rectangle; its art box is as wide as the
@@ -85,12 +89,36 @@
    box as wide as the footprint, standing on its front edge (it rises above it: the structure stands tall), opaque over
    every tile of the footprint. No door, foot box, opening or room; the tile in the middle of its front (floor(x0 + w / 2),
    y1 + 1: where the landmark is approached from, B3a's) is open ground reached from the spawn. A base is structure only:
-   the landmark's interaction (its station: the log, the tour stop, the links) is a station record's, a later batch's.
+   the landmark's interaction (its station: the log, the tour stop, the links) is a station record's (B3d4b).
+
+   A station (B3d4b) is one of format 1's eleven outdoor stations (the game's own ids and words: the signpost, the uplink,
+   the watchtower, the lighthouse, the macbook, the stone tablet, the mailbox, the drink stand, the shrine, the cave and the
+   boat), moved to its approved MAP-B place. It is an interaction point and nothing more: it adds no collision (no solid,
+   no foot box) and draws nothing of its own here (the game draws a free-standing station with format 1's sprite, and a
+   station on a landmark is drawn by its landmark base). Its anchor is the tile the station stands on (the point [E]
+   reaches to, as format 1's station tile); its approach is the tile pi uses it from (format 1's: the tile south of it;
+   the boat's, at sea, the pier's end north of it): open ground with pi's feet clear of every foot-blocking pixel, reached
+   from the spawn, a step from the anchor and within [E]'s reach of it (26 px from pi's feet to the station's point).
+   place names what the station is tied to, one of the approved sources (B3a's placement plan), and must be that
+   station's own (STATION_PLACES):
+     landmark   a landmark base in this content (the tower's, the lighthouse's): the anchor is the middle of its front
+                row, on the base (floor(x0 + w / 2), y1), and the approach is the base's own approach in front of it
+     marker     a B1e marker with an approach tile (the shrine, the cave mouth): the anchor is the marker, the approach its
+                approach tile
+     logSite    a B1e planning log site (the mailbox, the tablet, the uplink, the macbook): the approach is the site or a
+                tile beside it (the macbook's stands by the koi garden's loop, the site one tile east)
+     plaza      a B1e plaza (the arrival plaza's sign, the village square's drink stand): the anchor is inside its box
+     berth      a B1e exit's berth (the south harbour's, for the boat): the anchor is the berth (at sea), the approach the
+                pier's end north of it
+   A free-standing station's anchor is open land (walkable terrain with no content tile, not a bridge, a dock or the pad)
+   outside every B1e footprint; a landmark's is on its base; the boat's is the sea. No two stations share an anchor, and
+   a landmark carries at most one station.
 
    The compiled record (the staged content file and the game): { id, kind, drawnPxBoxes, tiles, footPxBoxes, doorTiles,
-   gapTiles?, terrainTiles?, reserve?, encloses?, art?, room?, compound?, marker? }, every solid as an explicit tile list,
-   so the game derives its layer without knowing any shape; gapTiles (a ring's openings, B3c3) let the game draw the posts
-   either side of them; terrainTiles (B3d3) are where the terrain closes a wall's ring.
+   gapTiles?, terrainTiles?, reserve?, encloses?, art?, room?, compound?, marker?, anchor?, approach?, place? }, every solid
+   as an explicit tile list, so the game derives its layer without knowing any shape; gapTiles (a ring's openings, B3c3) let
+   the game draw the posts either side of them; terrainTiles (B3d3) are where the terrain closes a wall's ring; a station's
+   anchor, approach and place (B3d4b), with its tile, foot box, door and drawn lists empty.
 
    The rules, each named (the compile throws on the first broken one; contentProblems() lists them all):
      schema         fields, types, kinds, ids unique, everything inside the map
@@ -106,6 +134,7 @@
      fences         a fence's art, habitat ring, name, openings and enclosure, as above (B3d1)
      gates          a gate's art, marker, posts, drawn box and opening, as above (B3d3)
      landmarks      a landmark base's art, footprint, name, drawn box and approach, as above (B3d4a)
+     stations       a station's id, place, anchor and approach, as above (B3d4b)
      open-space     nothing solid in the B1e open spaces (the rift arena's clear field)
      doors          each door tile walkable, next to its record's solid, reachable from the spawn
      route-ends     every B1d route end still reachable from the spawn
@@ -115,13 +144,23 @@ import { raster } from "./geom.mjs";
 
 export const CONTENT_SCHEMA = "mapb-content-1";
 export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"];
-export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "landmarks", "open-space", "doors", "route-ends", "pockets"];
+export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "landmarks", "stations", "open-space", "doors", "route-ends", "pockets"];
 /* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list), the art
    kinds the game draws, and what it draws them on (a building since B3c1, a wall since B3c3, a fence since B3d1, a gate
    since B3d3, a landmark since B3d4a) */
 export const ROOM_IDS = ["visitor", "bunker", "depot"];
 export const ART_KINDS = ["placeholder"];
 export const ART_ON = ["building", "wall", "fence", "gate", "landmark"];
+/* the stations (B3d4b): format 1's eleven outdoor stations (the game's STATION_WORDS ids that stand outdoors, whose decoder
+   holds the same list), and the place each is tied to, from B3a's approved placement plan */
+export const STATION_IDS = ["sign", "uplink", "tower", "lighthouse", "macbook", "tablet", "mailbox", "drink", "shrine", "cave", "boat"];
+export const STATION_PLACES = {
+  sign: { plaza: "arrival-plaza" }, uplink: { logSite: "uplink" }, tower: { landmark: "tower-base" }, lighthouse: { landmark: "lighthouse-base" },
+  macbook: { logSite: "macbook" }, tablet: { logSite: "tablet" }, mailbox: { logSite: "mailbox" }, drink: { plaza: "village-square" },
+  shrine: { marker: "shrine" }, cave: { marker: "cave-mouth" }, boat: { berth: "south" }
+};
+export const PLACE_KINDS = ["landmark", "marker", "logSite", "plaza", "berth"];
+export const STATION_REACH = 26;                 // the game's: [E] reaches a station 26 px from pi's feet (nearCandidates)
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const T = 16;
 // terrain codes and flags, the compiler's (tools/map-compile.mjs GROUND and COLL)
@@ -184,8 +223,10 @@ export function resolveContent(content, src, m) {
     if (typeof r.id !== "string" || !ID.test(r.id)) fail("schema", `${f0} needs an id (lowercase words joined by hyphens)`);
     const f = `record ${r.id}`;
     if (seen.has(r.id)) fail("schema", `${f} appears twice`); seen.add(r.id);
-    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker"]);
+    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker", "anchor", "approach", "place"]);
     if (!KINDS.includes(r.kind)) fail("schema", `${f}.kind ${JSON.stringify(r.kind)} isn't one of ${KINDS.join(", ")}`);
+    if (r.kind === "station") return station(r, f);
+    for (const k of ["anchor", "approach", "place"]) if (r[k] !== undefined) fail("schema", `${f}.${k} is on a ${r.kind}: only a station has an anchor, an approach and a place`);
     if (r.room !== undefined && (r.kind !== "building" || !ROOM_IDS.includes(r.room))) fail("schema", `${f}.room ${JSON.stringify(r.room)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has a room" : "isn't one of the game's rooms, " + ROOM_IDS.join(", ")}`);
     if (r.art !== undefined && (!ART_ON.includes(r.kind) || !ART_KINDS.includes(r.art))) fail("schema", `${f}.art ${JSON.stringify(r.art)} ${!ART_ON.includes(r.kind) ? "is on a " + r.kind + ": only a building, a wall, a fence, a gate or a landmark has art the game draws so far" : "isn't one of " + ART_KINDS.join(", ")}`);
     if (r.compound !== undefined && (r.kind !== "wall" || !(src.reserves.compounds || []).some((q) => q.id === r.compound && q.walled === true))) fail("schema", `${f}.compound ${JSON.stringify(r.compound)} ${r.kind !== "wall" ? "is on a " + r.kind + ": only a wall walls in a compound" : "isn't one of B1e's walled compounds"}`);
@@ -246,6 +287,18 @@ export function resolveContent(content, src, m) {
     return out;
   });
   return records;
+  /* a station (B3d4b): an interaction point, no collision and nothing drawn of its own; the rule checks the rest */
+  function station(r, f) {
+    for (const k of ["drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker"]) if (r[k] !== undefined) fail("schema", `${f}.${k}: a station is an interaction point with no ${k === "solid" ? "collision (it blocks nothing)" : k === "drawnPxBoxes" ? "drawn box of its own" : k}`);
+    const anchor = tile(r.anchor, f + ".anchor", W, H), approach = tile(r.approach, f + ".approach", W, H);
+    if (!isObj(r.place)) fail("schema", `${f}.place must be { <kind>: "<id>" }, one of ${PLACE_KINDS.join(", ")}`);
+    const pk = Object.keys(r.place);
+    if (pk.length !== 1 || !PLACE_KINDS.includes(pk[0]) || typeof r.place[pk[0]] !== "string" || !ID.test(r.place[pk[0]])) fail("schema", `${f}.place must name one place, { <kind>: "<id>" } with kind one of ${PLACE_KINDS.join(", ")}, not ${JSON.stringify(r.place)}`);
+    const out = { id: r.id, kind: "station", drawnPxBoxes: [], tiles: [], footPxBoxes: [], doorTiles: [], anchor: [anchor[0], anchor[1]], approach: [approach[0], approach[1]], place: { [pk[0]]: r.place[pk[0]] } };
+    Object.defineProperty(out, "inner", { value: [], enumerable: false });
+    Object.defineProperty(out, "shape", { value: { solid: [], box: null, habitat: null, ownDrawn: 0 }, enumerable: false });
+    return out;
+  }
 }
 
 /* the derived layers: solid tiles (1 per tile) and foot pixels (1 per pixel), from resolved records */
@@ -429,6 +482,66 @@ export function contentProblems(records, src, m) {
     let wet = 0; for (let py = ay * T; py < ay * T + T; py++) for (let px = ax * T; px < ax * T + T; px++) wet += m.px.foot[py * PW + px] || L.foot[py * PW + px] ? 1 : 0;
     if (!tWalk(ai) || L.tiles[ai] || wet || !after[ai]) B(`its approach ${ax},${ay} (the middle of its front) isn't open ground reached from the spawn`);
   }
+  // stations (B3d4b): one of the game's outdoor stations, at its approved place, no collision, used from an open approach
+  const stAnchor = new Map(), onLandmark = new Map();
+  for (const r of records) {
+    if (r.kind !== "station") continue;
+    const B = (msg) => add("stations", `${r.id}: ${msg}`);
+    if (!STATION_IDS.includes(r.id)) { B(`a station is one of the game's outdoor stations (${STATION_IDS.join(", ")}), and ${r.id} isn't`); continue; }
+    if (r.tiles.length || r.footPxBoxes.length || r.doorTiles.length || r.drawnPxBoxes.length) B("a station adds no collision and draws nothing of its own");
+    const [ax, ay] = r.anchor, [px, py] = r.approach, pk = Object.keys(r.place)[0], pv = r.place[pk], want = STATION_PLACES[r.id];
+    if (JSON.stringify(r.place) !== JSON.stringify(want)) B(`its approved place is ${JSON.stringify(want)} (B3a's plan), not ${JSON.stringify(r.place)}`);
+    if (stAnchor.has(at(ax, ay))) B(`its anchor ${ax},${ay} is ${stAnchor.get(at(ax, ay))}'s too: no two stations share an anchor`); else stAnchor.set(at(ax, ay), r.id);
+    const inRes = (x, y) => RES.find((q) => inBox(x, y, q.b));
+    // the place it is tied to, and what that fixes
+    let south = true;
+    if (pk === "landmark") {
+      const lm = records.find((q) => q.id === pv && q.kind === "landmark");
+      if (!lm || !lm.tiles.length) B(`it stands on the landmark base ${pv}, and there is no such landmark here`);
+      else {
+        const xs = lm.tiles.map((q) => q[0]), ys = lm.tiles.map((q) => q[1]), x0 = Math.min(...xs), x1 = Math.max(...xs), y1 = Math.max(...ys), mx = Math.floor(x0 + (x1 - x0 + 1) / 2);
+        if (ax !== mx || ay !== y1) B(`on the landmark base ${pv} its anchor is the middle of the base's front row, ${mx},${y1}, not ${ax},${ay}`);
+        if (px !== mx || py !== y1 + 1) B(`on the landmark base ${pv} it is used from the base's approach ${mx},${y1 + 1}, not ${px},${py}`);
+        if (onLandmark.has(pv)) B(`the landmark base ${pv} already carries ${onLandmark.get(pv)}: one station a landmark`); else onLandmark.set(pv, r.id);
+      }
+    } else if (pk === "marker") {
+      const mk = (src.reserves.markers || []).find((q) => q.id === pv);
+      if (!mk || !mk.approachTile) B(`it stands on a B1e marker with an approach tile, and ${pv} ${mk ? "has no approach tile" : "isn't a marker"}`);
+      else { if (mk.markerTile.join() !== r.anchor.join()) B(`on the marker ${pv} its anchor is the marker ${mk.markerTile}, not ${r.anchor}`); if (mk.approachTile.join() !== r.approach.join()) B(`on the marker ${pv} it is used from the marker's approach ${mk.approachTile}, not ${r.approach}`); }
+    } else if (pk === "logSite") {
+      const ls = ((src.planningMarkers && src.planningMarkers.logSites) || []).find((q) => q.id === pv);
+      if (!ls) B(`it is tied to the log site ${pv}, and B1e has no such log site`);
+      else if (Math.max(Math.abs(ls.siteTile[0] - px), Math.abs(ls.siteTile[1] - py)) > 1) B(`it is used at the log site ${pv} (${ls.siteTile}), so its approach is that tile or one beside it, not ${r.approach}`);
+    } else if (pk === "plaza") {
+      const pz = ((src.corridors && src.corridors.plazas) || []).find((q) => q.id === pv), box = pz && (pz.plazaBox || (pz.sameAs === "exits.south.arrivalPlazaBox" ? src.exits.south.arrivalPlazaBox : null));
+      if (!box) B(`it stands in the plaza ${pv}, and B1e has no plaza box by that name`);
+      else if (!inBox(ax, ay, box)) B(`it stands in the plaza ${pv} (${box.x0},${box.y0} to ${box.x1},${box.y1}), and its anchor ${r.anchor} is outside it`);
+    } else if (pk === "berth") {
+      const ex = src.exits && src.exits[pv];
+      south = false;
+      if (!ex || !ex.berthTile) B(`it lies at the ${pv} exit's berth, and B1e has no berth there`);
+      else if (ex.berthTile.join() !== r.anchor.join()) B(`at the ${pv} exit's berth its anchor is the berth ${ex.berthTile}, not ${r.anchor}`);
+    }
+    // its anchor: on the base (a landmark's), at sea (the boat's), or open land outside every footprint (the rest)
+    const ai = at(ax, ay);
+    if (pk === "berth") { if (![0, 1].includes(m.ground[ai]) || tWalk(ai)) B(`the boat's anchor ${r.anchor} is at sea (deep or shallow water), not ${tWalk(ai) ? "land" : "ground " + m.ground[ai]}`); }
+    else if (pk !== "landmark") {
+      if (!tWalk(ai) || L.tiles[ai]) B(`its anchor ${r.anchor} isn't open land (${!tWalk(ai) ? "terrain coll " + m.coll[ai] : "solid content"})`);
+      else if ([G_BRIDGE, G_DOCK, G_PAD].includes(m.ground[ai])) B(`its anchor ${r.anchor} is ${m.ground[ai] === G_BRIDGE ? "a bridge" : m.ground[ai] === G_DOCK ? "dock" : "the helipad"}: a free-standing station stands on open land`);
+      const rs = inRes(ax, ay); if (rs) B(`its anchor ${r.anchor} is inside the reserve ${rs.id}: nothing stands in a reserved footprint`);
+    }
+    // its approach: a step from the anchor (south of it; the boat's north of it, on the pier), open ground, pi's feet clear,
+    // reached from the spawn, within [E]'s reach
+    if (px !== ax || py !== ay + (south ? 1 : -1)) B(`its approach is the tile ${south ? "south" : "north"} of its anchor, ${ax},${ay + (south ? 1 : -1)}, not ${r.approach}`);
+    const pi2 = at(px, py), fx = px * T + 8, fy = py * T + 10;
+    let wet = 0; for (let yy = fy - 2; yy <= fy + 1; yy++) for (let xx = fx - 4; xx <= fx + 4; xx++) wet += m.px.foot[yy * PW + xx] || L.foot[yy * PW + xx] ? 1 : 0;
+    if (!tWalk(pi2) || L.tiles[pi2] || wet) B(`its approach ${r.approach} isn't open ground (${!tWalk(pi2) ? "terrain coll " + m.coll[pi2] : L.tiles[pi2] ? "solid content" : wet + " foot-blocking pixels under pi's feet"})`);
+    else if (!after[pi2]) B(`its approach ${r.approach} can't be reached from the spawn`);
+    const rp = inRes(px, py); if (rp) B(`its approach ${r.approach} is inside the reserve ${rp.id}`);
+    const reach = Math.hypot(ax * T + 8 - fx, ay * T + 12 - fy);
+    if (reach >= STATION_REACH) B(`from its approach pi's feet are ${reach.toFixed(1)} px from the station, out of [E]'s reach (${STATION_REACH})`);
+  }
+  for (const r of records) if (r.kind !== "station" && STATION_IDS.includes(r.id)) add("stations", `${r.id}: the id is a station's, and this is a ${r.kind}`);
   const enclosed = new Set(); for (const r of records) if (r.encloses) for (const [x, y] of r.inner) enclosed.add(at(x, y));
   let lost = 0, first = null;
   for (let i = 0; i < W * H; i++) if (before[i] && !after[i] && !L.tiles[i] && !enclosed.has(i)) { lost++; if (!first) first = `${i % W},${(i - i % W) / W}`; }
@@ -458,6 +571,7 @@ export function serializeContent(c, meta) {
     if (r.room) o.room = r.room;
     if (r.compound) o.compound = r.compound;
     if (r.marker) o.marker = r.marker;
+    if (r.kind === "station") { o.anchor = r.anchor; o.approach = r.approach; o.place = r.place; }
     return `    ${num(o)}`;
   };
   return [
@@ -470,7 +584,8 @@ export function serializeContent(c, meta) {
     `   is drawn (inclusive world pixels; no collision outside them); tiles, the whole tiles it makes solid; footPxBoxes, pixels`,
     `   where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; terrainTiles, where the terrain`,
     `   closes a wall's ring; encloses, a ring that closes ground in; a building's, a wall's, a fence's or a gate's art; a`,
-    `   building's room; a wall's compound; a gate's marker. solidTiles and footPixels: the totals, which the game checks.`,
+    `   building's room; a wall's compound; a gate's marker; a station's anchor, approach and place (it blocks nothing).`,
+    `   solidTiles and footPixels: the totals, which the game checks.`,
     `   The game reads the terrain's collision for painting and the union of both layers for movement. */`,
     `(window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {`,
     `  "format": 2, "staged": true, "schema": ${num(CONTENT_SCHEMA)}, "id": ${num(meta.id)}, "generator": "tools/map-content.mjs",`,

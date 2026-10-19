@@ -18,7 +18,8 @@
       - collision pixel by pixel; tiles; pi pushed into each base from every tile touching it, every direction that meets it,
         on the real update loop;
       - the planner to each approach, round each base, onto it (stops beside); trapped ground against the terrain preview;
-      - the stations stay off: no [E] at the approach, no card, no log, nothing stored;
+      - the stations (B3d4b's, on the bases since then; tools/mapb-stations.mjs tests them): [E] at each approach opens the
+        landmark's card and nothing stored;
       - the helicopter (every 4 px, drifting descents, a real flight); see-through when pi is behind; the screen against the
         terrain preview; phones (taps, the joystick); completeness; storage; decoder refusals; three code mutations
         (Chromium); performance;
@@ -76,8 +77,8 @@ const RECS = built.compiled.records, LAYER = contentLayers(RECS, W, H);
 const DATA = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); return c.window.ISLAND_MAPS_STAGED_CONTENT.home; })();
 // B3d3's eight compiled records, as committed at 1e76536 (the sha256 of their JSON, in order)
 const EIGHT = "88535843d65793827a2727326b9f53b524104427c8c71ce44a6d802fcbb8aa38";
-check("node", "the content: B3c's, B3d1's, B3d2's and B3d3's eight records exactly as committed (their compiled records byte for byte), then B3d4a's tower and lighthouse bases; nothing else",
-  RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark" && createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 8))).digest("hex") === EIGHT,
+check("node", "the content: B3c's, B3d1's, B3d2's and B3d3's eight records exactly as committed (their compiled records byte for byte), then B3d4a's tower and lighthouse bases (and since B3d4b the eleven stations after them, tools/mapb-stations.mjs); nothing else",
+  RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark,sign:station,uplink:station,tower:station,lighthouse:station,macbook:station,tablet:station,mailbox:station,drink:station,shrine:station,cave:station,boat:station" && createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 8))).digest("hex") === EIGHT,
   RECS.map((r) => r.id).join(", "));
 check("node", "the content passes every rule: 288 solid tiles (275 before B3d4a, then the tower's 9 and the lighthouse's 4), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
@@ -245,8 +246,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
-  check(name, "content preview: loads with the ten records (288 solid tiles), only the buildings system on (the stations off: no station, log or tour); both bases as their records say (footprint, approach, art box)",
-    cp.loaded && !cp.errs.length && cv.content.records === 10 && cv.content.solidTiles === 288 && cv.sys.buildings === true && cv.sys.stations === false && cv.systems.stations === 0 && cv.landmarks.length === 2 &&
+  check(name, "content preview: loads with the 21 records (288 solid tiles), the buildings system on and (since B3d4b) the stations; both bases as their records say (footprint, approach, art box)",
+    cp.loaded && !cp.errs.length && cv.content.records === 21 && cv.content.solidTiles === 288 && cv.sys.buildings === true && cv.sys.stations === true && cv.systems.stations === 13 && cv.landmarks.length === 2 &&
       IDS.every((id) => { const v = cv.landmarks.find((q) => q.id === id), A = LM[id]; return v && v.reserve === A.reserve && v.box.join() === [A.box.x0, A.box.y0, A.box.x1, A.box.y1].join() && v.approach.join() === A.approach.join() && v.art.join() === [A.art.px0, A.art.py0, A.art.px1, A.art.py1].join(); }),
     cv ? JSON.stringify(cv.landmarks) : cp.errs.join("; "));
   check(name, "content preview: everything B3c to B3d3 built exactly as before (three buildings; the compound wall 53 tiles, sandbags; the koi garden wall 53, garden; both paddock fences closing their insides; the park gate)",
@@ -322,7 +323,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     const trap = await trapScan(cp), trapT = tp.loaded ? await trapScan(tp) : null;
     check(name, `trapped ground: from all ${trap.n} walkable tiles within 4 of each base, pi's planner finds a path (to the trail by the tower, the road by the lighthouse) from every one it finds it from on the terrain preview, before the bases (the same tiles without one, and no more)`,
       trap.n > 100 && trapT && key(trap.cut.map((q) => [q])) === key(trapT.cut.map((q) => [q])), `content: ${trap.cut.length} without a path${trap.cut.length ? " (" + trap.cut.slice(0, 8).join(" ") + ")" : ""}; terrain preview: ${trapT ? trapT.cut.length : "-"}`);
-    // the stations stay off: at each approach, no [E] and no card; nothing found, nothing stored
+    // the stations (B3d4b): at each approach [E] offers the landmark's station and opens its card, never a room; nothing stored
     const st = [];
     for (const id of IDS) {
       const [ax, ay] = LM[id].approach;
@@ -333,9 +334,11 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const c0 = await cards();
       await cp.page.keyboard.press("e"); await cp.I(() => window.__island.step(30));
       const c1 = await cards(), s = await cp.I(() => window.__island.getState().room);
-      st.push({ id, nb, same: JSON.stringify(c0) === JSON.stringify(c1), station: c1.some((x) => /watchtower|lighthouse|monitoring|Cyber Ready/i.test(x)), room: s, cards: c1.map((x) => x.slice(0, 30)) });
+      const dl = await cp.page.evaluate(() => { const d = document.querySelector(".w-dialog"); return { open: !d.hidden, name: d.querySelector(".w-name").textContent }; });
+      st.push({ id, nb, same: JSON.stringify(c0) === JSON.stringify(c1), dialog: dl, room: s });
+      await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(4));
     }
-    check(name, "the stations stay off in the content preview: standing at each base's approach there is nothing to use ([E] offers nothing), and [E] opens no card or room (the cards on the page are the same before and after it, none of them a station's)", st.every((q) => q.nb === null && q.same && !q.station && !q.room), JSON.stringify(st));
+    check(name, "the stations (since B3d4b): standing at each base's approach [E] offers the landmark's station and opens its card (the watchtower's, the lighthouse's), never a room; the page's other cards unchanged", st.every((q) => q.nb === LM[q.id].f1.station && q.same && q.dialog.open && q.dialog.name === (q.id === "tower-base" ? "the watchtower · projects" : "the lighthouse · experience") && !q.room), JSON.stringify(st));
     // the helicopter
     const hh = await cp.I(([lms]) => {
       const I2 = window.__island; let pts = 0, ok = 0; const isS = new Set();
@@ -348,8 +351,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       hh.ok === 0 && hh.pts === 13 * 16 && hh.runs.every((r) => r.ok0 && r.state === "parked" && r.over === 0 && r.piSafe && !r.piOn), `${hh.ok} of ${hh.pts} allow a landing; ` + hh.runs.map((r) => `from ${r.from}${r.ok0 ? "" : " (E REFUSED THERE)"}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.over ? " OVER A BASE" : ""}`).join("; "));
     // completeness and storage
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: with both landmark bases there (each with its art) the landmark bases item is gone; a normal format-2 home made of this content would still be refused (8 items: the stations, and the sections not in the format yet)",
-      comp && !comp.complete && comp.missing.length === 8 && !comp.missing.some((q) => /^(landmark bases|compound walls|the park gate|paddock fences|buildings)/.test(q)) && comp.missing.some((q) => /^stations/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
+    check(name, "completeness: with both landmark bases there (each with its art) the landmark bases item is gone; a normal format-2 home made of this content would still be refused (7 items since B3d4b's stations: the sections not in the format yet)",
+      comp && !comp.complete && comp.missing.length === 7 && !comp.missing.some((q) => /^(landmark bases|compound walls|the park gate|paddock fences|buildings)/.test(q)) && !comp.missing.some((q) => /^stations/.test(q)) && comp.missing.some((q) => /^spawns and roam areas/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the pushes, walks, [E] at both approaches, landings and a reload)", (await storeOf(cp)) === JSON.stringify(Object.keys(store).sort().map((k) => [k, store[k]])));
     const refusedHere = async (o) => cp.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
@@ -452,6 +455,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       await settle(P, tilePx(from)); const s0 = await P.I(() => window.__island.getState().pi.stalls);
       const sc = await screenOf(P, to[0] * 16 + 8, to[1] * 16 + 8); await P.page.touchscreen.tap(sc.sx, sc.sy); const r = await follow();
       taps.push({ lab, to, exact, sc, r, stalls: r.stalls - s0, onScreen: sc.sx > 0 && sc.sx < vw && sc.sy > 0 && sc.sy < vh });
+      // since B3d4b a tap on a base is a tap on its station: pi walks to it and its card opens (format 1's tap); closed before the next tap
+      if (await P.page.evaluate(() => !document.querySelector(".w-dialog").hidden)) { await P.page.keyboard.press("Escape"); await P.I(() => window.__island.step(4)); }
     }
     check(name, `phone ${vw} x ${vh}: taps walk pi to each approach with no stall; a tap on a base stops pi beside it; never on a base (a tile is ${taps[0].sc.tile.toFixed(0)} CSS px on screen)`,
       taps.every((q) => q.onScreen && !onBase(q.r.seen).length && q.stalls === 0 && (q.exact ? q.r.at.join() === q.to.join() : Math.abs(q.r.at[0] - q.to[0]) + Math.abs(q.r.at[1] - q.to[1]) <= 3)) && !P.errs.length,

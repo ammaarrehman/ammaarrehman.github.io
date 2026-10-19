@@ -9,8 +9,8 @@
    B3c2 adds, for the bunker: its footprint, door and compound against the B1e source (the door is the log site); the
    future compound (planning only: its wall ring with the west gates, and B3a's proposed outpost kit, made solid in
    memory) leaving the door reachable from every gate and from the spawn, with no pocket inside; the whole room swept
-   item by item against format 1 (each item's prompt, dialog, words and links), the rack's and desk's logs not counted in
-   the preview (the landmarks, and with them the logs, aren't migrated) while format 1 still counts them; five enter and
+   item by item against format 1 (each item's prompt, dialog, words and links), the rack's and desk's logs counted in the
+   preview as in format 1 (since B3d4b, which migrated the stations; until then they weren't); five enter and
    leave cycles; walks from each gate to the door inside the compound; one walk through all three buildings; phones at
    390 x 844 and 375 x 667; two more code mutations; and its review screenshots (exit, all four edges, the compound).
 
@@ -130,7 +130,7 @@ const built = await buildContentText(REAL, contentSha256), again = await buildCo
 check("node", "the tracked content file is the current compile, bound to the staged terrain; two compiles give the same bytes", readFileSync(CONTENT_STAGED, "utf8") === built.text && built.text === again.text && built.text.includes(`"terrainSha256": "${t.sourceSha256}"`) && t.current,
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records;
-check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence, B3d3's koi garden wall and park gate and B3d4a's tower and lighthouse bases (tools/mapb-fences.mjs, tools/mapb-paddock.mjs, tools/mapb-koi-gate.mjs and tools/mapb-landmarks.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock", "koi-garden", "park-gate", "tower-base", "lighthouse-base").join() && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence" && RECS[6].kind === "wall" && RECS[7].kind === "gate" && RECS[8].kind === "landmark" && RECS[9].kind === "landmark", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content holds exactly the three buildings (B3c1's two and B3c2's bunker), B3c3's compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence, B3d3's koi garden wall and park gate, B3d4a's tower and lighthouse bases and B3d4b's eleven stations (tools/mapb-fences.mjs, tools/mapb-paddock.mjs, tools/mapb-koi-gate.mjs, tools/mapb-landmarks.mjs and tools/mapb-stations.mjs test them; nothing else migrated)", RECS.map((r) => r.id).join() === IDS.concat(WALL_ID, "raptor-yard", "holding-paddock", "koi-garden", "park-gate", "tower-base", "lighthouse-base", "sign", "uplink", "tower", "lighthouse", "macbook", "tablet", "mailbox", "drink", "shrine", "cave", "boat").join() && RECS.slice(10).every((r) => r.kind === "station") && RECS.slice(0, 3).every((r) => r.kind === "building") && RECS[3].kind === "wall" && RECS[4].kind === "fence" && RECS[5].kind === "fence" && RECS[6].kind === "wall" && RECS[7].kind === "gate" && RECS[8].kind === "landmark" && RECS[9].kind === "landmark", RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
 check("node", "the content passes every rule", contentProblems(RECS, src, m).length === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const LAYER = contentLayers(RECS, W, H);
 for (const id of IDS) {
@@ -245,7 +245,7 @@ const BAD = [
   ["an art kind the game doesn't draw", "schema", (o) => { RR(o, "visitor").art = "sprite"; }],
   ["art on something that has none the game draws (a prop)", "schema", (o) => { const r = RR(o, "depot"); r.kind = "prop"; delete r.room; }],
   ["the depot as a landmark (B3d4a: a landmark has art, but stands on a landmark footprint and has no door)", "landmarks", (o) => { const r = RR(o, "depot"); r.kind = "landmark"; delete r.room; }],
-  ["a room on something that isn't a building", "schema", (o) => { const r = RR(o, "depot"); r.kind = "station"; delete r.art; }],
+  ["a room on something that isn't a building", "schema", (o) => { const r = RR(o, "depot"); r.kind = "prop"; delete r.art; }],   // a prop since B3d4b (a station's own checks come first)
   ["a room the game doesn't have", "schema", (o) => { RR(o, "visitor").room = "lobby"; }],
   ["two doors", "buildings", (o) => { RR(o, "visitor").doorTiles.push([85, 74]); }],
   ["no door", "buildings", (o) => { RR(o, "visitor").doorTiles = []; }],
@@ -316,7 +316,7 @@ const REFUSE = [
   // on a kind with none yet is checked on a prop)
   ["art on something that isn't a building, a wall, a fence, a gate or a landmark", (c) => { const r = DR(c, "depot"); r.kind = "prop"; delete r.room; }, /^content record depot\.art "placeholder": only a building, a wall, a fence, a gate or a landmark has art/],
   ["the depot turned into a landmark (B3d4a: a landmark base has no door)", (c) => { const r = DR(c, "depot"); r.kind = "landmark"; delete r.room; }, /^content record depot is a landmark base: it blocks whole tiles, and it has no foot box, door/],
-  ["a room on something that isn't a building", (c) => { const r = DR(c, "depot"); r.kind = "station"; delete r.art; }, /^content record depot\.room "depot": only a building has a room$/],
+  ["a room on something that isn't a building", (c) => { const r = DR(c, "depot"); r.kind = "prop"; delete r.art; }, /^content record depot\.room "depot": only a building has a room$/],   // a prop since B3d4b (a station's own checks come first)
   ["a room the game doesn't have", (c) => { DR(c, "visitor").room = "lobby"; }, /^content record visitor\.room "lobby" isn't one of the game's rooms/],
   ["two doors", (c) => { DR(c, "visitor").doorTiles.push([85, 74]); }, /^content record visitor opens into a room, so it has exactly one door, not 2$/],
   ["a side door", (c) => { DR(c, "visitor").doorTiles = [[89, 71]]; }, /^content record visitor: its door 89,71 must be right in front of its footprint/],
@@ -346,8 +346,9 @@ const MUT = {
   buildingsOff: ["the content preview's buildings switched off", (s) => s.replace("buildings: all || CONTENT_PREVIEW,", "buildings: all,")],
   botsLeak: ["the bots switched on in the content preview (their stops, routes and pad aren't authored)", (s) => s.replace("bots: all,", "bots: all || CONTENT_PREVIEW,")],
   noShape: ["the decoder's building checks removed", (s) => s.replace("if (r.kind === \"building\") building(r, f, drawn);", "")],
-  roomStations: ["the bunker room's rack and desk looked up among the landmarks again (STATIONS, empty in the preview)", (s) => s.replace('var v = it.kind === "station" ? ROOM_STATIONS.filter', 'var v = it.kind === "station" ? STATIONS.filter')],
-  logLeak: ["a log counted in the content preview (the landmarks, and the logs with them, aren't migrated)", (s) => s.replace("logWait = SYS.stations && s.found && !found[s.id]", "logWait = s.found && !found[s.id]")],
+  // (since B3d4b the content preview runs the stations, so STATIONS is empty only where they're off: the mutation turns them off too)
+  roomStations: ["the bunker room's rack and desk looked up among the landmarks again (STATIONS, empty where the stations are off)", (s) => s.replace('var v = it.kind === "station" ? ROOM_STATIONS.filter', 'var v = it.kind === "station" ? STATIONS.filter').replace("stations: all || stations,", "stations: all,")],
+  logLost: ["the rack's and the desk's logs held back in the content preview (as before B3d4b)", (s) => s.replace("logWait = SYS.stations && s.found && !found[s.id]", "logWait = LEGACY && s.found && !found[s.id]")],
   // B3c3
   wallsUndrawn: ["the walls left out of the scene (their collision with no art)", (s) => s.replace("if (WALLAT && fx >= 0", "if (false && WALLAT && fx >= 0")],
   wallArtShort: ["a wall piece's art one row short of its tile", (s) => s.replace("var P = WALL_STYLE[pc.wall.id] || WALL_STYLE.other, c = mkCanvas(); c.width = T; c.height = T;", "var P = WALL_STYLE[pc.wall.id] || WALL_STYLE.other, c = mkCanvas(); c.width = T; c.height = T - 1;")],
@@ -469,11 +470,11 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
-  check(name, "content preview: content mode, a staged preview (not terrain-only), only the buildings system on, its badge, save locked",
-    cp.loaded && !cp.errs.length && cv.previewMode === "content" && cv.stagedPreview && !cv.terrainOnly && cv.sys.buildings === true && SYS_KEYS.filter((k) => k !== "buildings").every((k) => cv.sys[k] === false) && cv.badge && cv.saveLocked,
+  check(name, "content preview: content mode, a staged preview (not terrain-only), the buildings system on and (since B3d4b) the stations, nothing else; its badge, save locked",
+    cp.loaded && !cp.errs.length && cv.previewMode === "content" && cv.stagedPreview && !cv.terrainOnly && cv.sys.buildings === true && cv.sys.stations === true && SYS_KEYS.filter((k) => k !== "buildings" && k !== "stations").every((k) => cv.sys[k] === false) && cv.badge && cv.saveLocked,
     cv ? JSON.stringify(cv.sys) : cp.errs.join("; "));
-  check(name, "content preview: no other system runs (no critters, bots, drones, birds, koi, stations, car, rex, gate, volcano or arena)",
-    cv && Object.entries(cv.systems).every(([k, v]) => (k === "buildings" ? v === IDS.length : v === 0 || v === false)), cv ? JSON.stringify(cv.systems) : "");
+  check(name, "content preview: no other system runs (no critters, bots, drones, birds, koi, car, rex, gate, volcano or arena; the stations, B3d4b's, are 13: the eleven outdoor ones and the room's rack and desk)",
+    cv && Object.entries(cv.systems).every(([k, v]) => (k === "buildings" ? v === IDS.length : k === "stations" ? v === 13 : v === 0 || v === false)), cv ? JSON.stringify(cv.systems) : "");
   check(name, "content preview: its three buildings, each where its record puts it (footprint, door, room, placeholder art over the footprint)",
     cv && cv.buildings.map((b) => b.id).join() === IDS.join() && cv.buildings.every((b) => { const A = APPROVED[b.id]; return b.x0 === A.box.x0 && b.y0 === A.box.y0 && b.w === A.box.x1 - A.box.x0 + 1 && b.h === A.box.y1 - A.box.y0 + 1 && b.door.join() === A.door.join() && b.doorway.join() === doorway(b.id).join() && b.room === A.room && b.art === "placeholder" && b.name === A.name && JSON.stringify(b.box) === JSON.stringify(pxOf(A.box)); }),
     cv ? cv.buildings.map((b) => `${b.id} ${b.x0},${b.y0} ${b.w}x${b.h} door ${b.door} room ${b.room}`).join("; ") : "");
@@ -548,7 +549,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         const sw = await sweep(cp);
         const same = SWEEP1 && sweepOk(sw, SWEEP1.items.length) && sw.items.every((it, i) => { const f = SWEEP1.items[i]; return it.kind === f.kind && it.id === f.id && it.nb === f.nb && it.name === f.name && it.sha === f.sha && it.len === f.len && JSON.stringify(it.links) === JSON.stringify(f.links); });
         check(name, "bunker: inside, every item (the rack, the desk, the monitors, shelf, cot, map table, UPS bank and radio) answers [E] exactly as in format 1: the same prompt, dialog title, words and links", same, sweepLine(sw));
-        check(name, "bunker: reading the rack and the desk counts no log in the preview (the landmarks, and the logs with them, aren't migrated; format 1 counted both above)", sw.found.length === 0, `logs ${JSON.stringify(sw.found)}`);
+        check(name, "bunker: reading the rack and the desk counts both logs in the preview, in memory (since B3d4b, as format 1 counted them above)", JSON.stringify(sw.found) === JSON.stringify(["rack", "desk"]), `logs ${JSON.stringify(sw.found)}`);
       } else {
         const item = id === "visitor" ? { at: [168, 74], kind: "counter" } : { at: [144, 90], kind: "charger" };
         const it = await cp.I(async (q) => { const I2 = window.__island; I2.teleport(q.at[0], q.at[1]); I2.step(2); const nb = I2.preview().nearby; return nb; }, item);
@@ -892,9 +893,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.roomStations[1](WORLD) }); let err = null, rm = null;
       if (P.loaded) try { const e = await enter(P, doorway("bunker")); rm = e.room && e.room.id; await P.I(() => { const I2 = window.__island; I2.teleport(40, 72); I2.step(2); }); } catch (x) { err = x.message.split("\n")[0]; }
       caught(MUT.roomStations[0], !!err || P.errs.length > 0, (err || P.errs[0] || `room ${rm}, no error`).slice(0, 160)); await P.ctx.close(); }
-    { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.logLeak[1](WORLD) }); let f = null;
+    { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.logLost[1](WORLD) }); let f = null;
       if (P.loaded) try { const e = await enter(P, doorway("bunker")); if (e.room) f = (await sweep(P)).found; } catch (x) { f = "error: " + x.message.split("\n")[0]; }
-      caught(MUT.logLeak[0], Array.isArray(f) && f.length > 0, `logs ${JSON.stringify(f)}`.slice(0, 160)); await P.ctx.close(); }
+      caught(MUT.logLost[0], !Array.isArray(f) || f.length === 0, `logs ${JSON.stringify(f)}`.slice(0, 160)); await P.ctx.close(); }
     { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.wallsUndrawn[1](WORLD) }); const a = P.loaded ? await P.I(() => { const I2 = window.__island; I2.teleport(116 * 16 + 8, 85 * 16 + 10); for (let i = 0; i < 10; i++) I2.step(1); return I2.wallArt("bunker-compound").pieces.filter((q) => q.at).length; }) : null;
       caught(MUT.wallsUndrawn[0], a === 0, `${a} wall pieces drawn`); await P.ctx.close(); }
     { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.wallArtShort[1](WORLD) }); const a = P.loaded ? await P.I(() => window.__island.wallArt("bunker-compound").pieces.filter((q) => q.h !== 16 || q.opaque !== 256).length) : null;

@@ -355,6 +355,9 @@
   /* the rooms a content building may open into (the game's ROOMS, B3c1), the art kinds the game draws: only "placeholder"
      so far (the art stage adds real sprites), and what it draws them on: a building (B3c1) and a wall (B3c3) */
   var ROOM_IDS = ["visitor", "bunker", "depot"], ART_KINDS = ["placeholder"], ART_ON = ["building", "wall", "fence", "gate", "landmark"];
+  /* the content layer's stations (B3d4b): format 1's eleven outdoor stations (STATION_WORDS' ids that stand outdoors, the
+     compiler's STATION_IDS), what a station may be tied to, and [E]'s reach (nearCandidates: 26 px from pi's feet) */
+  var STATION_IDS = ["sign", "uplink", "tower", "lighthouse", "macbook", "tablet", "mailbox", "drink", "shrine", "cave", "boat"], PLACE_KINDS = ["landmark", "marker", "logSite", "plaza", "berth"], STATION_REACH = 26;
   function previewMode() { var f = window.ISLAND_MAP_PREVIEW; return typeof f === "string" && Object.prototype.hasOwnProperty.call(PREVIEW_FLAGS, f) ? PREVIEW_FLAGS[f] : null; }
   function previewAsked() { return previewMode() !== null; }
   function decodeMap(M) {
@@ -546,8 +549,10 @@
         if (!isObj(r) || typeof r.id !== "string" || !ID.test(r.id)) bad("content.records[" + k + "] needs an id (a short lowercase name)");
         var f = "content record " + r.id;
         if (seen[r.id]) bad(f + " appears twice"); seen[r.id] = 1;
-        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker"]);
+        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place"]);
         if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
+        if (r.kind === "station") { stationShape(r, f); return { r: r, inDrawn: function () { return false; } }; }
+        ["anchor", "approach", "place"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only a station has an anchor, an approach and a place"); });
         // a building (B3c1) draws itself (art: the only kind so far is "placeholder"; the art stage adds real sprites) and may
         // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in, a fence (B3d1)
         // and a gate (B3d3), which names the marker it stands on, and a landmark base (B3d4a). nothing else has a room, a
@@ -658,6 +663,21 @@
         var b = drawn[0];
         if (drawn.length !== 1 || b.px0 !== x0 * T || b.px1 !== x1 * T + T - 1 || b.py1 !== y1 * T + T - 1 || b.py0 > y0 * T) bad(f + ": its placeholder art is one box as wide as its footprint, standing on its front edge (px " + x0 * T + " to " + (x1 * T + T - 1) + ", bottom " + (y1 * T + T - 1) + ")");
       }
+      /* a station's shape (B3d4b): one of the game's outdoor stations, an interaction point and nothing else: no tile, foot
+         box, door or drawn box (it blocks nothing and draws nothing of its own), no opening, reserve, enclosure, room, art,
+         compound or marker; an anchor (the tile it stands on) and an approach (the tile it is used from: south of the
+         anchor, or north of it for a station at a berth, the boat), and the one place it is tied to. where the anchor and
+         the approach may be is checked once every solid is known */
+      function stationShape(r, f) {
+        if (STATION_IDS.indexOf(r.id) < 0) bad(f + " is a station, and " + r.id + " isn't one of the game's outdoor stations (" + STATION_IDS.join(", ") + ")");
+        ["drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles"].forEach(function (k2) { if (arr(r[k2], f + "." + k2).length) bad(f + " is a station: it blocks nothing and draws nothing of its own (" + k2 + " must be empty)"); });
+        ["gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": a station has no " + k2); });
+        tileAt(r.anchor, f + ".anchor"); tileAt(r.approach, f + ".approach");
+        var pk = isObj(r.place) ? Object.keys(r.place) : [];
+        if (pk.length !== 1 || PLACE_KINDS.indexOf(pk[0]) < 0 || typeof r.place[pk[0]] !== "string" || !ID.test(r.place[pk[0]])) bad(f + ".place must name one place it is tied to, { <kind>: <id> } with kind one of " + PLACE_KINDS.join(", "));
+        var dy = pk[0] === "berth" ? -1 : 1;
+        if (r.approach[0] !== r.anchor[0] || r.approach[1] !== r.anchor[1] + dy) bad(f + ": its approach is the tile " + (dy > 0 ? "south" : "north") + " of its anchor (" + r.anchor[0] + "," + (r.anchor[1] + dy) + "), not " + r.approach);
+      }
       /* a building's shape (B3c1): its solid is one full rectangle of tiles (its footprint); its placeholder art is one box
          as wide as the footprint, standing on its front edge (it may rise above it, never below or beside it); one with a
          room has exactly one door, the tile right in front of the footprint (the front is south), and pi's feet fit in its
@@ -714,6 +734,35 @@
         var ax = Math.floor(x0 + (x1 - x0 + 1) / 2), ay = y1 + 1;
         if (!walk(ax, ay) || cc[ay * w + ax]) bad("content record " + r.id + ": its approach " + ax + "," + ay + " (the middle of its front) isn't open ground");
       });
+      /* the stations (B3d4b), once every solid is known: a landmark's stands on its base (the middle of its front row) and is
+         used from the base's approach, one station a base; the boat's lies at sea; any other stands on open land (not a
+         bridge, a dock or the pad). no two share an anchor. each approach is open ground with pi's feet clear of every
+         foot-blocking pixel, within [E]'s reach of the station, and reached on foot from the spawn */
+      var sts = recs.filter(function (o) { return o.r.kind === "station"; }), anchors = {}, onBase = {}, reach = null;
+      if (sts.length) {
+        reach = new Uint8Array(w * h); var sq = [A.spawnTile[1] * w + A.spawnTile[0]]; reach[sq[0]] = 1;
+        for (var qh = 0; qh < sq.length; qh++) { var qi = sq[qh], qx = qi % w, qy = (qi - qx) / w; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var nx = qx + d[0], ny = qy + d[1], j = ny * w + nx; if (nx >= 0 && ny >= 0 && nx < w && ny < h && !reach[j] && walk(nx, ny) && !cc[j]) { reach[j] = 1; sq.push(j); } }); }
+      }
+      sts.forEach(function (o) {
+        var r = o.r, f = "content record " + r.id, pk = Object.keys(r.place)[0], ax = r.anchor[0], ay = r.anchor[1], px = r.approach[0], py = r.approach[1], ai = ay * w + ax;
+        if (anchors[ai]) bad(f + ": its anchor " + r.anchor + " is " + anchors[ai] + "'s too: no two stations share an anchor"); anchors[ai] = r.id;
+        if (pk === "landmark") {
+          var lm = recs.filter(function (q) { return q.r.id === r.place.landmark && q.r.kind === "landmark"; })[0];
+          if (!lm) bad(f + " stands on the landmark base " + r.place.landmark + ", and there is no such landmark");
+          var x0 = 1e9, x1 = -1, y1 = -1; lm.r.tiles.forEach(function (p) { x0 = Math.min(x0, p[0]); x1 = Math.max(x1, p[0]); y1 = Math.max(y1, p[1]); });
+          var mx = Math.floor(x0 + (x1 - x0 + 1) / 2);
+          if (ax !== mx || ay !== y1) bad(f + ": on the landmark base " + lm.r.id + " it stands in the middle of the base's front row, " + mx + "," + y1 + ", not " + r.anchor);
+          if (onBase[lm.r.id]) bad(f + ": the landmark base " + lm.r.id + " already carries " + onBase[lm.r.id] + " (one station a base)"); onBase[lm.r.id] = r.id;
+        } else if (pk === "berth") {
+          if (walk(ax, ay) || (g(ax, ay) !== DEEP && g(ax, ay) !== SHAL)) bad(f + ": a berth's station lies at sea, and its anchor " + r.anchor + " isn't sea");
+        } else if (!walk(ax, ay) || cc[ai] || g(ax, ay) === BRIDGE || g(ax, ay) === DOCK || g(ax, ay) === PAD) bad(f + ": its anchor " + r.anchor + " isn't open land (" + (!walk(ax, ay) ? "terrain" : cc[ai] ? "solid content" : "a bridge, a dock or the helipad") + ")");
+        var fx = px * T + 8, fy = py * T + 10, wet = 0;
+        for (var yy = fy - 2; yy <= fy + 1; yy++) for (var xx = fx - 4; xx <= fx + 4; xx++) if (bit(D.foot, xx, yy) || bit(cf, xx, yy)) wet++;
+        if (!walk(px, py) || cc[py * w + px] || wet) bad(f + ": its approach " + r.approach + " isn't open ground (" + (!walk(px, py) ? "terrain" : cc[py * w + px] ? "solid content" : wet + " foot-blocking pixels under pi's feet") + ")");
+        if (!reach[py * w + px]) bad(f + ": its approach " + r.approach + " can't be reached on foot from the spawn");
+        var dd = Math.hypot(ax * T + 8 - fx, ay * T + 12 - fy);
+        if (dd >= STATION_REACH) bad(f + ": from its approach pi's feet are " + dd.toFixed(1) + " px from the station, out of [E]'s reach (" + STATION_REACH + ")");
+      });
       // the spawn stays clear: its tile, and pi's feet standing there
       var sp0 = A.spawnTile, spx = footOfTile(sp0);
       if (cc[sp0[1] * w + sp0[0]]) bad("content: the spawn tile " + sp0 + " is solid content");
@@ -741,15 +790,19 @@
      anywhere else). STAGED_PREVIEW is either preview: no storage read or written (the save, the settings, nothing else
      either; see the save), the badge, and no completeness wall (a preview may load a partial island; that is what
      staging is for). SYS says which home systems run; each system's code checks its own entry, never the mode. A later
-     B3 batch turns a system on for the content preview by authoring its content and setting its entry here */
+     B3 batch turns a system on for the content preview by authoring its content and setting its entry here. B3d4b turns
+     the stations on there when the content carries all eleven station records (each checked by the decoder) and the
+     bunker with its room (where the rack and the desk, two of the eight logs, stand) */
   var PREVIEW_MODE = MAP.format === 2 && MAP.staged === true && LOOPBACK ? previewMode() : null;   // "terrain", "content" or null
   var STAGED_PREVIEW = PREVIEW_MODE !== null;
   var CONTENT_PREVIEW = PREVIEW_MODE === "content";
   var SYS = (function () {
-    var all = !STAGED_PREVIEW;
+    var all = !STAGED_PREVIEW, recs = MAP.contentRecords || [];
+    var stations = CONTENT_PREVIEW && STATION_IDS.every(function (id) { return recs.some(function (r) { return r.kind === "station" && r.id === id; }); }) &&
+      recs.some(function (r) { return r.kind === "building" && r.room === "bunker"; });
     return {
       buildings: all || CONTENT_PREVIEW,      // the buildings and their rooms (B3c1: the content preview draws its building records)
-      stations: all,                          // the landmarks (and with them the logs, the tour, deep links, the map's buttons, the shrine)
+      stations: all || stations,              // the landmarks (and with them the logs, the tour, deep links, the map's buttons, the shrine; B3d4b: the content preview's station records)
       creatures: all,                         // the dinosaurs, cats and robots that roam, the t-rex's roar, the pterosaurs
       rex: all,                               // rex, in his meadow
       birds: all,                             // the cockatiels (they perch on landmarks)
@@ -1020,8 +1073,9 @@
   });
   /* MAP-B's landmark bases (B3d4a): each landmark record of the content layer, the body of the tower or the lighthouse on its
      B1e footprint (the decoder has checked its shape: the footprint one full rectangle, one drawn box as wide, standing on
-     its front edge). Structure only: the landmark's station (its log, the tour, the links, the map pins, the tower's live
-     trace and the lighthouse's turning beam) is format 1's and isn't migrated (SYS.stations is off in the content preview) */
+     its front edge). Structure only: the landmark's station (its log, the tour, the links, the map pins) is a station record
+     tied to it (B3d4b), which this art stands for; the tower's live trace and the lighthouse's turning beam (format 1's
+     station details) aren't migrated */
   var LANDMARKS = [];
   (MAP.contentRecords || []).forEach(function (r) {
     if (r.kind !== "landmark" || r.art !== "placeholder") return;
@@ -1073,8 +1127,17 @@
     { id: "cave", name: "a cave in the cliff", text: "there's a terminal in here, still humming. someone left it logged in." },
     { id: "boat", name: "the boat", text: "the boat back to the mainland. sail back to the site?", links: [["sail back ↩", "#exit"]] }
   ];
+  /* MAP-B (B3d4b): an outdoor station's place is its content record: its anchor (x, y, the tile it stands on), its approach
+     (stand, the tile pi uses it from, which goto and a tap walk to) and, for the tower and the lighthouse, the landmark base
+     it stands on (lm: that base draws it, and a tap anywhere on the base's art walks to the approach). It adds no collision.
+     Format 1's come from its map, with no stand (the tile south) and no base, exactly as before */
   var STATIONS = !SYS.stations ? [] : STATION_WORDS.map(function (s) {             // an outdoor landmark's place is map data; the words are here
     if (s.room) return s;
+    if (!LEGACY) {
+      var sr = MAP.contentRecords.filter(function (r) { return r.kind === "station" && r.id === s.id; })[0];
+      var slm = sr.place.landmark ? LANDMARKS.filter(function (l) { return l.id === sr.place.landmark; })[0] : null;
+      return Object.assign({ id: s.id, x: sr.anchor[0], y: sr.anchor[1], stand: sr.approach.slice(), lm: slm || null }, s);
+    }
     var p = MAP.stations[s.id];
     if (!p) throw new Error("pi's island: js/maps/home.js has no place for " + s.id);
     return Object.assign({ id: s.id, x: p[0], y: p[1] }, s);
@@ -2494,7 +2557,10 @@
     if (heli.state === "flying") { if (Math.hypot(wx - heli.x, wy - heli.y + heli.z) < 16) toggleHeli(); else heli.target = { x: wx, y: wy }; return; }
     if (aboard()) return;
     // tapped a landmark (its sprite reaches up a couple of tiles)? walk up to it
-    var hit = OUT.filter(function (s) { return Math.abs(tx - s.x) <= (s.wide ? 1 : 0) && ty <= s.y && ty >= s.y - 2; })[0];
+    var hit = OUT.filter(function (s) {
+      if (s.lm) return tx >= Math.floor(s.lm.box.px0 / T) && tx <= Math.floor(s.lm.box.px1 / T) && ty >= Math.floor(s.lm.box.py0 / T) && ty <= s.lm.y1;   // a station on a landmark base (B3d4b): the base's art
+      return Math.abs(tx - s.x) <= (s.wide ? 1 : 0) && ty <= s.y && ty >= s.y - 2;
+    })[0];
     if (!hit && rex && Math.hypot(wx - rex.x, wy - rex.y + 6) < 12) hit = { id: "rex" };
     if (!hit && car && Math.hypot(wx - car.x, wy - car.y) < 12) hit = { id: "car", gx: Math.floor(car.x / T), gy: Math.floor(car.y / T) };
     if (!hit && Math.hypot(wx - heli.x, wy - heli.y) < 18) hit = { id: "heli", gx: HELI.x, gy: HELI.y + 2 };
@@ -2502,7 +2568,7 @@
     if (!hit && rift && rift.phase === "reign" && Math.hypot(wx - ARENA.x, wy - (ARENA.y - 34)) < 22) hit = { id: "core", x: MAP.anchors.coreApproach[0], y: MAP.anchors.coreApproach[1] };
     if (e.pointerType === "touch" && !joy && !(car && car.driving) && !aboard()) joy = { id: e.pointerId, x0: e.clientX, y0: e.clientY, x: e.clientX, y: e.clientY, dx: 0, dy: 0, on: false };
     if (hit) {
-      var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [hit.x, hit.y] : hit.gx !== undefined ? [hit.gx, hit.gy] : [hit.x, hit.y + 1];
+      var goal = hit.id === "rex" ? [Math.floor(rex.x / T), Math.floor(rex.y / T)] : hit.id === "core" ? [hit.x, hit.y] : hit.gx !== undefined ? [hit.gx, hit.gy] : hit.stand ? hit.stand.slice() : [hit.x, hit.y + 1];
       pi.path = piPath(goal, true); pi.want = hit;
     } else {
       pi.path = piPath([tx, ty], false); pi.want = null;
@@ -2607,7 +2673,7 @@
     if (s.id === "roomitem") { say(s.name, s.text, []); return; }
     if (s.id === "bot") { var bl = BOTSAY[s.ref.kind]; sfx("chatter", s.ref.x, s.ref.y); say("a bot", bl[(rand() * bl.length) | 0], []); return; }
     if (s.id === "drink") { pi.boost = 10; foundSecret("zoom"); }
-    logWait = SYS.stations && s.found && !found[s.id] ? { s: s, t: 0 } : null;   // a log counts only where the landmarks run (B3c2: not the content preview)
+    logWait = SYS.stations && s.found && !found[s.id] ? { s: s, t: 0 } : null;   // a log counts only where the landmarks run (B3d4b: the content preview too, in memory only)
     var host = window.SITE && window.SITE.CODE_HOST;                          // a repo link only once that repo is public on the host
     say(s.sec ? s.name + " · " + s.sec : s.name, s.text, (s.links || []).map(function (l) {
       return l[1].indexOf("github.com/") < 0 ? l : host && window.SITE.hostUrl(l[1]) ? [l[0].replace(/github/i, host.name), window.SITE.hostUrl(l[1])] : null;
@@ -2661,8 +2727,8 @@
     paintFound(true); sfx("found"); pi.hop = 1;
     announce("found " + n + " of " + TOTAL + ": " + s.name + ", " + s.sec + ".");
     if (n === 4 && !pi.kaiju) bubble = { text: "pi:~$ four logs. something in the cave terminal just woke up.", t: 4 };
-    if (n === TOTAL && !save.seal) { sealNext = true; if (!rift) pendingRift = true; }
-    else if (n === TOTAL && !rift) pendingRift = true;
+    if (n === TOTAL && !save.seal) { sealNext = true; if (!rift && SYS.rift) pendingRift = true; }
+    else if (n === TOTAL && !rift && SYS.rift) pendingRift = true;                  // the orbs ask only where the rift runs (B3d4b: not the content preview)
   }
   dlg.addEventListener("scroll", function () { if (logWait && dlg.scrollHeight > dlg.clientHeight + 4 && dlg.scrollTop + dlg.clientHeight >= dlg.scrollHeight - 2) { var s0 = logWait.s; logWait = null; markFound(s0); } });
   function say(name, text, links) {
@@ -3868,14 +3934,14 @@
     if (p === 1 || typeof p === "string") {
       var s = STATIONS.filter(function (q) { return q.id === (p === 1 ? name : p); })[0];
       if (s.room) { if (!room || room.id !== s.room) { if (room) exitRoom(); enterRoom(s.room, [s.x, s.y + 1]); } else { pi.x = s.x * T + 8; pi.y = (s.y + 1) * T + 10; } return true; }
-      tx = s.x; ty = s.y + 1;
+      tx = s.stand ? s.stand[0] : s.x; ty = s.stand ? s.stand[1] : s.y + 1;          // MAP-B's approach (B3d4b), or format 1's tile south
     }
     if (room) exitRoom();
     if (tx === undefined) { tx = p[0]; ty = p[1]; }
     var spot = null;
     for (var r2 = 0; !spot && r2 < 4; r2++) for (var j = -r2; j <= r2 && !spot; j++) for (var i = -r2; i <= r2 && !spot; i++) if (walkable(tx + i, ty + j)) spot = [tx + i, ty + j];
     if (!spot) return false;
-    if (car.driving) toggleCar();
+    if (car && car.driving) toggleCar();
     pi.x = spot[0] * T + 8; pi.y = spot[1] * T + 10; pi.path = null; camF.x = null;
     return true;
   }
@@ -3897,7 +3963,7 @@
     cat: function (args) {
       var f = (args[0] || "").replace(/^\.\/(?=\w)/, "").replace(/^~\//, "");
       if (!f) { print("cat: which file? try ls"); return; }
-      if (f === "koi.csv") { koiCsv().split("\n").forEach(function (l) { print(l); }); return; }
+      if (f === "koi.csv") { if (!SYS.koi) { print("cat: koi.csv: the koi aren't on this island yet."); return; } koiCsv().split("\n").forEach(function (l) { print(l); }); return; }   // B3d4b: not in the content preview
       if (f === "rift" || f === "./rift") f = ".rift";
       if (FILES[f] === undefined) { print("cat: " + args[0] + ": no such file"); return; }
       FILES[f].split("\n").forEach(function (l) { print(l); });
@@ -3931,10 +3997,11 @@
     },
     feed: function (args) {
       if ((args[0] || "koi") !== "koi") { print(args[0] === "raptors" ? "absolutely not." : "feed: only the koi are on the schedule."); return; }
+      if (!SYS.koi) { print("feed: the koi aren't on this island yet."); return; }              // the MAP-B content preview (B3d4b)
       feedKoi(); print("dinner bell rung. the koi are heading for the west bank of the pond.");
     },
     fly: function () { goto("heli"); print("walking you to the helipad..."); setTimeout(closeTerm, 350); },
-    drive: function () { goto("car"); print("walking you to the car..."); setTimeout(closeTerm, 350); },
+    drive: function () { if (!car) { print("drive: the car isn't on this island yet."); return; } goto("car"); print("walking you to the car..."); setTimeout(closeTerm, 350); },   // no car in the content preview (B3d4b)
     history: function () { tHist.forEach(function (h, i) { print("  " + (i + 1) + "  " + h); }); },
     clear: function () { tOut.innerHTML = ""; },
     exit: function () { closeTerm(); },
@@ -4061,7 +4128,9 @@
     if (sudoTries >= 0) {                                        // answering the sudo password prompt
       if (line.trim().toLowerCase() === "eclipse") {
         sudoTries = -1; setPrompt();
-        print("access granted.", "ok"); sfx("grant"); foundSecret("root"); print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
+        print("access granted.", "ok"); sfx("grant"); foundSecret("root");
+        if (!SYS.rift) { print("the orbs aren't on this island yet.", "dim"); return; }          // the MAP-B content preview: no rift yet (B3d4b)
+        print((rift && rift.winner ? "the core stirs. " : "") + "waking the orbs...", "ok");
         setTimeout(function () { closeTerm(); askRift(); }, 900);
       } else if (++sudoTries >= 3) { sudoTries = -1; setPrompt(); print("sudo: 3 incorrect password attempts. a raptor has been notified.", "err"); }
       else print("sorry, try again.", "err");
@@ -5742,9 +5811,12 @@
   /* the full map: m, or from the menu. the island pre-rendered once at 3 px a tile, drawn at a
      whole-number scale; found landmarks are named, the rest are "?". pick a found one (click it,
      or from the list) and pi travels there */
-  var bigMap = null, mapEl = root.querySelector(".w-map"), mapCv = mapEl && mapEl.querySelector("canvas"), mapK = 1, mapPts = [];
+  var bigMap = null, mapEl = root.querySelector(".w-map"), mapCv = mapEl && mapEl.querySelector("canvas"), mapK = 1, mapPts = [], mapLabels = [];                  // mapLabels: where each pin's label was drawn (css px in the map, ?debug=1)
   var MAPPX = 3, MAPW = MW * MAPPX, MAPH = MH * MAPPX;     // the big map: 3 px a tile, so its size follows the island's
   function mapOpen() { return mapEl && !mapEl.hidden; }
+  // the MAP-B previews' badge (B3d4b review): hidden while the big map is open (on a phone it sat over the map's title), back as it
+  // closes. Production has no badge, so this does nothing there
+  function badgeShown(on) { var bg = STAGED_PREVIEW ? root.querySelector(".w-mapb-badge") : null; if (bg) bg.style.visibility = on ? "" : "hidden"; }
   function buildBigMap() {
     bigMap = mkCanvas(); bigMap.width = MAPW; bigMap.height = MAPH;
     var g = bigMap.getContext("2d"); g.imageSmoothingEnabled = true; g.imageSmoothingQuality = "high";
@@ -5767,14 +5839,40 @@
     var g = mapCv.getContext("2d"); g.setTransform(dpr, 0, 0, dpr, 0, 0); g.imageSmoothingEnabled = mapK < 1;
     g.drawImage(bigMap, 0, 0, cw, ch);
     g.font = "700 11px 'Cascadia Mono', monospace"; g.textAlign = "center"; g.textBaseline = "bottom";
-    mapPts = [];
+    mapPts = []; mapLabels = [];
+    var later2 = [];                                                    // format 2's labels, placed once every pin is drawn
     STATIONS.filter(function (q) { return q.found; }).forEach(function (q) {
       var sp = mapSpot(q), x = sp.x * MAPPX * mapK, y = sp.y * MAPPX * mapK, f = !!found[q.id];
       g.fillStyle = f ? "#4DD6E8" : "#0a0a0a"; g.fillRect(x - 4, y - 4, 8, 8); g.strokeStyle = f ? "#0a0a0a" : "#f4f4f4"; g.lineWidth = 1.5; g.strokeRect(x - 4, y - 4, 8, 8);
       var lbl = f ? q.name.replace(/^(the|a|an) /, "") : "?", w0 = g.measureText(lbl).width + 8;
+      mapPts.push({ id: q.id, x: x, y: y, f: f });
+      if (!LEGACY) { later2.push({ id: q.id, x: x, y: y, f: f, lbl: lbl, w0: w0, below: sp.below }); return; }
       var ly = sp.below ? y + 22 : y - 8;
       g.fillStyle = "rgba(10,10,10,.85)"; g.fillRect(x - w0 / 2, ly - 14, w0, 15); g.fillStyle = f ? "#f4f4f4" : "#9a9a9a"; g.fillText(lbl, x, ly);
-      mapPts.push({ id: q.id, x: x, y: y, f: f });
+      mapLabels.push({ id: q.id, rect: [x - w0 / 2, ly - 14, w0, 15] });
+    });
+    /* format 2's bigger island (B3d4b review): its pins stand closer together (the uplink beside the bunker's rack and desk) and
+       nearer the map's edge (the lighthouse's headland), so each label takes the first of above, below, right or left of its pin
+       (above or below first, as format 1 places it) that stays inside the map and covers no other label or pin; if none does,
+       the one that covers least. Only the labels move: every pin stays exactly at its station, and so does what a click on the
+       map travels to. Format 1 places its labels as it always has (above). Then, still clear of the rest, the same sides shifted
+       along (a phone's smaller map crowds the bunker's three) */
+    later2.forEach(function (L) {
+      var ax = L.x - L.w0 / 2, rx = L.x + 7, lx = L.x - 7 - L.w0;
+      var cands = [[ax, L.y - 22], [ax, L.y + 8], [rx, L.y - 7.5], [lx, L.y - 7.5], [rx, L.y - 20], [rx, L.y + 5], [lx, L.y - 20], [lx, L.y + 5],
+                   [L.x - 4, L.y - 22], [L.x + 4 - L.w0, L.y - 22], [L.x - 4, L.y + 8], [L.x + 4 - L.w0, L.y + 8]];
+      if (L.below) { var t0 = cands[0]; cands[0] = cands[1]; cands[1] = t0; }
+      function hit(a, b) { var ox = Math.min(a[0] + a[2], b[0] + b[2]) + 1 - Math.max(a[0], b[0]), oy = Math.min(a[1] + a[3], b[1] + b[3]) + 1 - Math.max(a[1], b[1]); return ox > 0 && oy > 0 ? ox * oy : 0; }   // with a pixel of space between
+      var best = null, bestS = 1e9;
+      cands.forEach(function (c) {
+        if (bestS === 0) return;
+        var r = [Math.max(1, Math.min(cw - L.w0 - 1, c[0])), Math.max(1, Math.min(ch - 16, c[1])), L.w0, 15], sc = 0;
+        mapLabels.forEach(function (o) { sc += hit(r, o.rect); });
+        mapPts.forEach(function (o) { if (o.id !== L.id) sc += hit(r, [o.x - 5, o.y - 5, 10, 10]); });
+        if (sc < bestS) { bestS = sc; best = r; }
+      });
+      g.fillStyle = "rgba(10,10,10,.85)"; g.fillRect(best[0], best[1], best[2], best[3]); g.fillStyle = L.f ? "#f4f4f4" : "#9a9a9a"; g.fillText(L.lbl, best[0] + best[2] / 2, best[1] + 14);
+      mapLabels.push({ id: L.id, rect: best });
     });
     var px = pi.x / T * MAPPX * mapK, py = pi.y / T * MAPPX * mapK;                       // pi
     g.fillStyle = "#f454a6"; g.beginPath(); g.arc(px, py, 4, 0, 6.283); g.fill(); g.strokeStyle = "#fff"; g.lineWidth = 1.5; g.stroke();
@@ -5790,7 +5888,7 @@
     if (!mapEl) return;
     if (on && (side || riftBusy() || cut || creditsOpen())) return;
     if (on) { if (paused) setPaused(false); if (!dlg.hidden) closeDialog(); paintMap(); }
-    mapEl.hidden = !on; keys = {};
+    mapEl.hidden = !on; keys = {}; badgeShown(!on);
     if (on) { var b0 = mapEl.querySelector(".w-lm button:not([disabled])"); (b0 || mapEl).focus({ preventScroll: true }); } else cv.focus({ preventScroll: true });
   }
   function travel(id) {
@@ -5941,7 +6039,7 @@
         if (p.kind === "generator" && rand() < 0.25) puffs.push({ x: bx + 6, y: by - 16, vx: 2, vy: -8, life: 0.8, c: "80,80,80" });
       } });
     });
-    OUT.forEach(function (s) { list.push({ y: s.y * T + 15, f: function () { drawStation(s); } }); });
+    OUT.forEach(function (s) { if (!s.lm) list.push({ y: s.y * T + 15, f: function () { drawStation(s); } }); });   // a station on a landmark base (B3d4b) is drawn by the base
     BUILDINGS.forEach(function (bd) { list.push({ y: (bd.y0 + bd.h) * T - 2, f: function () { drawBuilding(bd); } }); });
     FALLS.forEach(function (f) { list.push({ y: f.y + 30, f: function () { drawWaterfall(f); } }); });
     if (rex) list.push({ y: rex.y, f: function () {
@@ -6014,8 +6112,8 @@
     if (nb && nb.ax !== undefined) tag(promptText(nb), (nb.ax - camX) * E, (nb.ay - camY) * E - 4 + Math.sin(t * 4) * 2, true);
     else if (nb) {
       // float the prompt just above the landmark's own sprite
-      var topY = nb.id === "rex" ? rex.y - 15 : nb.id === "core" ? ARENA.y - 34 - OR * 1.9 : nb.id === "boat" ? nb.y * T : nb.y * T + 16 - SPR[nb.id].height;
-      var sx = ((nb.id === "rex" ? rex.x : nb.id === "core" ? ARENA.x : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
+      var topY = nb.id === "rex" ? rex.y - 15 : nb.id === "core" ? ARENA.y - 34 - OR * 1.9 : nb.lm ? nb.lm.box.py0 : nb.id === "boat" ? nb.y * T : nb.y * T + 16 - SPR[nb.id].height;   // a landmark base's station: above its art (B3d4b)
+      var sx = ((nb.id === "rex" ? rex.x : nb.id === "core" ? ARENA.x : nb.lm ? (nb.lm.box.px0 + nb.lm.box.px1 + 1) / 2 : nb.x * T + 8) - camX) * E, sy = (topY - camY) * E - 6 + Math.sin(t * 4) * 2;
       tag(promptText(nb), sx, sy, true);
     }
     // in a vehicle, the way out is the prompt
@@ -6047,7 +6145,7 @@
     if (egg || riftBusy() || cut || tour) return;
     if (!save.hints.move && dlg.hidden) tag(TOUCH ? "drag to move, or tap a spot" : "wasd / arrow keys to walk", (pi.x - camX) * E, (pi.y + 26 - camY) * E, false);
     else if (!save.hints.use && promptRect && dlg.hidden) tag(TOUCH ? "tap the prompt to use it" : "e, space or enter to use", promptRect[0] + promptRect[2] / 2, promptRect[1] - 4, false);
-    if (sinceLog > 20 && countFound() < TOTAL && dlg.hidden && !car.driving && !aboard()) {
+    if (sinceLog > 20 && countFound() < TOTAL && dlg.hidden && !(car && car.driving) && !aboard()) {
       var g = guideTarget(); if (!g) return;
       var sx = (g.x - camX) * E, sy = (g.y - camY) * E, m = 26;
       if (sx > m && sx < W - m && sy > 60 && sy < H - m) return;                      // it's on screen
@@ -6111,7 +6209,9 @@
     if (pi.boost > 0) { ctx.fillStyle = "#E879F9"; ctx.fillRect(Math.round(pi.x - 7 - pi.face * 3), Math.round(pi.y - 4), 2, 1); ctx.fillRect(Math.round(pi.x - 8 - pi.face * 5), Math.round(pi.y - 6), 2, 1); }
   }
 
+  var STATION_DRAWN = {};                                              // ?debug=1: how often each station was drawn (B3d4b)
   function drawStation(s) {
+    if (DEBUG) STATION_DRAWN[s.id] = (STATION_DRAWN[s.id] || 0) + 1;
     var bx = s.x * T + 8, by = s.y * T + 15, sp = SPR[s.id];
     if (s.id === "boat") {
       var bob = Math.round(Math.sin(t * 1.5) * 1);
@@ -6452,9 +6552,9 @@
     preview: function () {
       return { terrainOnly: PREVIEW_MODE === "terrain", stagedPreview: STAGED_PREVIEW, previewMode: PREVIEW_MODE, sys: Object.assign({}, SYS), content: MAP.content || null, format: MAP.format, staged: !!MAP.staged, w: MW, h: MH, tileAnchors: MAP.tileAnchors || null, spawn: [SPAWN.x, SPAWN.y],
                footPixels: MAP.footPixels, edgePixels: MAP.edgePixels === undefined ? null : MAP.edgePixels, groundMs: Math.round(groundMs), groundMsExact: groundMs, paints: PAINTS, paintMs: PAINT_MS, ground: [ground.width, ground.height],
-               badge: !!root.querySelector(".w-mapb-badge"), saveLocked: saveLocked, camera: [camX, camY], zoom: zoom, view: [W / (S * zoom), H / (S * zoom)],
+               badge: !!root.querySelector(".w-mapb-badge"), badgeVisible: (function () { var bg = root.querySelector(".w-mapb-badge"); return !!bg && bg.style.visibility !== "hidden"; })(), saveLocked: saveLocked, camera: [camX, camY], zoom: zoom, view: [W / (S * zoom), H / (S * zoom)],
                // the map ui (B2e): the minimap's place on screen (css px, null when hidden) and its backing size, the big map's 1x size and scale
-               ui: { mini: mapRect ? mapRect.slice() : null, miniOn: mapOn, miniBacking: [mini.width, mini.height], big: [MAPW, MAPH], mapK: mapK, mapOpen: mapOpen(), css: [W, H], dpr: dpr, scale: S },
+               ui: { mapPins: mapPts.map(function (q) { return { id: q.id, x: q.x, y: q.y }; }), mapLabels: mapLabels.map(function (q) { return { id: q.id, rect: q.rect.slice() }; }), mapCss: mapCv ? [parseFloat(mapCv.style.width) || 0, parseFloat(mapCv.style.height) || 0] : null, mini: mapRect ? mapRect.slice() : null, miniOn: mapOn, miniBacking: [mini.width, mini.height], big: [MAPW, MAPH], mapK: mapK, mapOpen: mapOpen(), css: [W, H], dpr: dpr, scale: S },
                nearby: (function () { var nb = nearby(); return nb ? nb.id : null; })(),           // what [E] would use now
                prompt: promptRect ? promptRect.slice() : null,                                    // where the prompt was last drawn (css px; on touch it's the button)
                // the buildings (B3c1): footprint, door, room, art, the art's box and where it was last drawn (world px), and
@@ -6470,6 +6570,11 @@
                // the landmark bases (B3d4a): footprint, approach, drawn box, where last drawn (and whether see-through)
                landmarks: LANDMARKS.map(function (lm) { return { id: lm.id, reserve: lm.reserve, box: [lm.x0, lm.y0, lm.x1, lm.y1], approach: lm.approach.slice(), art: [lm.box.px0, lm.box.py0, lm.box.px1, lm.box.py1], drawn: lm.at ? lm.at.slice() : null }; }),
                landmarkMs: LANDMARK_MS, landmarkDraws: LANDMARK_N,
+               // the outdoor stations (B3d4b): each one's anchor, approach (stand), the landmark base it stands on, its words'
+               // name and section, whether its log is found, how often the station code drew it; the logs, the seal and its cut,
+               // the tour's step, the terminal, the side scene
+               stations: OUT.map(function (q) { return { id: q.id, x: q.x, y: q.y, stand: q.stand ? q.stand.slice() : [q.x, q.y + 1], landmark: q.lm ? q.lm.id : null, name: q.name, sec: q.sec || null, log: !!q.found, found: !!found[q.id], draws: STATION_DRAWN[q.id] || 0 }; }),
+               logs: { found: countFound(), total: TOTAL, seal: !!save.seal, cut: !!cut, sealed: SYS.stations ? sealed() : null }, tour: tour ? tour.i : null, term: termOpen, side: !!side,
                // the paddock fences (B3d1): each fence record's tiles, its openings, whether it closes its ground in, its pieces by
                // kind, its warning signs, and what drawing them has cost
                fences: FENCES.map(function (fc) { var kinds = {}, signs = []; fc.pieces.forEach(function (pc) { kinds[pc.kind] = (kinds[pc.kind] || 0) + 1; if (pc.mark === "sign") signs.push([pc.x, pc.y]); }); return { id: fc.id, encloses: fc.encloses, tiles: fc.pieces.length, gaps: fc.gaps, kinds: kinds, signs: signs }; }),
@@ -6765,7 +6870,7 @@
     if (aboard()) { heli.state = "parked"; heli.z = 0; heli.spin = 0; heli.x = HELI.x * T + 8; heli.y = HELI.y * T + 8; heli.a = 0; zoomTo = 1; }
     sfx("whoosh", undefined, undefined, { out: true }); stopSound();
     var finish = function () {
-      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour(); if (credEl) credEl.hidden = true; if (mapEl) mapEl.hidden = true;
+      paused = false; if (pauseEl) pauseEl.hidden = true; tour = null; paintTour(); if (credEl) credEl.hidden = true; if (mapEl) mapEl.hidden = true; badgeShown(true);
       open = false; exiting = false; stopLoop(); unbindSession(); setBackground(false);
       root.classList.remove("show"); root.hidden = true;
       document.documentElement.classList.remove("in-world");

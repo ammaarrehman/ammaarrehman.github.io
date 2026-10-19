@@ -80,6 +80,25 @@
      lighthouse-headland (140,45). Art 32 x 96.
    - Structure only: no station (the log, the tour stop, the deep links, the map pins, the tower's live trace and the
      lighthouse's turning beam are format 1's station, a later batch's). */
+/* B3d4b: format 1's eleven outdoor stations, each at its B3a place (verified against the compiled staged terrain), tied to
+   the approved source it belongs to (place), as interaction points only: no station adds collision or draws anything of
+   its own here (the game draws the free-standing ones with format 1's sprites; the tower's and the lighthouse's are drawn
+   by their bases). Each is used from its approach, the tile south of it (the boat's, at sea, the pier's end north of it),
+   within [E]'s 26 px; the game's words, logs, tour, links and secrets for each are format 1's, unchanged.
+   - sign 74,76 (from 74,77): the arrival plaza, 5 tiles from the spawn.
+   - uplink 121,81 (from 121,82, B1e's log site): inside the bunker compound, east of the bunker.
+   - tower 95,27 (from 95,28, the base's approach and B1e's log site): on the tower base, the middle of its front row.
+   - lighthouse 140,43 (from 140,44, the base's approach; B1e's log site is 140,45, the route end below it): on the
+     lighthouse base, the middle of its front row.
+   - macbook 105,57 (from 105,58, on the koi garden's loop; B1e's log site 106,58 is the tile beside it): inside the koi
+     garden's wall.
+   - tablet 82,48 (from 82,49, B1e's log site): north-east of the commons.
+   - mailbox 50,81 (from 50,82, B1e's log site): beside the post office's reserve (44,77 to 48,80, unused), outside it.
+   - drink 53,87 (from 53,88): the village square.
+   - shrine 14,19 (from 14,20): the B1e marker and its approach (D3: a 1 x 1 station, as format 1's).
+   - cave 66,24 (from 66,25): the B1e cave-mouth marker and its approach.
+   - boat 79,97 (from 79,96, the ferry pier's end): the south harbour's berth (D5), at sea like format 1's. */
+const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor, approach, place });
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -139,6 +158,17 @@ export default {
       id: "lighthouse-base", kind: "landmark", reserve: "lighthouse", art: "placeholder",
       drawnPxBoxes: [{ px0: 139 * T, py0: 43 * T + T - 96, px1: 140 * T + T - 1, py1: 43 * T + T - 1 }],
       solid: { tileBoxes: [{ x0: 139, y0: 42, x1: 140, y1: 43 }] }
-    }
+    },
+    station("sign", [74, 76], [74, 77], { plaza: "arrival-plaza" }),
+    station("uplink", [121, 81], [121, 82], { logSite: "uplink" }),
+    station("tower", [95, 27], [95, 28], { landmark: "tower-base" }),
+    station("lighthouse", [140, 43], [140, 44], { landmark: "lighthouse-base" }),
+    station("macbook", [105, 57], [105, 58], { logSite: "macbook" }),
+    station("tablet", [82, 48], [82, 49], { logSite: "tablet" }),
+    station("mailbox", [50, 81], [50, 82], { logSite: "mailbox" }),
+    station("drink", [53, 87], [53, 88], { plaza: "village-square" }),
+    station("shrine", [14, 19], [14, 20], { marker: "shrine" }),
+    station("cave", [66, 24], [66, 25], { marker: "cave-mouth" }),
+    station("boat", [79, 97], [79, 96], { berth: "south" })
   ]
 };
