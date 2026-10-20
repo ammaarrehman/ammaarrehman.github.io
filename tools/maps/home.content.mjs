@@ -99,6 +99,12 @@
    - cave 66,24 (from 66,25): the B1e cave-mouth marker and its approach.
    - boat 79,97 (from 79,96, the ferry pier's end): the south harbour's berth (D5), at sea like format 1's. */
 const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor, approach, place });
+/* B3e1: the first creatures, format 1's pair of pachycephalosaurs, each in its own roam area as in format 1 (roam-09 and roam-10,
+   one box: two areas, two objects), at B3a's approved place on the pachy heath (36,15 to 45,22; 99% inside the B1e habitat
+   pachy-heath, all of it open grass but 11 tiles), starting at 38,18 and 42,19. Roam areas add no collision and draw nothing;
+   the creatures are the game's, unchanged. The other 26 roam areas and their 31 creatures are later batches' (B3a's plan, in
+   tools/maps/content.mjs ROAM_PLAN) */
+const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -169,6 +175,8 @@ export default {
     station("drink", [53, 87], [53, 88], { plaza: "village-square" }),
     station("shrine", [14, 19], [14, 20], { marker: "shrine" }),
     station("cave", [66, 24], [66, 25], { marker: "cave-mouth" }),
-    station("boat", [79, 97], [79, 96], { berth: "south" })
+    station("boat", [79, 97], [79, 96], { berth: "south" }),
+    roam("roam-09", [36, 15, 45, 22], "pachy-heath", [["pachy", 38, 18]]),
+    roam("roam-10", [36, 15, 45, 22], "pachy-heath", [["pachy", 42, 19]])
   ]
 };

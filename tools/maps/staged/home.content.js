@@ -7,12 +7,13 @@
    is drawn (inclusive world pixels; no collision outside them); tiles, the whole tiles it makes solid; footPxBoxes, pixels
    where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; terrainTiles, where the terrain
    closes a wall's ring; encloses, a ring that closes ground in; a building's, a wall's, a fence's or a gate's art; a
-   building's room; a wall's compound; a gate's marker; a station's anchor, approach and place (it blocks nothing).
+   building's room; a wall's compound; a gate's marker; a station's anchor, approach and place (it blocks nothing); a
+   roam area's box, habitat and spawns (format 1's creatures, B3e1; it blocks nothing).
    solidTiles and footPixels: the totals, which the game checks.
    The game reads the terrain's collision for painting and the union of both layers for movement. */
 (window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {
   "format": 2, "staged": true, "schema": "mapb-content-1", "id": "home", "generator": "tools/map-content.mjs",
-  "source": "tools/maps/home.content.mjs", "sourceSha256": "d264441d2402076a3481a1c08df1dc1347fdd8fcb5eadff1e9b453489e3fca61", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
+  "source": "tools/maps/home.content.mjs", "sourceSha256": "bcf23b8b280a246d42cd1c07699bba745debf276f0dcef0692c31443e1c9670b", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
   "solidTiles": 288, "footPixels": 0,
   "records": [
     {"id":"visitor","kind":"building","drawnPxBoxes":[{"px0":1280,"py0":1104,"px1":1423,"py1":1183}],"tiles":[[80,69],[81,69],[82,69],[83,69],[84,69],[85,69],[86,69],[87,69],[88,69],[80,70],[81,70],[82,70],[83,70],[84,70],[85,70],[86,70],[87,70],[88,70],[80,71],[81,71],[82,71],[83,71],[84,71],[85,71],[86,71],[87,71],[88,71],[80,72],[81,72],[82,72],[83,72],[84,72],[85,72],[86,72],[87,72],[88,72],[80,73],[81,73],[82,73],[83,73],[84,73],[85,73],[86,73],[87,73],[88,73]],"footPxBoxes":[],"doorTiles":[[84,74]],"reserve":"visitor-centre","art":"placeholder","room":"visitor"},
@@ -35,6 +36,8 @@
     {"id":"drink","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[53,87],"approach":[53,88],"place":{"plaza":"village-square"}},
     {"id":"shrine","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[14,19],"approach":[14,20],"place":{"marker":"shrine"}},
     {"id":"cave","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[66,24],"approach":[66,25],"place":{"marker":"cave-mouth"}},
-    {"id":"boat","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[79,97],"approach":[79,96],"place":{"berth":"south"}}
+    {"id":"boat","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[79,97],"approach":[79,96],"place":{"berth":"south"}},
+    {"id":"roam-09","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[36,15,45,22],"habitat":"pachy-heath","spawns":[{"creature":"pachy","at":[38,18]}]},
+    {"id":"roam-10","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[36,15,45,22],"habitat":"pachy-heath","spawns":[{"creature":"pachy","at":[42,19]}]}
   ]
 };

@@ -1391,6 +1391,201 @@ stations (B3d4b)"):
   preview-only (loopback, no storage). Production is unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`). Nothing
   was deployed.
 
+MAP-B B3e1, the creature migration's foundation (2026-10-19; staged only, not deployed; complete, **approved by Ammaar** 2026-10-19
+after his visual review, committed as "Map: migrate MAP-B pachycephalosaurs (B3e1)"):
+- Read first: B3a's plan (section 3, "Spawns and roam areas": format 1's order, kinds and roam ids, so the sharing graph is the
+  same; the predators' boxes as the enclosures' insides), `handoff.md`, this document (B3d1 and B3d2's enclosures and the
+  lane, B3d2's decision that the T. rex's ~85 x 45 px body must prove it fits its 35-tile inside), format 1's creature code.
+- Format 1, audited. 33 creatures (`spawns` in `js/maps/home.js`) in 28 roam areas (`regions.roamAreas`, boxes in tiles):
+  2 brachiosaurs, the T. rex, 3 raptors (one shared area), a stegosaur, 2 triceratops and an ankylosaur (one shared area, the
+  herd), 2 parasaurolophus, a spinosaur, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus, 3 babies, 2
+  maintenance robots, the roomba and the two cats. (rex, the chrome dino, is his own system.) How they work (`js/world.js`):
+  - Spawning: each at its tile (feet at x * 16 + 8, y * 16 + 10), nudged to open ground if its tile isn't walkable; each
+    roam id one box object, shared by every creature naming it (the raptors chase each other's targets, the herd follows a
+    leader in the same object); matching boxes under two ids are two objects.
+  - Movement: wait, then pick a random tile in the box the creature may stand on (`okFor`: walkable; grass for a dinosaur,
+    path for a robot or the roomba, anything but a dock for a cat), walk straight at it at its speed (`DINOS[kind].sp`,
+    6 to 30 px/s), stop on arrival (cats may sleep, grazers graze). Collision is pi's: `move()` checks a 9 x 4 px foot box
+    against `solidPx` (terrain and content tiles and every foot-blocking pixel); a blocked walk stops and the creature picks
+    again. No path finding.
+  - Behaviours: idle dinosaurs turn to watch pi within 56 px; they doze at night (not the raptors) and wake when pi comes
+    within 26 px; compsognathus and gallimimus bolt from pi; the dilophosaur calls; the two pachycephalosaurs butt heads when
+    idle within 44 px; the raptors pace their fence toward pi and dart after each other; the T. rex stalks pi along the
+    inside of its fence; the brachiosaur lowers its head when pi stands still beside it; grazers drift toward a moving herd
+    mate; big ones stomp (sound, camera shake). Every creature calls now and then (sound within 300 px).
+  - Interactions: [E] (or a tap, which walks pi there first) gives the creature's card: "a dinosaur" (the cats and bots by
+    their names) and one of its lines; it hops. The T. rex roars when pi is in the roar zone near it.
+  - Art: the baked sheet (`assets/island/dinos.png`, `SHEET`: walk, idle, blink, graze, roar), drawn on the feet with a soft
+    shadow, from 23 x 10 px (compsognathus) to 96 x 51 (spinosaur); the robots, roomba and cats as pixel rows.
+  - Dependencies: the sky (night), sound, the room (none in rooms), the helicopter (not aboard), game-time timers, the roar
+    zone (`zones.trex-roar`), the cats' names (jasmine and prince), the census and neofetch in the terminal (static lines).
+- B3a's approved placements, against MAP-B as built (`tools/out/mapb/b3e1/audit/probe.txt`). B1e's 11 habitats are planning
+  regions; the roam areas are B3a's boxes inside them (82 to 100%):
+
+  | roam ids | creatures | box | habitat | open tiles to walk to | straight walks blocked |
+  |---|---|---|---|---|---|
+  | roam-00, 01 | brachiosaur x2 | 12,33 to 27,50 | brachio-meadow 100% | 244 of 288 | 0% |
+  | roam-02 | T. rex | 108,11 to 116,16 | holding-paddock 98% | 36 of 54 (35 inside, 1 outside the fence) | 9% |
+  | roam-03 (shared) | raptor x3 | 120,11 to 126,16 | raptor-yard 100% | 42 of 42 (the yard's inside) | 0% |
+  | roam-04 (shared) | stegosaur, triceratops x2, ankylosaur | 41,43 to 57,60 | riverlands-range 100% | 260 of 306 | 0% |
+  | roam-05, 06 | parasaurolophus x2 | 14,71 to 22,80 | delta-wetland 82% | 43 of 90 | 9% |
+  | roam-07 | spinosaur | 37,31 to 46,38 | spino-reach 94% | 58 of 80 (spawn on 20 foot-blocking px) | 55% |
+  | roam-08 | dilophosaur | 89,14 to 95,21 | dilo-strip 96% | 56 of 56 | 0% |
+  | roam-09, 10 | pachycephalosaur x2 | 36,15 to 45,22 | pachy-heath 99% | 69 of 80 | 0% |
+  | roam-11 to 14 | gallimimus x4 | 85,41 to 95,48 | galli-meadow 100% | 88 of 88 | 0% |
+  | roam-15 to 19 | compsognathus x5 | 27,91 to 33,96 | village-gardens 100% | 42 of 42 | 0% |
+  | roam-20, 21 | baby, baby2 | 44,50 to 53,56 | riverlands-range 100% (the nests, props) | 62 of 70 | 0% |
+  | roam-22 | baby | 14,36 to 22,43 | brachio-meadow 100% | 59 of 72 | 0% |
+  | roam-23, 24 | robot x2 | 42,82 to 54,88; 27,80 to 41,86 | none (paths) | 91 of 91; 31 of 105 | 0% |
+  | roam-25 | roomba | 72,75 to 84,81 | none (the plaza) | 91 of 91 | 0% |
+  | roam-26, 27 | cat x2 | 105,56 to 117,68 | koi-garden 100% | 117 of 169 | 54% (the pond) |
+
+  "Straight walks blocked" is the share of straight lines between two such tiles (sampled) that cross ground the creature
+  can't walk: format 1's wander walks straight, so those stop short and pick again.
+- The population migrated: format 1's pair of pachycephalosaurs (roam-09 and roam-10), the lowest-risk population with a verified
+  placement:
+  - non-hostile (they butt each other, never pi), slow (12 px/s), no fleeing, no dependence on a system that isn't migrated
+    (no nests, props, zones or other kinds);
+  - both spawns open grass with feet clear; 69 of the 80 box tiles open grass; every straight walk between them clear, so
+    format 1's straight-line wander never stops short;
+  - 99% of the box inside the B1e habitat pachy-heath (its south row is the shrine trail's path, which they don't walk to).
+  - The others were measured against the same tests: the spinosaur's spawn stands on the river bank's foot-blocking pixels and
+    55% of its straight walks are blocked; the cats' (54%, the koi pond) and the parasaurolophus' (9%, a tight wetland) walks
+    stop short often; the babies need the nests (props); the herd shares one area across four kinds; gallimimus and
+    compsognathus bolt off their boxes; the brachiosaurs shake the camera; the robots and the roomba are the bots' kin.
+- Content (`tools/maps/home.content.mjs`): two roam records, `roam-09` and `roam-10`, each the box 36,15 to 45,22, habitat
+  pachy-heath, one pachycephalosaur (38,18 and 42,19). 23 records, still 288 solid tiles and 0 foot pixels (the layer is B3d4b's
+  tile for tile); the 21 earlier records byte for byte.
+- Schema (`tools/maps/content.mjs`): a new kind, roam: `{ id: "roam-NN", kind: "roam", box, habitat?, spawns: [{ creature, at }] }`,
+  no collision and nothing drawn (the schema refuses solid, drawn boxes, doors, art and the rest); no other kind may carry a
+  box, a habitat or spawns. `ROAM_PLAN` is B3a's approved table (all 28, format 1's kinds and order, checked against format 1
+  by the tests), `CREATURE_KINDS` the game's (not rex). A new compile rule, `creatures`: the id one of format 1's, its box,
+  habitat and spawns exactly the plan's, roam areas in format 1's order, each spawn inside the box on a tile its creature may
+  stand on (format 1's `okFor`, against terrain and content) with feet clear, and at least one more such tile to walk to;
+  nothing else may take a roam id.
+- Runtime (`js/world.js`, the content preview only; format 1 unchanged):
+  - The decoder checks each roam record on its own (`roamShape`, then the spawns once every solid is known: the tile, the
+    ground, the feet, the order, room to roam) and turns the records into format 1's shapes, `regions.roamAreas` and
+    `spawns`, so the creature code reads them exactly as it reads format 1's: the same spawning, sharing, movement,
+    behaviours, art, sounds and cards.
+  - `SYS.creatures` is on in the content preview when it has spawns. Only the creatures its roam areas hold exist; every other
+    system stays off (no rex, birds, koi, bots, car, rift, volcano or hatching).
+  - Two format-1 assumptions guarded (format 1 takes its old path exactly): the cats are named only when both are there; the
+    T. rex roars only when there is one and the roar zone is there.
+  - The completeness wall's "spawns and roam areas" item now names the roam areas still missing (26 of 28); a normal
+    format-2 home is still refused (7 items).
+  - `?debug=1`: `preview().creatures` (kind, place, roam area and which, target, sleep, roar, graze), and
+    `creature(i, o)`, which tests use to send one somewhere.
+- Not migrated: the other 31 creatures, rex, the roar zone, the welder's route, the census's and neofetch's words (static
+  lines about format 1's island).
+- The predators (Part 3; audited and simulated, not activated): a test-only content file in memory (the real content and the
+  plan's roam-02 and roam-03, compiled by the rules; never written) runs the T. rex and the three raptors in their B3d2 and
+  B3d1 enclosures for ten minutes with pi away and ten with pi walking the fences and the lane between the paddocks, in
+  Chromium and WebKit:
+  - Containment holds: no foot left its enclosure's inside, none touched a solid pixel. All creatures use pi's 9 x 4 px foot
+    box, which fits the one-tile fence rings and the 4-connected corners. The T. rex walked 33 of its 35 inside tiles, the
+    raptors 34 to 42 of 42; the game's guards held (no roar zone, no cats: no error). Spawns all inside.
+  - **Blocker 1, the T. rex's box:** B3a's box 108,11 to 116,16 holds one open grass tile outside the fence, 108,11 (the
+    outline's north-west corner). The T. rex can pick it to walk to (or stalk toward it), then stops at the fence and picks
+    again: it never escapes, but its area isn't its inside, which B3a's completeness list requires. A decision: limit its
+    targets to the inside (a rule or a box), or accept.
+  - **Blocker 2, the art:** the T. rex's 85 x 45 px body, drawn on its feet, overlaps a fence tile in 99% of frames with pi
+    away and 100% with pi in the lane (it stalks pi along the fence), and it reaches over the east fence into the lane
+    (`*-predators-simulation.png`). The raptors' 39 x 20 px: 39% and 100% (they pace the fence toward pi). The inside is 9 x 6
+    tiles at most and irregular (format 1's paddock was about 11 x 10). Containment is by the feet, so this is visual. B3d2's
+    question stays open: a smaller or turned sprite, the art drawn clipped to the enclosure, a larger paddock (a geometry
+    change), or accepted as it is. Not shrunk, and no fence changed.
+  - The roar zone and the welder's route aren't in the content format yet; the roar is guarded off until they are.
+  - The lane (x 118, rows 12 to 15): pi walking it draws both paddocks' animals to their fences on either side; nothing
+    crosses.
+  - Ironwood: the holding paddock is temporary (B1e: the T. rex's long-term home is Ironwood Keep, over the west exit). Nothing
+    in this batch or B3e2 needs to change for it; the move is a later phase's.
+- Also found: the plan's spinosaur spawn (roam-07, 40,34) stands on 20 of the river bank's foot-blocking pixels; the creatures
+  rule refuses it. B3a's probe looked at tiles, not pixels. A decision for its batch (not moved, rule not loosened).
+- Tests: `tools/mapb-creatures.mjs` (new; Node and Chromium and WebKit; review screenshots in `tools/out/mapb/b3e1/`):
+  - Node (34): the 21 earlier records pinned, the two roam areas, the layer unchanged; format 1's inventory and B3a's plan
+    against it (ids, kinds, order, sharing); the heath (spawns, targets, straight walks); 20 malformed records each caught by
+    its rule; the other 27 planned roam areas compiling together, and the spinosaur's conflict recorded; the predators'
+    spawns inside their enclosures.
+  - Browser (Chromium 36, WebKit 32):
+    - production's 33 creatures as before; no creatures on the terrain preview; exactly the two pachycephalosaurs in the
+      content preview, every other system off; both painter digests;
+    - spawns; ten minutes seeded with pi away (feet never on solid, never out of their box, never off walkable ground) and
+      their head-butts; pi walking round the heath; pushes at 11 blocked tiles round it;
+    - [E] and the card, a click, phones at 390 and 375; repeatability (two fresh loads, the same seed, identical to the
+      pixel); night (dozing, woken by pi); completeness (7, the 26 missing roam areas named); storage;
+    - 10 decoder refusals; 4 code mutations (Chromium); performance; the predators' simulation.
+  - The other MAP-B suites follow the two records (23 records, the creature system on in the content preview with two
+    creatures). `mapb-stations`' station-check mutation follows the decoder's new line.
+- Verification (2026-10-19, the final code; one suite at a time, each log kept, `tools/out/mapb/b3e1/gates/`; load 2.8 to 4.8).
+  Firefox BLOCKED at launch in every browser suite it was tried in (never counted as a pass). The lightweight checks came first
+  (`tools/out/mapb/b3e1/light/`): compile checks and every MAP-B suite's Node part. Then, in both engines:
+  - **Map and decoder:** map-compile and map-content `--check` (23 records, 288 tiles); map-decode 250; mapb-decode 76;
+    mapb-runtime 220 (the decoder changed).
+  - **MAP-B suites:** mapb-creatures 102 (Node 34, Chromium 36, WebKit 32); mapb-painter 49 (both locked digests exact);
+    mapb-stations 255 (its content preview's systems check changed).
+  - **Format 1:** map-parity 37/37 and b0-parity 21/21 identical; scenarios 98 (format 1's creatures, and the two new guards
+    on its path).
+  - **Chromium only** (their browser checks changed only the record count and the systems pin, which don't depend on the
+    engine; WebKit and Firefox not run for them): mapb-landmarks 84, mapb-content 87, mapb-koi-gate 119, mapb-paddock 88,
+    mapb-fences 102, mapb-buildings 232.
+  - **Deploy tooling and the rest:** the deploy guard (8); the dry run (53 files, 41 references); html; `git diff --check`.
+    CSpell exits 1 as before: the same 19 findings, none new.
+  - **Not rerun** (the change can't reach them, reused from B3d4b's runs): map-lint, map-export, ctf, doors, focus.
+  - No failure in that pass. Development failures (`tools/out/mapb/b3e1/dev/`, all the new suite's own):
+    - the CREATURE_KINDS comparison (array spacing);
+    - all 28 planned roam areas compiling together (the spinosaur's conflict, now recorded on its own);
+    - the completeness item not yet naming the missing roam areas (then built);
+    - the art overlap measured only with pi beside the yard (now with pi away and in the lane);
+    - two review screenshots framed below the heath (the suite rerun alone after moving the camera: 102,
+      `mapb-creatures-rerun.log`).
+- Performance (Chromium / WebKit; WebKit's clock is 1 ms coarse):
+  - walking the heath's edges on the live loop with the two pachycephalosaurs: frame work p95 1.9 / 2.0 ms, max 7.1 / 5.0
+    (the terrain preview's p95 1.8 / 2.0);
+  - ten seeded minutes ran in step mode in a few seconds.
+- Proposed B3e2 (for Ammaar to decide; nothing begun): the predators, as B3a's sequence has it:
+  - the T. rex (roam-02) and the three raptors (roam-03);
+  - the roar zone (`zones.trex-roar`, B3a's 104,8.5 to 120,20) and the welder's patrol (`routes.welder-patrol`, B3a's start
+    123,19 and its four stops), which needs the bots system or the welder alone;
+  - the fence's [E] words.
+  Decisions first:
+  1. the T. rex's targets outside its fence (108,11): limit them to the inside, or accept;
+  2. the art over the fences (the T. rex nearly always, the raptors often): accept, clip, a smaller sprite, or a larger
+     paddock;
+  3. the roar zone and the welder route as new content (format 2 sections or records);
+  4. whether the welder comes with B3e2 or with the bots.
+  Then the open herbivores whose placements test clean (gallimimus, compsognathus, the dilophosaur, the brachiosaurs, the
+  herd), and the decisions for the rest: the spinosaur's spawn, the cats' and the parasaurolophus' blocked walks, the babies'
+  nests.
+- Approved by Ammaar (2026-10-19): both pachycephalosaurs, their heath, the phone layouts and the interactions are accepted.
+- **Deferred blockers, recorded for the predators' batch** (none fixed; no enclosure changed):
+  1. The T. rex's roam box (B3a's 108,11 to 116,16) holds a target it can never reach, 108,11, outside its fence: it walks
+     to the fence and picks again.
+  2. The T. rex's and the raptors' sprites cross their fences visually (the T. rex nearly always, into the lane; the raptors
+     often, and always while pacing toward pi). Their feet stay inside.
+  3. The roar zone (`zones.trex-roar`) and the welder's patrol (`routes.welder-patrol`) aren't migrated: the content format
+     has neither yet.
+  4. The spinosaur's planned spawn (roam-07, 40,34) stands on the river bank's foot-blocking pixels; the creatures rule
+     refuses it.
+- Pre-commit checks (lightweight; browser suites not rerun, `tools/out/mapb/b3e1/final/`):
+  - The code is unchanged since the gate run (`js/world.js` and the content sources older than its start). The one later
+    edit, to `tools/mapb-creatures.mjs`'s screenshot framing, is covered by that suite's passing rerun (102). So the gate
+    run's results stand:
+    - exactly two pachycephalosaurs in the content preview, every other creature off;
+    - both painter digests exact;
+    - map-parity 37/37 and b0-parity 21/21 identical;
+    - completeness 7 items.
+  - Content: map-compile and map-content `--check` current; 23 records, 288 solid tiles, 0 foot pixels; the 21 earlier records
+    byte for byte; the two roam areas holding exactly the two pachycephalosaurs (38,18 and 42,19).
+  - The Node parts of mapb-creatures (34), mapb-stations (72), mapb-landmarks (33), mapb-koi-gate (52), mapb-paddock (32),
+    mapb-fences (35), mapb-content (29) and mapb-buildings (71).
+  - The deploy guard (8); the dry run (53 files, 41 references); `git diff --check`.
+  - `SAVE_V` 2; cache `20261025` (9 references in `index.html`, 22 in the repo); production files, the terrain, the painter,
+    its fixtures and the preview untouched.
+  - The normal format-2 completeness wall still enforced. Firefox BLOCKED, not passed.
+- Status: complete and approved. B3e2 hasn't begun. MAP-B stays preview-only (loopback, no storage); production is unchanged
+  (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing deployed.
+
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

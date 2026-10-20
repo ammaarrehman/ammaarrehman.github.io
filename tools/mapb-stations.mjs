@@ -89,9 +89,9 @@ const RECS = built.compiled.records, LAYER = contentLayers(RECS, W, H);
 const DATA = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); return c.window.ISLAND_MAPS_STAGED_CONTENT.home; })();
 // B3d4a's ten compiled records, as committed at 1c42050 (the sha256 of their JSON, in order)
 const TEN = "8e0bac4d94b735fce70b13fd8de1669aa941b66166d7998dfa999ed4aae6b226";
-check("node", "the content: B3c's to B3d4a's ten records exactly as committed (their compiled records byte for byte), then the eleven stations in the completeness list's order; nothing else",
-  createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 10))).digest("hex") === TEN && DATA.records.length === 21 && DATA.records.slice(10).map((r) => `${r.id}:${r.kind}`).join() === IDS.map((id) => `${id}:station`).join(),
-  DATA.records.slice(10).map((r) => r.id).join(", "));
+check("node", "the content: B3c's to B3d4a's ten records exactly as committed (their compiled records byte for byte), then the eleven stations in the completeness list's order (since B3e1 the roam areas after them, tools/mapb-creatures.mjs); nothing else",
+  createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 10))).digest("hex") === TEN && DATA.records.length >= 21 && DATA.records.slice(10, 21).map((r) => `${r.id}:${r.kind}`).join() === IDS.map((id) => `${id}:station`).join() && DATA.records.slice(21).every((r) => r.kind === "roam"),
+  DATA.records.slice(10, 21).map((r) => r.id).join(", "));
 const PAST = contentLayers(RECS.slice(0, 10), W, H);
 let sameLayer = PAST.solidTiles === LAYER.solidTiles; for (let i = 0; sameLayer && i < W * H; i++) if (PAST.tiles[i] !== LAYER.tiles[i]) sameLayer = false;
 check("node", "the content passes every rule; 288 solid tiles and no foot pixel, exactly B3d4a's layer tile for tile: the stations add no collision", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0 && sameLayer,
@@ -222,7 +222,7 @@ const MUT = {
   off: ["the stations left off in the content preview", (s) => s.replace("stations: all || stations,", "stations: all,")],
   sprite: ["the tower's and the lighthouse's format-1 sprites drawn over their bases (the station code drawing them)", (s) => s.replace("OUT.forEach(function (s) { if (!s.lm) list.push(", "OUT.forEach(function (s) { if (true) list.push(")],
   stand: ["goto ignoring the approach (format 1's tile south)", (s) => s.replace("tx = s.stand ? s.stand[0] : s.x; ty = s.stand ? s.stand[1] : s.y + 1;", "tx = s.x; ty = s.y + 1;")],
-  noCheck: ["the decoder's station checks removed", (s) => s.replace('if (r.kind === "station") { stationShape(r, f); return', 'if (r.kind === "station") { return')],
+  noCheck: ["the decoder's station checks removed", (s) => s.replace("stationShape(r, f); return { r: r,", "return { r: r,")],
   rift: ["the orbs asked for after eight logs where the rift doesn't run", (s) => s.replace("if (n === TOTAL && !save.seal) { sealNext = true; if (!rift && SYS.rift) pendingRift = true; }", "if (n === TOTAL && !save.seal) { sealNext = true; if (!rift) pendingRift = true; }")]
 };
 for (const [k, [, fn]] of Object.entries(MUT)) if (fn(WORLD) === WORLD) check("node", `mutation ${k} applies to js/world.js`, false, "the text it changes wasn't found");
@@ -322,9 +322,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // 2c. the content preview: the eleven stations
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store: STORE });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
-  const SYS_OFF = ["creatures", "rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
-  check(name, "content preview: 21 records (288 solid tiles); the buildings and the stations on, every other home system off (no creature, rex, bird, koi, bot, drone, car, rift, volcano or hatching); 13 stations with the room's rack and desk; 8 logs to find, none found (no save read)",
-    cp.loaded && !cp.errs.length && cv.content.records === 21 && cv.content.solidTiles === 288 && cv.sys.buildings && cv.sys.stations && SYS_OFF.every((k) => cv.sys[k] === false) && cv.systems.stations === 13 && cv.systems.critters === 0 && cv.systems.bots === 0 && cv.systems.drones === 0 && cv.systems.birds === 0 && cv.systems.koi === 0 && !cv.systems.car && !cv.systems.rex && !cv.systems.arena && !cv.systems.volcano && cv.logs.total === 8 && cv.logs.found === 0 && cv.saveLocked,
+  const SYS_OFF = ["rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
+  check(name, "content preview: 23 records (288 solid tiles: since B3e1 two roam areas too); the buildings, the stations and (since B3e1) the creatures on, every other home system off (no rex, bird, koi, bot, drone, car, rift, volcano or hatching); 13 stations with the room's rack and desk; 8 logs to find, none found (no save read)",
+    cp.loaded && !cp.errs.length && cv.content.records === 23 && cv.content.solidTiles === 288 && cv.sys.buildings && cv.sys.stations && SYS_OFF.every((k) => cv.sys[k] === false) && cv.systems.stations === 13 && cv.systems.critters === 2 && cv.systems.bots === 0 && cv.systems.drones === 0 && cv.systems.birds === 0 && cv.systems.koi === 0 && !cv.systems.car && !cv.systems.rex && !cv.systems.arena && !cv.systems.volcano && cv.logs.total === 8 && cv.logs.found === 0 && cv.saveLocked,
     cv ? `sys ${JSON.stringify(cv.sys)}; systems ${JSON.stringify(cv.systems)}; logs ${JSON.stringify(cv.logs)}` : cp.errs.join("; "));
   check(name, "content preview: each station where its record puts it (anchor, approach as the game's stand), the tower's and the lighthouse's on their bases",
     cv && cv.stations.length === 11 && IDS.every((id) => { const s = cv.stations.find((q) => q.id === id), A = ST[id]; return s && s.x === A.anchor[0] && s.y === A.anchor[1] && s.stand.join() === A.approach.join() && s.landmark === (A.place.landmark || null) && s.log === A.log; }),
@@ -747,7 +747,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     if (P2.loaded) {
       const dec = await P2.I(([mm]) => { const I2 = window.__island; for (let i = 0; i < 3; i++) I2.decodeMap(mm); const a = performance.now(); for (let i = 0; i < 10; i++) I2.decodeMap(mm); return (performance.now() - a) / 10; }, [cWith(() => {})]);
       const dec10 = await P2.I(([mm]) => { const I2 = window.__island; for (let i = 0; i < 3; i++) I2.decodeMap(mm); const a = performance.now(); for (let i = 0; i < 10; i++) I2.decodeMap(mm); return (performance.now() - a) / 10; }, [cWith((c) => { c.records = c.records.slice(0, 10); })]);
-      perf.push(`${name}: decoding the staged map (warm, 10): ${dec.toFixed(1)} ms with the 21 records, ${dec10.toFixed(1)} ms with B3d4a's ten (the stations' checks and their flood from the spawn)`);
+      perf.push(`${name}: decoding the staged map (warm, 10): ${dec.toFixed(1)} ms with the ${DATA.records.length} records, ${dec10.toFixed(1)} ms with B3d4a's ten (the stations' checks and their flood from the spawn)`);
     }
     await P2.ctx.close(); }
   if (tp.loaded) await tp.ctx.close();

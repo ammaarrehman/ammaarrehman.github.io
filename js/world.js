@@ -538,7 +538,7 @@
       if (C.schema !== "mapb-content-1") bad("content.schema must be mapb-content-1");
       if (C.id !== M.id) bad("content.id must be the map's own id, " + M.id);
       if (typeof C.terrainSha256 !== "string" || C.terrainSha256 !== M.sourceSha256) bad("content.terrainSha256 isn't this terrain's sourceSha256: the content was placed on other terrain");
-      var KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop"], seen = {}, owner = {}, cc = new Uint16Array(w * h), cf = new Uint32Array((PWm * PHm + 31) >>> 5), nT = 0, nF = 0;
+      var KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop", "roam"], seen = {}, owner = {}, cc = new Uint16Array(w * h), cf = new Uint32Array((PWm * PHm + 31) >>> 5), nT = 0, nF = 0;
       function pxBox(b, f) {
         if (!isObj(b)) bad(f + " must be an inclusive pixel box { px0, py0, px1, py1 }");
         only(b, f, ["px0", "py0", "px1", "py1"]);
@@ -549,10 +549,12 @@
         if (!isObj(r) || typeof r.id !== "string" || !ID.test(r.id)) bad("content.records[" + k + "] needs an id (a short lowercase name)");
         var f = "content record " + r.id;
         if (seen[r.id]) bad(f + " appears twice"); seen[r.id] = 1;
-        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place"]);
+        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns"]);
         if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
-        if (r.kind === "station") { stationShape(r, f); return { r: r, inDrawn: function () { return false; } }; }
+        if (r.kind === "station") { ["box", "habitat", "spawns"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only a roam area has a box, a habitat and spawns"); }); stationShape(r, f); return { r: r, inDrawn: function () { return false; } }; }
+        if (r.kind === "roam") { roamShape(r, f); return { r: r, inDrawn: function () { return false; } }; }
         ["anchor", "approach", "place"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only a station has an anchor, an approach and a place"); });
+        ["box", "habitat", "spawns"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only a roam area has a box, a habitat and spawns"); });
         // a building (B3c1) draws itself (art: the only kind so far is "placeholder"; the art stage adds real sprites) and may
         // open into one of the game's rooms; so does a wall (B3c3), which may name the compound it walls in, a fence (B3d1)
         // and a gate (B3d3), which names the marker it stands on, and a landmark base (B3d4a). nothing else has a room, a
@@ -678,6 +680,26 @@
         var dy = pk[0] === "berth" ? -1 : 1;
         if (r.approach[0] !== r.anchor[0] || r.approach[1] !== r.anchor[1] + dy) bad(f + ": its approach is the tile " + (dy > 0 ? "south" : "north") + " of its anchor (" + r.anchor[0] + "," + (r.anchor[1] + dy) + "), not " + r.approach);
       }
+      /* a roam area's shape (B3e1): one of format 1's roam areas (roam-00 to roam-27), no collision and nothing drawn (no tile, foot
+         box, door or drawn box; no opening, reserve, enclosure, room, art, compound, marker, anchor, approach or place); a box in the
+         map, a habitat id or none, and at least one spawn: one of the game's creatures (not rex, who is his own system) at a tile
+         inside the box. where a spawn may stand is checked once every solid is known */
+      function roamShape(r, f) {
+        if (!/^roam-\d\d$/.test(r.id) || +r.id.slice(5) > 27) bad(f + " is a roam area, and " + r.id + " isn't one of format 1's (roam-00 to roam-27)");
+        ["drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles"].forEach(function (k2) { if (arr(r[k2], f + "." + k2).length) bad(f + " is a roam area: it blocks nothing and draws nothing (" + k2 + " must be empty)"); });
+        ["gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": a roam area has no " + k2); });
+        var b = r.box; if (!Array.isArray(b) || b.length !== 4) bad(f + ".box must be [x0, y0, x1, y1]");
+        int(b[0], f + ".box x0", 0, w - 1); int(b[1], f + ".box y0", 0, h - 1); int(b[2], f + ".box x1", b[0], w - 1); int(b[3], f + ".box y1", b[1], h - 1);
+        if (r.habitat !== undefined && (typeof r.habitat !== "string" || !ID.test(r.habitat))) bad(f + ".habitat must be a habitat id");
+        if (!arr(r.spawns, f + ".spawns").length) bad(f + " has no spawns: a roam area is where creatures start");
+        r.spawns.forEach(function (q, j) {
+          var g2 = f + ".spawns[" + j + "]";
+          if (!isObj(q)) bad(g2 + " must be { creature, at }"); only(q, g2, ["creature", "at"]);
+          if (CREATURE_KINDS.indexOf(q.creature) < 0) bad(g2 + ".creature " + JSON.stringify(q.creature) + " isn't one of the game's creatures");
+          tileAt(q.at, g2 + ".at");
+          if (q.at[0] < b[0] || q.at[0] > b[2] || q.at[1] < b[1] || q.at[1] > b[3]) bad(g2 + ": its " + q.creature + " starts at " + q.at + ", outside its roam area's box");
+        });
+      }
       /* a building's shape (B3c1): its solid is one full rectangle of tiles (its footprint); its placeholder art is one box
          as wide as the footprint, standing on its front edge (it may rise above it, never below or beside it); one with a
          room has exactly one door, the tile right in front of the footprint (the front is south), and pi's feet fit in its
@@ -743,6 +765,23 @@
         reach = new Uint8Array(w * h); var sq = [A.spawnTile[1] * w + A.spawnTile[0]]; reach[sq[0]] = 1;
         for (var qh = 0; qh < sq.length; qh++) { var qi = sq[qh], qx = qi % w, qy = (qi - qx) / w; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var nx = qx + d[0], ny = qy + d[1], j = ny * w + nx; if (nx >= 0 && ny >= 0 && nx < w && ny < h && !reach[j] && walk(nx, ny) && !cc[j]) { reach[j] = 1; sq.push(j); } }); }
       }
+      /* the roam areas (B3e1), once every solid is known: in format 1's order, each spawn on a tile its creature may stand on (format 1's
+         okFor: open ground; grass for a dinosaur, path for a robot or the roomba, anything but a dock for a cat), feet clear of every
+         foot-blocking pixel, and somewhere else in its box to walk to */
+      var lastRoam = -1;
+      function mayStand(kind, x, y) { var gc = g(x, y); return walk(x, y) && !cc[y * w + x] && (kind === "robot" || kind === "roomba" ? gc === PATH : kind === "cat" ? gc !== DOCK : gc === GRASS); }
+      recs.forEach(function (o) {
+        var r = o.r, f = "content record " + r.id; if (r.kind !== "roam") return;
+        var n = +r.id.slice(5); if (n <= lastRoam) bad(f + ": roam areas come in format 1's order"); lastRoam = n;
+        r.spawns.forEach(function (q) {
+          var fx = q.at[0] * T + 8, fy = q.at[1] * T + 10, wet = 0;
+          for (var yy = fy - 2; yy <= fy + 1; yy++) for (var xx = fx - 4; xx <= fx + 4; xx++) if (bit(D.foot, xx, yy) || bit(cf, xx, yy)) wet++;
+          if (!mayStand(q.creature, q.at[0], q.at[1])) bad(f + ": its " + q.creature + " starts at " + q.at + ", a tile it may not stand on");
+          if (wet) bad(f + ": its " + q.creature + " starts at " + q.at + " with " + wet + " foot-blocking pixels under its feet");
+        });
+        var room = 0, b = r.box; for (var yy2 = b[1]; yy2 <= b[3]; yy2++) for (var xx2 = b[0]; xx2 <= b[2]; xx2++) if (mayStand(r.spawns[0].creature, xx2, yy2)) room++;
+        if (room < 2) bad(f + ": its box holds " + room + " tile(s) its " + r.spawns[0].creature + " may walk to");
+      });
       sts.forEach(function (o) {
         var r = o.r, f = "content record " + r.id, pk = Object.keys(r.place)[0], ax = r.anchor[0], ay = r.anchor[1], px = r.approach[0], py = r.approach[1], ai = ay * w + ax;
         if (anchors[ai]) bad(f + ": its anchor " + r.anchor + " is " + anchors[ai] + "'s too: no two stations share an anchor"); anchors[ai] = r.id;
@@ -775,6 +814,13 @@
     D.shapes = copy(S);
     // the content sections format 1 carries: none yet (B3 adds them to format 2 as its own sections)
     D.decals = {}; D.buildings = []; D.stations = {}; D.regions = { paddocks: [], compound: null, roamAreas: [], zones: {} }; D.spawns = []; D.routes = {}; D.places = {}; D.props = [];
+    // the creatures (B3e1): the content's roam areas and their spawns, in format 1's shapes (regions.roamAreas, spawns), so the game's
+    // creature code reads them as it reads format 1's
+    (D.contentRecords || []).forEach(function (r) {
+      if (r.kind !== "roam") return;
+      D.regions.roamAreas.push({ id: r.id, box: r.box.slice() });
+      r.spawns.forEach(function (q) { D.spawns.push({ kind: q.creature, at: q.at.slice(), roam: r.id }); });
+    });
     return D;
   }
   var MAP;
@@ -803,7 +849,7 @@
     return {
       buildings: all || CONTENT_PREVIEW,      // the buildings and their rooms (B3c1: the content preview draws its building records)
       stations: all || stations,              // the landmarks (and with them the logs, the tour, deep links, the map's buttons, the shrine; B3d4b: the content preview's station records)
-      creatures: all,                         // the dinosaurs, cats and robots that roam, the t-rex's roar, the pterosaurs
+      creatures: all || (CONTENT_PREVIEW && MAP.spawns.length > 0),   // the dinosaurs, cats and robots that roam, the t-rex's roar, the pterosaurs (B3e1: the content preview's roam areas, only the creatures they hold)
       rex: all,                               // rex, in his meadow
       birds: all,                             // the cockatiels (they perch on landmarks)
       koi: all,                               // the koi, and feeding them
@@ -850,7 +896,16 @@
       });
       if (miss.length) out.push(q[2] + ": " + miss.join(", "));
     });
-    HOME2_SECTIONS.forEach(function (s0) { out.push(s0 + " (not in the content format yet)"); });
+    HOME2_SECTIONS.forEach(function (s0) {
+      // the roam areas (B3e1): in the content format now, so the item names the ones not there yet (format 1's 28: roam-00 to roam-27)
+      if (s0 === "spawns and roam areas") {
+        var have = {}; recs.forEach(function (r) { if (r.kind === "roam") have[r.id] = 1; });
+        var miss = []; for (var n0 = 0; n0 < 28; n0++) { var id0 = "roam-" + (n0 < 10 ? "0" : "") + n0; if (!have[id0]) miss.push(id0); }
+        if (miss.length) out.push(s0 + ": " + miss.join(", ") + " (" + miss.length + " of 28 not migrated yet)");
+        return;
+      }
+      out.push(s0 + " (not in the content format yet)");
+    });
     if (!((D.shapes && D.shapes.water) || []).some(function (b) { return b.id === "koi-pond" && b.kind === "pond"; })) out.push("the koi pond (shapes.water koi-pond)");
     return out;
   }
@@ -3002,7 +3057,7 @@
   });
   // Ammaar's cats: jasmine (pink collar) and prince (blue collar)
   var cats = critters.filter(function (c) { return c.kind === "cat"; });
-  if (SYS.creatures) {                                                // the MAP-B previews have no creatures yet (B3)
+  if (SYS.creatures && cats.length === 2) {                           // format 1 has both cats; the MAP-B content preview, not yet (B3e1)
     cats[0].name = "jasmine"; cats[0].pal = { Q: "#ff7eb6" }; cats[0].say = "jasmine, one of Ammaar's two himalayan cats. she's very fluffy and fully unbothered.";
     cats[1].name = "prince"; cats[1].pal = { Q: "#4f8fff" }; cats[1].say = "prince, one of Ammaar's two himalayan cats. he inspects pi, then goes back to supervising.";
   }
@@ -4249,7 +4304,7 @@
     updateHeli(dt);
     if (SYS.volcano) updateVolcano(dt);
     if (SYS.bots) updateBots(dt);
-    if (SYS.creatures && trex.cd <= 0 && !aboard() && !room && piInside(ZONES["trex-roar"]) && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
+    if (SYS.creatures && trex && ZONES["trex-roar"] && trex.cd <= 0 && !aboard() && !room && piInside(ZONES["trex-roar"]) && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
     if (roarTag) { roarTag.t -= dt; if (roarTag.t <= 0) roarTag = null; }
   }
 
@@ -6508,6 +6563,9 @@
       return JSON.parse(JSON.stringify(save));
     },
     getSave: function () { return JSON.parse(JSON.stringify(save)); },
+    // a creature (B3e1 tests): its state, or with o, some of it set first (x, y, tx, ty, wait, fast, sleep): sends one somewhere, as its own
+    // wander would, to test what stops it
+    creature: function (i, o) { var c = critters[i]; if (!c) return null; if (o) ["x", "y", "tx", "ty", "wait", "fast", "sleep"].forEach(function (k2) { if (o[k2] !== undefined) c[k2] = o[k2]; }); return { kind: c.kind, x: c.x, y: c.y, tx: c.tx, ty: c.ty, wait: c.wait, sleep: c.sleep, roar: c.roar, hop: c.hop, face: c.face, dist: c.dist }; },
     fireEvent: function (name) { if (!EVENTS[name]) throw new Error("fireEvent: one of " + Object.keys(EVENTS).join(", ")); EVENTS[name](); },
     getState: function () { return { open: open, t: t, manual: manual, room: room ? room.id : null, pi: { x: pi.x, y: pi.y, dir: pi.dir, kaiju: pi.kaiju, path: pi.path ? pi.path.length : 0, stalls: pi.stalls || 0 }, found: Object.keys(found), critters: critters.map(function (c) { return [c.kind, c.x, c.y]; }), events: { ptero: ptero.on, roar: trex ? trex.roar > 0 : false, quake: quake }, heli: { x: heli.x, y: heli.y, z: heli.z, a: heli.a, state: heli.state }, iris: !!iris, xfade: !!xfade, doors: BUILDINGS.filter(function (b) { return b.room; }).map(function (b) { return { id: b.id, room: b.room, x: doorX(b), y: (b.y0 + b.h) * T + 6, built: !!ROOMS[b.room]._bgDone }; }) }; },
     frames: function (clear) { var w = work.slice(); if (clear) work.length = 0; return w; },
@@ -6574,6 +6632,9 @@
                // name and section, whether its log is found, how often the station code drew it; the logs, the seal and its cut,
                // the tour's step, the terminal, the side scene
                stations: OUT.map(function (q) { return { id: q.id, x: q.x, y: q.y, stand: q.stand ? q.stand.slice() : [q.x, q.y + 1], landmark: q.lm ? q.lm.id : null, name: q.name, sec: q.sec || null, log: !!q.found, found: !!found[q.id], draws: STATION_DRAWN[q.id] || 0 }; }),
+               // the creatures (B3e1): each one's kind, place, roam area (its box, and which one: creatures sharing an area share the index),
+               // where it's walking to, and whether it sleeps, roars or grazes
+               creatures: critters.map(function (c) { return { kind: c.kind, x: c.x, y: c.y, area: c.area.slice(), areaIx: Object.keys(ROAM).map(function (k2) { return ROAM[k2]; }).indexOf(c.area), tx: c.tx, ty: c.ty, sleep: c.sleep, roar: c.roar, graze: c.graze, face: c.face, dist: c.dist }; }),
                logs: { found: countFound(), total: TOTAL, seal: !!save.seal, cut: !!cut, sealed: SYS.stations ? sealed() : null }, tour: tour ? tour.i : null, term: termOpen, side: !!side,
                // the paddock fences (B3d1): each fence record's tiles, its openings, whether it closes its ground in, its pieces by
                // kind, its warning signs, and what drawing them has cost
