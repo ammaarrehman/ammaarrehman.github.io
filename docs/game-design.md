@@ -1586,6 +1586,98 @@ after his visual review, committed as "Map: migrate MAP-B pachycephalosaurs (B3e
 - Status: complete and approved. B3e2 hasn't begun. MAP-B stays preview-only (loopback, no storage); production is unchanged
   (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing deployed.
 
+MAP-B B3e2, the gallimimus and the compsognathus (2026-10-20; staged only, not deployed; approved by Ammaar 2026-10-21 and
+committed; complete):
+- Read first: B3e1's audit and probe (`tools/out/mapb/b3e1/audit/probe.txt`), B3a's plan (section 3), format 1's creature code.
+  Rechecked against MAP-B as built now (`tools/out/mapb/b3e2/audit/probe.txt`): no conflict with the approved plan.
+- Format 1, the two species (`DINOS` in `js/world.js`):
+  - gallimimus: four, each in its own roam area (format 1's roam-11 to roam-14, one box); speed 30 px/s, art 44 x 40 px;
+    calls "squeak";
+  - compsognathus: five (roam-15 to roam-19, one box); speed 26 px/s, art 23 x 10 px; calls "chirp".
+  - Both wander format 1's way (a straight walk to a random grass tile in the box) and turn to watch pi when idle.
+  - Both bolt from pi (a gallimimus within 64 px, a compsognathus within 48): they run 60 px away from pi at 1.6 times their
+    speed, now and then calling, without checking the ground ahead (a blocked bolt stops; the next wander returns them to
+    their box).
+  - They doze at night and wake when pi comes within 26 px. Their cards are "a dinosaur" and one of two lines each; they hop
+    when used.
+  - No other dependency.
+- Placements (B3a's, unchanged), all clean:
+  - the galli meadow 85,41 to 95,48, entirely open grass (88 tiles) inside the B1e habitat galli-meadow, spawns 87,43, 90,42,
+    93,45 and 86,47;
+  - the village gardens 27,91 to 33,96, entirely open grass (42 tiles) inside village-gardens, spawns 29,92, 30,93, 28,94,
+    31,92 and 27,93.
+  - Every spawn's feet clear; every straight walk between targets clear; no content within six tiles but the tablet station
+    (no collision). Round the meadow, within four tiles, only grass and path; round the gardens grass, sand and six shallow
+    tiles (blocked to feet).
+- Content (`tools/maps/home.content.mjs`): nine roam records, roam-11 to roam-19, each exactly the plan's. 32 records, still
+  288 solid tiles and 0 foot pixels; the 23 earlier records byte for byte. No change to `js/world.js`, the schema or the rule:
+  B3e1's architecture took them as they are.
+- The content preview now runs eleven creatures (2 pachycephalosaurs, 4 gallimimus, 5 compsognathus), each in its own roam
+  area. Everything else stays off: no T. rex, raptors, spinosaur, herd, babies, brachiosaurs, parasaurolophus, dilophosaur,
+  robots, roomba, cats, rex, birds, koi, bots, car, rift, volcano or hatching. The completeness wall names the 17 roam areas
+  still missing; a normal format-2 home is still refused (7 items).
+- Found, recorded (format 1's behaviour, unchanged):
+  - **Bolting runs off the box.** Chased for three minutes from every side, a gallimimus ran up to 9.3 tiles beyond its box
+    and a compsognathus 8.7, out of it most of the time while chased; both were back inside 5 to 6 s after pi left. Feet never
+    touched a solid pixel.
+  - **They could, in principle, be stranded.** Within 12 tiles of the meadow, 161 walkable tiles (behind the terrace's cliff
+    to the north, 92 to 97, 29 to 34, and by the park-gate ramp, 74 to 78, 34 to 38) have no clear straight walk back to any
+    tile of the box. Near the gardens there are 8 such tiles (far off, 23 to 45, 79 to 102). A creature bolted onto one would
+    keep picking blocked walks. No chase reached one; recorded as a risk, not observed.
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework): every check now runs for the three species. Added:
+  - the nine records, their spawns and ground;
+  - pi chasing through each herd from every side and round it, then leaving;
+  - [E] and a click on one of each; night for each kind; phones for each kind; repeatability over all eleven;
+  - completeness 17; a gallimimus and compsognathus in the screenshots.
+  The other MAP-B suites now pin B3d4b's 21 records exactly and accept any roam records after them, reading the record and
+  creature counts from the content file (`mapb-creatures` pins those exactly), so a creature batch needn't touch them again.
+- Verification (2026-10-20; one suite at a time, logs kept, `tools/out/mapb/b3e2/gates/`). Firefox BLOCKED at launch wherever it
+  was tried (never a pass). Lightweight first (`light/`): the compile checks and every MAP-B suite's Node part. Then:
+  - mapb-creatures 134 (Node 54, Chromium 42, WebKit 38) and mapb-stations 255, in both engines;
+  - in Chromium only (their changed pins don't depend on the engine): mapb-landmarks 84, mapb-content 87, mapb-koi-gate 119,
+    mapb-paddock 88, mapb-fences 102, mapb-buildings 232;
+  - the deploy guard (8); the dry run (53 files, 41 references); html; `git diff --check`; CSpell the same 19 findings.
+  - Reused from B3e1's gate run, since `js/world.js`, the decoder, the painter and format 1's files are untouched by B3e2:
+    map-parity 37/37 and b0-parity 21/21 identical, mapb-painter 49 (both digests exact), mapb-runtime 220, mapb-decode 76,
+    map-decode 250, scenarios 98. The content preview's digests with all eleven creatures drawn are checked again in
+    mapb-creatures (exact in both engines).
+  - No failure in the pass. Also recorded:
+    - mapb-koi-gate (Chromium) took 46 minutes and mapb-content 13 (3 and 4 in B3e1), both passing. The run went on
+      overnight at low load and the cause wasn't investigated (the Mac may have slept).
+    - Failures in development (the suite's own): the predators' simulation expected 6 creatures (now 15); a malformed case
+      used roam-11's id, now a real record.
+    - The gate run's review screenshots caught a gallimimus bolting out of reach before [E], so no card opened, and a stray
+      Escape then paused the game for the next shot. The prompt and card shots now hold the game in step mode, and the suite
+      was rerun alone in both engines: 134, `mapb-creatures-rerun.log`.
+- Performance (gate run, Chromium / WebKit; WebKit's clock is 1 ms coarse): walking through the heath, the galli meadow and the
+  village gardens on the live loop with all eleven creatures running and bolting, frame work p95 1.7 / 1.0 ms, max 12.0 / 2.0
+  (the terrain preview's p95 1.7 / 1.0); one development run's max was 16.2 ms in Chromium (p95 1.7).
+- Remaining creature migrations (22 of 33) and their blockers:
+  - brachiosaurs x2 (roam-00, 01; placement clean; they stomp and shake the camera);
+  - the herd (roam-04; stegosaur, 2 triceratops, ankylosaur sharing one area; placement clean);
+  - dilophosaur (roam-08; placement clean);
+  - parasaurolophus x2 (roam-05, 06; 9% of straight walks blocked in a tight wetland, 82% inside its habitat);
+  - babies x3 (roam-20, 21 by the nests, which are props not migrated; roam-22 clean);
+  - spinosaur (roam-07; its spawn on the river bank's foot-blocking pixels, refused by the rule; 55% of walks blocked);
+  - cats x2 (roam-26, 27; 54% of walks blocked by the koi pond; the naming guard in place);
+  - robots x2 and the roomba (roam-23 to 25; paths only; the bots' kin);
+  - the T. rex and the raptors (roam-02, 03): B3e1's deferred blockers stand (the T. rex's unreachable target 108,11; the
+    sprites over the fences; the roar zone and the welder's patrol not in the format).
+- Known limitation, inherited from format 1 (recorded explicitly at approval): a bolting gallimimus or compsognathus runs 60 px
+  from pi without checking the ground, so a chase takes it out of its box (up to 9.3 and 8.7 tiles seen). Out-of-box fleeing
+  is **provisionally accepted for B3e2 only**. The stranding risk (161 tiles near the meadow and 8 near the gardens with no
+  straight walk back; never reached in testing) must be resolved, or verified more strongly, **before B4's production
+  acceptance**. Format 1's behaviour is unchanged here.
+- Approval (2026-10-21): Ammaar accepted the desktop presentation, the animals' proportions, the movement screenshots, the
+  interactions and the phones. Final checks before the commit, lightweight only (the browser matrix not rerun;
+  `tools/out/mapb/b3e2/final/`): map-compile and map-content `--check` current (17984 bytes, 32 records, 288 solid tiles,
+  0 foot pixels); the Node parts of the eight MAP-B suites (creatures 54, stations 72, landmarks 33, content 29, koi-gate 52,
+  paddock 32, fences 35, buildings 71), all passing; guard 8; dry run (53 files, 41 references); `git diff --check`. Exactly
+  11 creatures (pachy 2, galli 4, compy 5); the 23 earlier records byte for byte. The browser evidence stands from the gate
+  run and rerun above (creatures 134, stations 255, format-1 parity and the painter digests from B3e1's); Firefox BLOCKED.
+- Status: complete, approved and committed. B3e3 hasn't begun. MAP-B stays preview-only (loopback, no storage); production is
+  unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing deployed.
+
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
 and under 33 ms at 6x CPU throttle, in heavy rain at night with 40 creatures.

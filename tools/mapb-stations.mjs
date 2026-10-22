@@ -46,6 +46,8 @@ import { STAGED_PATH } from "./map-compile.mjs";
 import { resolveContent, contentProblems, contentLayers, ContentError, STATION_IDS, STATION_PLACES } from "./maps/content.mjs";
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
+// since B3e1 the content ends with roam areas (creatures; tools/mapb-creatures.mjs pins them exactly): how many, and the creatures they hold
+const ROAM_N = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); const r = c.window.ISLAND_MAPS_STAGED_CONTENT.home.records; return { records: r.length, roams: r.filter((q) => q.kind === "roam").length, creatures: r.filter((q) => q.kind === "roam").reduce((n, q) => n + q.spawns.length, 0) }; })();
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // its review screenshots go to tools/out/mapb/b3d4b/; MAPB_SHOTS names another folder under tools/out/ (a later batch's regression run)
 const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3d4b");
@@ -323,8 +325,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store: STORE });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const SYS_OFF = ["rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
-  check(name, "content preview: 23 records (288 solid tiles: since B3e1 two roam areas too); the buildings, the stations and (since B3e1) the creatures on, every other home system off (no rex, bird, koi, bot, drone, car, rift, volcano or hatching); 13 stations with the room's rack and desk; 8 logs to find, none found (no save read)",
-    cp.loaded && !cp.errs.length && cv.content.records === 23 && cv.content.solidTiles === 288 && cv.sys.buildings && cv.sys.stations && SYS_OFF.every((k) => cv.sys[k] === false) && cv.systems.stations === 13 && cv.systems.critters === 2 && cv.systems.bots === 0 && cv.systems.drones === 0 && cv.systems.birds === 0 && cv.systems.koi === 0 && !cv.systems.car && !cv.systems.rex && !cv.systems.arena && !cv.systems.volcano && cv.logs.total === 8 && cv.logs.found === 0 && cv.saveLocked,
+  check(name, "content preview: all its records (288 solid tiles: since B3e1 roam areas too, without collision); the buildings, the stations and (since B3e1) the creatures on, every other home system off (no rex, bird, koi, bot, drone, car, rift, volcano or hatching); 13 stations with the room's rack and desk; 8 logs to find, none found (no save read)",
+    cp.loaded && !cp.errs.length && cv.content.records === ROAM_N.records && cv.content.solidTiles === 288 && cv.sys.buildings && cv.sys.stations && SYS_OFF.every((k) => cv.sys[k] === false) && cv.systems.stations === 13 && cv.systems.critters === ROAM_N.creatures && cv.systems.bots === 0 && cv.systems.drones === 0 && cv.systems.birds === 0 && cv.systems.koi === 0 && !cv.systems.car && !cv.systems.rex && !cv.systems.arena && !cv.systems.volcano && cv.logs.total === 8 && cv.logs.found === 0 && cv.saveLocked,
     cv ? `sys ${JSON.stringify(cv.sys)}; systems ${JSON.stringify(cv.systems)}; logs ${JSON.stringify(cv.logs)}` : cp.errs.join("; "));
   check(name, "content preview: each station where its record puts it (anchor, approach as the game's stand), the tower's and the lighthouse's on their bases",
     cv && cv.stations.length === 11 && IDS.every((id) => { const s = cv.stations.find((q) => q.id === id), A = ST[id]; return s && s.x === A.anchor[0] && s.y === A.anchor[1] && s.stand.join() === A.approach.join() && s.landmark === (A.place.landmark || null) && s.log === A.log; }),

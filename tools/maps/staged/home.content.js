@@ -13,7 +13,7 @@
    The game reads the terrain's collision for painting and the union of both layers for movement. */
 (window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {
   "format": 2, "staged": true, "schema": "mapb-content-1", "id": "home", "generator": "tools/map-content.mjs",
-  "source": "tools/maps/home.content.mjs", "sourceSha256": "bcf23b8b280a246d42cd1c07699bba745debf276f0dcef0692c31443e1c9670b", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
+  "source": "tools/maps/home.content.mjs", "sourceSha256": "aeb90da5c8160d9edc1c15d57a80d6ae546a167f5505c484534ffcb65d5f1099", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
   "solidTiles": 288, "footPixels": 0,
   "records": [
     {"id":"visitor","kind":"building","drawnPxBoxes":[{"px0":1280,"py0":1104,"px1":1423,"py1":1183}],"tiles":[[80,69],[81,69],[82,69],[83,69],[84,69],[85,69],[86,69],[87,69],[88,69],[80,70],[81,70],[82,70],[83,70],[84,70],[85,70],[86,70],[87,70],[88,70],[80,71],[81,71],[82,71],[83,71],[84,71],[85,71],[86,71],[87,71],[88,71],[80,72],[81,72],[82,72],[83,72],[84,72],[85,72],[86,72],[87,72],[88,72],[80,73],[81,73],[82,73],[83,73],[84,73],[85,73],[86,73],[87,73],[88,73]],"footPxBoxes":[],"doorTiles":[[84,74]],"reserve":"visitor-centre","art":"placeholder","room":"visitor"},
@@ -38,6 +38,15 @@
     {"id":"cave","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[66,24],"approach":[66,25],"place":{"marker":"cave-mouth"}},
     {"id":"boat","kind":"station","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"anchor":[79,97],"approach":[79,96],"place":{"berth":"south"}},
     {"id":"roam-09","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[36,15,45,22],"habitat":"pachy-heath","spawns":[{"creature":"pachy","at":[38,18]}]},
-    {"id":"roam-10","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[36,15,45,22],"habitat":"pachy-heath","spawns":[{"creature":"pachy","at":[42,19]}]}
+    {"id":"roam-10","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[36,15,45,22],"habitat":"pachy-heath","spawns":[{"creature":"pachy","at":[42,19]}]},
+    {"id":"roam-11","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[85,41,95,48],"habitat":"galli-meadow","spawns":[{"creature":"galli","at":[87,43]}]},
+    {"id":"roam-12","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[85,41,95,48],"habitat":"galli-meadow","spawns":[{"creature":"galli","at":[90,42]}]},
+    {"id":"roam-13","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[85,41,95,48],"habitat":"galli-meadow","spawns":[{"creature":"galli","at":[93,45]}]},
+    {"id":"roam-14","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[85,41,95,48],"habitat":"galli-meadow","spawns":[{"creature":"galli","at":[86,47]}]},
+    {"id":"roam-15","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[29,92]}]},
+    {"id":"roam-16","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[30,93]}]},
+    {"id":"roam-17","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[28,94]}]},
+    {"id":"roam-18","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[31,92]}]},
+    {"id":"roam-19","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[27,93]}]}
   ]
 };

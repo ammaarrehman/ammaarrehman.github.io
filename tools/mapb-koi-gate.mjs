@@ -48,6 +48,8 @@ import { STAGED_PATH } from "./map-compile.mjs";
 import { resolveContent, contentProblems, contentLayers, ContentError } from "./maps/content.mjs";
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
+// since B3e1 the content ends with roam areas (creatures; tools/mapb-creatures.mjs pins them exactly): how many, and the creatures they hold
+const ROAM_N = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); const r = c.window.ISLAND_MAPS_STAGED_CONTENT.home.records; return { records: r.length, roams: r.filter((q) => q.kind === "roam").length, creatures: r.filter((q) => q.kind === "roam").reduce((n, q) => n + q.spawns.length, 0) }; })();
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 // its review screenshots go to tools/out/mapb/b3d3/; MAPB_SHOTS names another folder under tools/out/ (a later batch's regression run)
 const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3d3");
@@ -98,7 +100,7 @@ const DATA = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(
 // B3d2's six compiled records, as committed at 16b0e47 (the sha256 of their JSON, in order)
 const SIX = "65125cd792117f2acb8ff68df9d767da18478a8c482356095784f9c1efd94413";
 check("node", "the content: B3c's three buildings and compound wall, B3d1's raptor yard and B3d2's holding paddock exactly as committed (their compiled records byte for byte), then B3d3's koi garden wall and park gate (and since B3d4a the tower's and the lighthouse's bases after them, tools/mapb-landmarks.mjs, and B3d4b's eleven stations, tools/mapb-stations.mjs, and B3e1's two roam areas, tools/mapb-creatures.mjs); nothing else",
-  RECS.map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark,sign:station,uplink:station,tower:station,lighthouse:station,macbook:station,tablet:station,mailbox:station,drink:station,shrine:station,cave:station,boat:station,roam-09:roam,roam-10:roam" && createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 6))).digest("hex") === SIX,
+  RECS.slice(0, 21).map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark,sign:station,uplink:station,tower:station,lighthouse:station,macbook:station,tablet:station,mailbox:station,drink:station,shrine:station,cave:station,boat:station" && RECS.slice(21).every((r) => r.kind === "roam") && createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 6))).digest("hex") === SIX,
   RECS.map((r) => r.id).join(", "));
 check("node", "the content passes every rule: 288 solid tiles (220 before B3d3, then 53 of wall and 2 posts, and B3d4a's 13; B3d4b's stations add none), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
@@ -355,8 +357,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const sortK = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k2) => [k2, o[k2]]));
   const kv = cv && cv.walls.find((q) => q.id === KOI), gv = cv && cv.gates.find((q) => q.id === GATE);
-  check(name, "content preview: loads with the 23 records (288 solid tiles), the buildings system on; the koi garden's wall as its record says: 53 tiles, its 7 gates as openings, the 4 rim tiles closing it, the garden look; 32 runs, 9 piers, 4 corners, 6 posts (either side of each opening) and 2 ends (at the cliff)",
-    cp.loaded && !cp.errs.length && cv.content.records === 23 && cv.content.solidTiles === 288 && cv.sys.buildings === true && kv && kv.compound === KOI && kv.tiles === 53 && key(kv.gaps) === key(GAPS) && key(kv.terrain) === key(TERR) && kv.look === "garden" && sortK(kv.kinds) === sortK({ corner: 4, run: 32, pier: 9, post: 6, end: 2 }),
+  check(name, "content preview: loads with all its records (B3d4b's 21 and, since B3e1, the roam areas) (288 solid tiles), the buildings system on; the koi garden's wall as its record says: 53 tiles, its 7 gates as openings, the 4 rim tiles closing it, the garden look; 32 runs, 9 piers, 4 corners, 6 posts (either side of each opening) and 2 ends (at the cliff)",
+    cp.loaded && !cp.errs.length && cv.content.records === ROAM_N.records && cv.content.solidTiles === 288 && cv.sys.buildings === true && kv && kv.compound === KOI && kv.tiles === 53 && key(kv.gaps) === key(GAPS) && key(kv.terrain) === key(TERR) && kv.look === "garden" && sortK(kv.kinds) === sortK({ corner: 4, run: 32, pier: 9, post: 6, end: 2 }),
     kv ? JSON.stringify({ kinds: kv.kinds, look: kv.look }) : cp.errs.join("; "));
   check(name, "content preview: the park gate as its record says (on the marker 74,38, posts 72,38 and 76,38, its opening 73 to 75,38, its box), alone; format 1's anchor gate isn't there (systems.gate false)",
     cv && cv.gates.length === 1 && gv && gv.marker === GATE && gv.at.join() === "74,38" && key(gv.posts) === key(GPOSTS) && key(gv.opening) === key(GOPEN) && gv.box.join() === [GBOX.px0, GBOX.py0, GBOX.px1, GBOX.py1].join() && cv.systems.gate === false,

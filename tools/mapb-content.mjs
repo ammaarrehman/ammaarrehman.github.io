@@ -41,6 +41,8 @@ import { STAGED_PATH } from "./map-compile.mjs";
 import { resolveContent, contentProblems, compileContent, contentLayers, serializeContent, ContentError } from "./maps/content.mjs";
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
+// since B3e1 the content ends with roam areas (creatures; tools/mapb-creatures.mjs pins them exactly): how many, and the creatures they hold
+const ROAM_N = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(CONTENT_STAGED, "utf8"), c); const r = c.window.ISLAND_MAPS_STAGED_CONTENT.home.records; return { records: r.length, roams: r.filter((q) => q.kind === "roam").length, creatures: r.filter((q) => q.kind === "roam").reduce((n, q) => n + q.spawns.length, 0) }; })();
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
 const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
 const T = 16;
@@ -70,7 +72,7 @@ const SYN_DATA = (() => { const c = { window: {} }; vm.runInNewContext(serialize
   const { content, contentSha256 } = await loadContent();
   const a = await buildContentText(content, contentSha256), b = await buildContentText(content, contentSha256);
   const tracked = readFileSync(CONTENT_STAGED, "utf8");
-  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; B3d2: the holding paddock's fence; B3d3: the koi garden's wall and the park gate; B3d4a: the tower's and the lighthouse's bases; B3d4b: the eleven stations; B3e1: two roam areas; nothing else)", tracked === a.text && a.compiled.records.map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard,holding-paddock,koi-garden,park-gate,tower-base,lighthouse-base,sign,uplink,tower,lighthouse,macbook,tablet,mailbox,drink,shrine,cave,boat,roam-09,roam-10", `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
+  check("node", "the tracked content file is the current compile of tools/maps/home.content.mjs (B3c1: the visitor centre and the depot; B3c2: the bunker; B3c3: the bunker compound's wall; B3d1: the raptor yard's fence; B3d2: the holding paddock's fence; B3d3: the koi garden's wall and the park gate; B3d4a: the tower's and the lighthouse's bases; B3d4b: the eleven stations; B3e1: two roam areas; nothing else)", tracked === a.text && a.compiled.records.slice(0, 21).map((r) => r.id).join() === "visitor,depot,bunker,bunker-compound,raptor-yard,holding-paddock,koi-garden,park-gate,tower-base,lighthouse-base,sign,uplink,tower,lighthouse,macbook,tablet,mailbox,drink,shrine,cave,boat" && a.compiled.records.slice(21).every((r) => r.kind === "roam"), `${Buffer.byteLength(a.text)} bytes, ${a.compiled.records.length} records: ${a.compiled.records.map((r) => r.id).join(", ")}`);
   check("node", "two compiles give the same bytes", a.text === b.text);
   check("node", "the content is bound to the terrain it was placed on (terrainSha256 is the staged terrain's sourceSha256)", a.text.includes(`"terrainSha256": "${t.sourceSha256}"`), t.sourceSha256.slice(0, 16));
   check("node", "the staged terrain file is untouched: map-compile's own compile, byte for byte", t.current && readFileSync(STAGED_PATH, "utf8") === t.terrainText);
@@ -200,7 +202,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const store = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
   const rp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store });
   const rl = rp.loaded ? await look(rp) : null;
-  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === 23,
+  check(name, "content preview (real content): loads in content mode (a staged preview, not terrain-only), its own badge, save locked", rp.loaded && !rp.errs.length && rl.v.previewMode === "content" && rl.v.stagedPreview && !rl.v.terrainOnly && rl.v.badge && rl.v.saveLocked && rl.v.content && rl.v.content.records === ROAM_N.records,
     rl ? `mode ${rl.v.previewMode}, content ${JSON.stringify(rl.v.content)}` : rp.errs.join("; "));
   const badge = rp.loaded ? await rp.page.evaluate(() => { const b = document.querySelector(".w-mapb-badge"); return { text: b.textContent, label: b.getAttribute("aria-label") }; }) : null;
   check(name, "content preview: the badge says so", badge && badge.text === "MAP-B\ncontent\npreview" && badge.label === "MAP-B content preview", JSON.stringify(badge));

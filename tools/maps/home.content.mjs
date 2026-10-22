@@ -104,6 +104,10 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    pachy-heath, all of it open grass but 11 tiles), starting at 38,18 and 42,19. Roam areas add no collision and draw nothing;
    the creatures are the game's, unchanged. The other 26 roam areas and their 31 creatures are later batches' (B3a's plan, in
    tools/maps/content.mjs ROAM_PLAN) */
+/* B3e2: format 1's four gallimimus and five compsognathus, each in its own roam area as in format 1 (roam-11 to roam-14 and roam-15 to
+   roam-19: one box each, separate objects), at B3a's approved places: the galli meadow (85,41 to 95,48, all of it open grass, inside
+   the B1e habitat galli-meadow), starting at 87,43, 90,42, 93,45 and 86,47; the village gardens (27,91 to 33,96, all open grass,
+   inside village-gardens), starting at 29,92, 30,93, 28,94, 31,92 and 27,93. Both bolt from pi as in format 1 */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -177,6 +181,15 @@ export default {
     station("cave", [66, 24], [66, 25], { marker: "cave-mouth" }),
     station("boat", [79, 97], [79, 96], { berth: "south" }),
     roam("roam-09", [36, 15, 45, 22], "pachy-heath", [["pachy", 38, 18]]),
-    roam("roam-10", [36, 15, 45, 22], "pachy-heath", [["pachy", 42, 19]])
+    roam("roam-10", [36, 15, 45, 22], "pachy-heath", [["pachy", 42, 19]]),
+    roam("roam-11", [85, 41, 95, 48], "galli-meadow", [["galli", 87, 43]]),
+    roam("roam-12", [85, 41, 95, 48], "galli-meadow", [["galli", 90, 42]]),
+    roam("roam-13", [85, 41, 95, 48], "galli-meadow", [["galli", 93, 45]]),
+    roam("roam-14", [85, 41, 95, 48], "galli-meadow", [["galli", 86, 47]]),
+    roam("roam-15", [27, 91, 33, 96], "village-gardens", [["compy", 29, 92]]),
+    roam("roam-16", [27, 91, 33, 96], "village-gardens", [["compy", 30, 93]]),
+    roam("roam-17", [27, 91, 33, 96], "village-gardens", [["compy", 28, 94]]),
+    roam("roam-18", [27, 91, 33, 96], "village-gardens", [["compy", 31, 92]]),
+    roam("roam-19", [27, 91, 33, 96], "village-gardens", [["compy", 27, 93]])
   ]
 };
