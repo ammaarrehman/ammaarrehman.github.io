@@ -4303,6 +4303,7 @@
     if (SYS.car) updateCar(dt);
     updateHeli(dt);
     if (SYS.volcano) updateVolcano(dt);
+    else quake = Math.max(0, quake - dt * 8);                           // the shake settles here when the volcano's update (which settles it) doesn't run (B3e3)
     if (SYS.bots) updateBots(dt);
     if (SYS.creatures && trex && ZONES["trex-roar"] && trex.cd <= 0 && !aboard() && !room && piInside(ZONES["trex-roar"]) && Math.hypot(pi.x - trex.x, pi.y - trex.y) < 150) roar();
     if (roarTag) { roarTag.t -= dt; if (roarTag.t <= 0) roarTag = null; }

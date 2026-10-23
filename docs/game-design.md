@@ -1675,8 +1675,125 @@ committed; complete):
   paddock 32, fences 35, buildings 71), all passing; guard 8; dry run (53 files, 41 references); `git diff --check`. Exactly
   11 creatures (pachy 2, galli 4, compy 5); the 23 earlier records byte for byte. The browser evidence stands from the gate
   run and rerun above (creatures 134, stations 255, format-1 parity and the painter digests from B3e1's); Firefox BLOCKED.
-- Status: complete, approved and committed. B3e3 hasn't begun. MAP-B stays preview-only (loopback, no storage); production is
+- Status: complete, approved and committed. B3e3 followed (below). MAP-B stays preview-only (loopback, no storage); production is
   unchanged (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`); nothing deployed.
+
+MAP-B B3e3, the brachiosaurs, the herd and the dilophosaur, and the camera's shake (2026-10-21 and 22; staged only, not deployed;
+approved by Ammaar 2026-10-22 after visual review, the camera-shake fix on its format-1 parity and decay tests; committed;
+complete):
+- Read first: B3e1's audit (its clean placements: the brachiosaurs, the herd, the dilophosaur), B3a's plan, format 1's creature
+  code. Rechecked against MAP-B as built now (`tools/out/mapb/b3e3/audit/`: `probe.txt`, `regions.txt`, `strand.txt`, `quake.txt`,
+  `quake-fix.txt`, `brachio-edges.txt`).
+- Format 1, the seven (`DINOS` in `js/world.js`):
+  - brachiosaurs x2 (roam-00, roam-01, one box, two areas): speed 7, art 84 x 83 px; they graze; every footfall (each 4.8 px walked)
+    thuds and, within 120 px of pi, shakes the camera (quake 1.2); stand still beside one for 2 s and it lowers its head to look.
+  - the herd (roam-04, **one area its four share**): a stegosaur (speed 8, 65 x 40 px), two triceratops (10, 64 x 36), an
+    ankylosaur (6, 52 x 21). All graze, and a grazer picking a target often takes a walking herd-mate's (its target, 20 px and
+    12 px either way): the herd drifts together. That works through the shared area object, so the herd stays one roam record.
+  - dilophosaur (roam-08): speed 16, 47 x 32 px; now and then it stops and calls (a 1.4 s roar animation and a screech).
+  - All doze at night and wake when pi comes within 26 px; cards "a dinosaur" and their kind's line(s); they hop when used.
+- **The camera's shake, fixed (the one change to `js/world.js`).** The shake (`quake`) settled only in `updateVolcano()`, its last
+  line, which runs only with `SYS.volcano`, off in the MAP-B previews. So in the content preview a brachiosaur's footfall (1.2), the
+  seal's cut after eight logs (2, B3d4b, committed) or any other shake held for good (measured: 4 and held, `quake.txt`). The fix,
+  in `updateLife()` at the same point of the frame: `if (SYS.volcano) updateVolcano(dt); else quake = Math.max(0, quake - dt * 8);`.
+  Format 1 runs the volcano, so its path is the same code as before: the shake settles once a frame, never twice. Nothing else about
+  the volcano, the camera or any other effect changes. (`side` mode settles its own shake, untouched.)
+  - Measured (`tools/mapb-creatures.mjs`): format 1 frame by frame identical before the change (B3e2's `js/world.js`, e3e3699) and
+    after (4 to 0 in 30 frames, 8/60 a frame); the content preview now the same frame for frame (before: 4 held). The live loop:
+    set, and a second later 0, in both. The camera jitters while it shakes (28 of 30 frames) and once settled moves only by its own
+    easing, ending where an unshaken camera is (0.000 px off).
+  - Each brachiosaur on a fixed walk past pi: every footfall 1.2 (read 1.0667 after the same frame's settling, as in format 1),
+    then 8/60 a frame, at rest within 9 frames of the last; format 1's brachiosaurs measured the same way give the same.
+  - The seal's cut after eight logs (seven in memory with `setSave`, the eighth read at the mailbox): in the content preview its
+    shake (2) holds through the cut, as format 1's does, then settles, frame for frame as format 1's (2 for 104 frames, 0 from frame
+    171, in both).
+- Audit and placements (B3a's, unchanged):
+  - **Brachiosaurs, the brachio meadow** 12,33 to 27,50 (all height-1 land but 44 path tiles: 244 targets; inside the habitat
+    brachio-meadow), spawns 16,38 and 22,46; no content within 6 tiles; no blocked straight walk. Their art against the meadow's
+    edges, every frame of the sheet either facing, on every target along each edge (opaque pixels, not the rectangle): west, the
+    tail's tip over the west cliff (6 px); the north-west corner (12,33 and 13,33), the head over the corner's cliff when it grazes
+    facing west, at most 63 px (2.3% of the art); east and south none; never over water. Judged acceptable (no redesign), for
+    Ammaar's review: `brachio-edge-west`, `brachio-edge-north`, `brachio-corner-north-west`.
+  - **The herd, the riverlands range** 41,43 to 57,60 (all height-1 land but 46 path tiles: 260 targets; inside the habitat
+    riverlands-range), spawns 44,46, 50,47, 54,55, 45,58; no content within 6 tiles; no blocked straight walk; the river 2 to 4 tiles
+    off the north-west corner (from the corner tile a stegosaur's or a triceratops' sprite reaches over one river tile).
+  - **The dilophosaur, the dilo strip** 89,14 to 95,21 (all height-2 land: 56 targets; 54 inside dilo-strip), spawn 91,17; the
+    tower's base 4 tiles south (its station's approach 107 px or more from the dilophosaur's feet, beyond any [E] or tap reach); from
+    the north-east corner its sprite reaches over the lake's edge.
+- Content (`tools/maps/home.content.mjs`): four roam records, roam-00 and roam-01 (the brachiosaurs), roam-04 (the herd: one record,
+  four spawns in format 1's order) and roam-08, each exactly the plan's. The content rule keeps roam areas in format 1's order, so
+  they come first of the roam areas: 36 records (the compiler's count), the 32 earlier records and the herd's and the dilophosaur's
+  two exactly as before, in their order (the staged file's diff is four inserted lines and its source hash), still 288 solid tiles
+  and 0 foot pixels. No change to the schema or the rule.
+- The content preview runs eighteen creatures in 15 roam areas: 2 brachiosaurs, the herd (4), the dilophosaur, 2 pachycephalosaurs,
+  4 gallimimus, 5 compsognathus. Everything else stays off (no T. rex, raptors, spinosaur, parasaurolophus, babies, robots, roomba,
+  cats, rex, birds, koi, bots, car, rift, volcano or hatching). The completeness wall names the 13 roam areas still missing; a
+  normal format-2 home is still refused (7 items).
+- Found, recorded (format 1's behaviour, unchanged):
+  - **The herd drifts a little past its box.** A herd-mate's target plus format 1's jitter can lie past it (okFor checks the
+    ground, not the box): at most 0.63 tiles past it in ten minutes (0 to 3% of frames); the suite allows 1.5. No stranding risk:
+    within 2 tiles of the box every walkable tile has a straight walk back (`strand.txt`). The herd follows a herd-mate in 41% of
+    its picks, the gallimimus (separate areas) 5%, by chance.
+  - The brachiosaurs and the dilophosaur never leave their box; none of them flees.
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework): populations carry per-spawn kinds and roam ids (the herd shares
+  roam-04), and every check runs for all eight kinds:
+  - the four records, their spawns and ground; the herd one area, not four; malformed cases (the herd split, reordered, short of a
+    member; roam-08 out of order; a spawn moved; a box shrunk); the brachiosaurs' art against the meadow's edges (above);
+  - eighteen creatures, 15 areas; ten minutes seeded (feet never on solid, never off walkable ground, in their boxes but the herd's
+    slack); the herd's drifting; pi walking round each box that doesn't bolt; obstacles (the west cliff, the river, the dilo strip's
+    cliffs and water); [E] and a click per kind; night per kind; phones per kind (390 and 375); repeatability over eighteen;
+    completeness 13; no storage; the painter digests with all eighteen drawn; performance through six habitats;
+  - the shake (above): format 1 before and after, the content preview, the camera, each brachiosaur against format 1's, the seal's
+    cut against format 1's, the live loop;
+  - review screenshots, each checked to show every animal whole, on screen and under no overlay.
+  The other MAP-B suites needed no change.
+- Verification (2026-10-22; one suite at a time, logs kept, `tools/out/mapb/b3e3/gates-final/`). Firefox BLOCKED at launch wherever
+  it was tried (never a pass):
+  - mapb-creatures 205 (Node 75, Chromium 67, WebKit 63), `mapb-creatures-rerun.log`;
+  - for the `js/world.js` change: map-parity PASS (format 1, 37/37), b0-parity PASS (a browser blocked), scenarios 98, map-decode
+    250, mapb-runtime 220 (the staged preview, which runs without the volcano too), mapb-stations 166 in Chromium (the seal's cut in
+    the content preview);
+  - the Node parts of the other MAP-B suites (stations 72, landmarks 33, content 29, koi-gate 52, paddock 32, fences 35, buildings
+    71); map-compile and map-content `--check`; guard 8; dry run; html; `git diff --check`; CSpell the same 19.
+  - Earlier in B3e3 (2026-10-21, `gates/`, the herd and the dilophosaur, before the fix): mapb-stations 255 in both engines,
+    mapb-landmarks 84 in Chromium.
+  - Not rerun, with reasons: mapb-painter and mapb-decode (the painter and the decoder untouched; both digests checked in
+    mapb-creatures, exact in both engines); the browser parts of mapb-landmarks, mapb-content, mapb-koi-gate, mapb-paddock,
+    mapb-fences and mapb-buildings (the new creatures are 6 tiles or more from anything they test, their content counts are read
+    from the file, and the shake fix touches only the frame's settling).
+  - Failures, recorded: the first final run's mapb-stations (Chromium) failed one check, the terrain preview at 375 x 667 not
+    loading in time, in a run that took 30 minutes (9 before) at load 6 or more; rerun alone at load 4 it passed (166), so a load
+    flake, not a regression. The suite's own failures in development: the format-1 shake compared to exactly 0 (it settles to
+    8e-16); the footfall check reading 1.2 where frames read 1.0667, and walking where a T. rex's roar (format 1) or a cramped spot
+    interfered (now a fixed route, far from any T. rex); the framing check counting screen-reader-only elements and the page under
+    the game as overlays; screenshots named from a stale field or framed off the animals.
+- Performance (Chromium / WebKit; WebKit's clock is 1 ms coarse): through the brachio meadow, the riverlands range, the dilo strip,
+  the heath, the galli meadow and the village gardens on the live loop, all eighteen running, the brachiosaurs shaking the camera,
+  frame work p95 2.2 / 2.0 ms, max 2.8 / 3.0 (the terrain preview's p95 1.6 / 2.0).
+- Screenshots (`tools/out/mapb/b3e3/`, `chromium-` and `webkit-`): brachio-pair (both with pi), brachio-walking,
+  brachio-edge-west, -north, -east, -south, brachio-corner-north-west, brachio-shake-footfall and brachio-shake-settled,
+  brachio-night, brachio-prompt, brachio-card, phone390- and phone375-brachio-card; herd-complete, herd-drifting, herd-edge-river,
+  herd-night; dilo-spawn-area, dilo-calling, dilo-edge-water, dilo-night; the prompt and card of each kind; phone cards of every
+  kind; the earlier species' and the predators' simulation. Notes: in brachio-corner-north-west it faces pi and is grazing, but
+  the shot may catch the head up (the graze cycles it); in brachio-night it stands in front of pi.
+- Remaining creature migrations (15 of 33) and their blockers:
+  - parasaurolophus x2 (roam-05, 06; 9% of straight walks blocked in a tight wetland, 82% inside its habitat);
+  - babies x3 (roam-20, 21 by the nests, which are props not migrated; roam-22 clean, in the brachio meadow);
+  - spinosaur (roam-07; its spawn on the river bank's foot-blocking pixels, refused by the rule; 55% of walks blocked);
+  - cats x2 (roam-26, 27; 54% of walks blocked by the koi pond; the naming guard in place);
+  - robots x2 and the roomba (roam-23 to 25; paths only; the bots' kin);
+  - the T. rex and the raptors (roam-02, 03): B3e1's deferred blockers stand (the T. rex's unreachable target 108,11; the
+    sprites over the fences; the roar zone and the welder's patrol not in the format).
+  - Carried from B3e2: the gallimimus' and compsognathus' out-of-box fleeing and stranding risk, before B4's production acceptance.
+- Approval (2026-10-22): Ammaar accepted the herd, the dilophosaur and both brachiosaurs (the cliff overhangs measured above
+  included) and the camera-shake fix. Final checks before the commit, lightweight only (the browser matrix not rerun;
+  `tools/out/mapb/b3e3/final/`): map-compile and map-content `--check` current (18844 bytes, 36 records, 288 solid tiles, 0 foot
+  pixels); the Node parts of the eight MAP-B suites (creatures 75, stations 72, landmarks 33, content 29, koi-gate 52, paddock 32,
+  fences 35, buildings 71), all passing; guard 8; dry run (53 files, 41 references); `git diff --check`. Exactly 18 creatures; the
+  34 earlier records byte for byte. The browser evidence stands from `gates-final/` above; Firefox BLOCKED.
+- Status: complete, approved and committed. B3e4 hasn't begun. MAP-B stays preview-only (loopback, no
+  storage); production is unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`). `js/world.js` changes, so
+  B4's deploy will need its own cache bump.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

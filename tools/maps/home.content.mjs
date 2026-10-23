@@ -108,6 +108,14 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    roam-19: one box each, separate objects), at B3a's approved places: the galli meadow (85,41 to 95,48, all of it open grass, inside
    the B1e habitat galli-meadow), starting at 87,43, 90,42, 93,45 and 86,47; the village gardens (27,91 to 33,96, all open grass,
    inside village-gardens), starting at 29,92, 30,93, 28,94, 31,92 and 27,93. Both bolt from pi as in format 1 */
+/* B3e3: format 1's herd and its dilophosaur, at B3a's approved places. The herd is one roam area (roam-04) its four share, as in format 1
+   (a stegosaur, two triceratops and an ankylosaur: one area, one object, so they drift together), on the riverlands range (41,43 to
+   57,60, all open grass but 46 path tiles, inside the B1e habitat riverlands-range), starting at 44,46, 50,47, 54,55 and 45,58. The
+   dilophosaur's roam-08 is the dilo strip (89,14 to 95,21, all open grass, 96% inside dilo-strip), starting at 91,17. Roam areas come
+   in format 1's order, so these two sit before roam-09; every earlier record is as it was. Then format 1's two brachiosaurs, each in
+   its own roam area as in format 1 (roam-00 and roam-01: one box, two objects), on the brachio meadow (12,33 to 27,50, all of it
+   open grass but 44 path tiles, inside the B1e habitat brachio-meadow), starting at 16,38 and 22,46; first of all the roam areas.
+   Their footfalls shake the camera as in format 1; the game now settles the shake when the volcano's update doesn't run */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -180,6 +188,10 @@ export default {
     station("shrine", [14, 19], [14, 20], { marker: "shrine" }),
     station("cave", [66, 24], [66, 25], { marker: "cave-mouth" }),
     station("boat", [79, 97], [79, 96], { berth: "south" }),
+    roam("roam-00", [12, 33, 27, 50], "brachio-meadow", [["brachio", 16, 38]]),
+    roam("roam-01", [12, 33, 27, 50], "brachio-meadow", [["brachio", 22, 46]]),
+    roam("roam-04", [41, 43, 57, 60], "riverlands-range", [["stego", 44, 46], ["trike", 50, 47], ["trike", 54, 55], ["ankylo", 45, 58]]),
+    roam("roam-08", [89, 14, 95, 21], "dilo-strip", [["dilo", 91, 17]]),
     roam("roam-09", [36, 15, 45, 22], "pachy-heath", [["pachy", 38, 18]]),
     roam("roam-10", [36, 15, 45, 22], "pachy-heath", [["pachy", 42, 19]]),
     roam("roam-11", [85, 41, 95, 48], "galli-meadow", [["galli", 87, 43]]),
