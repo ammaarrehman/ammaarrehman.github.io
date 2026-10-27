@@ -1791,9 +1791,179 @@ complete):
   pixels); the Node parts of the eight MAP-B suites (creatures 75, stations 72, landmarks 33, content 29, koi-gate 52, paddock 32,
   fences 35, buildings 71), all passing; guard 8; dry run (53 files, 41 references); `git diff --check`. Exactly 18 creatures; the
   34 earlier records byte for byte. The browser evidence stands from `gates-final/` above; Firefox BLOCKED.
-- Status: complete, approved and committed. B3e4 hasn't begun. MAP-B stays preview-only (loopback, no
+- Status: complete, approved and committed. B3e4 followed (below). MAP-B stays preview-only (loopback, no
   storage); production is unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`). `js/world.js` changes, so
   B4's deploy will need its own cache bump.
+
+MAP-B B3e4, the parasaurolophus (2026-10-26 and 27; staged only; approved by Ammaar 2026-10-27 and committed as "Map: migrate
+MAP-B parasaurolophus (B3e4)"; not pushed or deployed):
+- Read first: B3e1's audit (para: "82% in delta-wetland; targets 43/90; straight walks blocked 9%"), B3a's plan, format 1's creature
+  code. Audit files in `tools/out/mapb/b3e4/audit/`: `region.txt` (the wetland mapped), `walks.txt` (the game's move() in Node),
+  `movement.txt` and `movement-summary.txt` (seeded runs in the game, MAP-B and format 1).
+- Format 1: two parasaurolophus, each in its own roam area (roam-05, roam-06, one box, two objects), speed 12, art 60 x 42 px; they
+  graze (no herd-mate to follow: separate areas); they call (a honk) now and then and honk when used; they doze at night and wake when
+  pi comes within 26 px; cards "a dinosaur" and one of two lines. They don't flee or react to pi beyond turning to watch him.
+- Placement (B3a's, unchanged): the delta wetland, box 14,71 to 22,80, spawns 20,73 and 16,77. Of its 90 tiles, 43 are open grass a
+  parasaurolophus may walk to; the rest are the lagoon (a pond) to the west, the river to the east and south, its banks, the path and
+  its bridge, and sand. 74 of the 90 tiles lie inside the habitat delta-wetland (B3e1's "82%" counted the walkable part).
+- **The movement audit.** Format 1's wander picks a random tile in the box (six tries for open grass) and walks straight to it; a walk
+  that can't move stops, waits half a second and picks again. No pathfinding, in format 1 or here.
+  - What blocks: walked with the game's own move() (9 x 4 px feet, x then y, sliding along each axis), 61 of 1,806 straight walks
+    between targets (3.4%) stop, every one on the river bank's foot-blocking pixels (59 on land, 2 on the path), nothing else: no
+    content, no cliff, no pond tile. B3e1's 9% came from a stricter line sampler that doesn't slide.
+  - Stranding: none. From every place a walk can end (the 43 targets and 18 blocked-walk stops), at least 23 of the 43 targets are a
+    straight walk away (median 42). The box is convex and walks slide, so they never leave it.
+  - In the game (test-only content with roam-05 and roam-06 in memory; Chromium; 20 minutes each, seeds 1, 2, 3, 42 and 7, pi away):
+    30 of 1,122 walks blocked (2.7%, 1 to 5.1% a run), almost all at 20,79; after every block a new target within 0.5 s (1.03 s at
+    most, when the six tries found no grass once); the longest stand-still that isn't grazing or sleeping 4.7 to 9.3 s (format 1's
+    idle wait is 1 to 5 s); each covers 53 to 57 tiles; feet never on a solid pixel, never outside the box. With pi walking round the
+    box and through it: 3 of 124 blocked (2.4%), the same recovery.
+  - Format 1, the same five seeds on its own wetland (72,41 to 84,48): 61 of 1,066 blocked (5.7%, 3.6 to 11% a run), the same
+    recovery (1.03 s at most), the same longest stand-still (4.8 to 9.3 s). MAP-B's parasaurolophus are blocked less than format 1's.
+  - Pi can't strand them: they don't flee, and creatures pass through pi.
+  - Decision: they move naturally and recover by themselves; migrated as approved, no change to the box, the spawns, the terrain or
+    the AI.
+- Content (`tools/maps/home.content.mjs`): two roam records, roam-05 and roam-06, exactly the plan's, after roam-04 in format 1's order.
+  38 records (the compiler's count), the 36 earlier records byte for byte and in order (the staged file's diff is two inserted lines and
+  its source hash), still 288 solid tiles and 0 foot pixels. No change to `js/world.js`, the schema or the rule.
+- The content preview runs twenty creatures in 17 roam areas: 2 brachiosaurs, the herd (4), 2 parasaurolophus, the dilophosaur,
+  2 pachycephalosaurs, 4 gallimimus, 5 compsognathus. Everything else stays off. The completeness wall names the 11 roam areas still
+  missing; a normal format-2 home is still refused (7 items).
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework):
+  - Node: the two records, their spawns and ground; the wetland walked with the game's own move() (under 5% of walks stop, no
+    stranding place) in place of the "every straight walk clear" check the other habitats keep;
+  - the game: twenty creatures, 17 areas; the parasaurolophus' walks frame by frame, ten minutes with pi away and four with pi crossing
+    the box from the north, the south, the east and the west (walks arrived and blocked, recovery within 2 s, no stand-still over
+    15 s, feet, box); pi walking round the box; obstacles (the lagoon, the river); [E], a click, night, phones (390 and 375);
+    repeatability over twenty; completeness 11; storage; the painter digests; performance through seven habitats; screenshots.
+  - The click and phone-tap checks now start pi where the game's own route (walkTo, what a tap plans) reaches the animal: with two
+    more creatures the seeded positions shifted, and the old fixed offset put pi in the lagoon, or on a river bank's pocket that pi's
+    feet can't route out of (the triceratops at the herd's river corner), or put the animal at the phone's edge. The checks are no
+    weaker; only pi's starting spot changed.
+- Verification (2026-10-26; logs in `tools/out/mapb/b3e4/gates/`). The Playwright browsers had been cleared from the Mac's cache
+  since B3e3; Chromium and WebKit for Playwright 1.63.0 were reinstalled with Ammaar's approval (nothing in the repo changed).
+  Firefox isn't installed, so it is BLOCKED at launch (never a pass):
+  - mapb-creatures 222 (Node 80, Chromium 73, WebKit 69): `mapb-creatures.log`. Earlier runs, kept: `mapb-creatures-first.log` (a
+    missing art size in the framing check crashed it after Chromium, and the click and tap failures above), `mapb-creatures-second.log`
+    (those failures, both engines).
+  - The Node parts of the other MAP-B suites (stations 72, landmarks 33, content 29, koi-gate 52, paddock 32, fences 35, buildings 71);
+    map-compile and map-content `--check`; guard 8; dry run (53 files, 41 references); html; `git diff --check`; CSpell the same 19.
+  - Not rerun (no code changed; nothing they test is within 6 tiles of the wetland): the format-1 parity suites, scenarios,
+    map-decode, mapb-runtime, mapb-decode, mapb-painter and the other suites' browser parts; B3e3's `gates-final/` stands for them.
+    The locked painter digests with all twenty drawn are checked in mapb-creatures (exact in both engines).
+- Performance (Chromium / WebKit): through seven habitats on the live loop, all twenty running, frame work p95 2.3 / 2.0 ms, max
+  2.8 / 3.0.
+- Screenshots (`tools/out/mapb/b3e4/`, `chromium-` and `webkit-`): para-pair (both with pi), para-edge-river (at 20,79, where its walks
+  stop), para-edge-lagoon, para-night, para-prompt, para-card, phone390- and phone375-para-card; and every earlier species' shots
+  again (brachio-*, herd-*, dilo-*, pachy-*, galli-*, compy-*, the phone cards, predators-simulation).
+- Remaining creature migrations (13 of 33) and their blockers:
+  - babies x3 (roam-20, 21 by the nests, which are props not migrated; roam-22 clean, in the brachio meadow);
+  - spinosaur (roam-07; its spawn on the river bank's foot-blocking pixels, refused by the rule; 55% of walks blocked);
+  - cats x2 (roam-26, 27; 54% of walks blocked by the koi pond; the naming guard in place);
+  - robots x2 and the roomba (roam-23 to 25; paths only; the bots' kin);
+  - the T. rex and the raptors (roam-02, 03): B3e1's deferred blockers stand (the T. rex's unreachable target 108,11; the
+    sprites over the fences; the roar zone and the welder's patrol not in the format).
+  - Carried: B3e2's gallimimus' and compsognathus' out-of-box fleeing and stranding risk, and B3e3's cache bump for the `js/world.js`
+    change, both before B4's production acceptance.
+- **Visual review (2026-10-26).** Ammaar's review of the screenshots found three problems. Evidence in
+  `tools/out/mapb/b3e4/visual/`; the flagged originals are kept in `visual/before/`:
+  1. Pi standing in the lagoon (`para-edge-lagoon`): **a test-only artifact.** The shot's `pose()` set pi at 16,75 with the debug
+     `teleport`, which skips collision. 16,75 is a lagoon tile (type 5, not walkable, decoded correctly). Flooded with the game's
+     own move() from the wetland, pi's feet reach none of the lagoon's pixels. The harness is corrected: every posed shot now walks
+     pi from his spawn by a tap's route and checks he arrives (walkable tile, feet clear). Each held animal must stand on its own
+     grass inside its box with clear feet. Pi is put beside an animal (the prompt shots, the night shots, the phone taps' start)
+     only where his feet can stand. The lagoon shot now stands pi on the shore at 16,78. (`pi-spots.txt`)
+  2. A foot over the river (`para-edge-river`): **an inherited limitation that MAP-B's placement makes several times worse.**
+     Collision is right: at 20,79 the foot-blocking pixels and the painted water meet exactly, and the 9 x 4 px collision feet
+     stand on dry ground. But the 60 px sprite draws its feet from x-14 to x+13, so a foot lands 7 to 13 px beyond the collision
+     box over the water, whichever way it faces (`river-spot.txt`, with 17,76 and 22,76). The shot itself overstated it: it held
+     the animal at 20,79's centre, where its east feet pixels (332,1272 and 332,1275) are solid. A real walk to 20,79 stops 4.5 to
+     7 px short (324,1272 from the west, 328,1267 from the north; `river-stops.txt`), and there a foot still reaches 5 to 7 px
+     over the water, not 13 (`river-real-stops.txt`). The shot now walks it there from 18,78 and is taken where it stops; the
+     fixture check caught the old hold. In normal roaming (5 seeds, 20 minutes,
+     pi away, the drawn frame measured on the painted ground): a foot over open water 4.8 to 10.2% of the time in MAP-B, mostly
+     walking past the lagoon's east lobe (17,76, 18,75, 18,76) and by the river (22,76, 20,79); standing so 0.3 to 3.6%; at most
+     13 to 16 px in. Format 1's own pair, on the same seeds: 0.07 to 2.0%, at most 6 to 10 px (`roaming.txt`,
+     `roaming-summary.txt`). Not fixed: preventing it means changing the boxes or the code (decision below).
+  3. The pair overlapping (`para-night`, `phone375-para-card`): **an inherited, occasional encounter.** It isn't a rendering-depth
+     issue (creatures draw sorted by their feet's y, as in format 1) or herding (two separate area objects, so no following):
+     two animals wander one 9 x 10 box independently. Substantial overlap (a quarter of one sprite covered) 8.3 to 11.9% of the
+     time in MAP-B, 44 to 52 episodes in 20 minutes, median 1.7 to 2 s, longest 7.9 to 20 s; format 1 on the same seeds 6.6 to
+     10.2%, median 1.8 to 3.1 s, longest 6.3 to 18.7 s. The two shots showed one such encounter. The night, card and phone shots
+     now move the other animal to the farthest of four fair spots (21,73, 14,79, 21,78, 14,77) for a clear view. No separation
+     engine was added.
+  - The smallest alternatives for 2 (and 3), not implemented: (a) accept it as the inherited look; (b) split the box. Each animal
+    gets its own box on its side of the path, keeping its spawn: roam-05 19,71 to 21,75, roam-06 14,77 to 19,79. Measured in memory
+    only (5 seeds, 10 minutes): no foot over open water, no overlap, never closer than 47 px. This changes B3a's approved boxes, and
+    the content rule refuses it until the plan changes; the movement under it would need its own audit. (c) a code change: test a
+    creature's walk (or its chosen target) against its sprite's foot span rather than the 9 px feet. That touches format 1's
+    behaviour and needs a cache bump. (`alt-split-boxes.txt`)
+  - Verification of the corrected harness: mapb-creatures 224 (Node 80, Chromium 74, WebKit 70; `visual/mapb-creatures.log`).
+    The first rerun failed only the new fixture check, on the river shot's old hold at 20,79. That log was overwritten by the
+    passing rerun and isn't kept.
+- **Split-box audit (2026-10-26; test-only, nothing in the content, schema, terrain or runtime changed).** Ammaar accepted the
+  overlap as inherited and asked for the proposed split to be validated before any B3a change. Evidence in
+  `tools/out/mapb/b3e4/split-audit/` (`compare-summary.txt`, `move-*.jsonl`, `reach.json`, `night-summary.txt`,
+  `interact-*.json`, `still-current-vs-split.png`, `sequence-current-vs-split.png`, `visits-current-vs-split.png`,
+  `visits-current-vs-wide.png`). The boxes were swapped into the compiled staged records in memory, because the content rule only
+  accepts B3a's box. Spawns and behaviour are format 1's. Each figure is 5 seeds x 20 minutes, pi away, the range across seeds.
+  - | | current shared box | split: roam-05 19,71-21,75 / roam-06 14,77-19,79 | format 1 |
+    |---|---|---|---|
+    | targets in box | 43 | 12 / 17 | 61 |
+    | 4 px spots visited | 610 to 672 | 113 to 118 / 167 to 174 | 688 to 843 |
+    | distance walked | 8,000 to 8,700 px | 4,600 to 4,900 / 5,400 to 5,800 | 8,000 to 8,700 |
+    | time walking / grazing | 57-61% / 23-32% | 32-34% / 45-49%; 38-40% / 39-45% | 59-62% / 22-31% |
+    | mean walk | 70 to 83 px | 30 to 32 / 35 to 40 | 73 to 84 |
+    | walks back toward the last start | 3 to 12% | 24 to 36% / 22 to 29% | 3 to 10% |
+    | blocked walks | 1 to 5% | 0 | 2 to 13% |
+    | longest stand-still | 4.7 to 9.3 s | 4.9 to 12.7 s / 5 to 9.5 s | 4.8 to 8.4 s |
+    | a foot over open water | 4.8 to 10.2% | 0 | 0.07 to 2.0% |
+    | substantial pair overlap | 8 to 12% | 0 (never closer than 47 px) | 7 to 10% |
+  - Both split boxes: every target a straight walk from every other (no blocked pair, nothing stranded). Heading spread as varied
+    as now (entropy 0.90 to 0.97). Night: they doze 68 to 79% (now 56 to 74%), and pi's tap walk wakes each one; one corner
+    case needed a second tap, because format 1's loose route ends a tile short. Day: pi reaches each animal within [E] range
+    (30 px) every time, median 17 s from his spawn, as now. No page errors.
+  - Result: the split fixes the water and the overlap but **doesn't pass on natural wandering**. Each animal covers a fifth of the
+    ground, walks half as far in walks less than half as long, and doubles back three times as often as format 1. The north box
+    is three tiles wide, and the path takes its west column, so it reads as pacing a strip (`visits-current-vs-split.png`).
+  - Fallbacks inside the approved box, keeping the spawns:
+    - (W) a wider split, roam-05 19,71-22,74 / roam-06 14,77-19,80. No water (0 to 0.05%), no overlap. Barely less confined:
+      14 / 22 targets, mean walk 30 to 42 px, doubling back 16 to 33% (`visits-current-vs-wide.png`).
+    - (E) one shared box east of the lagoon (18,71-22,79): impossible. Roam-06's spawn 16,77 lies outside it, and the runtime
+      refuses that. Any box that keeps 16,77 takes in the west patch, and the walks past the lagoon's east lobe that cause most
+      of the overhang.
+  - Why: the wetland's grass is two small patches (about 15 tiles north-east of the path, about 22 south-west), joined only past
+    the lagoon's east lobe. Roaming both means passing it; avoiding it means a small patch each.
+- Approval (2026-10-27): Ammaar approved B3e4 for commit with one release blocker recorded:
+  - B3a's boxes and spawns stay as approved (roam-05 and roam-06 both 14,71 to 22,80; spawns 20,73 and 16,77).
+  - **Both split boxes rejected:** they remove the overhang and the overlap, but the animals' movement is materially worse
+    (a fifth of the ground, walks half as long, three times the doubling back; the wider split barely better), and a shared
+    box avoiding the lagoon can't keep spawn 16,77. B3a's plan is unchanged.
+  - The pair's occasional overlap is accepted as format 1's inherited behaviour.
+  - **The foot over the water is accepted for this checkpoint only, not fixed.** MAP-B shows it 4.8 to 10.2% of the time (at
+    most 13 to 16 px in) against format 1's 0.07 to 2.0% (at most 6 to 10 px), measured above. It is a B4 release blocker:
+    B4 must resolve it (a sprite-aware foot or target check, needing its own approval) or Ammaar must accept it explicitly
+    for release.
+  - The corrected screenshot harness is kept: every posed spot reached by pi's real tap route and checked.
+- Final checks (2026-10-27, lightweight only; `tools/out/mapb/b3e4/final/`, `summary.txt`; neither the movement audit nor the
+  browser matrix rerun): map-compile and map-content `--check` current (19218 bytes, 38 records, 288 solid tiles, 0 foot
+  pixels); the Node parts of the eight MAP-B suites (creatures 80, stations 72, landmarks 33, content 29, koi-gate 52, paddock
+  32, fences 35, buildings 71), all passing; guard 8; dry run (53 files, 41 references); `git diff --check`. Exactly twenty
+  creatures, both parasaurolophus among them; the 36 earlier records byte for byte. No change to `js/world.js`, `index.html`,
+  the schema, the content rule, the terrain or the painter; `SAVE_V` 2, cache `20261025`. The browser evidence stands from
+  `visual/mapb-creatures.log` (224 checks, Chromium and WebKit; Firefox BLOCKED), including storage isolation, the completeness
+  wall (a normal format-2 home still refused) and no creature beyond the twenty. The first fixture-check failure log was
+  overwritten by the passing rerun and isn't kept. After it, one check's description in `tools/mapb-creatures.mjs` was
+  corrected from "36 records" to "38 records" (the check already tested 38; text only).
+- B4 release blockers carried so far (none fixed):
+  - the parasaurolophus' foot over the water in the delta wetland (B3e4, above);
+  - the gallimimus' and compsognathus' out-of-box fleeing and stranding risk (B3e2), to resolve or verify more strongly;
+  - the cache bump for B3e3's `js/world.js` change;
+  - before the predators migrate (B3e1's deferred blockers): the T. rex's unreachable target 108,11, the T. rex's and raptors'
+    sprites over their fences, the roar zone and the welder's patrol not in the format;
+  - the spinosaur's B3a spawn on the river bank's foot-blocking pixels.
+- Status: complete, approved and committed. B3e5 hasn't begun. MAP-B stays preview-only (loopback, no storage); production is unchanged and undeployed (format 1,
+  100 x 80, `SAVE_V` 2, cache `20261025`).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

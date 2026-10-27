@@ -116,6 +116,11 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    its own roam area as in format 1 (roam-00 and roam-01: one box, two objects), on the brachio meadow (12,33 to 27,50, all of it
    open grass but 44 path tiles, inside the B1e habitat brachio-meadow), starting at 16,38 and 22,46; first of all the roam areas.
    Their footfalls shake the camera as in format 1; the game now settles the shake when the volcano's update doesn't run */
+/* B3e4: format 1's two parasaurolophus, each in its own roam area as in format 1 (roam-05 and roam-06: one box, two objects), at B3a's
+   approved place in the delta wetland (14,71 to 22,80: 43 open grass tiles among the lagoon, the river, its banks and the path; 82% of
+   the box inside the B1e habitat delta-wetland), starting at 20,73 and 16,77. Format 1's wander walks straight; about 3% of those walks
+   stop at the river bank's foot pixels (20,79), and the animal picks a new target half a second later, as in format 1. In format 1's
+   order they sit after roam-04 */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -191,6 +196,8 @@ export default {
     roam("roam-00", [12, 33, 27, 50], "brachio-meadow", [["brachio", 16, 38]]),
     roam("roam-01", [12, 33, 27, 50], "brachio-meadow", [["brachio", 22, 46]]),
     roam("roam-04", [41, 43, 57, 60], "riverlands-range", [["stego", 44, 46], ["trike", 50, 47], ["trike", 54, 55], ["ankylo", 45, 58]]),
+    roam("roam-05", [14, 71, 22, 80], "delta-wetland", [["para", 20, 73]]),
+    roam("roam-06", [14, 71, 22, 80], "delta-wetland", [["para", 16, 77]]),
     roam("roam-08", [89, 14, 95, 21], "dilo-strip", [["dilo", 91, 17]]),
     roam("roam-09", [36, 15, 45, 22], "pachy-heath", [["pachy", 38, 18]]),
     roam("roam-10", [36, 15, 45, 22], "pachy-heath", [["pachy", 42, 19]]),
