@@ -1962,8 +1962,120 @@ MAP-B parasaurolophus (B3e4)"; not pushed or deployed):
   - before the predators migrate (B3e1's deferred blockers): the T. rex's unreachable target 108,11, the T. rex's and raptors'
     sprites over their fences, the roar zone and the welder's patrol not in the format;
   - the spinosaur's B3a spawn on the river bank's foot-blocking pixels.
-- Status: complete, approved and committed. B3e5 hasn't begun. MAP-B stays preview-only (loopback, no storage); production is unchanged and undeployed (format 1,
-  100 x 80, `SAVE_V` 2, cache `20261025`).
+- Status: complete, approved and committed. B3e5's audit followed (below).
+
+MAP-B B3e5, the babies (2026-10-28; staged only, not deployed; approved and committed; the nests deferred to B3f):
+- Read first: format 1's babies and nests in `js/world.js` and `js/maps/home.js`, B3a's plan (`tools/out/mapb/b3a/B3a-plan.md`),
+  B3e1's audit. Evidence in `tools/out/mapb/b3e5/audit/`: `placement.txt`, `option-b.txt`, `nests-proposal.txt` and the
+  `*nests-proposal-*.png` shots (Chromium and WebKit, 1280 and 375 px, day and night).
+- Format 1:
+  - Three babies: baby (roam-20, 60,57), baby2 (roam-21, 63,56), baby (roam-22, 17,40). Speed 13, step 0.8; they hop when
+    they call (a squeak); doze at night and wake within 26 px of pi; art 27 x 18 px, [E] reach 18 px. Words: baby "a baby dino. it squeaks at
+    pi."; baby2 "a baby dino, fresh out of the nest. it follows pi for a step, then forgets." (it doesn't follow pi in code).
+  - Two nests, props `e:nest0`: 57,55 with 3 eggs and 63,57 with 2. A blocking prop (`BLOCKING_PROP`): its whole tile is solid
+    in `coll`. Drawn y-sorted at ty*16+14: a soft shadow, the 20 x 11 sprite at tile +(-2, 4) and the eggs from row 3 (one
+    wobbles). [E] within 20 px of tile +(8, 12), or a tap: "a nest" / "a nest of N speckled eggs, still warm. one of them
+    wobbles. pi backs away slowly." in the game's dialog (focus moves in, so a screen reader reads it).
+  - **The babies don't depend on the nests.** No code links them: no nest state, no hatching, no egg count that changes. The
+    nests only make two tiles solid in the babies' box, and two lines of text mention them (baby2's, and the terminal's
+    "babies near the nests"). The first visit's hatching (`SYS.hatch`) is pi's own, not the nests'. Q6 Nest Egg is a planned
+    quest, not built.
+  - The herd's box (roam-04, 55,52 to 68,60) holds the whole baby box and both nests: babies, nests and herd share one field.
+    MAP-B keeps that (the herd's 41,43 to 57,60 holds the babies' 44,50 to 53,56).
+- MAP-B's placement: the babies' boxes and spawns are B3a's (`ROAM_PLAN`: roam-20 baby 47,52 and roam-21 baby2 50,53 in 44,50
+  to 53,56, riverlands-range; roam-22 baby 19,38 in 14,36 to 22,43, brachio-meadow). **B3a's plan also places the nests: 46,54
+  and 51,51 (riverlands range)**, listed under man-made props and scheduled for B3f ("lamps, nests, plants and trees"). Their egg
+  counts aren't written there; in format 1's order they'd be 3 (46,54) and 2 (51,51). Nothing in the content schema holds them
+  yet: the `prop` kind is reserved, with no fields, rule or runtime path, and a format-2 map's props list is always empty.
+- Checks (`placement.txt`, the game's move() in Node):
+  - All five tiles (two nests, three spawns) are open grass, height 1, no path, no foot-blocking pixel; the spawns' feet clear.
+    Each nest is 2.2 tiles from a baby's spawn (format 1: 3.6 and 1.0).
+  - As staged, no straight walk is blocked in any of the three boxes, and nothing strands.
+  - With both nests solid (in memory): the babies' riverlands walks blocked 3.8% (134 of 3,540), never stranded (at least 52 of
+    60 targets straight from anywhere a walk ends); the herd 3.1% (2,024 of 66,306), never stranded; roam-22 untouched.
+  - Pi: the nests cut no ground off (the only tiles lost are the nests'); each nest has 789 spots within its 20 px reach on all
+    four sides.
+  - In the preview (test-only content: the three roam records added in memory): 23 creatures, no page error in either engine;
+    all three babies doze at night, and one wakes when pi stands within 26 px (format 1's rule).
+- **The decision (D1 against format 1's rule).** Format 1 makes a nest's whole tile solid. MAP-B's D1 ("never collision larger
+  than what's drawn") and the compile and decoder rules refuse any solid pixel outside a record's drawn area. A nest draws tile
+  rows 3 to 15 (the shadow takes row 15); rows 0 to 2, 3 px above the eggs, would block without art. The options:
+  - A (recommended): format 1's rule, the whole tile solid, with a narrow, named D1 exception for nests (those 3 rows only).
+    Pi's feet stop 4 px above the eggs from the north and 1 px below the nest from the south. The babies' walks: 3.8% blocked.
+  - B: D1 as it stands, a foot box under the drawn art (tile +0..15, +3..14) and the tile left walkable. That changes format 1's
+    semantics: the nest tile stays a wander target, its centre inside the foot box, so every walk to it fails. The babies'
+    walks: 9.5% blocked (122 of them to a nest; `option-b.txt`).
+  - C: the babies now (B3a's records only, no code change, still 288 solid tiles), the nests left for B3f with the other props.
+- With A or B the batch would add a nest record to the schema (B3a's two places and egg counts only), its compile rule, a
+  decoder path that hands those records to the game's props list (nothing else enters it), the three roam records, and tests.
+  `js/world.js` would change, so the format-1 parity suites run, and B4's cache bump (already a blocker) covers it. 290 solid
+  tiles with the nests (288 + 2), to be confirmed from the compile.
+- **Decision (Ammaar, 2026-10-28): option C.** The three babies now; both nests deferred to B3f, the props batch B3a scheduled them
+  in. D1 stays exactly as it is: no exception for invisible nest collision, no partial nest collision, no change to creature
+  targeting. B3a's geography, habitats and spawns unchanged. The nests stay unbuilt and noninteractive in MAP-B until B3f, at B3a's
+  places with format 1's egg counts: **46,54 with 3 eggs, 51,51 with 2.** No hatching, nesting, quest or progression.
+- Content (`tools/maps/home.content.mjs`): three roam records, B3a's exactly, last in format 1's order: roam-20 (baby 47,52) and
+  roam-21 (baby2 50,53), one box 44,50 to 53,56 on the riverlands range, two objects as in format 1; roam-22 (baby 19,38), 14,36 to
+  22,43 on the brachio meadow. 41 records (the compiler's count), the 38 before them byte for byte (the staged file's diff: three
+  inserted lines, a comma and the source hash), 288 solid tiles, 0 foot pixels. No change to `js/world.js`, the schema or the rule.
+- The content preview runs twenty-three creatures in 20 roam areas: the twenty before and the three babies. Every other population
+  (the T. rex, the raptors, the spinosaur, the robots, the roomba, the cats) stays off. The completeness wall names the 8 roam areas
+  still missing (roam-02, 03, 07, 23 to 27) and the props item (the nests among them); a normal format-2 home is still refused (7 items).
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework):
+  - Node: the three records against B3a and format 1, their spawns and ground, the 38 earlier records byte for byte, straight walks
+    in both boxes (none blocked: open grass and paths all round), the nests deferred (no prop record; both places bare grass), three
+    more malformed cases (baby2 moved, baby and baby2 swapped, roam-22's box moved). Three earlier malformed cases that borrowed the id
+    roam-20 now use roam-23 (roam-20 is real now).
+  - The game: twenty-three creatures, 20 areas; ten minutes seeded (the babies over 57 to 67 tiles, walking 59 to 67% of the time,
+    never out of their boxes, feet never on solid); pi walking round both boxes; no obstacle within 3 tiles of either box; [E], the
+    card and the hop for baby and baby2, a click on each; night (they doze, pi wakes them); phones (390 and 375); repeatability;
+    completeness 8; storage; the painter digests; performance.
+  - The shared field, five minutes with pi in earshot, against format 1's own babies and herd measured the same way: a herd animal
+    in the babies' box 79% of the time (format 1: 100%), passing as close as 3 px (format 1: 0; creatures pass through each other
+    in both); the babies' hops when they squeak 7 and 6 (format 1: 5 and 5), the herd's none.
+  - B3a's nest places: with the babies and the herd held off, pi walks onto 46,54 and onto 51,51 by a tap's route and stands there,
+    feet clear; [E] finds nothing and pressing it opens no nest's card.
+  - The [E], click and tap checks move the animals sharing a baby's ground (the herd, the other riverlands baby; the brachiosaurs on
+    the meadow) to the far corner first, so the one asked about is the nearest, as the herd's mates already were.
+  - One earlier threshold changed: the parasaurolophus' ten-minute run asked for more than 50 walks each; with three more creatures
+    the seeded stream shifted and one walked 49 times (none blocked, recovery and stand-still within limits). The floor is now 40
+    (`mapb-creatures-chromium-first.log` has the failing run).
+- Verification (2026-10-28; logs in `tools/out/mapb/b3e5/gates/`). Firefox isn't installed, so it is BLOCKED at launch (never a pass):
+  - mapb-creatures 258 (Node 92, Chromium 85, WebKit 81): `mapb-creatures.log`. Kept: `mapb-creatures-chromium-first.log`, the
+    first Chromium run (176 passed, the one parasaurolophus walk-count failure above), before the threshold change and the night
+    shots' staging.
+  - The Node parts of the other MAP-B suites (stations 72, landmarks 33, content 29, koi-gate 52, paddock 32, fences 35, buildings
+    71); map-compile and map-content `--check`; guard 8; dry run (41 references); `git diff --check`; CSpell the same 19.
+  - Not rerun (no code changed): the format-1 parity suites, scenarios, map-decode, mapb-runtime, mapb-decode, mapb-painter and the
+    other suites' browser parts. Format 1's 33 creatures and both locked painter digests are checked in mapb-creatures (exact in
+    both engines).
+  - Performance (Chromium / WebKit): through seven habitats on the live loop, all twenty-three running, frame work p95 1.9 / 2.0 ms,
+    max 3.5 / 3.0.
+- Screenshots (`tools/out/mapb/b3e5/`, `chromium-` and `webkit-`): babies-riverlands (the pair at their spawns, the herd grazing just
+  north; B3a's nest places are bare grass: no nest is drawn), baby-meadow, babies-night and meadow-baby-night (the animals sharing
+  their ground moved to the far side for the shot), baby-prompt, baby-card, baby2-prompt, baby2-card, phone390- and
+  phone375-baby-card and -baby2-card; and every earlier species' shots again. The audit's proposal shots (`audit/`) drew nests as an
+  overlay for the decision only; nothing in the game draws a nest.
+- Approval (2026-10-28): Ammaar approved B3e5 for commit after visual review: all three babies, the shared field with the herd,
+  the sleeping shots, the desktop interactions and the phone cards.
+  - The nests stay deferred to B3f at B3a's places with format 1's egg counts: **46,54 with 3 eggs, 51,51 with 2.** No nest
+    content, collision or interaction until then.
+  - The parasaurolophus' walk floor stays at 40. Why: the floor counts walks in one seeded ten-minute run, and every creature added
+    to the preview shifts that run's random stream (one walked 49 times, none blocked). Movement is still checked independently of
+    the count: feet never on solid, always in the box, no stall, recovery and the longest stand-still within limits, no stranding.
+    Don't lower it again to absorb a shift; look at why first.
+  - The evidence stands: `gates/mapb-creatures.log` (258 checks, Chromium and WebKit; Firefox BLOCKED, not a pass) and the failing
+    first Chromium run, `gates/mapb-creatures-chromium-first.log`.
+- Final checks (2026-10-28, lightweight only; `tools/out/mapb/b3e5/final/`, `summary.txt`; the browser matrix not rerun):
+  map-compile and map-content `--check` current (19787 bytes, sha256 0108f73719e0b881, 41 records, 288 solid tiles, 0 foot
+  pixels); the Node parts of the eight MAP-B suites (creatures 92, stations 72, landmarks 33, content 29, koi-gate 52, paddock 32,
+  fences 35, buildings 71), all passing; guard 8; dry run (53 files, 41 references); `git diff --check`; CSpell the same 19.
+  Twenty-three creatures, the three babies at B3a's spawns, the 38 earlier records byte for byte, no prop record. No change to
+  `js/world.js`, `index.html`, the schema, the content rule, the terrain or the painter; `SAVE_V` 2, cache `20261025`.
+- Status: complete, approved and committed.
+- B4 release blockers unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the
+  predators' and the spinosaur's). B3e6 and B3f haven't begun. MAP-B stays preview-only (loopback, no storage); production is
+  unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

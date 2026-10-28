@@ -121,6 +121,12 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    the box inside the B1e habitat delta-wetland), starting at 20,73 and 16,77. Format 1's wander walks straight; about 3% of those walks
    stop at the river bank's foot pixels (20,79), and the animal picks a new target half a second later, as in format 1. In format 1's
    order they sit after roam-04 */
+/* B3e5: format 1's three babies, each in its own roam area as in format 1 (roam-20 and roam-21: one box, two objects; roam-22), at B3a's
+   approved places: the riverlands range (44,50 to 53,56, all of it open grass but 8 path tiles, inside the B1e habitat riverlands-range,
+   inside the herd's roam-04 as format 1's babies are inside its herd's), starting at 47,52 (baby) and 50,53 (baby2); the brachio meadow
+   (14,36 to 22,43, all open grass but 13 path tiles, inside brachio-meadow), starting at 19,38 (baby). They don't depend on the nests
+   (no shared state in format 1). B3a's two nests (46,54 with 3 eggs, 51,51 with 2) are deferred to B3f, the props: a nest blocks its
+   whole tile in format 1, which D1 refuses without art over it. In format 1's order these come last */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -209,6 +215,9 @@ export default {
     roam("roam-16", [27, 91, 33, 96], "village-gardens", [["compy", 30, 93]]),
     roam("roam-17", [27, 91, 33, 96], "village-gardens", [["compy", 28, 94]]),
     roam("roam-18", [27, 91, 33, 96], "village-gardens", [["compy", 31, 92]]),
-    roam("roam-19", [27, 91, 33, 96], "village-gardens", [["compy", 27, 93]])
+    roam("roam-19", [27, 91, 33, 96], "village-gardens", [["compy", 27, 93]]),
+    roam("roam-20", [44, 50, 53, 56], "riverlands-range", [["baby", 47, 52]]),
+    roam("roam-21", [44, 50, 53, 56], "riverlands-range", [["baby2", 50, 53]]),
+    roam("roam-22", [14, 36, 22, 43], "brachio-meadow", [["baby", 19, 38]])
   ]
 };

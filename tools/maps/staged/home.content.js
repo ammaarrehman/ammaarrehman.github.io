@@ -13,7 +13,7 @@
    The game reads the terrain's collision for painting and the union of both layers for movement. */
 (window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {
   "format": 2, "staged": true, "schema": "mapb-content-1", "id": "home", "generator": "tools/map-content.mjs",
-  "source": "tools/maps/home.content.mjs", "sourceSha256": "c63dd00e4a6a0e7c8221da5e0e7b42cf0410f09803bc64692419504da66f44a0", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
+  "source": "tools/maps/home.content.mjs", "sourceSha256": "2e7deafd8a34d64597099a6c8d9c0dc0f15f2734ed5464283eb663420ffb6cb0", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
   "solidTiles": 288, "footPixels": 0,
   "records": [
     {"id":"visitor","kind":"building","drawnPxBoxes":[{"px0":1280,"py0":1104,"px1":1423,"py1":1183}],"tiles":[[80,69],[81,69],[82,69],[83,69],[84,69],[85,69],[86,69],[87,69],[88,69],[80,70],[81,70],[82,70],[83,70],[84,70],[85,70],[86,70],[87,70],[88,70],[80,71],[81,71],[82,71],[83,71],[84,71],[85,71],[86,71],[87,71],[88,71],[80,72],[81,72],[82,72],[83,72],[84,72],[85,72],[86,72],[87,72],[88,72],[80,73],[81,73],[82,73],[83,73],[84,73],[85,73],[86,73],[87,73],[88,73]],"footPxBoxes":[],"doorTiles":[[84,74]],"reserve":"visitor-centre","art":"placeholder","room":"visitor"},
@@ -53,6 +53,9 @@
     {"id":"roam-16","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[30,93]}]},
     {"id":"roam-17","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[28,94]}]},
     {"id":"roam-18","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[31,92]}]},
-    {"id":"roam-19","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[27,93]}]}
+    {"id":"roam-19","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,91,33,96],"habitat":"village-gardens","spawns":[{"creature":"compy","at":[27,93]}]},
+    {"id":"roam-20","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[44,50,53,56],"habitat":"riverlands-range","spawns":[{"creature":"baby","at":[47,52]}]},
+    {"id":"roam-21","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[44,50,53,56],"habitat":"riverlands-range","spawns":[{"creature":"baby2","at":[50,53]}]},
+    {"id":"roam-22","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[14,36,22,43],"habitat":"brachio-meadow","spawns":[{"creature":"baby","at":[19,38]}]}
   ]
 };
