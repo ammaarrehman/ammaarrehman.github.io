@@ -177,7 +177,10 @@ export const PLACE_KINDS = ["landmark", "marker", "logSite", "plaza", "berth"];
 export const STATION_REACH = 26;
 /* the creatures (B3e1): format 1's kinds (the game's CREATURE_KINDS, but rex, who is his own system), and B3a's approved roam
    areas, in format 1's order: each id's box on the staged island, the B1e habitat it stands in (none for the robots and the
-   roomba, which keep to paths), and the creatures that start in it, kind and tile (format 1's kinds, counts and order) */
+   roomba, which keep to paths), and the creatures that start in it, kind and tile (format 1's kinds, counts and order). Amended
+   by Ammaar for B3e6 (2026-10-29): roam-23 42,82 to 54,88 became 42,82 to 52,88 and roam-25 72,75 to 84,81 became 75,75 to 84,81,
+   the spawns kept, so the robot doesn't pass behind the drink stand (53,87) nor the roomba under the signpost (74,76): MAP-B's
+   stations have no collision, and the bots vanished into their art */
 export const CREATURE_KINDS = ["brachio", "trex", "stego", "trike", "para", "raptor", "ankylo", "baby", "spino", "dilo", "pachy", "galli", "compy", "baby2", "robot", "roomba", "cat"];
 const RP = (box, habitat, spawns) => ({ box: { x0: box[0], y0: box[1], x1: box[2], y1: box[3] }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 export const ROAM_PLAN = {
@@ -196,8 +199,8 @@ export const ROAM_PLAN = {
   "roam-19": RP([27, 91, 33, 96], "village-gardens", [["compy", 27, 93]]),
   "roam-20": RP([44, 50, 53, 56], "riverlands-range", [["baby", 47, 52]]), "roam-21": RP([44, 50, 53, 56], "riverlands-range", [["baby2", 50, 53]]),
   "roam-22": RP([14, 36, 22, 43], "brachio-meadow", [["baby", 19, 38]]),
-  "roam-23": RP([42, 82, 54, 88], null, [["robot", 45, 85]]), "roam-24": RP([27, 80, 41, 86], null, [["robot", 33, 85]]),
-  "roam-25": RP([72, 75, 84, 81], null, [["roomba", 77, 78]]),
+  "roam-23": RP([42, 82, 52, 88], null, [["robot", 45, 85]]), "roam-24": RP([27, 80, 41, 86], null, [["robot", 33, 85]]),
+  "roam-25": RP([75, 75, 84, 81], null, [["roomba", 77, 78]]),
   "roam-26": RP([105, 56, 117, 68], "koi-garden", [["cat", 108, 66]]), "roam-27": RP([105, 56, 117, 68], "koi-garden", [["cat", 113, 57]])
 };
 // format 1's okFor: a tile a creature may walk to or stand on (ground codes: grass 3, path 4, dock 6)

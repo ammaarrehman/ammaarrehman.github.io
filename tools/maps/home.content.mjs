@@ -127,7 +127,15 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    (14,36 to 22,43, all open grass but 13 path tiles, inside brachio-meadow), starting at 19,38 (baby). They don't depend on the nests
    (no shared state in format 1). B3a's two nests (46,54 with 3 eggs, 51,51 with 2) are deferred to B3f, the props: a nest blocks its
    whole tile in format 1, which D1 refuses without art over it. In format 1's order these come last */
-const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
+/* B3e6: format 1's two maintenance robots and its roomba, the roaming bots (not the robot crew: SYS.bots, the cargo, the welder, the
+   gardener and the drones stay off), each in its own roam area at B3a's approved places, on paths and in no B1e habitat (as B3a plans
+   them): the village square (roam-23, 42,82 to 52,88, all 77 tiles path), starting at 45,85; the village road (roam-24, 27,80 to 41,86, 31
+   path tiles along the road's bend), starting at 33,85; the arrival plaza (roam-25, 75,75 to 84,81, all 70 tiles path), the roomba starting
+   at 77,78. Roam-23 and roam-25 are B3a's boxes as Ammaar amended them for B3e6 (2026-10-29: the square's east two columns and the
+   plaza's west three left out, so the robot keeps off the drink stand at 53,87 and the roomba off the signpost at 74,76; MAP-B's
+   stations have no collision, and the bots vanished behind their art). Format 1's wander picks path tiles only (okFor). In format 1's
+   order they come after the babies */
+const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, ...(habitat ? { habitat } : {}), spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
 // a footprint's tile box as the pixel box its art covers
@@ -218,6 +226,9 @@ export default {
     roam("roam-19", [27, 91, 33, 96], "village-gardens", [["compy", 27, 93]]),
     roam("roam-20", [44, 50, 53, 56], "riverlands-range", [["baby", 47, 52]]),
     roam("roam-21", [44, 50, 53, 56], "riverlands-range", [["baby2", 50, 53]]),
-    roam("roam-22", [14, 36, 22, 43], "brachio-meadow", [["baby", 19, 38]])
+    roam("roam-22", [14, 36, 22, 43], "brachio-meadow", [["baby", 19, 38]]),
+    roam("roam-23", [42, 82, 52, 88], null, [["robot", 45, 85]]),
+    roam("roam-24", [27, 80, 41, 86], null, [["robot", 33, 85]]),
+    roam("roam-25", [75, 75, 84, 81], null, [["roomba", 77, 78]])
   ]
 };

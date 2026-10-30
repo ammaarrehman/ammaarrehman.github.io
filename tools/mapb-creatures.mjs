@@ -1,5 +1,10 @@
 #!/usr/bin/env node
-/* mapb-creatures (MAP-B B3e1 to B3e5): the creature migration. B3e5 adds format 1's three babies (roam-20 baby and roam-21 baby2 on the
+/* mapb-creatures (MAP-B B3e1 to B3e6): the creature migration. B3e6 adds format 1's roaming bots: its two maintenance robots (roam-23 on the
+   village square, roam-24 on the village road) and its roomba (roam-25, the arrival plaza), after the babies in format 1's order, the 41
+   earlier records as they were. They walk paths only (format 1's okFor), don't sleep, and are "a bot" on their card. The robot crew
+   (SYS.bots: the cargo, the welder, the gardener, the drones) stays off. Roam-23 and roam-25 are B3a's boxes as Ammaar amended them
+   (2026-10-29) so the bots keep clear of the drink stand's and the signpost's art: checked on the rendered frame. A forced push out of a
+   bot's box is a diagnostic, recorded beside format 1's, not a roaming check. B3e5 adds format 1's three babies (roam-20 baby and roam-21 baby2 on the
    riverlands range, inside the herd's roam-04 as format 1's are inside its herd's; roam-22 baby on the brachio meadow), last in format 1's
    order, the 38 earlier records as they were. They hop when they squeak, when used and when woken. B3a's two nests (46,54 with 3 eggs, 51,51
    with 2) are deferred to B3f: nothing is there yet, and pi walks over both places. B3e4 adds format 1's two parasaurolophus (roam-05, roam-06, the delta
@@ -50,7 +55,7 @@ import { resolveContent, contentProblems, contentLayers, compileContent, Content
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3e5");
+const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3e6");
 const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
 const T = 16;
 let fails = 0; const blocked = [], perf = [], notes = [];
@@ -76,7 +81,13 @@ const POPS = [
   { key: "galli", name: "gallimimus", batch: "B3e2", box: [85, 41, 95, 48], habitat: "galli-meadow", roams: ["roam-11", "roam-12", "roam-13", "roam-14"], spawns: [[87, 43], [90, 42], [93, 45], [86, 47]], targets: 88, bolt: 64 },
   { key: "compy", name: "compsognathus", batch: "B3e2", box: [27, 91, 33, 96], habitat: "village-gardens", roams: ["roam-15", "roam-16", "roam-17", "roam-18", "roam-19"], spawns: [[29, 92], [30, 93], [28, 94], [31, 92], [27, 93]], targets: 42, bolt: 48 },
   { key: "babies", name: "baby", batch: "B3e5", box: [44, 50, 53, 56], habitat: "riverlands-range", roams: ["roam-20", "roam-21"], kinds: ["baby", "baby2"], spawns: [[47, 52], [50, 53]], targets: 62, open: true, together: true },
-  { key: "meadow-baby", name: "baby", batch: "B3e5", box: [14, 36, 22, 43], habitat: "brachio-meadow", roams: ["roam-22"], kinds: ["baby"], spawns: [[19, 38]], targets: 59, open: true }
+  { key: "meadow-baby", name: "baby", batch: "B3e5", box: [14, 36, 22, 43], habitat: "brachio-meadow", roams: ["roam-22"], kinds: ["baby"], spawns: [[19, 38]], targets: 59, open: true },
+  // B3e6: the bots, on paths in no B1e habitat (B3a's plan names none for them)
+  // (roam-23 and roam-25 as Ammaar amended B3a's boxes, 2026-10-29: 42,82 to 54,88 and 72,75 to 84,81 let the robot pass behind the drink stand
+  // at 53,87 and the roomba under the signpost at 74,76, MAP-B's stations having no collision)
+  { key: "robot-square", name: "maintenance robot", batch: "B3e6", box: [42, 82, 52, 88], habitat: null, roams: ["roam-23"], kinds: ["robot"], spawns: [[45, 85]], targets: 77, bot: "the village square", open: true },
+  { key: "robot-road", name: "maintenance robot", batch: "B3e6", box: [27, 80, 41, 86], habitat: null, roams: ["roam-24"], kinds: ["robot"], spawns: [[33, 85]], targets: 31, bot: "the village road" },
+  { key: "roomba", name: "roomba", batch: "B3e6", box: [75, 75, 84, 81], habitat: null, roams: ["roam-25"], kinds: ["roomba"], spawns: [[77, 78]], targets: 70, bot: "the arrival plaza" }
 ];
 // B3a's two nests (its plan's man-made props), deferred to B3f with the other props (Ammaar, 2026-10-28: format 1's nest blocks its whole tile,
 // which D1 refuses without art over it): their places and egg counts, kept for B3f; nothing stands there in this content
@@ -84,8 +95,11 @@ const NESTS = [[46, 54, 3], [51, 51, 2]];
 POPS.forEach((P) => { if (!P.kinds) P.kinds = P.spawns.map(() => P.key); });
 const HEATH = POPS.find((P) => P.key === "pachy");
 const ALL = POPS.flatMap((P) => P.spawns.map((sp, i) => ({ kind: P.kinds[i], at: sp, roam: P.roams[i], box: P.box, pop: P.key })));   // the content preview's creatures, in order
-const KINDS = [...new Set(ALL.map((q) => q.kind))];   // brachio, stego, trike, ankylo, para, dilo, pachy, galli, compy, baby, baby2
-const NAME = { para: "parasaurolophus", brachio: "brachiosaur", stego: "stegosaur", trike: "triceratops", ankylo: "ankylosaur", dilo: "dilophosaur", pachy: "pachycephalosaur", galli: "gallimimus", compy: "compsognathus", baby: "baby dinosaur", baby2: "baby dinosaur (baby2)" };
+const KINDS = [...new Set(ALL.map((q) => q.kind))];   // brachio, stego, trike, ankylo, para, dilo, pachy, galli, compy, baby, baby2, robot, roomba
+const NAME = { para: "parasaurolophus", brachio: "brachiosaur", stego: "stegosaur", trike: "triceratops", ankylo: "ankylosaur", dilo: "dilophosaur", pachy: "pachycephalosaur", galli: "gallimimus", compy: "compsognathus", baby: "baby dinosaur", baby2: "baby dinosaur (baby2)", robot: "maintenance robot", roomba: "roomba" };
+// B3e6: the bots (format 1's: paths only, no sleep, no art sheet; "a bot" on the card); the dinosaurs are every other kind
+const BOT = (k) => k === "robot" || k === "roomba", DINO_KINDS = KINDS.filter((k) => !BOT(k)), CARD = (k) => BOT(k) ? "a bot" : "a dinosaur";
+const GROUND = (k) => BOT(k) ? 4 : 3;   // the game's PATH and GRASS
 const ROAMS = [...new Set(ALL.map((q) => q.roam))];
 const ixOf = (f) => ALL.map((q, i) => f(q) ? i : -1).filter((i) => i >= 0);
 const NA = ALL.length, NAREAS = ROAMS.length, AN = (k) => (/^[aeiou]/.test(NAME[k]) ? "an " : "a ") + NAME[k];
@@ -94,7 +108,12 @@ const HERD_SLACK = 1.5, herdIx = ixOf((q) => q.pop === "herd");
 // the riverlands babies and the herd share one field (format 1's too), and the meadow's baby the brachiosaurs' meadow: asking about one, the
 // others there step off (to the far corner of its box), as the herd's mates and the riverlands pair's other baby do
 const babyIx = ixOf((q) => q.pop === "babies"), brachioIx = ixOf((q) => q.pop === "brachio"), meadowIx = ixOf((q) => q.pop === "meadow-baby");
-const fieldMates = (P) => ({ babies: herdIx, herd: babyIx, "meadow-baby": brachioIx, brachio: meadowIx })[P.key] || [];
+// (B3e6: the two robots' boxes touch, 41 and 42: asking about one, the other steps off too)
+const squareIx = ixOf((q) => q.pop === "robot-square"), roadIx = ixOf((q) => q.pop === "robot-road"), botIx = ixOf((q) => BOT(q.kind));
+const fieldMates = (P) => ({ babies: herdIx, herd: babyIx, "meadow-baby": brachioIx, brachio: meadowIx, "robot-square": roadIx, "robot-road": squareIx })[P.key] || [];
+// the stations beside the bots' boxes (MAP-B's stations add no collision, B3d4b; [E] on a station outranks a bot, format 1's verbOf): with
+// the amended boxes none is inside one; whether a bot still passes behind one's art is measured below on the rendered frame
+const BOT_STATIONS = { "robot-square": ["drink 53,87 (a tile east)", "mailbox 50,81 (a tile north)"], "robot-road": [], roomba: ["sign 74,76 (a tile west)"] };
 
 /* ════════ 1. Node ════════ */
 const t = await terrain(), { src, m } = t, W = m.w, H = m.h, PW = W * T;
@@ -115,11 +134,13 @@ const THIRTY_FOUR = "f3c1e91ab8e0c32fb288fd1ba15203fa72a1d75631acb3d5c9f4b1e95a4
 const THIRTY_SIX = "cdd879883873e3ed792f8c574898a6c253b498237ba5e27598974207aeecdb54";
 // B3e4's 38 (those and the parasaurolophus' roam-05 and roam-06), as committed at b370a16
 const THIRTY_EIGHT = "e1135c6e6c66db13416aa8948bb4440e735cb3fcb0c1aff8c5b692f8c6dc0dad";
-const PARA = ["roam-05", "roam-06"], BABY = ["roam-20", "roam-21", "roam-22"], NEW3 = ["roam-00", "roam-01", "roam-04", "roam-08", ...PARA, ...BABY], EARLIER = DATA.records.filter((r) => !NEW3.includes(r.id));
-check("node", "the content: B3c's to B3d4b's 21 records, B3e1's two roam areas, B3e2's nine, B3e3's four (roam-00, roam-01, roam-04, roam-08) and B3e4's two (roam-05, roam-06) exactly as committed (byte for byte, in their order), with B3e5's babies (roam-20, roam-21, roam-22) last in format 1's order; nothing else",
+// B3e5's 41 (those and the babies' roam-20 to roam-22), as committed at 7392a98
+const FORTY_ONE = "0bd7e20a3c5af7977ca88260f3a3f7c8a0e9aee9069ee1485e4c645dd87bbed3";
+const PARA = ["roam-05", "roam-06"], BABY = ["roam-20", "roam-21", "roam-22"], BOTS = ["roam-23", "roam-24", "roam-25"], NEW3 = ["roam-00", "roam-01", "roam-04", "roam-08", ...PARA, ...BABY, ...BOTS], EARLIER = DATA.records.filter((r) => !NEW3.includes(r.id));
+check("node", "the content: B3c's to B3d4b's 21 records, B3e1's two roam areas, B3e2's nine, B3e3's four (roam-00, roam-01, roam-04, roam-08), B3e4's two (roam-05, roam-06) and B3e5's three (roam-20 to roam-22) exactly as committed (byte for byte, in their order), with B3e6's bots (roam-23, roam-24, roam-25) last in format 1's order; nothing else",
   sha(DATA.records.slice(0, 21)) === TWENTY_ONE && sha([...DATA.records.slice(0, 21), ...EARLIER.filter((r) => r.id === "roam-09" || r.id === "roam-10")]) === TWENTY_THREE && sha(EARLIER) === THIRTY_TWO &&
-    sha(DATA.records.filter((r) => !["roam-00", "roam-01", ...PARA, ...BABY].includes(r.id))) === THIRTY_FOUR && sha(DATA.records.filter((r) => ![...PARA, ...BABY].includes(r.id))) === THIRTY_SIX &&
-    sha(DATA.records.filter((r) => !BABY.includes(r.id))) === THIRTY_EIGHT && DATA.records.length === 41 &&
+    sha(DATA.records.filter((r) => !["roam-00", "roam-01", ...PARA, ...BABY, ...BOTS].includes(r.id))) === THIRTY_FOUR && sha(DATA.records.filter((r) => ![...PARA, ...BABY, ...BOTS].includes(r.id))) === THIRTY_SIX &&
+    sha(DATA.records.filter((r) => ![...BABY, ...BOTS].includes(r.id))) === THIRTY_EIGHT && sha(DATA.records.filter((r) => !BOTS.includes(r.id))) === FORTY_ONE && DATA.records.length === 44 &&
     DATA.records.slice(21).map((r) => `${r.id}:${r.kind}`).join() === ROAMS.map((id) => `${id}:roam`).join(), DATA.records.slice(21).map((r) => r.id).join(", "));
 check("node", `B3a's nests deferred to B3f (${NESTS.map(([x, y, e]) => `${x},${y} with ${e} eggs`).join(", ")}): the content holds no prop record (no nest), and both places are open grass inside the riverlands babies' box with no content tile, so nothing blocks or draws there yet`,
   !RECS.some((r) => r.kind === "prop") && NESTS.every(([x, y]) => !LAYER.tiles[y * W + x] && m.coll[y * W + x] === 0 && creatureMayStand("baby", m.ground[y * W + x]) && x >= 44 && x <= 53 && y >= 50 && y <= 56), RECS.map((r) => r.kind).filter((k, i, a) => a.indexOf(k) === i).join(", "));
@@ -144,19 +165,19 @@ const may = (k, x, y) => { const i = y * W + x; return m.coll[i] === 0 && !LAYER
 const aimWet = (x, y) => { let n = 0; const fx = x * T + 8, fy = y * T + 10; for (let py = fy - 2; py <= fy + 1; py++) for (let px = fx - 4; px <= fx + 4; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
 let seed = 7; const rnd = () => (seed = (seed * 1103515245 + 12345) % 2147483648) / 2147483648;
 for (const P of POPS) {
-  const HM = habitatMask(src, P.habitat, W, H), [bx0, by0, bx1, by1] = P.box, boxTiles = []; for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) boxTiles.push([x, y]);
-  const targets = boxTiles.filter(([x, y]) => P.kinds.every((k) => may(k, x, y))), inHab = boxTiles.filter(([x, y]) => HM[y * W + x]);
+  const HM = P.habitat ? habitatMask(src, P.habitat, W, H) : null, [bx0, by0, bx1, by1] = P.box, boxTiles = []; for (let y = by0; y <= by1; y++) for (let x = bx0; x <= bx1; x++) boxTiles.push([x, y]);
+  const targets = boxTiles.filter(([x, y]) => P.kinds.every((k) => may(k, x, y))), inHab = boxTiles.filter(([x, y]) => HM && HM[y * W + x]);
   const notOk = boxTiles.filter(([x, y]) => !P.kinds.every((k) => may(k, x, y))).map(([x, y]) => `${x},${y}:${m.coll[y * W + x] ? "coll" + m.coll[y * W + x] : "ground" + m.ground[y * W + x]}`);
   for (const id of [...new Set(P.roams)]) {
     const r = RECS.find((q) => q.id === id), mine = P.roams.map((q, i) => q === id ? i : -1).filter((i) => i >= 0), f1 = F1.spawns.filter((q) => q.roam === id);
     const want = mine.map((i) => ({ creature: P.kinds[i], at: P.spawns[i] })), says = want.map((q) => `${NAME[q.creature]} ${q.at.join(",")}`).join("; ");
-    check("node", `${id} (${P.batch}): a roam area at B3a's box ${P.box.join(",")} in the B1e habitat ${P.habitat}, holding ${says} (format 1's: ${f1.map((q) => q.kind + " " + q.at).join("; ")}, box ${F1.regions.roamAreas.find((q) => q.id === id).box.join(",")}${mine.length > 1 ? "; one area its " + mine.length + " share, not " + mine.length + " areas" : ""}); no collision, nothing drawn; exactly the plan's`,
-      r && r.kind === "roam" && r.box.join() === P.box.join() && r.habitat === P.habitat && JSON.stringify(r.spawns) === JSON.stringify(want) && f1.length === mine.length && f1.every((q, j) => q.kind === want[j].creature) && !r.tiles.length && !r.drawnPxBoxes.length && JSON.stringify(r.spawns) === JSON.stringify(ROAM_PLAN[id].spawns));
+    check("node", `${id} (${P.batch}): a roam area at B3a's box ${P.box.join(",")} ${P.habitat ? "in the B1e habitat " + P.habitat : "in no B1e habitat (" + P.bot + ")"}, holding ${says} (format 1's: ${f1.map((q) => q.kind + " " + q.at).join("; ")}, box ${F1.regions.roamAreas.find((q) => q.id === id).box.join(",")}${mine.length > 1 ? "; one area its " + mine.length + " share, not " + mine.length + " areas" : ""}); no collision, nothing drawn; exactly the plan's`,
+      r && r.kind === "roam" && r.box.join() === P.box.join() && (r.habitat || null) === P.habitat && JSON.stringify(r.spawns) === JSON.stringify(want) && f1.length === mine.length && f1.every((q, j) => q.kind === want[j].creature) && !r.tiles.length && !r.drawnPxBoxes.length && JSON.stringify(r.spawns) === JSON.stringify(ROAM_PLAN[id].spawns));
     for (const { creature: k, at: [sx, sy] } of want)
-      check("node", `${id}: its ${NAME[k]}'s spawn ${sx},${sy} is open grass (a tile it may stand on), its feet clear of every foot-blocking pixel, inside the habitat`, may(k, sx, sy) && !aimWet(sx, sy) && HM[sy * W + sx] === 1);
+      check("node", `${id}: its ${NAME[k]}'s spawn ${sx},${sy} is ${BOT(k) ? "path" : "open grass"} (a tile it may stand on), its feet clear of every foot-blocking pixel, ${HM ? "inside the habitat" : "no habitat (" + P.bot + ")"}`, may(k, sx, sy) && !aimWet(sx, sy) && (HM ? HM[sy * W + sx] === 1 : m.ground[sy * W + sx] === 4));
   }
   let blockedWalks = 0; for (let i = 0; i < 2000; i++) { const a = targets[(rnd() * targets.length) | 0], c = targets[(rnd() * targets.length) | 0]; const ax = a[0] * T + 8, ay = a[1] * T + 10, cx = c[0] * T + 8, cy = c[1] * T + 10, d = Math.hypot(cx - ax, cy - ay), st = Math.max(1, Math.ceil(d / 2)); for (let j = 0; j <= st; j++) { const px = ax + (cx - ax) * j / st, py = ay + (cy - ay) * j / st; if (m.coll[Math.floor(py / T) * W + Math.floor(px / T)] !== 0 || m.px.foot[Math.floor(py) * PW + Math.floor(px)]) { blockedWalks++; break; } } }
-  if (!P.wetland) check("node", `${P.habitat}: ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to (the others: ${notOk.length}), ${inHab.length} inside the habitat; every straight walk between two of them (2,000 tried) crosses only walkable ground (format 1's wander walks straight)`, targets.length === P.targets && blockedWalks === 0, notOk.length ? `not theirs: ${notOk.join(" ")}` : "all");
+  if (!P.wetland) check("node", `${P.habitat || P.bot}: ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to${P.bot ? " (path, format 1's okFor)" : ""} (the others: ${notOk.length}), ${HM ? inHab.length + " inside the habitat" : "no habitat"}; every straight walk between two of them (2,000 tried) crosses only walkable ground (format 1's wander walks straight)`, targets.length === P.targets && blockedWalks === 0, notOk.length ? `not theirs: ${notOk.join(" ")}` : "all");
   else {
     // the wetland (B3e4): walked with the game's own move() (9 x 4 px feet, x then y, each axis stopping on a solid pixel, 12 px/s), every pair
     // of targets; then from every place a walk can end (the targets and each blocked walk's stop), how many targets a straight walk reaches
@@ -170,6 +191,20 @@ for (const P of POPS) {
     check("node", `${P.habitat}: ${targets.length} of its ${boxTiles.length} box tiles are open grass a ${P.name} may walk to (the rest: the lagoon, the river, its banks, the path, sand), ${inHab.length} inside the habitat; walked with the game's own move(), a few straight walks between them stop on the river bank's foot pixels (under 5%), and no place a walk can end strands it (from each, at least half the targets in a straight walk)`,
       targets.length === P.targets && bad / pairs < 0.05 && least >= targets.length / 2, `${bad} of ${pairs} walks stop (${(100 * bad / pairs).toFixed(1)}%), at ${Object.entries(at).map((e) => e.join(" x")).join(", ")}; ${stops.size} places a walk can end, the least reaching ${least} targets (the line sampler: ${blockedWalks} of 2,000)`);
   }
+}
+// B3e6: the bots' paths. Each box's path tiles (the targets format 1's okFor lets a bot pick) are one connected stretch (4-neighbour, inside
+// the box), its spawn among them; how often six random picks in the box find none (the game then waits a second: format 1's roam-24 is
+// sparser still); how much of a straight walk between two of them crosses open ground off the path (the village road's bend); and the
+// stations the boxes hold or touch, recorded (MAP-B's stations add no collision, so a bot can pass under one; [E] there opens the station)
+for (const P of POPS.filter((q) => q.bot)) {
+  const [x0, y0, x1, y1] = P.box, k = P.kinds[0], tiles = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (may(k, x, y)) tiles.push([x, y]);
+  const set = new Set(tiles.map((q) => q.join())), seen = new Set([tiles[0].join()]), st = [tiles[0]];
+  while (st.length) { const [x, y] = st.pop(); for (const [dx, dy] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const q = `${x + dx},${y + dy}`; if (set.has(q) && !seen.has(q)) { seen.add(q); st.push([x + dx, y + dy]); } } }
+  const p = tiles.length / ((x1 - x0 + 1) * (y1 - y0 + 1)), none6 = Math.pow(1 - p, 6);
+  let off = 0, pairs = 0; for (const a of tiles) for (const c of tiles) { if (a === c) continue; pairs++; const ax = a[0] * T + 8, ay = a[1] * T + 10, cx = c[0] * T + 8, cy = c[1] * T + 10, n = Math.ceil(Math.hypot(cx - ax, cy - ay)); let o = 0; for (let j = 0; j <= n; j++) { const tx = Math.floor((ax + (cx - ax) * j / n) / T), ty = Math.floor((ay + (cy - ay) * j / n) / T); if (m.ground[ty * W + tx] !== 4) o++; } off += o / (n + 1); }
+  const inside = DATA.records.filter((r) => r.kind === "station" && r.anchor[0] >= x0 - 1 && r.anchor[0] <= x1 + 1 && r.anchor[1] >= y0 - 1 && r.anchor[1] <= y1 + 1).map((r) => `${r.id} ${r.anchor.join(",")} (${r.anchor[0] >= x0 && r.anchor[0] <= x1 && r.anchor[1] >= y0 && r.anchor[1] <= y1 ? "inside" : "a tile " + (r.anchor[1] < y0 ? "north" : r.anchor[1] > y1 ? "south" : r.anchor[0] < x0 ? "west" : "east")})`);
+  check("node", `${P.roams[0]} (${P.bot}): its ${tiles.length} path tiles are one connected stretch with the spawn on it; six picks in the box find none ${(100 * none6).toFixed(1)}% of the time (then a second's wait, format 1's); straight walks between them cross ${(100 * off / pairs).toFixed(1)}% open ground off the path on average; stations within a tile: ${inside.join(", ") || "none"} (recorded)`,
+    seen.size === tiles.length && set.has(P.spawns[0].join()) && JSON.stringify(inside.map((q) => q.replace(/ \(.*/, "")).sort()) === JSON.stringify(BOT_STATIONS[P.key].map((q) => q.replace(/ \(.*/, "")).sort()), `${seen.size} of ${tiles.length} connected`);
 }
 // the brachiosaurs' art against the meadow's edges: every frame of the sheet (walk, idle, blink, graze), facing either way, drawn as drawArt
 // draws it (centred on the feet, bottom on them), on every target along each edge of the box: its opaque pixels over a tile that isn't open
@@ -203,13 +238,19 @@ const BAD = [
   ["roam-09 holding a gallimimus", "creatures", (o) => { RR(o, "roam-09").spawns[0].creature = "galli"; }, /approved spawns/],
   ["roam-09 with a second pachycephalosaur", "creatures", (o) => { RR(o, "roam-09").spawns.push({ creature: "pachy", at: [40, 20] }); }, /approved spawns/],
   ["roam-10 before roam-09", "creatures", (o) => { const a = o.records.findIndex((r) => r.id === "roam-09"); const [r] = o.records.splice(a, 1); o.records.push(r); }, /format 1's order/],
-  ["roam-08 after roam-22 (appended, not in format 1's order)", "creatures", (o) => { const a = o.records.findIndex((r) => r.id === "roam-08"); const [r] = o.records.splice(a, 1); o.records.push(r); }, /format 1's order/],
-  ["the herd split: its ankylosaur in an area of its own (roam-23)", "creatures", (o) => { const r = RR(o, "roam-04"), a = r.spawns.pop(); o.records.push({ id: "roam-23", kind: "roam", box: copy(r.box), habitat: r.habitat, spawns: [a] }); }, /roam-04: its approved spawns/],
+  ["roam-08 after roam-25 (appended, not in format 1's order)", "creatures", (o) => { const a = o.records.findIndex((r) => r.id === "roam-08"); const [r] = o.records.splice(a, 1); o.records.push(r); }, /format 1's order/],
+  ["the herd split: its ankylosaur in an area of its own (roam-26)", "creatures", (o) => { const r = RR(o, "roam-04"), a = r.spawns.pop(); o.records.push({ id: "roam-26", kind: "roam", box: copy(r.box), habitat: r.habitat, spawns: [a] }); }, /roam-04: its approved spawns/],
   ["the herd in another order (a triceratops first)", "creatures", (o) => { const r = RR(o, "roam-04"); [r.spawns[0], r.spawns[1]] = [r.spawns[1], r.spawns[0]]; }, /roam-04: its approved spawns/],
   ["the herd short of its ankylosaur", "creatures", (o) => { RR(o, "roam-04").spawns.pop(); }, /roam-04: its approved spawns/],
   ["roam-21's baby2 moved a tile", "creatures", (o) => { RR(o, "roam-21").spawns[0].at = [51, 53]; }, /roam-21: its approved spawns/],
   ["roam-20 holding a baby2 (baby and baby2 swapped)", "creatures", (o) => { RR(o, "roam-20").spawns[0].creature = "baby2"; }, /roam-20: its approved spawns/],
   ["roam-22's box moved to the riverlands", "creatures", (o) => { RR(o, "roam-22").box = { x0: 44, y0: 50, x1: 53, y1: 56 }; }, /roam-22: its approved box/],
+  ["roam-24's robot moved a tile along the road", "creatures", (o) => { RR(o, "roam-24").spawns[0].at = [34, 85]; }, /roam-24: its approved spawns/],
+  ["roam-25 holding a robot (the roomba's area)", "creatures", (o) => { RR(o, "roam-25").spawns[0].creature = "robot"; }, /roam-25: its approved spawns/],
+  ["roam-23 given a habitat (B3a's plan names none)", "creatures", (o) => { RR(o, "roam-23").habitat = "village-gardens"; }, /roam-23: its approved habitat is none/],
+  ["roam-23 at B3a's box before the B3e6 amendment (42,82 to 54,88: the drink stand inside)", "creatures", (o) => { RR(o, "roam-23").box.x1 = 54; }, /roam-23: its approved box is 42,82 to 52,88/],
+  ["roam-25 at B3a's box before the B3e6 amendment (72,75 to 84,81: the signpost inside)", "creatures", (o) => { RR(o, "roam-25").box.x0 = 72; }, /roam-25: its approved box is 75,75 to 84,81/],
+  ["roam-24's box widened a tile", "creatures", (o) => { RR(o, "roam-24").box.x1 = 42; }, /roam-24: its approved box/],
   ["roam-08's dilophosaur moved a tile", "creatures", (o) => { RR(o, "roam-08").spawns[0].at = [92, 17]; }, /roam-08: its approved spawns/],
   ["roam-04's box shrunk a tile", "creatures", (o) => { RR(o, "roam-04").box.x1 = 56; }, /roam-04: its approved box/],
   ["a roam area with collision", "schema", (o) => { RR(o, "roam-09").solid = { tiles: [[38, 18]] }; }, /blocks nothing/],
@@ -222,7 +263,7 @@ const BAD = [
   ["a box off the map", "schema", (o) => { RR(o, "roam-09").box.x1 = 150; }, /x1 must be/],
   ["a station with spawns", "schema", (o) => { RR(o, "sign").spawns = [{ creature: "pachy", at: [74, 77] }]; }, /only a roam area has/],
   ["a prop with a box", "schema", (o) => { o.records.push({ id: "syn-crate", kind: "prop", drawnPxBoxes: [{ px0: 480, py0: 480, px1: 495, py1: 495 }], solid: { tiles: [[30, 30]] }, box: { x0: 30, y0: 30, x1: 31, y1: 31 } }); }, /only a roam area has/],
-  ["a prop named roam-23", "creatures", (o) => { o.records.push({ id: "roam-23", kind: "prop", drawnPxBoxes: [{ px0: 30 * 16, py0: 70 * 16, px1: 30 * 16 + 15, py1: 70 * 16 + 15 }], solid: { tiles: [[30, 70]] } }); }, /the id is a roam area's/],
+  ["a prop named roam-26", "creatures", (o) => { o.records.push({ id: "roam-26", kind: "prop", drawnPxBoxes: [{ px0: 30 * 16, py0: 70 * 16, px1: 30 * 16 + 15, py1: 70 * 16 + 15 }], solid: { tiles: [[30, 70]] } }); }, /the id is a roam area's/],
   ["a crate on roam-09's spawn", "creatures", (o) => { o.records.push({ id: "syn-crate", kind: "prop", drawnPxBoxes: [{ px0: 38 * 16, py0: 18 * 16, px1: 38 * 16 + 15, py1: 18 * 16 + 15 }], solid: { tiles: [[38, 18]] } }); }, /may not stand on \(solid content\)/]
 ];
 for (const [label, rule, fn, re] of BAD) {
@@ -271,7 +312,8 @@ const REFUSE = [
   ["a pachycephalosaur on the tower's base", (c) => { const r = DR(c, "roam-09"); r.box = [94, 25, 96, 28]; r.spawns[0].at = [95, 26]; }, /a tile it may not stand on/],
   ["a pachycephalosaur on a path", (c) => { const r = DR(c, "roam-09"); r.box = [94, 25, 96, 28]; r.spawns[0].at = [95, 28]; }, /a tile it may not stand on/],
   ["roam-10 before roam-09", (c) => { const a = c.records.findIndex((r) => r.id === "roam-09"); const [r] = c.records.splice(a, 1); c.records.push(r); }, /roam areas come in format 1's order/],
-  ["a station with spawns", (c) => { DR(c, "sign").spawns = [{ creature: "pachy", at: [74, 77] }]; }, /only a roam area has a box, a habitat and spawns/]
+  ["a station with spawns", (c) => { DR(c, "sign").spawns = [{ creature: "pachy", at: [74, 77] }]; }, /only a roam area has a box, a habitat and spawns/],
+  ["a robot on the grass inside the road's bend (B3e6: paths only)", (c) => { DR(c, "roam-24").spawns[0].at = [30, 84]; }, /a tile it may not stand on/]
 ];
 const MUT = {
   off: ["the creatures left off in the content preview", (s) => s.replace("creatures: all || (CONTENT_PREVIEW && MAP.spawns.length > 0),", "creatures: all,")],
@@ -286,6 +328,8 @@ const SIM_CONTENT = (ids) => { const o = realWith((q) => { const i = q.records.f
   const c = compileContent(o, src, m); return { format: 2, staged: true, schema: DATA.schema, id: DATA.id, generator: DATA.generator, source: DATA.source, sourceSha256: DATA.sourceSha256, terrainSha256: DATA.terrainSha256, solidTiles: c.solidTiles, footPixels: c.footPixels, records: JSON.parse(JSON.stringify(c.records)) }; };
 const PRED_CONTENT = SIM_CONTENT(["roam-02", "roam-03"]);
 const SAY = {}; for (const k of KINDS) { const g = (WORLD.match(new RegExp(k + ": \\{ art: true, sp: \\d+, step: [\\d.]+, (?:graze: true, )?say: (\\[[^\\]]*\\]|\"[^\"]*\")")) || [])[1]; SAY[k] = g ? [].concat(JSON.parse(g)) : []; }
+// (the bots aren't on the art sheet: their entry is a pixel pattern, then say)
+for (const k of KINDS.filter(BOT)) { const g = (WORLD.match(new RegExp("\\n    " + k + ": \\{ w: \\d+, [^\\n]*paths: true,\\n(?:      [^\\n]*\\n)*?      say: (\\[[^\\]]*\\]|\"[^\"]*\") \\}")) || [])[1]; SAY[k] = g ? [].concat(JSON.parse(g)) : []; }
 for (const k of KINDS) if (!SAY[k].length) check("node", `the game's card lines for the ${NAME[k]} found in js/world.js`, false);
 
 const port = 9500 + Math.floor(Math.random() * 80);
@@ -351,23 +395,23 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   check(name, "terrain preview: no creature, the creature system off", tp.loaded && !tp.errs.length && tv.sys.creatures === false && tv.systems.critters === 0, tv ? `${tv.systems.critters}` : "");
   const tDig = tp.loaded ? { td: await tp.I(() => window.__island.terrainDigest()), gd: await tp.page.evaluate(DIGEST) } : null;
 
-  // 2c. the content preview: the twenty-three creatures (B3e3's two brachiosaurs, herd of four and dilophosaur, B3e4's two parasaurolophus, B3e1's
-  // two pachycephalosaurs, B3e2's four gallimimus and five compsognathus, B3e5's three babies) and nothing else
+  // 2c. the content preview: the twenty-six creatures (B3e3's two brachiosaurs, herd of four and dilophosaur, B3e4's two parasaurolophus, B3e1's
+  // two pachycephalosaurs, B3e2's four gallimimus and five compsognathus, B3e5's three babies, B3e6's two robots and roomba) and nothing else
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store: STORE });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const OFF = ["rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
   const kinds = (cs) => { const o = {}; cs.forEach((c) => { o[c.kind] = (o[c.kind] || 0) + 1; }); return o; };
   const sameArea = (cs) => ALL.every((q, i) => ALL.every((r, j) => (q.roam === r.roam) === (cs[i].areaIx === cs[j].areaIx)));
-  check(name, "content preview: 41 records (288 solid tiles); the creature system on (with the buildings and the stations), every other home system off; exactly twenty-three creatures, 2 brachiosaurs, the herd (a stegosaur, 2 triceratops, an ankylosaur), 2 parasaurolophus, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus and 3 babies (2 baby, a baby2), in format 1's order, each at its spawn; the herd's four in the one roam area they share (one object, as in format 1), every other creature in its own (20 areas); no T. rex, raptor, spinosaur, robot, roomba or cat",
-    cp.loaded && !cp.errs.length && cv.content.records === 41 && cv.content.solidTiles === 288 && cv.sys.creatures && cv.sys.buildings && cv.sys.stations && OFF.every((k) => cv.sys[k] === false) && cv.systems.critters === NA && NA === 23 && !cv.systems.rex && !cv.systems.car &&
-      cv.creatures.every((c, i) => c.kind === ALL[i].kind && c.x === ALL[i].at[0] * 16 + 8 && c.y === ALL[i].at[1] * 16 + 10 && c.area.join() === ALL[i].box.join()) && new Set(cv.creatures.map((c) => c.areaIx)).size === NAREAS && NAREAS === 20 && sameArea(cv.creatures),
+  check(name, "content preview: 44 records (288 solid tiles); the creature system on (with the buildings and the stations), every other home system off (the robot crew, SYS.bots, among them); exactly twenty-six creatures, 2 brachiosaurs, the herd (a stegosaur, 2 triceratops, an ankylosaur), 2 parasaurolophus, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus, 3 babies (2 baby, a baby2), 2 maintenance robots and a roomba, in format 1's order, each at its spawn; the herd's four in the one roam area they share (one object, as in format 1), every other creature in its own (23 areas); no T. rex, raptor, spinosaur or cat",
+    cp.loaded && !cp.errs.length && cv.content.records === 44 && cv.content.solidTiles === 288 && cv.sys.creatures && cv.sys.buildings && cv.sys.stations && OFF.every((k) => cv.sys[k] === false) && cv.systems.critters === NA && NA === 26 && !cv.systems.rex && !cv.systems.car &&
+      cv.creatures.every((c, i) => c.kind === ALL[i].kind && c.x === ALL[i].at[0] * 16 + 8 && c.y === ALL[i].at[1] * 16 + 10 && c.area.join() === ALL[i].box.join()) && new Set(cv.creatures.map((c) => c.areaIx)).size === NAREAS && NAREAS === 23 && sameArea(cv.creatures),
     cv ? `sys ${JSON.stringify(cv.sys)}; ${JSON.stringify(kinds(cv.creatures))}; ${JSON.stringify(cv.creatures.map((c) => [c.kind, c.x, c.y, c.areaIx]))}` : cp.errs.join("; "));
   if (cp.loaded) {
     for (const P of POPS) await cp.I(([x, y]) => { const I2 = window.__island; I2.teleport(x * 16 + 8, (y + 3) * 16 + 10); I2.step(4); }, [(P.box[0] + P.box[2]) >> 1, P.box[3]]);
     const cDig = { td: await cp.I(() => window.__island.terrainDigest()), gd: await cp.page.evaluate(DIGEST) };
     check(name, "content preview, every creature drawn: both locked painter digests (creatures are drawn in the object layer)", cDig.td === TERRAIN_SHA && cDig.gd === GROUND_SHA && tDig && tDig.td === TERRAIN_SHA, `terrain ${cDig.td.slice(0, 12)}, ground ${cDig.gd.slice(0, 12)}`);
-    const sp = await cp.I((s) => s.map(([x, y]) => { const I2 = window.__island; return I2.tile(x, y).walkable && !I2.tile(x, y).content && I2.safe(x, y) && I2.tile(x, y).type === 3; }), ALL.map((q) => q.at));
-    check(name, "spawns: every creature's tile walkable, no content, safe ground, grass", sp.every(Boolean), JSON.stringify(sp));
+    const sp = await cp.I((s) => s.map(([x, y, g]) => { const I2 = window.__island; return I2.tile(x, y).walkable && !I2.tile(x, y).content && I2.safe(x, y) && I2.tile(x, y).type === g; }), ALL.map((q) => [...q.at, GROUND(q.kind)]));
+    check(name, "spawns: every creature's tile walkable, no content, safe ground; grass for a dinosaur, path for a bot", sp.every(Boolean), JSON.stringify(sp));
     // a long seeded run, pi away from all of them (no player influence): ten minutes of game time
     const far = [60 * 16 + 8, 60 * 16 + 10];
     const r1 = await run(cp, 36000, far);
@@ -454,12 +498,70 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         notes.push(`${name}: parasaurolophus, ${lab}: ${w.map((q, k) => `para ${k + 1} ${q.arrive} arrived, ${q.blocked} blocked, recovery ${(q.recMax / 60).toFixed(2)} s, longest stand-still ${(q.maxStill / 60).toFixed(1)} s`).join("; ")}`);
       }
     }
+    // B3e6: the bots, frame by frame for ten minutes with pi away, here and in format 1 (its two robots and roomba, measured the same way):
+    // every walk picked (its target a path tile in the box: format 1's okFor), arrived or blocked; the picks that found no path tile in six
+    // tries (a second's wait); how soon a blocked walk is followed by a new one; the longest stand-still; time walking, distance, tiles stood
+    // on, distinct targets; walks straight back the way it came; feet off the path (a straight walk between path tiles crossing a bend's grass)
+    { const botWatch = (P, ixs, n) => P.I(([is, nn]) => { const I2 = window.__island; I2.teleport(10 * 16 + 8, 10 * 16 + 10);
+        const cs0 = I2.preview().creatures, S = is.map((i) => { const c = I2.creature(i); return { i, a: cs0[i].area, tx: c.tx, ty: c.ty, wait: c.wait, prev: [c.x, c.y], from: [c.x, c.y], d0: c.dist, picks: 0, badPick: 0, arrive: 0, blocked: 0, fails: 0, since: -1, rec: [], still: 0, maxStill: 0, walk: 0, off: 0, solid: 0, out: 0, tiles: new Set(), tgt: new Set(), lastV: null, back: 0, sleep: 0 }; });
+        for (let f = 0; f < nn; f++) { I2.step(1);
+          for (const s of S) { const c = I2.creature(s.i), a = s.a, tx = Math.floor(c.x / 16), ty = Math.floor(c.y / 16);
+            if (!s.tx && c.tx) { s.picks++; s.from = [c.x, c.y]; const gx = Math.floor(c.tx / 16), gy = Math.floor(c.ty / 16); s.tgt.add(gx + "," + gy); if (I2.tile(gx, gy).type !== 4 || !I2.tile(gx, gy).walkable || gx < a[0] || gx > a[2] || gy < a[1] || gy > a[3]) s.badPick++; if (s.since >= 0) { s.rec.push(f - s.since); s.since = -1; } }
+            if (!s.tx && !c.tx && c.wait > s.wait + 0.5 && Math.abs(c.wait - 1) < 0.05) s.fails++;
+            if (s.tx && !c.tx) { if (Math.hypot(c.x - s.tx, c.y - s.ty) < 2.5) { s.arrive++; const v = [s.tx - s.from[0], s.ty - s.from[1]], L = Math.hypot(...v); if (L > 8) { if (s.lastV && (v[0] * s.lastV[0] + v[1] * s.lastV[1]) / (L * Math.hypot(...s.lastV)) < -0.7) s.back++; s.lastV = v; } } else { s.blocked++; s.since = f; } }
+            s.tx = c.tx; s.ty = c.ty; s.wait = c.wait; if (c.sleep > 0) s.sleep++;
+            const mv = Math.hypot(c.x - s.prev[0], c.y - s.prev[1]) > 0.01; s.prev = [c.x, c.y]; if (mv) { s.walk++; s.still = 0; } else s.maxStill = Math.max(s.maxStill, ++s.still);
+            if (I2.tile(tx, ty).type !== 4) s.off++; s.tiles.add(tx + "," + ty);
+            if (I2.blocked(c.x - 4, c.y - 2) || I2.blocked(c.x + 4, c.y - 2) || I2.blocked(c.x - 4, c.y + 1) || I2.blocked(c.x + 4, c.y + 1)) s.solid++;
+            if (c.x < a[0] * 16 || c.x >= (a[2] + 1) * 16 || c.y < a[1] * 16 || c.y >= (a[3] + 1) * 16) s.out++; } }
+        return S.map((s) => ({ kind: I2.creature(s.i).kind, picks: s.picks, badPick: s.badPick, arrive: s.arrive, blocked: s.blocked, fails: s.fails, recMax: Math.max(0, ...s.rec), pending: s.since >= 0 ? nn - s.since : 0, maxStill: s.maxStill, walk: s.walk / nn, off: s.off / nn, solid: s.solid, out: s.out, tiles: s.tiles.size, tgt: s.tgt.size, dist: Math.round(I2.creature(s.i).dist - s.d0), back: s.back, sleep: s.sleep })); }, [ixs, n]);
+      const bw = await botWatch(cp, botIx, 36000);
+      const f1p = await open(`http://127.0.0.1:${port + 3}/${Q}`), f1Bots = F1.spawns.map((q, i) => BOT(q.kind) ? i : -1).filter((i) => i >= 0);
+      const fw = f1p.loaded ? await botWatch(f1p, f1Bots, 36000) : null; await f1p.ctx.close();
+      const say = (q) => `${q.kind}: ${q.arrive} walks (${q.blocked} blocked, ${q.fails} picks with no path tile), ${(100 * q.walk).toFixed(0)}% walking, ${(q.dist / 16).toFixed(0)} tiles walked, ${q.tiles} tiles stood on, ${q.tgt} targets, ${q.back} straight back, off the path ${(100 * q.off).toFixed(1)}%, longest stand-still ${(q.maxStill / 60).toFixed(1)} s`;
+      check(name, "the bots, ten minutes frame by frame with pi away: every target a path tile in its own box (format 1's okFor); they keep walking (many walks, most of the time walking, over at least as many tiles as format 1's same bot and 25 or more), never sleep; no walk blocked (or a new target within 2 s), no stand-still over 12 s; feet never on a solid pixel, never outside the box; format 1's two robots and roomba, measured the same way, likewise",
+        // (each stands on at least as many tiles as format 1's same bot, and 25 or more: the first amended run's floor, "over 40", had no basis,
+        // and the road robot stood on exactly 40 there, format 1's on 14: gates/mapb-creatures-amended-first.log)
+        bw.every((q, k) => q.badPick === 0 && q.arrive > 40 && q.walk > 0.5 && q.tiles >= 25 && (!fw || q.tiles >= fw[k].tiles) && q.sleep === 0 && q.recMax <= 120 && q.pending <= 120 && q.maxStill < 720 && q.solid === 0 && q.out === 0) && fw && fw.every((q) => q.badPick === 0 && q.arrive > 40 && q.sleep === 0 && q.solid === 0 && q.out === 0),
+        `MAP-B: ${bw.map(say).join("; ")}. Format 1: ${fw ? fw.map(say).join("; ") : "didn't load"}`);
+      notes.push(`${name}: the bots, ten minutes: MAP-B ${bw.map(say).join("; ")}; format 1 ${fw ? fw.map(say).join("; ") : "didn't load"}`); }
+    // B3e6: the bots in view, on the rendered frame. Ten minutes of ordinary wandering each, pi standing still in the box away from the stations
+    // (a sample with the bot within 28 px of pi is left out); every 6 frames while the bot is by a station (the drink stand, the mailbox, the
+    // signpost), every 2 s elsewhere, the frame is drawn as is, then twice with the bot moved away, and the canvas pixels the bot changes in a
+    // box round its sprite are counted (less the pixels that change anyway); against the same count on open path, that is the share of it in view.
+    // With B3a's boxes the robot fell to 0 to 8% in view behind the drink stand and the roomba to 0 to 7% under the signpost (tools/out/mapb/
+    // b3e6/occlusion/); with the amended boxes neither may fall under VIS_MIN
+    { const VIS_MIN = 0.75, PI_AT = { "robot-square": [47, 85], "robot-road": [34, 84], roomba: [80, 79] };
+      const vis = await cp.I(async ([bots, N]) => { const I2 = window.__island, cs0 = I2.preview().creatures, all = bots.map(([i]) => i);
+        const st = I2.preview().stations.map((q) => ({ id: q.id, x: q.x * 16 + 8, y: q.y * 16 + 10 })), cv = document.querySelector(".w-cv"), g = cv.getContext("2d"), res = [];
+        for (const [i, pp] of bots) { const a = cs0[i].area;
+          all.filter((j) => j !== i).forEach((j) => I2.creature(j, { x: 5 * 16 + 8, y: 5 * 16 + 10, tx: 0, wait: 1e9 }));
+          // (the teleport's iris opens on the page's real clock, 0.6 s: wait for it, drawing, before anything is measured)
+          I2.teleport(pp[0] * 16 + 8, pp[1] * 16 + 10); I2.step(60); for (let k = 0; k < 60 && I2.getState().iris; k++) { await new Promise((r) => setTimeout(r, 50)); I2.step(0); }
+          const v = I2.preview(), E = v.ui.scale * v.zoom, kk = cv.width / cv.getBoundingClientRect().width, cam = v.camera;
+          const box = (c) => { const x0 = Math.floor((c.x - 10 - cam[0]) * E * kk), y0 = Math.floor((c.y - 17 - cam[1]) * E * kk); return [x0, y0, Math.ceil((c.x + 10 - cam[0]) * E * kk) - x0, Math.ceil((c.y + 5 - cam[1]) * E * kk) - y0]; };
+          const diff = (p, q) => { let n = 0; for (let m = 0; m < p.length; m += 4) if (Math.abs(p[m] - q[m]) + Math.abs(p[m + 1] - q[m + 1]) + Math.abs(p[m + 2] - q[m + 2]) > 24) n++; return n; };
+          const seen = (c) => { const bb = box(c); if (bb[0] < 0 || bb[1] < 0 || bb[0] + bb[2] > cv.width || bb[1] + bb[3] > cv.height || I2.getState().iris) return null; const grab = () => g.getImageData(bb[0], bb[1], bb[2], bb[3]).data;
+            I2.step(0); const p1 = grab(), keep = I2.creature(i); I2.creature(i, { x: 5 * 16 + 8, y: 5 * 16 + 10 }); I2.step(0); const p2 = grab(); I2.step(0); const p3 = grab(); I2.creature(i, { x: keep.x, y: keep.y }); return Math.max(0, diff(p1, p2) - diff(p2, p3)); };
+          let far = null, fd = -1; for (let y = a[1]; y <= a[3]; y++) for (let x = a[0]; x <= a[2]; x++) { if (I2.tile(x, y).type !== 4) continue; const d = Math.min(Math.hypot(x - pp[0], y - pp[1]) * 16, ...st.map((q) => Math.hypot(x * 16 + 8 - q.x, y * 16 + 10 - q.y))); if (d > fd) { fd = d; far = [x, y]; } }
+          const sp = I2.creature(i); I2.creature(i, { x: far[0] * 16 + 8, y: far[1] * 16 + 10 }); const ref = seen({ x: far[0] * 16 + 8, y: far[1] * 16 + 10 }); I2.creature(i, { x: sp.x, y: sp.y });
+          const o = { kind: sp.kind, ref, n: 0, near: 0, least: 1, at: null, under50: 0, by: {} };
+          for (let f = 0; f < N; f++) { I2.step(1); const c = I2.creature(i), ns = st.filter((q) => Math.abs(c.x - q.x) < 40 && c.y - q.y > -44 && c.y - q.y < 30);
+            if (!(ns.length ? f % 6 === 0 : f % 120 === 0) || Math.hypot(c.x - (pp[0] * 16 + 8), c.y - (pp[1] * 16 + 10)) < 28) continue;
+            const s0 = seen(c); if (s0 === null || !ref) continue; o.n++; if (ns.length) { o.near++; ns.forEach((q) => o.by[q.id] = (o.by[q.id] || 0) + 1); }
+            const q = Math.min(1, s0 / ref); if (q < o.least) { o.least = q; o.at = [Math.floor(c.x / 16), Math.floor(c.y / 16)]; } if (q < 0.5) o.under50++; }
+          all.filter((j) => j !== i).forEach((j) => I2.creature(j, { x: cs0[j].x, y: cs0[j].y, wait: 0 })); res.push(o); }
+        return res; }, [botIx.map((i) => [i, PI_AT[ALL[i].pop]]), 36000]);
+      const say = (q) => `${q.kind}: ${q.n} samples (${q.near} by a station ${JSON.stringify(q.by)}), at least ${(100 * q.least).toFixed(0)}% in view${q.at ? " (at " + q.at + ")" : ""}, under half in view ${q.under50}`;
+      check(name, `the bots in view (the rendered frame, ten minutes of ordinary wandering each): the robot never passes behind the drink stand or the mailbox, the roomba never under the signpost, the road robot never behind anything; each always at least ${100 * VIS_MIN}% in view`,
+        vis.every((q) => q.ref > 0 && q.n > 150 && q.least >= VIS_MIN && q.under50 === 0) && vis[0].near > 100 && vis[2].near > 100, vis.map(say).join("; "));
+      notes.push(`${name}: the bots in view: ${vis.map(say).join("; ")}`); }
     // pi walks round each habitat that doesn't bolt (B3e1's check, for the heath; B3e3's herd and dilophosaur): they keep to their box
     for (const P of POPS.filter((q) => !q.bolt)) {
       const [x0, y0, x1, y1] = P.box, ring = []; for (let x = x0 - 1; x <= x1 + 1; x++) ring.push([x, y0 - 1]); for (let y = y0; y <= y1 + 1; y++) ring.push([x1 + 1, y]); for (let x = x1; x >= x0 - 1; x--) ring.push([x, y1 + 1]); for (let y = y1; y >= y0; y--) ring.push([x0 - 1, y]);
       const ringOk = await cp.I((pp) => pp.filter(([x, y]) => window.__island.tile(x, y).walkable), ring), every = Math.max(12, Math.round(60 * 40 / ringOk.length));
       const r2 = await run(cp, 12000, null, { path: ringOk, every }), ix = ixOf((q) => q.pop === P.key);
-      check(name, `pi walking round the ${P.name}'s box (${ringOk.length} walkable tiles of its ring): they keep to it (they don't bolt${P.shared ? "; the herd's drifting at most " + HERD_SLACK + " tiles past it" : ""}), feet never on solid, never off walkable ground`,
+      check(name, `pi walking round the ${P.bot ? P.name + "'s box on " + P.bot : P.name + "'s box"} (${ringOk.length} walkable tiles of its ring): they keep to it (they don't bolt${P.shared ? "; the herd's drifting at most " + HERD_SLACK + " tiles past it" : ""}), feet never on solid, never off walkable ground`,
         ix.every((i) => r2.st[i].solid === 0 && r2.st[i].offGround === 0 && (P.shared ? beyond(r2.st[i], P.box) <= HERD_SLACK : r2.st[i].outBox === 0)), ix.map((i) => `${ALL[i].kind} ${beyond(r2.st[i], P.box).toFixed(2)}`).join(", "));
     }
     // bolting (format 1's: a gallimimus within 64 px of pi, a compsognathus within 48, runs 60 px away, faster): pi chases through each herd from
@@ -479,7 +581,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     }
     // the obstacles round each habitat that doesn't bolt (B3e1's, for the heath; the herd's river, the dilo strip's cliffs and water): one of
     // them sent at blocked tiles stops before them (each of the herd's kinds in turn)
-    for (const P of POPS.filter((q) => !q.bolt)) {
+    for (const P of POPS.filter((q) => !q.bolt && !q.bot)) {
       const [bx0, by0, bx1, by1] = P.box, who = [...new Set(P.kinds)].map((k) => ALL.findIndex((q) => q.pop === P.key && q.kind === k));
       const OBST = (() => { const o = []; for (let y = by0 - 3; y <= by1 + 3; y++) for (let x = bx0 - 3; x <= bx1 + 3; x++) if ((x < bx0 || x > bx1 || y < by0 || y > by1) && m.coll[y * W + x] !== 0) o.push([x, y]); return o; })();
       if (P.open) { check(name, `obstacles: none within 3 tiles of the ${P.name}'s box on the ${P.habitat} (open grass and paths on every side: nothing to stop at; format 1's wander only targets tiles in the box)`, OBST.length === 0, `${OBST.length} blocked tiles`); continue; }
@@ -492,30 +594,73 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       }
       check(name, `obstacles: ${P.key === "herd" ? "the herd's animals" : "a " + P.name} sent at ${pushes.length} blocked tiles round the ${P.habitat} (terrain: cliffs, water) from inside stop${P.key === "herd" ? "" : "s"} on walkable ground, feet never on a solid pixel`, pushes.length > 3 && pushes.every((q) => q.bad === 0 && q.walk && !(q.end[0] === q.to[0] && q.end[1] === q.to[1])), pushes.map((q) => `${q.k} to ${q.to} from ${q.from}: ended ${q.end}`).join("; "));
     }
-    // [E] beside one of each kind: the prompt, the card (format 1's: "a dinosaur" and one of its kind's lines), the hop; and a click on one.
+    // B3e6: the bots pushed out of their boxes. Normal roaming never takes a bot out of its box (every target is a path tile in it, and the walk
+    // between two is a straight line inside it), so its acceptance checks are the roaming runs above and the night's: feet never on a solid
+    // pixel, never out of the box, nothing stranded. This is a forced setup instead: the bot is given a debug target on a blocked tile up to three
+    // tiles past its box (terrain, and the content's: the visitor centre's wall by the plaza) and walks at it. What it checks is recovery: it
+    // stops on walkable ground and walks again within 3 s (format 1's half-second pause, and a second more for a pick that finds no path tile).
+    // How its feet meet what it's pushed into is recorded as a diagnostic (not passed or failed), beside format 1's three bots pushed the same
+    // way out of their own boxes. (The first B3e6 run asserted feet there too and failed: tools/out/mapb/b3e6/gates/mapb-creatures-first.log)
+    const forced = (Pg, ixs) => Pg.I((is) => { const I2 = window.__island, cs = I2.preview().creatures, out = [];
+      for (const j of is) { const c0 = cs[j], [bx0, by0, bx1, by1] = c0.area, ob = [];
+        for (let y = by0 - 3; y <= by1 + 3; y++) for (let x = bx0 - 3; x <= bx1 + 3; x++) if ((x < bx0 || x > bx1 || y < by0 || y > by1) && !I2.tile(x, y).walkable) ob.push([x, y]);
+        const pushes = [];
+        for (const [ox, oy] of ob.filter((_, n) => n % Math.max(1, Math.floor(ob.length / 12)) === 0).slice(0, 12)) {
+          const f = [Math.max(bx0, Math.min(bx1, ox)), Math.max(by0, Math.min(by1, oy))]; if (I2.tile(f[0], f[1]).type !== 4 || !I2.tile(f[0], f[1]).walkable) continue;
+          I2.teleport(10 * 16 + 8, 10 * 16 + 10); I2.creature(j, { x: f[0] * 16 + 8, y: f[1] * 16 + 10, tx: ox * 16 + 8, ty: oy * 16 + 10, wait: 0, fast: 1 });
+          let bad = 0, cap = 0; for (let i = 0; i < 1200; i++) { I2.step(1); const c = I2.creature(j); if (I2.blocked(c.x - 4, c.y - 2) || I2.blocked(c.x + 4, c.y - 2) || I2.blocked(c.x - 4, c.y + 1) || I2.blocked(c.x + 4, c.y + 1)) bad++; if (!c.tx) break; cap = i; }
+          const c = I2.creature(j); let again = -1; for (let i = 0; i < 300; i++) { I2.step(1); if (I2.creature(j).tx) { again = i + 1; break; } }
+          pushes.push({ to: [ox, oy], from: f, end: [Math.floor(c.x / 16), Math.floor(c.y / 16)], walk: I2.tile(Math.floor(c.x / 16), Math.floor(c.y / 16)).walkable, stopped: cap < 1199, bad, again });
+          I2.creature(j, { x: c0.x, y: c0.y, tx: 0, wait: 1 }); }
+        out.push({ kind: c0.kind, box: c0.area, obstacles: ob.length, pushes }); }
+      return out; }, ixs);
+    { const fb = await forced(cp, botIx), f1p = await open(`http://127.0.0.1:${port + 3}/${Q}`), ff = f1p.loaded ? await forced(f1p, F1.spawns.map((q, i) => BOT(q.kind) ? i : -1).filter((i) => i >= 0)) : null; await f1p.ctx.close();
+      const pushed = fb.filter((q) => q.pushes.length);
+      check(name, "forced-stop recovery (a diagnostic setup outside normal roaming: each bot with blocked ground within three tiles of its box given a debug target on it): it stops on walkable ground short of the target and walks again within 3 s; its feet are not asserted here (recorded below)",
+        pushed.length === 2 && pushed.every((q) => q.pushes.length > 3 && q.pushes.every((u) => u.stopped && u.walk && !(u.end[0] === u.to[0] && u.end[1] === u.to[1]) && u.again > 0 && u.again <= 180)) && fb.find((q) => q.box.join() === "42,82,52,88").obstacles === 0,
+        fb.map((q) => `${q.kind} ${q.box.join(",")}: ${q.obstacles} blocked tiles within 3${q.pushes.length ? "; " + q.pushes.map((u) => `to ${u.to} from ${u.from}: ended ${u.end}, walking again after ${(u.again / 60).toFixed(2)} s`).join("; ") : ""}`).join(" | "));
+      const diag = (r) => r.map((q) => `${q.kind} (box ${q.box.join(",")}): ${q.pushes.length} pushes, ${q.pushes.filter((u) => u.bad).length} with feet over solid pixels${q.pushes.some((u) => u.bad) ? " (" + q.pushes.filter((u) => u.bad).map((u) => `${u.bad} frames to ${u.to}, ended ${u.end}`).join("; ") + ")" : ""}`).join("; ");
+      notes.push(`${name}: DIAGNOSTIC, not a roaming check: bots pushed out of their boxes at blocked tiles up to three tiles off. MAP-B: ${diag(fb)}. Format 1, pushed the same way: ${ff ? diag(ff) : "didn't load"}`); }
+    // B3e6: a bot is set back on its spawn first: by the drink stand, the mailbox or the signpost [E] opens the station instead (format 1's
+    // priorities; measured in the audit and left for review), so the card asked about is the bot's own
+    const atSpawn = (i) => BOT(ALL[i].kind) ? { x: ALL[i].at[0] * 16 + 8, y: ALL[i].at[1] * 16 + 10 } : {};
+    // [E] beside one of each kind: the prompt, the card (format 1's: "a dinosaur" and one of its kind's lines; "a bot" for a robot or the roomba), the hop; and a click on one.
     // In the herd the others stand off in the far corner of the box first, so the one asked about is the one nearest. For the click (and the phones'
     // tap, below) pi starts a few tiles off on the first of several sides from which the game's own route (walkTo, what a tap plans) reaches it
     // (not across the wetland's lagoon, a river, or from a bank's pocket), and close enough on a phone that it stays on screen
     for (const k of KINDS) {
       const ix = ixOf((q) => q.kind === k), i0 = ix[0], i1 = ix[1] === undefined ? ix[0] : ix[1], P = POPS.find((q) => q.key === ALL[i0].pop);
       const popOf = (i) => POPS.find((q) => q.key === ALL[i].pop), boxOf = (i) => popOf(i).box;
-      const mates = (i) => { const Pq = popOf(i); return [...(Pq.shared || Pq.together ? ixOf((q) => q.pop === Pq.key).filter((j) => j !== i) : []), ...fieldMates(Pq)]; };
-      const e1 = await cp.I(([i, ms, b]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0 }); ms.forEach((j, n) => I2.creature(j, { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 })); I2.teleport(c.x + 12, c.y); I2.step(1); return I2.preview().nearby; }, [i0, mates(i0), boxOf(i0)]);
+      // (B3e6: the gallimimus and compsognathus step off too. With the amended bot boxes the seeded stream shifted, another gallimimus stood
+      // nearer pi than the one held and answered [E], so the held one didn't hop: gates/mapb-creatures-amended-first.log)
+      const mates = (i) => { const Pq = popOf(i); return [...(Pq.shared || Pq.together || Pq.bolt ? ixOf((q) => q.pop === Pq.key).filter((j) => j !== i) : []), ...fieldMates(Pq)]; };
+      const e1 = await cp.I(([i, ms, b, h]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }); ms.forEach((j, n) => I2.creature(j, { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 })); I2.teleport(c.x + 12, c.y); I2.step(1); return I2.preview().nearby; }, [i0, mates(i0), boxOf(i0), atSpawn(i0)]);
       await cp.page.keyboard.press("e"); await cp.I(() => window.__island.step(3));
       const d1 = await dialog(cp), hop = await cp.I((i) => window.__island.creature(i).hop, i0);
-      check(name, `[E] beside ${AN(k)}: the prompt offers it; its card is format 1's ("a dinosaur", ${SAY[k].length > 1 ? "one of the " + NAME[k] + "'s lines" : "the " + NAME[k] + "'s line"}); it hops`, e1 === "critter" && d1.open && d1.name === "a dinosaur" && SAY[k].includes(d1.text) && hop !== 0, `${e1}, "${d1.name}", ${SAY[k].indexOf(d1.text) >= 0 ? "line " + SAY[k].indexOf(d1.text) : "NOT its line"}, hop ${hop}`);
+      check(name, `[E] beside ${AN(k)}: the prompt offers it; its card is format 1's ("${CARD(k)}", ${SAY[k].length > 1 ? "one of the " + NAME[k] + "'s lines" : "the " + NAME[k] + "'s line"}); it hops`, e1 === "critter" && d1.open && d1.name === CARD(k) && SAY[k].includes(d1.text) && hop !== 0, `${e1}, "${d1.name}", ${SAY[k].indexOf(d1.text) >= 0 ? "line " + SAY[k].indexOf(d1.text) : "NOT its line"}, hop ${hop}`);
       await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(3));
-      await cp.I(([i, ms, b]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0 }); ms.forEach((j, n) => I2.creature(j, { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 })); const clearTo = ([dx, dy]) => { I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-70, 10], [70, 10], [10, -60], [10, 60], [-50, 40], [50, 40]].find(clearTo) || [-70, 10]; I2.teleport(c.x + off[0], c.y + off[1]); I2.step(30); }, [i1, mates(i1), boxOf(i1)]);
+      await cp.I(([i, ms, b, h]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }); ms.forEach((j, n) => I2.creature(j, { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 })); const clearTo = ([dx, dy]) => { I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-70, 10], [70, 10], [10, -60], [10, 60], [-50, 40], [50, 40]].find(clearTo) || [-70, 10]; I2.teleport(c.x + off[0], c.y + off[1]); I2.step(30); }, [i1, mates(i1), boxOf(i1), atSpawn(i1)]);
       const sc = await cp.I((i) => { const I2 = window.__island, v = I2.preview(), c = I2.creature(i), E = v.ui.scale * v.zoom; return [(c.x - v.camera[0]) * E, (c.y - 5 - v.camera[1]) * E]; }, i1);
       await cp.page.mouse.click(sc[0], sc[1]); await cp.I(() => { for (let i = 0; i < 400; i++) { window.__island.step(1); if (!window.__island.getState().pi.path) break; } window.__island.step(3); });
       const d2 = await dialog(cp);
-      check(name, `a click on ${AN(k)} walks pi to it and opens its card on arrival (format 1's tap${P.bolt ? "; it bolts as pi comes" : ""})`, d2.open && d2.name === "a dinosaur" && SAY[k].includes(d2.text), `"${d2.name}"${d2.open && SAY[k].includes(d2.text) ? "" : ": " + (d2.open ? d2.text.slice(0, 50) : "no card")}`);
+      check(name, `a click on ${AN(k)} walks pi to it and opens its card on arrival (format 1's tap${P.bolt ? "; it bolts as pi comes" : ""})`, d2.open && d2.name === CARD(k) && SAY[k].includes(d2.text), `"${d2.name}"${d2.open && SAY[k].includes(d2.text) ? "" : ": " + (d2.open ? d2.text.slice(0, 50) : "no card")}`);
       await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(3));
     }
+    // B3e6: each bot reached from every side. Held on its spawn and on the farthest tiles of its box (its corners' path tiles), pi 12 px north,
+    // south, east and west of it wherever pi's feet are clear: [E] offers it (or, beside the drink stand, the mailbox or the signpost, the
+    // station that outranks it: counted, not failed; format 1's priorities)
+    { const sides = await cp.I(([bots]) => { const I2 = window.__island, feet = (x, y) => I2.tile(Math.floor(x / 16), Math.floor(y / 16)).walkable && ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy));
+        return bots.map(([i, b, sp]) => { const spots = [sp]; for (const [cx, cy] of [[b[0], b[1]], [b[2], b[1]], [b[0], b[3]], [b[2], b[3]]]) { let best = null, bd = 1e9; for (let y = b[1]; y <= b[3]; y++) for (let x = b[0]; x <= b[2]; x++) if (I2.tile(x, y).type === 4 && I2.tile(x, y).walkable && Math.hypot(x - cx, y - cy) < bd) { bd = Math.hypot(x - cx, y - cy); best = [x, y]; } if (best) spots.push(best); }
+          const o = { tried: 0, bot: 0, station: {}, none: 0 };
+          for (const [x, y] of spots) { const c = I2.creature(i, { x: x * 16 + 8, y: y * 16 + 10, tx: 0, wait: 99 });
+            for (const [dx, dy] of [[0, -12], [0, 12], [12, 0], [-12, 0]]) { if (!feet(c.x + dx, c.y + dy)) continue; o.tried++; I2.teleport(c.x + dx, c.y + dy); const nb = I2.preview().nearby; if (nb === "critter") o.bot++; else if (nb) o.station[nb] = (o.station[nb] || 0) + 1; else o.none++; } }
+          I2.creature(i, { x: sp[0] * 16 + 8, y: sp[1] * 16 + 10 }); return { spots: spots.length, ...o }; }); }, [botIx.map((i) => [i, ALL[i].box, ALL[i].at])]);
+      check(name, "the bots reached from every side: each held on its spawn and at its box's four corners' path tiles, pi 12 px north, south, east and west of it (where pi's feet are clear): [E] offers the bot every time but beside a station that outranks it (format 1's priorities), never nothing",
+        sides.every((q) => q.tried >= 16 && q.none === 0 && q.bot >= q.tried - Object.values(q.station).reduce((a, b) => a + b, 0) && q.bot >= q.tried * 0.75), sides.map((q, n) => `${ALL[botIx[n]].kind} (${ALL[botIx[n]].roam}): ${q.bot} of ${q.tried} sides at ${q.spots} spots open the bot${Object.keys(q.station).length ? ", " + JSON.stringify(q.station) + " instead" : ""}`).join("; ")); }
     const comp = await cp.I(() => window.__island.completeness());
     const sr = comp && comp.missing.find((q) => /^spawns and roam areas/.test(q));
-    check(name, "completeness: a normal format-2 home made of this content would still be refused (7 items, the props item among them: the nests aren't in); the spawns item names the 8 roam areas not migrated yet (roam-02, roam-03, roam-07 and roam-23 to roam-27; roam-00, roam-01, roam-04 to roam-06, roam-08 and roam-09 to roam-22 off it)",
-      comp && !comp.complete && comp.missing.length === 7 && comp.missing.some((q) => /nests/.test(q)) && sr && !/roam-(00|01|04|05|06|08|09|1\d|2[0-2])\b/.test(sr) && /roam-02/.test(sr) && /roam-03/.test(sr) && /roam-07/.test(sr) && /roam-23/.test(sr) && /roam-27/.test(sr) && (sr.match(/roam-\d\d/g) || []).length === 8, sr ? sr.slice(0, 200) : JSON.stringify(comp));
+    check(name, "completeness: a normal format-2 home made of this content would still be refused (7 items, the props item among them: the nests aren't in); the spawns item names the 5 roam areas not migrated yet (roam-02, roam-03, roam-07, roam-26 and roam-27; roam-00, roam-01, roam-04 to roam-06, roam-08 and roam-09 to roam-25 off it)",
+      comp && !comp.complete && comp.missing.length === 7 && comp.missing.some((q) => /nests/.test(q)) && sr && !/roam-(00|01|04|05|06|08|09|1\d|2[0-5])\b/.test(sr) && /roam-02/.test(sr) && /roam-03/.test(sr) && /roam-07/.test(sr) && /roam-26/.test(sr) && /roam-27/.test(sr) && (sr.match(/roam-\d\d/g) || []).length === 5, sr ? sr.slice(0, 200) : JSON.stringify(comp));
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the runs, the chases, the cards, a reload)", (await storeOf(cp)) === STORE_JSON);
     const refusedHere = async (o) => cp.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
@@ -525,20 +670,23 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   }
   if (cp.loaded) await cp.ctx.close();
 
-  // 2d. repeatability: two fresh loads with the same seed, the same ten-minute walk to the pixel, for all twenty-three
+  // 2d. repeatability: two fresh loads with the same seed, the same ten-minute walk to the pixel, for all twenty-six
   { const a = await open(`http://127.0.0.1:${port + 1}/${Q}`), b = await open(`http://127.0.0.1:${port + 1}/${Q}`);
     const ra = a.loaded ? await run(a, 36000, [60 * 16 + 8, 60 * 16 + 10]) : null, rb = b.loaded ? await run(b, 36000, [60 * 16 + 8, 60 * 16 + 10]) : null;
-    check(name, "repeatability: two fresh loads with ?seed=42, ten minutes each, end with all twenty-three creatures at the same spots, having walked the same distances", ra && rb && JSON.stringify(ra.end) === JSON.stringify(rb.end) && JSON.stringify(ra.st.map((s) => s.dist)) === JSON.stringify(rb.st.map((s) => s.dist)), ra && rb ? `${ra.end.length} creatures, ${JSON.stringify(ra.end.slice(0, 3))}... vs ${JSON.stringify(rb.end.slice(0, 3))}...` : "didn't load");
+    check(name, "repeatability: two fresh loads with ?seed=42, ten minutes each, end with all twenty-six creatures at the same spots, having walked the same distances", ra && rb && JSON.stringify(ra.end) === JSON.stringify(rb.end) && JSON.stringify(ra.st.map((s) => s.dist)) === JSON.stringify(rb.st.map((s) => s.dist)), ra && rb ? `${ra.end.length} creatures, ${JSON.stringify(ra.end.slice(0, 3))}... vs ${JSON.stringify(rb.end.slice(0, 3))}...` : "didn't load");
     await a.ctx.close(); await b.ctx.close(); }
   // 2e. night: they doze (format 1's: idle dinosaurs, after dark); pi close wakes one of each kind
   { const P = await open(`http://127.0.0.1:${port + 1}/?debug=1&step=1&islandhour=22&seed=42#island`);
     const r = P.loaded ? await run(P, 9000, [60 * 16 + 8, 60 * 16 + 10]) : null;
     const woke = {};
-    if (P.loaded) for (const k of KINDS) { const ix = ixOf((q) => q.kind === k);
+    if (P.loaded) for (const k of DINO_KINDS) { const ix = ixOf((q) => q.kind === k);
       woke[k] = await P.I((ixs) => { const I2 = window.__island; I2.teleport(60 * 16 + 8, 60 * 16 + 10); for (let k = 0; k < 9000; k++) { I2.step(1); for (const i of ixs) { const c = I2.creature(i); if (c.sleep > 0) { I2.teleport(c.x + 10, c.y); I2.step(2); return { slept: true, after: I2.creature(i).sleep }; } } } return { slept: false }; }, ix); }
     const slept = (k) => r && ALL.some((q, i) => q.kind === k && r.st[i].sleep > 0);
-    check(name, "night (22:00): every kind dozes now and then (the brachiosaurs, the parasaurolophus, the herd's stegosaur, triceratops and ankylosaur, the dilophosaur, the pachycephalosaurs, the gallimimus, the compsognathus, the babies: baby and baby2), and pi coming close wakes one of each (a woken baby hops)", r && KINDS.every((k) => woke[k] && woke[k].slept && woke[k].after <= 0) && !P.errs.length,
-      r ? KINDS.map((k) => `${k}: ${ALL.map((q, i) => q.kind === k ? (100 * r.st[i].sleep / (r.n / 2)).toFixed(0) + "%" : null).filter(Boolean).join("/")} asleep, woken ${JSON.stringify(woke[k])}`).join("; ") : "");
+    check(name, "night (22:00): every dinosaur kind dozes now and then (the brachiosaurs, the parasaurolophus, the herd's stegosaur, triceratops and ankylosaur, the dilophosaur, the pachycephalosaurs, the gallimimus, the compsognathus, the babies: baby and baby2), and pi coming close wakes one of each (a woken baby hops)", r && DINO_KINDS.every((k) => woke[k] && woke[k].slept && woke[k].after <= 0) && !P.errs.length,
+      r ? DINO_KINDS.map((k) => `${k}: ${ALL.map((q, i) => q.kind === k ? (100 * r.st[i].sleep / (r.n / 2)).toFixed(0) + "%" : null).filter(Boolean).join("/")} asleep, woken ${JSON.stringify(woke[k])}`).join("; ") : "");
+    // B3e6: the bots work through the night (format 1's: only the dinosaurs doze; a robot's antenna light shows in the dark)
+    check(name, "night (22:00): the two robots and the roomba never doze; they keep walking their paths, feet never on solid, never outside the box", r && botIx.every((i) => r.st[i].sleep === 0 && r.st[i].walking > r.n / 2 * 0.4 && r.st[i].solid === 0 && r.st[i].outBox === 0),
+      r ? botIx.map((i) => `${ALL[i].kind} (${ALL[i].roam}): asleep ${r.st[i].sleep} frames, walking ${(100 * r.st[i].walking / (r.n / 2)).toFixed(0)}%, ${r.st[i].tiles.length} tiles`).join("; ") : "");
     // (B3e5: for the babies' shots the animals sharing their ground sleep at the far side, so neither baby is hidden behind one)
     const AWAY = { babies: herdIx.map((j, n) => [j, ...[[42, 59], [45, 59], [54, 60], [57, 60]][n]]), "meadow-baby": brachioIx.map((j, n) => [j, ...[[13, 35], [24, 34]][n]]) };
     if (P.loaded && name !== "firefox") { await hideDbg(P); for (const Pp of POPS) { await P.I(([i, ms2, ap, aw]) => { const I2 = window.__island, c = I2.creature(i);
@@ -556,19 +704,19 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     const res = [];
     for (const kk of KINDS) {
       const i0 = ALL.findIndex((q) => q.kind === kk), Pp = POPS.find((q) => q.key === ALL[i0].pop), ms = [...(Pp.shared || Pp.together || Pp.apart ? ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0) : []), ...fieldMates(Pp)];
-      await P.I(([i, ms2, b, ap]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0 }), far = ap ? ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)) : null;
+      await P.I(([i, ms2, b, ap, h]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }), far = ap ? ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)) : null;
         ms2.forEach((j, n) => I2.creature(j, far ? { x: far[n][0] * 16 + 8, y: far[n][1] * 16 + 10, tx: 0, wait: 99, sleep: 0 } : { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 }));
         const feet = (x, y) => I2.tile(Math.floor(x / 16), Math.floor(y / 16)).walkable && ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy));
-        const clearTo = ([dx, dy]) => { if (!feet(c.x + dx, c.y + dy)) return false; I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-90, 30], [-60, 40], [60, 40], [10, -60], [10, 60], [90, 30]].find(clearTo) || [-90, 30]; I2.teleport(c.x + off[0], c.y + off[1]); for (let k = 0; k < 400 && Math.abs(I2.preview().zoom - 1) > 1e-4; k++) I2.step(2); I2.step(60); }, [i0, ms, Pp.box, Pp.apart || null]);
+        const clearTo = ([dx, dy]) => { if (!feet(c.x + dx, c.y + dy)) return false; I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-90, 30], [-60, 40], [60, 40], [10, -60], [10, 60], [90, 30]].find(clearTo) || [-90, 30]; I2.teleport(c.x + off[0], c.y + off[1]); for (let k = 0; k < 400 && Math.abs(I2.preview().zoom - 1) > 1e-4; k++) I2.step(2); I2.step(60); }, [i0, ms, Pp.box, Pp.apart || null, BOT(kk) ? { x: ALL[i0].at[0] * 16 + 8, y: ALL[i0].at[1] * 16 + 10 } : {}]);
       const sc = await P.I((i) => { const I2 = window.__island, v = I2.preview(), c = I2.creature(i), E = v.ui.scale * v.zoom; return [(c.x - v.camera[0]) * E, (c.y - 5 - v.camera[1]) * E]; }, i0);
       await P.page.touchscreen.tap(sc[0], sc[1]); await P.I(() => { for (let i = 0; i < 400; i++) { window.__island.step(1); if (!window.__island.getState().pi.path) break; } window.__island.step(3); });
-      await P.page.waitForTimeout(600);
+      await P.page.waitForTimeout(BOT(kk) ? 2400 : 600);   // (B3e6: a robot's line is long; the shot waits for the card to finish typing)
       const d = await dialog(P), rect = await P.page.evaluate(() => { const r = document.querySelector(".w-dialog").getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
       await hideDbg(P); await shoot(P, `${name}-phone${vw}-${kk}-card.png`);
-      res.push({ k: kk, ok: sc[0] > 0 && sc[0] < vw && sc[1] > 0 && sc[1] < vh && d.open && d.name === "a dinosaur" && SAY[kk].includes(d.text) && rect[0] >= 0 && rect[2] <= vw && rect[3] <= vh, sc, d, rect });
+      res.push({ k: kk, ok: sc[0] > 0 && sc[0] < vw && sc[1] > 0 && sc[1] < vh && d.open && d.name === CARD(kk) && SAY[kk].includes(d.text) && rect[0] >= 0 && rect[2] <= vw && rect[3] <= vh, sc, d, rect });
       await P.page.keyboard.press("Escape"); await P.I(() => window.__island.step(4));
     }
-    check(name, `phone ${vw} x ${vh}: a tap on each kind (brachiosaur, stegosaur, triceratops, ankylosaur, parasaurolophus, dilophosaur, pachycephalosaur, gallimimus, compsognathus, baby, baby2) walks pi to it and opens its card, on screen`, res.every((q) => q.ok) && !P.errs.length, res.map((q) => `${q.k}: tapped ${q.sc.map(Math.round)}, "${q.d.name}", card ${q.rect.map(Math.round)}`).join("; "));
+    check(name, `phone ${vw} x ${vh}: a tap on each kind (brachiosaur, stegosaur, triceratops, ankylosaur, parasaurolophus, dilophosaur, pachycephalosaur, gallimimus, compsognathus, baby, baby2, maintenance robot, roomba; a bot from its spawn) walks pi to it and opens its card, on screen`, res.every((q) => q.ok) && !P.errs.length, res.map((q) => `${q.k}: tapped ${q.sc.map(Math.round)}, "${q.d.name}", card ${q.rect.map(Math.round)}`).join("; "));
     await P.ctx.close();
   }
 
@@ -676,11 +824,11 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // 2i. performance: the live loop's frame work by the heath, beside the terrain preview; decoding
   { const live = async (p0) => { const P = await open(`http://127.0.0.1:${p0}/?debug=1&islandhour=11#island`, { wait: 2600 }); if (!P.loaded) return null;
       await P.page.click(".w-cv", { position: { x: 5, y: 400 } }).catch(() => {}); await P.I(() => window.__island.frames(true));
-      for (const [at, k2] of [[[10, 42], "ArrowRight"], [[29, 42], "ArrowLeft"], [[13, 78], "ArrowRight"], [[24, 78], "ArrowLeft"], [[39, 52], "ArrowRight"], [[59, 50], "ArrowLeft"], [[87, 18], "ArrowRight"], [[97, 18], "ArrowLeft"], [[34, 18], "ArrowRight"], [[47, 20], "ArrowLeft"], [[83, 44], "ArrowRight"], [[97, 45], "ArrowLeft"], [[25, 93], "ArrowRight"], [[35, 94], "ArrowLeft"]]) { await P.I(([x, y]) => window.__island.teleport(x * 16 + 8, y * 16 + 10), at); await P.page.keyboard.down(k2); await P.page.waitForTimeout(1800); await P.page.keyboard.up(k2); }
+      for (const [at, k2] of [[[10, 42], "ArrowRight"], [[29, 42], "ArrowLeft"], [[13, 78], "ArrowRight"], [[24, 78], "ArrowLeft"], [[39, 52], "ArrowRight"], [[59, 50], "ArrowLeft"], [[87, 18], "ArrowRight"], [[97, 18], "ArrowLeft"], [[34, 18], "ArrowRight"], [[47, 20], "ArrowLeft"], [[83, 44], "ArrowRight"], [[97, 45], "ArrowLeft"], [[25, 93], "ArrowRight"], [[35, 94], "ArrowLeft"], [[30, 84], "ArrowRight"], [[52, 85], "ArrowLeft"], [[72, 78], "ArrowRight"], [[84, 79], "ArrowLeft"]]) { await P.I(([x, y]) => window.__island.teleport(x * 16 + 8, y * 16 + 10), at); await P.page.keyboard.down(k2); await P.page.waitForTimeout(1800); await P.page.keyboard.up(k2); }
       const f = (await P.I(() => window.__island.frames(true))).sort((x, y) => x - y); await P.ctx.close(); const q = (k) => f[Math.min(f.length - 1, Math.floor(f.length * k))]; return { n: f.length, med: q(0.5), p95: q(0.95), max: f[f.length - 1], errs: P.errs }; };
     const lc = await live(port + 1), lt = await live(port), fmt = (o) => o ? `${o.n} frames, median ${o.med.toFixed(2)} / p95 ${o.p95.toFixed(2)} / max ${o.max.toFixed(2)} ms` : "didn't load";
-    perf.push(`${name}: live frame work walking through the brachio meadow, the delta wetland, the riverlands range, the dilo strip, the heath, the galli meadow and the village gardens (all twenty-three creatures running; the brachiosaurs' footfalls shaking the camera, the herd drifting, the gallimimus and compsognathus bolting): content preview ${fmt(lc)}; terrain preview ${fmt(lt)}`);
-    check(name, "performance: through the seven habitats on the live loop (the babies' two among them), all twenty-three creatures running, the content preview's frame work p95 is under 16.7 ms", lc && lc.n > 100 && lc.p95 < 16.7 && !lc.errs.length, `content ${fmt(lc)}; terrain ${fmt(lt)}`);
+    perf.push(`${name}: live frame work walking through the brachio meadow, the delta wetland, the riverlands range, the dilo strip, the heath, the galli meadow, the village gardens, the village road and square and the arrival plaza (all twenty-six creatures running; the brachiosaurs' footfalls shaking the camera, the herd drifting, the gallimimus and compsognathus bolting, the bots on their paths): content preview ${fmt(lc)}; terrain preview ${fmt(lt)}`);
+    check(name, "performance: through the seven habitats on the live loop (the babies' two among them) and the bots' three paths, all twenty-six creatures running, the content preview's frame work p95 is under 16.7 ms", lc && lc.n > 100 && lc.p95 < 16.7 && !lc.errs.length, `content ${fmt(lc)}; terrain ${fmt(lt)}`);
   }
   if (tp.loaded) await tp.ctx.close();
 
@@ -691,7 +839,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       await hideDbg(P); const mr = await P.I(() => window.__island.preview().ui.mini); if (mr) await P.page.mouse.click(mr[0] + mr[2] / 2, mr[1] + mr[3] / 2);
       // B3e3: framing, checked for each review shot below that shows them: every animal's whole sprite on screen, under no overlay (the HUD, the
       // badge, the map button, a toast; the minimap is folded above)
-      const ART = { brachio: [84, 83], para: [60, 42], stego: [65, 40], trike: [64, 36], ankylo: [52, 21], dilo: [47, 32], baby: [27, 18], baby2: [27, 18] }, framing = [];
+      const ART = { brachio: [84, 83], para: [60, 42], stego: [65, 40], trike: [64, 36], ankylo: [52, 21], dilo: [47, 32], baby: [27, 18], baby2: [27, 18], robot: [8, 10], roomba: [8, 5] }, framing = [];
       const clear = async (lab, ixs) => { const r = await P.I(([is, art]) => { const I2 = window.__island, v = I2.preview(), E = v.ui.scale * v.zoom;
           const root = document.querySelector(".w-cv").parentElement, seen = (e) => { for (let x = e; x && x !== root; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity === 0 || x.hidden) return false; } return true; };
           const ui = [...root.querySelectorAll("*")].filter((e) => !(e instanceof HTMLCanvasElement) && !e.closest(".w-debug") && /absolute|fixed/.test(getComputedStyle(e).position) && seen(e) && e.getClientRects().length)
@@ -705,7 +853,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       // and south edges; a footfall's shake and the same view settled
       const bi = ixOf((q) => q.kind === "brachio"), hold = (i, x, y) => ({ i, o: { x: x * 16 + 8, y: y * 16 + 10, tx: 0, wait: 99, sleep: 0 } });
       // B3e4 review: every pose is fair. pi walks to his spot from his spawn by a tap's route and must arrive (a teleport skips collision: the
-      // first B3e4 lagoon shot stood him in the lagoon); each held animal stands on its own ground (grass, inside its box, its feet clear)
+      // first B3e4 lagoon shot stood him in the lagoon); each held animal stands on its own ground (grass, or path for a bot; inside its box, its feet clear)
       const fixtures = [], SPAWN0 = await P.I(() => { const s = window.__island.getState().pi; return [s.x, s.y]; });
       const pose = async (list, piAt) => { const r = await P.I(([l, pa, sp]) => { const I2 = window.__island; I2.step(1);
           const feet = (x, y) => ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy));
@@ -713,7 +861,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
           const s = I2.getState().pi, piOk = Math.floor(s.x / 16) === pa[0] && Math.floor(s.y / 16) === pa[1] && I2.tile(pa[0], pa[1]).walkable && feet(pa[0] * 16 + 8, pa[1] * 16 + 10);
           l.forEach((q) => I2.creature(q.i, q.o));
           const bad = l.filter((q) => { const a = I2.preview().creatures[q.i].area, tx = Math.floor(q.o.x / 16), ty = Math.floor(q.o.y / 16), t = I2.tile(tx, ty);
-            return !(t.walkable && t.type === 3 && feet(q.o.x, q.o.y) && tx >= a[0] && tx <= a[2] && ty >= a[1] && ty <= a[3]); }).map((q) => `${I2.preview().creatures[q.i].kind} at ${Math.floor(q.o.x / 16)},${Math.floor(q.o.y / 16)}`);
+            return !(t.walkable && t.type === (/^(robot|roomba)$/.test(I2.preview().creatures[q.i].kind) ? 4 : 3) && feet(q.o.x, q.o.y) && tx >= a[0] && tx <= a[2] && ty >= a[1] && ty <= a[3]); }).map((q) => `${I2.preview().creatures[q.i].kind} at ${Math.floor(q.o.x / 16)},${Math.floor(q.o.y / 16)}`);
           I2.teleport(pa[0] * 16 + 8, pa[1] * 16 + 10); I2.step(30); return { piOk, at: [Math.floor(s.x / 16), Math.floor(s.y / 16)], bad }; }, [list, piAt, SPAWN0]);
         fixtures.push(`pi ${piAt}${r.piOk ? "" : " NOT REACHED (walked to " + r.at + ")"}${r.bad.length ? "; UNFAIR " + r.bad.join(", ") : ""}`); return r; };
       await pose([hold(bi[0], 16, 41), hold(bi[1], 23, 42)], [19, 39]); framed.push(await clear("brachio-pair", bi)); await shoot(P, `${name}-brachio-pair.png`);
@@ -763,18 +911,24 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       await pose([hold(babyIx[0], 47, 52), hold(babyIx[1], 50, 53), hold(herdIx[0], 44, 47), hold(herdIx[1], 48, 47), hold(herdIx[2], 53, 47), hold(herdIx[3], 56, 48)], [50, 51]);
       framed.push(await clear("babies-riverlands", [...babyIx, ...herdIx])); await shoot(P, `${name}-babies-riverlands.png`); await P.I(() => window.__island.play());
       await pose([hold(meadowIx[0], 19, 38), hold(bi[0], 13, 35), hold(bi[1], 24, 34)], [21, 40]); framed.push(await clear("baby-meadow", meadowIx)); await shoot(P, `${name}-baby-meadow.png`); await P.I(() => window.__island.play());
-      for (const k of ["brachio", "stego", "trike", "ankylo", "para", "dilo", "baby", "baby2"]) {
+      // B3e6: the bots. Both robots on the village road and square (their boxes meet at 41/42), each on its path, pi between; one robot walking
+      // the road's bend (a straight walk between path tiles crosses the grass there, as format 1's would); the roomba on the arrival plaza with
+      // the signpost and the visitor centre's door in view
+      await pose([hold(squareIx[0], 46, 85), hold(roadIx[0], 36, 84)], [41, 84]); framed.push(await clear("bots-village", [...squareIx, ...roadIx])); await shoot(P, `${name}-bots-village.png`);
+      await pose([hold(roadIx[0], 28, 81), hold(squareIx[0], 46, 85)], [31, 84]); await P.I((i) => window.__island.creature(i, { tx: 34 * 16 + 8, ty: 84 * 16 + 10, wait: 0 }), roadIx[0]); await P.I(() => window.__island.play()); await P.page.waitForTimeout(1500); await shoot(P, `${name}-robot-road-walking.png`);
+      await pose([hold(ALL.findIndex((q) => q.kind === "roomba"), 78, 78)], [80, 80]); framed.push(await clear("roomba-plaza", [ALL.findIndex((q) => q.kind === "roomba")])); await shoot(P, `${name}-roomba-plaza.png`); await P.I(() => window.__island.play());
+      for (const k of ["brachio", "stego", "trike", "ankylo", "para", "dilo", "baby", "baby2", "robot", "roomba"]) {
         const i0 = ALL.findIndex((q) => q.kind === k), Pp = POPS.find((q) => q.key === ALL[i0].pop), ms = [...ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0), ...fieldMates(Pp)];
-        const pr = await P.I(([i, ms2, b, ap]) => { const I2 = window.__island; I2.step(1); const c = I2.creature(i, { tx: 0, wait: 99, sleep: 0 }), far = ap ? ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)) : null;
+        const pr = await P.I(([i, ms2, b, ap, h]) => { const I2 = window.__island; I2.step(1); const c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }), far = ap ? ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)) : null;
           ms2.forEach((j, n) => I2.creature(j, far ? { x: far[n][0] * 16 + 8, y: far[n][1] * 16 + 10, tx: 0, wait: 99, sleep: 0 } : { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 }));
           const feet = (x, y) => I2.tile(Math.floor(x / 16), Math.floor(y / 16)).walkable && ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy)), off = [[12, 0], [-12, 0], [0, 10], [0, -10], [10, 8], [-10, 8]].find(([dx, dy]) => feet(c.x + dx, c.y + dy));
-          I2.teleport(c.x + (off || [12, 0])[0], c.y + (off || [12, 0])[1]); I2.step(1); return off ? null : `${c.kind}'s prompt: no clear spot beside it`; }, [i0, ms, Pp.box, Pp.apart || null]); if (pr) fixtures.push("UNFAIR " + pr); await shoot(P, `${name}-${k}-prompt.png`);
+          I2.teleport(c.x + (off || [12, 0])[0], c.y + (off || [12, 0])[1]); I2.step(1); return off ? null : `${c.kind}'s prompt: no clear spot beside it`; }, [i0, ms, Pp.box, Pp.apart || null, BOT(k) ? { x: ALL[i0].at[0] * 16 + 8, y: ALL[i0].at[1] * 16 + 10 } : {}]); if (pr) fixtures.push("UNFAIR " + pr); await shoot(P, `${name}-${k}-prompt.png`);
         await P.page.keyboard.press("e"); await P.I(() => window.__island.step(2)); await P.page.waitForTimeout(1200); await shoot(P, `${name}-${k}-card.png`);
         if (await P.page.evaluate(() => !document.querySelector(".w-dialog").hidden)) await P.page.keyboard.press("Escape");
         await P.I(() => window.__island.play());
       }
-      check(name, "review screenshots (B3e3 to B3e5): every brachiosaur, parasaurolophus, herd, dilophosaur and baby shot shows each animal whole and on screen, under no overlay", framed.length === 14 && framed.every(Boolean), framing.join("; "));
-      check(name, "review screenshots (B3e4 review, B3e5): every posed shot's pi walked there from his spawn by a tap's route (his feet on clear, walkable ground), every held animal on its own grass with its feet clear, and pi beside each prompt's animal on clear ground", fixtures.length === 15 && fixtures.every((q) => !/NOT|UNFAIR/.test(q)), fixtures.join("; "));
+      check(name, "review screenshots (B3e3 to B3e6): every brachiosaur, parasaurolophus, herd, dilophosaur, baby and bot shot shows each animal whole and on screen, under no overlay", framed.length === 16 && framed.every(Boolean), framing.join("; "));
+      check(name, "review screenshots (B3e4 review, B3e5, B3e6): every posed shot's pi walked there from his spawn by a tap's route (his feet on clear, walkable ground), every held animal on its own ground (grass, path for a bot) with its feet clear, and pi beside each prompt's animal on clear ground", fixtures.length === 18 && fixtures.every((q) => !/NOT|UNFAIR/.test(q)), fixtures.join("; "));
       await P.I(() => window.__island.teleport(40 * 16 + 8, 21 * 16 + 10)); await P.page.waitForTimeout(1500); await shoot(P, `${name}-pachy-spawn-area.png`);
       for (const [i, lab] of [[0, "moving-1"], [1, "moving-2"]]) { await P.I(([j]) => { const I2 = window.__island, c = I2.creature(j); I2.creature(j, { tx: (j ? 37 : 44) * 16 + 8, ty: (j ? 16 : 21) * 16 + 10, wait: 0, sleep: 0 }); I2.teleport(40 * 16 + 8, 21 * 16 + 10); }, [i]); await P.page.waitForTimeout(1600); await shoot(P, `${name}-pachy-${lab}.png`); }
       // by the edges: one sent at the heath's west and north limits

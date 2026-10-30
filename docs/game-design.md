@@ -1436,8 +1436,8 @@ after his visual review, committed as "Map: migrate MAP-B pachycephalosaurs (B3e
   | roam-15 to 19 | compsognathus x5 | 27,91 to 33,96 | village-gardens 100% | 42 of 42 | 0% |
   | roam-20, 21 | baby, baby2 | 44,50 to 53,56 | riverlands-range 100% (the nests, props) | 62 of 70 | 0% |
   | roam-22 | baby | 14,36 to 22,43 | brachio-meadow 100% | 59 of 72 | 0% |
-  | roam-23, 24 | robot x2 | 42,82 to 54,88; 27,80 to 41,86 | none (paths) | 91 of 91; 31 of 105 | 0% |
-  | roam-25 | roomba | 72,75 to 84,81 | none (the plaza) | 91 of 91 | 0% |
+  | roam-23, 24 | robot x2 | 42,82 to 52,88 (amended in B3e6; B3a's was 42,82 to 54,88); 27,80 to 41,86 | none (paths) | 77 of 77; 31 of 105 | 0% |
+  | roam-25 | roomba | 75,75 to 84,81 (amended in B3e6; B3a's was 72,75 to 84,81) | none (the plaza) | 70 of 70 | 0% |
   | roam-26, 27 | cat x2 | 105,56 to 117,68 | koi-garden 100% | 117 of 169 | 54% (the pond) |
 
   "Straight walks blocked" is the share of straight lines between two such tiles (sampled) that cross ground the creature
@@ -1961,7 +1961,8 @@ MAP-B parasaurolophus (B3e4)"; not pushed or deployed):
   - the cache bump for B3e3's `js/world.js` change;
   - before the predators migrate (B3e1's deferred blockers): the T. rex's unreachable target 108,11, the T. rex's and raptors'
     sprites over their fences, the roar zone and the welder's patrol not in the format;
-  - the spinosaur's B3a spawn on the river bank's foot-blocking pixels.
+  - the spinosaur's B3a spawn on the river bank's foot-blocking pixels;
+  - added by B3e6: pi's feet can briefly cross thin foot-blocking pixels, MAP-B's bridge rails (MAP-B B3e6, below).
 - Status: complete, approved and committed. B3e5's audit followed (below).
 
 MAP-B B3e5, the babies (2026-10-28; staged only, not deployed; approved and committed; the nests deferred to B3f):
@@ -2076,6 +2077,142 @@ MAP-B B3e5, the babies (2026-10-28; staged only, not deployed; approved and comm
 - B4 release blockers unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the
   predators' and the spinosaur's). B3e6 and B3f haven't begun. MAP-B stays preview-only (loopback, no storage); production is
   unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
+
+MAP-B B3e6, the maintenance robots and the roomba (2026-10-29; staged only, not deployed; approved and committed):
+- Read first: format 1's bots in `js/world.js` (`DINOS.robot`, `DINOS.roomba`, `okFor`, `updateCritter`, `drawCritter`, `sayLocal`,
+  `verbOf`), B3a's plan (roam-23 to roam-25). Evidence in `tools/out/mapb/b3e6/audit/`: `placement.txt`, `summary.txt`,
+  `sim-chromium.txt`, `sim-webkit.txt`, `sim-alt-chromium.txt`, `shots.txt` and the `*-overview-*`, `*-robot-*` and `*-roomba-*` shots.
+- Format 1:
+  - Two maintenance robots (roam-23 at 45,61 in 40,59 to 52,63; roam-24 at 30,61 in 27,60 to 40,63) and a roomba (roam-25 at
+    47,60 in 44,59 to 49,62). Pixel patterns, not the art sheet: the robot 8 x 10 px, its antenna blinking twice a second, a cyan
+    glow after dark; the roomba 8 x 5 px, its green light blinking as it rolls. Speed 12 and 9 px/s.
+  - Their wander is the dinosaurs': six random tiles of the box, the first that `okFor` allows (`paths: true`: a walkable PATH tile),
+    else a second's wait; a straight walk, half a second's pause if it's blocked. They never sleep (only the dinosaurs doze) and
+    don't hop when they call (a chatter); [E] or a tap makes one hop with a blip. The card is "a bot": the robot one of three
+    lines, the roomba "a little cleaning bot, sweeping the plaza. it bumps pi and says sorry." Nothing else cleans: the roomba's
+    sweeping is its words.
+  - Not the robot crew: `SYS.bots` (the cargo bots, the welder, the gardener, the drones) is separate and stays off in the content
+    preview.
+- The audit (the game itself, frame by frame, ten minutes per seed, seeds 42, 7 and 1234, pi far away; format 1 measured the same
+  way; Chromium, and WebKit giving the same walks):
+  - Paths (`placement.txt`): roam-23 and roam-25 are all path (91 of 91 tiles each); roam-24 follows the village road's bend, 31 of
+    105 tiles, one connected stretch. Every spawn is path with its feet clear; nothing solid inside any box.
+  - roam-24, the sparse one: six picks find no path tile 12.3% of the time (a second's wait, 6 to 11 times in ten minutes). Format
+    1's roam-24 is sparser (14 of 56 tiles, a straight line): MAP-B's robot stands on 43 to 49 tiles against format 1's 14, walks
+    straight back 29 to 38 times in 52 to 61 walks against 40 to 42 in 54 to 62. A straight walk between path tiles crosses the
+    bend's grass (off the path 5.8 to 10.7% of the time; format 1's roam-23 robot 6.3 to 8.3%).
+  - All three: no walk blocked, so no recovery needed and nothing strands; feet never on solid, never outside the box; walking 65
+    to 76% of the time (format 1: 56 to 71%); 242 to 315 tiles walked in ten minutes; longest stand-still under 10 s (format 1's
+    under 10 s too).
+  - [E] from pi 12 px north, south, east and west of each bot at 120 spots of its walk: the bot answers 88 to 100% of sides. The
+    rest go to a station: the drink stand and the mailbox for roam-23, the signpost for roam-25 (format 1's are outranked as often,
+    by the car, the visitor centre, rex and each other).
+- **Two stations stood inside B3a's boxes.** The drink stand (53,87) was inside roam-23 and the signpost (74,76) inside roam-25; the
+  mailbox (50,81) is a tile north of roam-23. MAP-B's stations add no collision (B3d4b's approved direction: pi walks through them
+  too), so the bots rolled under them and vanished behind the cart and under the sign (`audit/*-robot-on-drink.png`,
+  `audit/*-roomba-on-sign.png`). Format 1's stations are solid, so its bots never did.
+- **Amended by Ammaar (2026-10-29): roam-23 42,82 to 54,88 became 42,82 to 52,88, and roam-25 72,75 to 84,81 became 75,75 to
+  84,81**; spawns kept (45,85 and 77,78), roam-24 unchanged. Written into B3a's plan (`ROAM_PLAN` in `tools/maps/content.mjs`),
+  the content and the B3a table above; the compiler's exact-box rule is unchanged and now refuses the old boxes.
+  - Checked on the rendered frame (`occlusion/`, `amended/sweep-*.txt`): each sample draws the frame, then twice with the bot moved
+    away, and counts the canvas pixels the bot changes round its sprite, against the same count on open path.
+    - Ordinary wandering, ten minutes, three seeds: with B3a's boxes the robot fell to 0 to 8% in view behind the drink stand and
+      the roomba to 0 to 7% under the signpost (vanished, under 10%, 7 to 26 samples a run); with the amended boxes the robot is
+      never under 97% in view and the roomba never under 95%.
+    - The worst case: every place a bot can be (its wander only walks straight between path tile centres in its box) swept every
+      2 px near each station. B3a's boxes: both reach 0% (15 to 22 robot positions and 19 roomba positions under 10%). Amended:
+      the robot at least 89 to 91% in view (at 52,88, the cart's shadow), the roomba 100%; the mailbox never hides the robot (98%+).
+  - Movement (`amended/movement-comparison.txt`, the same three seeds as the audit): the square's robot walks 303 to 307 tiles in
+    ten minutes (B3a's box 311 to 315), stands on 62 to 72 tiles (79 to 82), picks 40 to 43 different targets (46 to 52), walks
+    67 to 68% of the time (69 to 70%), walks straight back 28 to 34 times (27 to 31); the roomba 239 to 255 tiles (242 to 257),
+    60 to 65 tiles stood on (68 to 78), 37 to 38 targets (35 to 40), walking 71 to 76% (72 to 76%), straight back 26 to 30 (24 to
+    29). No walk blocked, feet never on solid, never out of the box, in either. [E] reaches the bot more often (robot 460 to 464 of
+    480 sides, was 421 to 459; roomba 465 to 468, was 423 to 459). Not a material regression.
+- **The bridge rail (classified).** The first run pushed the road robot three tiles out of its box onto the river bridge (24,77 to
+  26,78) and found its feet over the rail's foot pixels (39 and 77 frames).
+  - Not reachable by a bot in normal roaming: every target is a path tile in its box and each walk a straight line between two,
+    inside the box; nothing else moves a creature (pi doesn't push them). The roaming runs (ten minutes, three seeds, and night)
+    never put a bot's foot on a solid pixel.
+  - Reachable by pi in ordinary play (`bridge-rail/`): the same controlled sweep in both maps, every walkable tile with foot pixels
+    approached from open ground three tiles off, a robot by debug target and pi steered with the arrow keys. MAP-B's 10 railed
+    bridge tiles: pi's foot corner over a rail pixel in 2 of 45 runs (3 and 4 frames), the robot in 1 (15). 40 foot-pixel tiles
+    anywhere: MAP-B pi 3 of 148 runs (up to 8 frames), format 1 pi 1 of 94 (1 frame); format 1 has no railed bridges. The cause
+    is format 1's `move()`, which tests the feet's two leading corners an axis, so a thin feature can slip between: inherited,
+    and more visible on MAP-B's finer rails. **Recorded as a B4 collision/navigation issue** (below); `move()`, pi's collision and
+    the terrain are unchanged.
+- Content (`tools/maps/home.content.mjs`): three roam records, B3a's as amended (above), last in format 1's order, with no habitat
+  (B3a names none; the `roam` helper now leaves `habitat` out when it is null). 44 records (the compiler's count), the 41 before them byte
+  for byte (the staged file's diff: three inserted lines, a comma and the source hash), 288 solid tiles, 0 foot pixels. No change to
+  `js/world.js`, the schema, the content rule, the terrain or the painter.
+- The content preview runs twenty-six creatures in 23 roam areas: the twenty-three before and the three bots. The T. rex, the
+  raptors, the spinosaur, the cats and the robot crew stay off. The completeness wall names the 5 roam areas still missing
+  (roam-02, 03, 07, 26, 27) and the props item; a normal format-2 home is still refused (7 items).
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework):
+  - Node: the three records against B3a and format 1, their spawns on path, the path tiles one connected stretch per box, the
+    stations in or by the boxes recorded, the 41 earlier records byte for byte; four more malformed cases (roam-24's robot moved,
+    roam-25 holding a robot, roam-23 given a habitat, roam-24's box widened), two more for the amendment (roam-23 and roam-25 at
+    B3a's old boxes: refused), and a decoder refusal (a robot on the road's grass). Two earlier malformed cases that borrowed the id
+    roam-23 now use roam-26 (roam-23 is real now).
+  - The game: twenty-six creatures, 23 areas; the bots frame by frame for ten minutes beside format 1's (every target a path tile in
+    the box, walks, stand-stills, no sleep, feet never on solid); the bots in view on the rendered frame (ten minutes each, at least
+    75% in view every sample, never behind the drink stand, the mailbox or the signpost); pi walking round each box; [E] from every side at the spawn and the
+    box's corners; [E], card and hop, a click, phone taps (390 and 375); night (the bots never doze); repeatability; completeness 5;
+    storage; the painter digests; performance through the bots' paths.
+  - Harness adjustments: the [E], click and phone checks set a bot back on its spawn first, so the drink stand, the mailbox or the
+    signpost (which outrank it) can't answer instead; the two robots' boxes touch (41/42), so asking about one moves the other off.
+  - The forced push, after the first run failed (kept: `gates/mapb-creatures-first.log`, 300 passed, 2 failed, the same check in both
+    engines: it asserted the bots' feet while pushed out of their boxes, and the road robot's met the bridge rail). Now two things,
+    kept apart:
+    - Normal roaming acceptance (strict): the ten-minute frame-by-frame runs, the night run, pi walking round the boxes, the rendered
+      view: feet never on a solid pixel, never out of the box, nothing stranded, every target a path tile in the box.
+    - The forced push (a diagnostic setup outside normal roaming): a bot given a debug target on a blocked tile up to three tiles
+      past its box. One check asserts what this setup can show, recovery: it stops on walkable ground short of the target and walks
+      again within 3 s. Its feet are not asserted: how they meet what it's pushed into is recorded as a diagnostic line beside
+      format 1's three bots pushed the same way out of their own boxes. The dinosaurs' obstacle check is unchanged.
+  - The phone shots wait for a robot's long line to finish typing; the rendered-view check waits for the teleport's iris on the
+    page's real clock (WebKit draws 900 frames before it opens).
+- Verification after the amendment (2026-10-29; logs in `tools/out/mapb/b3e6/gates/`). Firefox isn't installed, so it is BLOCKED at
+  launch (never a pass):
+  - mapb-creatures 302 (Node 110, Chromium 98, WebKit 94): `mapb-creatures-amended.log`. Kept, in order: `mapb-creatures-first.log`
+    (B3a's boxes; the forced push asserting feet, 2 failed), `mapb-creatures.log` (B3a's boxes, 302 passed, before the amendment),
+    `mapb-creatures-amended-first.log` (amended boxes, 4 failed: the bots' "over 40 tiles" floor, which had no basis, the road robot
+    standing on exactly 40 against format 1's 14, now "at least format 1's same bot, and 25"; and [E] beside a gallimimus, answered
+    by another gallimimus nearer pi once the seeded stream shifted, so the gallimimus and compsognathus now step off as the herd does).
+  - mapb-stations' Chromium and WebKit parts, for the station interactions: 255 (Node 72, Chromium 94, WebKit 89), `mapb-stations.log`.
+  - The bots in the suite, seed 42: robots 60 and 61 walks, the roomba 53, none blocked, every target a path tile; walking 69 to
+    76%; 76, 40 and 62 tiles stood on (format 1: 41, 14, 22); longest stand-still 5 s. In view on the rendered frame: the square's
+    robot at least 93% (910 samples by the drink stand and the mailbox), the road's 97%, the roomba 95% (701 by the signpost).
+  - [E] from every side at the spawn and the corners: roam-23 17 of 20 (the drink stand 2, the mailbox 1), roam-24 20 of 20, roam-25
+    15 of 20 (the visitor centre's door 3, the signpost 2). Night: the bots never doze, walking 62 to 71%.
+  - Format 1's 33 creatures, both locked painter digests, storage untouched, the completeness wall (5 roam areas, 7 items),
+    repeatability: all in mapb-creatures, both engines.
+  - Lightweight (`gates/final/`): map-compile and map-content `--check` (44 records, 288 solid tiles, 0 foot pixels), the other
+    suites' Node parts (landmarks 33, content 29, koi-gate 52, paddock 32, fences 35, buildings 71), guard 8, dry run, `git diff
+    --check`, CSpell the same 19.
+  - Performance (Chromium / WebKit), all twenty-six running: frame work p95 1.8 / 2.0 ms.
+- Screenshots (`tools/out/mapb/b3e6/`, `chromium-` and `webkit-`):
+  - `amended/`: before-robot-behind-drink and before-roomba-under-sign (B3a's boxes); after-robot-nearest-drink (-2) and
+    after-roomba-nearest-sign (-2) (the nearest tiles the amended boxes allow); after-robot-roaming-by-drink-1 to 3 and
+    after-roomba-moving-by-sign-1 to 3 (walking past them); after-road-robot-bend-1, 3 and 5 (the road's bend, waypoint by
+    waypoint); after-night-robot-by-drink, after-night-roomba-by-sign, after-night-road-robot.
+  - The suite's: bots-village, robot-road-walking, roomba-plaza, robot-square-night, robot-road-night, roomba-night, robot-prompt,
+    robot-card, roomba-prompt, roomba-card, phone390- and phone375-robot-card and -roomba-card; every earlier species' again.
+- Approval (2026-10-29): Ammaar approved B3e6 for commit after visual review: the road robot, the maintenance robot by the drink
+  cart, the roomba by the signpost and the night presentation. Both box amendments kept (roam-23 42,82 to 52,88; roam-25 75,75 to
+  84,81; roam-24 unchanged). The pi bridge-rail collision defect is a B4 release blocker; movement physics unchanged in this batch.
+- Final checks (2026-10-29, lightweight only; `tools/out/mapb/b3e6/final/`, `summary.txt`; the browser suites not rerun):
+  map-compile and map-content `--check` current (20274 bytes, sha256 fb1cffba44abe1b4, 44 records, 288 solid tiles, 0 foot
+  pixels); the Node parts of the eight MAP-B suites (creatures 110, stations 72, landmarks 33, content 29, koi-gate 52, paddock 32,
+  fences 35, buildings 71), all passing; guard 8; dry run; `git diff --check`; CSpell the same 19. The 41 earlier records byte for
+  byte; twenty-six creatures. The 375 px robot and roomba card shots checked readable. The browser evidence stands from
+  `gates/mapb-creatures-amended.log` (302) and `gates/mapb-stations.log` (255); the failing logs are kept. No change to
+  `js/world.js` or `index.html`; `SAVE_V` 2, cache `20261025`.
+- Status: complete, approved and committed.
+- B4 release blockers: the earlier ones unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache
+  bump, the predators' and the spinosaur's), and one more from B3e6: **pi's feet can briefly cross thin foot-blocking pixels**
+  (MAP-B's bridge rails, 3 to 8 frames; `move()` tests two corners an axis; format 1 shows it once in 94 runs). B4 must fix it (a
+  collision change, its own approval) or accept it explicitly. Nests deferred to B3f. B3f and the next batch haven't begun. MAP-B stays preview-only;
+  production is unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop
