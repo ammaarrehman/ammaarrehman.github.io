@@ -1,5 +1,11 @@
 #!/usr/bin/env node
-/* mapb-creatures (MAP-B B3e1 to B3e6): the creature migration. B3e6 adds format 1's roaming bots: its two maintenance robots (roam-23 on the
+/* mapb-creatures (MAP-B B3e1 to B3e7): the creature migration. B3e7 adds format 1's two cats, Jasmine (roam-26, the koi garden's south lawn)
+   and Prince (roam-27, its north lawn), last in format 1's order, the 44 earlier records as they were. B3a's shared box round the koi pond
+   is amended by Ammaar (2026-10-30) into one lawn each: format 1's straight wander stopped at the pond on about half their walks there, and
+   Prince's box starts at x 107 so the macbook's blanket (no collision on MAP-B) can't hide him: checked on the rendered frame at every
+   place his feet can reach by it. They are named by the game (the first Jasmine, pink collar; the second Prince, blue), nap on arriving
+   (day or night: they don't doze like the dinosaurs, and pi doesn't wake them), and their cards carry their names and lines. They're
+   measured beside format 1's two cats. B3e6 adds format 1's roaming bots: its two maintenance robots (roam-23 on the
    village square, roam-24 on the village road) and its roomba (roam-25, the arrival plaza), after the babies in format 1's order, the 41
    earlier records as they were. They walk paths only (format 1's okFor), don't sleep, and are "a bot" on their card. The robot crew
    (SYS.bots: the cargo, the welder, the gardener, the drones) stays off. Roam-23 and roam-25 are B3a's boxes as Ammaar amended them
@@ -55,7 +61,7 @@ import { resolveContent, contentProblems, contentLayers, compileContent, Content
 import { loadContent, buildContentText, terrain, CONTENT_STAGED } from "./map-content.mjs";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3e6");
+const OUT = join(ROOT, "tools/out", process.env.MAPB_SHOTS || "mapb/b3e7");
 const ENGINES = (process.env.ENGINES || "chromium,webkit,firefox").split(",");
 const T = 16;
 let fails = 0; const blocked = [], perf = [], notes = [];
@@ -87,7 +93,11 @@ const POPS = [
   // at 53,87 and the roomba under the signpost at 74,76, MAP-B's stations having no collision)
   { key: "robot-square", name: "maintenance robot", batch: "B3e6", box: [42, 82, 52, 88], habitat: null, roams: ["roam-23"], kinds: ["robot"], spawns: [[45, 85]], targets: 77, bot: "the village square", open: true },
   { key: "robot-road", name: "maintenance robot", batch: "B3e6", box: [27, 80, 41, 86], habitat: null, roams: ["roam-24"], kinds: ["robot"], spawns: [[33, 85]], targets: 31, bot: "the village road" },
-  { key: "roomba", name: "roomba", batch: "B3e6", box: [75, 75, 84, 81], habitat: null, roams: ["roam-25"], kinds: ["roomba"], spawns: [[77, 78]], targets: 70, bot: "the arrival plaza" }
+  { key: "roomba", name: "roomba", batch: "B3e6", box: [75, 75, 84, 81], habitat: null, roams: ["roam-25"], kinds: ["roomba"], spawns: [[77, 78]], targets: 70, bot: "the arrival plaza" },
+  // B3e7: the cats, each on its own lawn in the koi garden (B3a's shared box 105,56 to 117,68 round the pond, as Ammaar amended it 2026-10-30);
+  // format 1's okFor lets a cat stand on anything but a dock (Prince starts on the pond loop's path)
+  { key: "jasmine", name: "cat", batch: "B3e7", box: [105, 65, 117, 68], habitat: "koi-garden", roams: ["roam-26"], kinds: ["cat"], spawns: [[108, 66]], targets: 52, cat: "jasmine" },
+  { key: "prince", name: "cat", batch: "B3e7", box: [107, 56, 117, 58], habitat: "koi-garden", roams: ["roam-27"], kinds: ["cat"], spawns: [[113, 57]], targets: 33, cat: "prince" }
 ];
 // B3a's two nests (its plan's man-made props), deferred to B3f with the other props (Ammaar, 2026-10-28: format 1's nest blocks its whole tile,
 // which D1 refuses without art over it): their places and egg counts, kept for B3f; nothing stands there in this content
@@ -95,13 +105,15 @@ const NESTS = [[46, 54, 3], [51, 51, 2]];
 POPS.forEach((P) => { if (!P.kinds) P.kinds = P.spawns.map(() => P.key); });
 const HEATH = POPS.find((P) => P.key === "pachy");
 const ALL = POPS.flatMap((P) => P.spawns.map((sp, i) => ({ kind: P.kinds[i], at: sp, roam: P.roams[i], box: P.box, pop: P.key })));   // the content preview's creatures, in order
-const KINDS = [...new Set(ALL.map((q) => q.kind))];   // brachio, stego, trike, ankylo, para, dilo, pachy, galli, compy, baby, baby2, robot, roomba
-const NAME = { para: "parasaurolophus", brachio: "brachiosaur", stego: "stegosaur", trike: "triceratops", ankylo: "ankylosaur", dilo: "dilophosaur", pachy: "pachycephalosaur", galli: "gallimimus", compy: "compsognathus", baby: "baby dinosaur", baby2: "baby dinosaur (baby2)", robot: "maintenance robot", roomba: "roomba" };
-// B3e6: the bots (format 1's: paths only, no sleep, no art sheet; "a bot" on the card); the dinosaurs are every other kind
-const BOT = (k) => k === "robot" || k === "roomba", DINO_KINDS = KINDS.filter((k) => !BOT(k)), CARD = (k) => BOT(k) ? "a bot" : "a dinosaur";
+const KINDS = [...new Set(ALL.map((q) => q.kind))];   // brachio, stego, trike, ankylo, para, dilo, pachy, galli, compy, baby, baby2, robot, roomba, cat
+const NAME = { para: "parasaurolophus", brachio: "brachiosaur", stego: "stegosaur", trike: "triceratops", ankylo: "ankylosaur", dilo: "dilophosaur", pachy: "pachycephalosaur", galli: "gallimimus", compy: "compsognathus", baby: "baby dinosaur", baby2: "baby dinosaur (baby2)", robot: "maintenance robot", roomba: "roomba", cat: "cat" };
+// B3e6: the bots (format 1's: paths only, no sleep, no art sheet; "a bot" on the card); B3e7: the cats (no art sheet, nap on arriving, never
+// doze at night; their card is their name); the dinosaurs are every other kind
+const BOT = (k) => k === "robot" || k === "roomba", CAT = (k) => k === "cat", DINO_KINDS = KINDS.filter((k) => !BOT(k) && !CAT(k)), CARD = (k) => BOT(k) ? "a bot" : "a dinosaur";
 const GROUND = (k) => BOT(k) ? 4 : 3;   // the game's PATH and GRASS
 const ROAMS = [...new Set(ALL.map((q) => q.roam))];
 const ixOf = (f) => ALL.map((q, i) => f(q) ? i : -1).filter((i) => i >= 0);
+const catIx = ixOf((q) => CAT(q.kind)), CARDI = (i) => ALL[i].pop === "jasmine" || ALL[i].pop === "prince" ? ALL[i].pop : CARD(ALL[i].kind);   // the card's name for creature i
 const NA = ALL.length, NAREAS = ROAMS.length, AN = (k) => (/^[aeiou]/.test(NAME[k]) ? "an " : "a ") + NAME[k];
 // the herd drifts together in format 1 (below), and a herd-mate's target can lie a little past the box: held to a tile and a half
 const HERD_SLACK = 1.5, herdIx = ixOf((q) => q.pop === "herd");
@@ -136,11 +148,13 @@ const THIRTY_SIX = "cdd879883873e3ed792f8c574898a6c253b498237ba5e27598974207aeec
 const THIRTY_EIGHT = "e1135c6e6c66db13416aa8948bb4440e735cb3fcb0c1aff8c5b692f8c6dc0dad";
 // B3e5's 41 (those and the babies' roam-20 to roam-22), as committed at 7392a98
 const FORTY_ONE = "0bd7e20a3c5af7977ca88260f3a3f7c8a0e9aee9069ee1485e4c645dd87bbed3";
-const PARA = ["roam-05", "roam-06"], BABY = ["roam-20", "roam-21", "roam-22"], BOTS = ["roam-23", "roam-24", "roam-25"], NEW3 = ["roam-00", "roam-01", "roam-04", "roam-08", ...PARA, ...BABY, ...BOTS], EARLIER = DATA.records.filter((r) => !NEW3.includes(r.id));
-check("node", "the content: B3c's to B3d4b's 21 records, B3e1's two roam areas, B3e2's nine, B3e3's four (roam-00, roam-01, roam-04, roam-08), B3e4's two (roam-05, roam-06) and B3e5's three (roam-20 to roam-22) exactly as committed (byte for byte, in their order), with B3e6's bots (roam-23, roam-24, roam-25) last in format 1's order; nothing else",
+// B3e6's 44 (those and the bots' roam-23 to roam-25), as committed at 11b1f82
+const FORTY_FOUR = "0b0e35adb6fac0608580743c8295dae7629e0f361a6a9f0f71d100096265bdce";
+const PARA = ["roam-05", "roam-06"], BABY = ["roam-20", "roam-21", "roam-22"], BOTS = ["roam-23", "roam-24", "roam-25"], CATS = ["roam-26", "roam-27"], NEW3 = ["roam-00", "roam-01", "roam-04", "roam-08", ...PARA, ...BABY, ...BOTS, ...CATS], EARLIER = DATA.records.filter((r) => !NEW3.includes(r.id));
+check("node", "the content: B3c's to B3d4b's 21 records, B3e1's two roam areas, B3e2's nine, B3e3's four (roam-00, roam-01, roam-04, roam-08), B3e4's two (roam-05, roam-06), B3e5's three (roam-20 to roam-22) and B3e6's three (roam-23 to roam-25) exactly as committed (byte for byte, in their order), with B3e7's cats (roam-26, roam-27) last in format 1's order; nothing else",
   sha(DATA.records.slice(0, 21)) === TWENTY_ONE && sha([...DATA.records.slice(0, 21), ...EARLIER.filter((r) => r.id === "roam-09" || r.id === "roam-10")]) === TWENTY_THREE && sha(EARLIER) === THIRTY_TWO &&
-    sha(DATA.records.filter((r) => !["roam-00", "roam-01", ...PARA, ...BABY, ...BOTS].includes(r.id))) === THIRTY_FOUR && sha(DATA.records.filter((r) => ![...PARA, ...BABY, ...BOTS].includes(r.id))) === THIRTY_SIX &&
-    sha(DATA.records.filter((r) => ![...BABY, ...BOTS].includes(r.id))) === THIRTY_EIGHT && sha(DATA.records.filter((r) => !BOTS.includes(r.id))) === FORTY_ONE && DATA.records.length === 44 &&
+    sha(DATA.records.filter((r) => !["roam-00", "roam-01", ...PARA, ...BABY, ...BOTS, ...CATS].includes(r.id))) === THIRTY_FOUR && sha(DATA.records.filter((r) => ![...PARA, ...BABY, ...BOTS, ...CATS].includes(r.id))) === THIRTY_SIX &&
+    sha(DATA.records.filter((r) => ![...BABY, ...BOTS, ...CATS].includes(r.id))) === THIRTY_EIGHT && sha(DATA.records.filter((r) => ![...BOTS, ...CATS].includes(r.id))) === FORTY_ONE && sha(DATA.records.filter((r) => !CATS.includes(r.id))) === FORTY_FOUR && DATA.records.length === 46 &&
     DATA.records.slice(21).map((r) => `${r.id}:${r.kind}`).join() === ROAMS.map((id) => `${id}:roam`).join(), DATA.records.slice(21).map((r) => r.id).join(", "));
 check("node", `B3a's nests deferred to B3f (${NESTS.map(([x, y, e]) => `${x},${y} with ${e} eggs`).join(", ")}): the content holds no prop record (no nest), and both places are open grass inside the riverlands babies' box with no content tile, so nothing blocks or draws there yet`,
   !RECS.some((r) => r.kind === "prop") && NESTS.every(([x, y]) => !LAYER.tiles[y * W + x] && m.coll[y * W + x] === 0 && creatureMayStand("baby", m.ground[y * W + x]) && x >= 44 && x <= 53 && y >= 50 && y <= 56), RECS.map((r) => r.kind).filter((k, i, a) => a.indexOf(k) === i).join(", "));
@@ -174,10 +188,10 @@ for (const P of POPS) {
     check("node", `${id} (${P.batch}): a roam area at B3a's box ${P.box.join(",")} ${P.habitat ? "in the B1e habitat " + P.habitat : "in no B1e habitat (" + P.bot + ")"}, holding ${says} (format 1's: ${f1.map((q) => q.kind + " " + q.at).join("; ")}, box ${F1.regions.roamAreas.find((q) => q.id === id).box.join(",")}${mine.length > 1 ? "; one area its " + mine.length + " share, not " + mine.length + " areas" : ""}); no collision, nothing drawn; exactly the plan's`,
       r && r.kind === "roam" && r.box.join() === P.box.join() && (r.habitat || null) === P.habitat && JSON.stringify(r.spawns) === JSON.stringify(want) && f1.length === mine.length && f1.every((q, j) => q.kind === want[j].creature) && !r.tiles.length && !r.drawnPxBoxes.length && JSON.stringify(r.spawns) === JSON.stringify(ROAM_PLAN[id].spawns));
     for (const { creature: k, at: [sx, sy] } of want)
-      check("node", `${id}: its ${NAME[k]}'s spawn ${sx},${sy} is ${BOT(k) ? "path" : "open grass"} (a tile it may stand on), its feet clear of every foot-blocking pixel, ${HM ? "inside the habitat" : "no habitat (" + P.bot + ")"}`, may(k, sx, sy) && !aimWet(sx, sy) && (HM ? HM[sy * W + sx] === 1 : m.ground[sy * W + sx] === 4));
+      check("node", `${id}: its ${NAME[k]}'s spawn ${sx},${sy} is ${BOT(k) ? "path" : CAT(k) ? "open ground (" + (m.ground[sy * W + sx] === 4 ? "path" : "grass") + "; a cat may stand on anything but a dock)" : "open grass"} (a tile it may stand on), its feet clear of every foot-blocking pixel, ${HM ? "inside the habitat" : "no habitat (" + P.bot + ")"}`, may(k, sx, sy) && !aimWet(sx, sy) && (HM ? HM[sy * W + sx] === 1 : m.ground[sy * W + sx] === 4));
   }
   let blockedWalks = 0; for (let i = 0; i < 2000; i++) { const a = targets[(rnd() * targets.length) | 0], c = targets[(rnd() * targets.length) | 0]; const ax = a[0] * T + 8, ay = a[1] * T + 10, cx = c[0] * T + 8, cy = c[1] * T + 10, d = Math.hypot(cx - ax, cy - ay), st = Math.max(1, Math.ceil(d / 2)); for (let j = 0; j <= st; j++) { const px = ax + (cx - ax) * j / st, py = ay + (cy - ay) * j / st; if (m.coll[Math.floor(py / T) * W + Math.floor(px / T)] !== 0 || m.px.foot[Math.floor(py) * PW + Math.floor(px)]) { blockedWalks++; break; } } }
-  if (!P.wetland) check("node", `${P.habitat || P.bot}: ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to${P.bot ? " (path, format 1's okFor)" : ""} (the others: ${notOk.length}), ${HM ? inHab.length + " inside the habitat" : "no habitat"}; every straight walk between two of them (2,000 tried) crosses only walkable ground (format 1's wander walks straight)`, targets.length === P.targets && blockedWalks === 0, notOk.length ? `not theirs: ${notOk.join(" ")}` : "all");
+  if (!P.wetland) check("node", `${P.cat ? P.cat + "'s lawn in the " + P.habitat : P.habitat || P.bot}: ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to${P.bot ? " (path, format 1's okFor)" : P.cat ? " (anything but a dock, format 1's okFor: all of it)" : ""} (the others: ${notOk.length}), ${HM ? inHab.length + " inside the habitat" : "no habitat"}; every straight walk between two of them (2,000 tried) crosses only walkable ground (format 1's wander walks straight)`, targets.length === P.targets && blockedWalks === 0, notOk.length ? `not theirs: ${notOk.join(" ")}` : "all");
   else {
     // the wetland (B3e4): walked with the game's own move() (9 x 4 px feet, x then y, each axis stopping on a solid pixel, 12 px/s), every pair
     // of targets; then from every place a walk can end (the targets and each blocked walk's stop), how many targets a straight walk reaches
@@ -206,6 +220,28 @@ for (const P of POPS.filter((q) => q.bot)) {
   check("node", `${P.roams[0]} (${P.bot}): its ${tiles.length} path tiles are one connected stretch with the spawn on it; six picks in the box find none ${(100 * none6).toFixed(1)}% of the time (then a second's wait, format 1's); straight walks between them cross ${(100 * off / pairs).toFixed(1)}% open ground off the path on average; stations within a tile: ${inside.join(", ") || "none"} (recorded)`,
     seen.size === tiles.length && set.has(P.spawns[0].join()) && JSON.stringify(inside.map((q) => q.replace(/ \(.*/, "")).sort()) === JSON.stringify(BOT_STATIONS[P.key].map((q) => q.replace(/ \(.*/, "")).sort()), `${seen.size} of ${tiles.length} connected`);
 }
+// B3e7: the cats' lawns, walked with the game's own move() (9 x 4 px feet, x then y, each axis stopping on a solid pixel), every pair of
+// targets: none stops (B3a's shared box round the pond, measured the same way, for the record); every target's feet clear of the pond's rim
+// pixels; no station in or by either lawn. The macbook (105,57; no collision on MAP-B, B3d4b) draws its blanket 32 px wide on its anchor's
+// centre (drawStationArt: x from 105 * 16 + 8 - 16 = 1672 to 1703): Prince's feet reach x 107 * 16 + 8 at the least (his targets are tile
+// centres and a straight walk between two stays between them), so his 12 px sprite (x - 6 to x + 5) starts at 1714, clear of it
+{ const solidPx = (px, py) => { const tx = Math.floor(px / T), ty = Math.floor(py / T), i = ty * W + tx; return tx < 0 || ty < 0 || tx >= W || ty >= H || m.coll[i] !== 0 || LAYER.tiles[i] || !!m.px.foot[Math.floor(py) * PW + Math.floor(px)]; };
+  const walkTo = (ax, ay, bx, by) => { const o = { x: ax, y: ay }; for (let f = 0; f < 3000; f++) { const dx = bx - o.x, dy = by - o.y, dd = Math.hypot(dx, dy); if (dd < 2) return true; const x0 = o.x, y0 = o.y, mx = dx / dd * 0.5, my = dy / dd * 0.5;
+    if (!solidPx(o.x + mx + (mx > 0 ? 4 : -4), o.y - 2) && !solidPx(o.x + mx + (mx > 0 ? 4 : -4), o.y + 1)) o.x += mx; if (!solidPx(o.x - 4, o.y + my + (my > 0 ? 1 : -2)) && !solidPx(o.x + 4, o.y + my + (my > 0 ? 1 : -2))) o.y += my;
+    if (Math.hypot(o.x - x0, o.y - y0) < 0.01) return false; } return false; };
+  const lawn = ([x0, y0, x1, y1]) => { const tg = []; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (may("cat", x, y)) tg.push([x, y]); let pairs = 0, bad = 0;
+    for (const a of tg) for (const c of tg) { if (a === c) continue; pairs++; if (!walkTo(a[0] * T + 8, a[1] * T + 10, c[0] * T + 8, c[1] * T + 10)) bad++; } return { tg, pairs, bad }; };
+  const MB = (WORLD.match(/"macbook":\[\d+,\d+,(\d+),(\d+)\]/) || []).slice(1).map(Number), mbSt = DATA.records.find((r) => r.id === "macbook"), mbX1 = mbSt.anchor[0] * T + 8 - MB[0] / 2 + MB[0] - 1;
+  for (const P of POPS.filter((q) => q.cat)) { const r = lawn(P.box), [x0, y0, x1, y1] = P.box;
+    const near = DATA.records.filter((q) => q.kind === "station" && q.anchor[0] >= x0 - 1 && q.anchor[0] <= x1 + 1 && q.anchor[1] >= y0 - 1 && q.anchor[1] <= y1 + 1).map((q) => q.id);
+    const wet = r.tg.filter(([x, y]) => aimWet(x, y)).map((q) => q.join());
+    check("node", `${P.roams[0]} (${P.cat}'s lawn ${P.box.join(",")}): every straight walk between its ${r.tg.length} targets walked with the game's move() arrives (none stops at the pond), every target's feet clear of the pond's rim pixels, no station in it or a tile by it`,
+      r.bad === 0 && r.pairs === r.tg.length * (r.tg.length - 1) && !wet.length && !near.length, `${r.bad} of ${r.pairs} stop; feet on rim pixels at ${wet.join(" ") || "none"}; stations ${near.join(", ") || "none"}`); }
+  const pr = POPS.find((q) => q.cat === "prince");
+  check("node", `the macbook (anchor ${mbSt.anchor.join(",")}, its blanket ${MB.join(" x ")} px, drawn x ${mbX1 - MB[0] + 1} to ${mbX1}) and Prince's lawn: his feet reach x ${pr.box[0] * T + 8} at the least, so his sprite starts at x ${pr.box[0] * T + 8 - 6}, clear of the blanket (checked on the rendered frame below)`,
+    MB.length === 2 && mbX1 < pr.box[0] * T + 8 - 6, `${pr.box[0] * T + 8 - 6 - mbX1 - 1} px between them`);
+  const old = lawn([105, 56, 117, 68]);
+  notes.push(`node: B3a's shared box round the koi pond (105,56 to 117,68, before Ammaar's B3e7 amendment), walked the same way: ${old.bad} of ${old.pairs} straight walks between its ${old.tg.length} targets stop (${(100 * old.bad / old.pairs).toFixed(1)}%)`); }
 // the brachiosaurs' art against the meadow's edges: every frame of the sheet (walk, idle, blink, graze), facing either way, drawn as drawArt
 // draws it (centred on the feet, bottom on them), on every target along each edge of the box: its opaque pixels over a tile that isn't open
 // ground (the west cliff, the north-west corner's cliff) or over water. Held to what was measured and reviewed (B3e3): the tail's tip over
@@ -239,7 +275,7 @@ const BAD = [
   ["roam-09 with a second pachycephalosaur", "creatures", (o) => { RR(o, "roam-09").spawns.push({ creature: "pachy", at: [40, 20] }); }, /approved spawns/],
   ["roam-10 before roam-09", "creatures", (o) => { const a = o.records.findIndex((r) => r.id === "roam-09"); const [r] = o.records.splice(a, 1); o.records.push(r); }, /format 1's order/],
   ["roam-08 after roam-25 (appended, not in format 1's order)", "creatures", (o) => { const a = o.records.findIndex((r) => r.id === "roam-08"); const [r] = o.records.splice(a, 1); o.records.push(r); }, /format 1's order/],
-  ["the herd split: its ankylosaur in an area of its own (roam-26)", "creatures", (o) => { const r = RR(o, "roam-04"), a = r.spawns.pop(); o.records.push({ id: "roam-26", kind: "roam", box: copy(r.box), habitat: r.habitat, spawns: [a] }); }, /roam-04: its approved spawns/],
+  ["the herd split: its ankylosaur in an area of its own (roam-02)", "creatures", (o) => { const r = RR(o, "roam-04"), a = r.spawns.pop(); o.records.push({ id: "roam-02", kind: "roam", box: copy(r.box), habitat: r.habitat, spawns: [a] }); }, /roam-04: its approved spawns/],
   ["the herd in another order (a triceratops first)", "creatures", (o) => { const r = RR(o, "roam-04"); [r.spawns[0], r.spawns[1]] = [r.spawns[1], r.spawns[0]]; }, /roam-04: its approved spawns/],
   ["the herd short of its ankylosaur", "creatures", (o) => { RR(o, "roam-04").spawns.pop(); }, /roam-04: its approved spawns/],
   ["roam-21's baby2 moved a tile", "creatures", (o) => { RR(o, "roam-21").spawns[0].at = [51, 53]; }, /roam-21: its approved spawns/],
@@ -251,6 +287,14 @@ const BAD = [
   ["roam-23 at B3a's box before the B3e6 amendment (42,82 to 54,88: the drink stand inside)", "creatures", (o) => { RR(o, "roam-23").box.x1 = 54; }, /roam-23: its approved box is 42,82 to 52,88/],
   ["roam-25 at B3a's box before the B3e6 amendment (72,75 to 84,81: the signpost inside)", "creatures", (o) => { RR(o, "roam-25").box.x0 = 72; }, /roam-25: its approved box is 75,75 to 84,81/],
   ["roam-24's box widened a tile", "creatures", (o) => { RR(o, "roam-24").box.x1 = 42; }, /roam-24: its approved box/],
+  // B3e7 (two cases that borrowed roam-26 for a stray record now use roam-02: roam-26 is real now)
+  ["roam-26 at B3a's box before the B3e7 amendment (105,56 to 117,68: the pond inside)", "creatures", (o) => { RR(o, "roam-26").box.y0 = 56; }, /roam-26: its approved box is 105,65 to 117,68/],
+  ["roam-27 on the whole north lawn (105,56 to 117,58: the macbook inside)", "creatures", (o) => { RR(o, "roam-27").box.x0 = 105; }, /roam-27: its approved box is 107,56 to 117,58/],
+  ["roam-27 at B3a's box before the B3e7 amendment (105,56 to 117,68)", "creatures", (o) => { Object.assign(RR(o, "roam-27").box, { x0: 105, y1: 68 }); }, /roam-27: its approved box is 107,56 to 117,58/],
+  ["roam-26's Jasmine moved a tile", "creatures", (o) => { RR(o, "roam-26").spawns[0].at = [109, 66]; }, /roam-26: its approved spawns/],
+  ["roam-27 with no habitat", "creatures", (o) => { delete RR(o, "roam-27").habitat; }, /roam-27: its approved habitat/],
+  ["roam-26 holding a baby (not a cat)", "creatures", (o) => { RR(o, "roam-26").spawns[0].creature = "baby"; }, /roam-26: its approved spawns/],
+  ["roam-27 before roam-26", "creatures", (o) => { const a = o.records.findIndex((r) => r.id === "roam-26"); const [r] = o.records.splice(a, 1); o.records.push(r); }, /format 1's order/],
   ["roam-08's dilophosaur moved a tile", "creatures", (o) => { RR(o, "roam-08").spawns[0].at = [92, 17]; }, /roam-08: its approved spawns/],
   ["roam-04's box shrunk a tile", "creatures", (o) => { RR(o, "roam-04").box.x1 = 56; }, /roam-04: its approved box/],
   ["a roam area with collision", "schema", (o) => { RR(o, "roam-09").solid = { tiles: [[38, 18]] }; }, /blocks nothing/],
@@ -263,7 +307,7 @@ const BAD = [
   ["a box off the map", "schema", (o) => { RR(o, "roam-09").box.x1 = 150; }, /x1 must be/],
   ["a station with spawns", "schema", (o) => { RR(o, "sign").spawns = [{ creature: "pachy", at: [74, 77] }]; }, /only a roam area has/],
   ["a prop with a box", "schema", (o) => { o.records.push({ id: "syn-crate", kind: "prop", drawnPxBoxes: [{ px0: 480, py0: 480, px1: 495, py1: 495 }], solid: { tiles: [[30, 30]] }, box: { x0: 30, y0: 30, x1: 31, y1: 31 } }); }, /only a roam area has/],
-  ["a prop named roam-26", "creatures", (o) => { o.records.push({ id: "roam-26", kind: "prop", drawnPxBoxes: [{ px0: 30 * 16, py0: 70 * 16, px1: 30 * 16 + 15, py1: 70 * 16 + 15 }], solid: { tiles: [[30, 70]] } }); }, /the id is a roam area's/],
+  ["a prop named roam-02", "creatures", (o) => { o.records.push({ id: "roam-02", kind: "prop", drawnPxBoxes: [{ px0: 30 * 16, py0: 70 * 16, px1: 30 * 16 + 15, py1: 70 * 16 + 15 }], solid: { tiles: [[30, 70]] } }); }, /the id is a roam area's/],
   ["a crate on roam-09's spawn", "creatures", (o) => { o.records.push({ id: "syn-crate", kind: "prop", drawnPxBoxes: [{ px0: 38 * 16, py0: 18 * 16, px1: 38 * 16 + 15, py1: 18 * 16 + 15 }], solid: { tiles: [[38, 18]] } }); }, /may not stand on \(solid content\)/]
 ];
 for (const [label, rule, fn, re] of BAD) {
@@ -313,7 +357,8 @@ const REFUSE = [
   ["a pachycephalosaur on a path", (c) => { const r = DR(c, "roam-09"); r.box = [94, 25, 96, 28]; r.spawns[0].at = [95, 28]; }, /a tile it may not stand on/],
   ["roam-10 before roam-09", (c) => { const a = c.records.findIndex((r) => r.id === "roam-09"); const [r] = c.records.splice(a, 1); c.records.push(r); }, /roam areas come in format 1's order/],
   ["a station with spawns", (c) => { DR(c, "sign").spawns = [{ creature: "pachy", at: [74, 77] }]; }, /only a roam area has a box, a habitat and spawns/],
-  ["a robot on the grass inside the road's bend (B3e6: paths only)", (c) => { DR(c, "roam-24").spawns[0].at = [30, 84]; }, /a tile it may not stand on/]
+  ["a robot on the grass inside the road's bend (B3e6: paths only)", (c) => { DR(c, "roam-24").spawns[0].at = [30, 84]; }, /a tile it may not stand on/],
+  ["a cat in the koi pond (B3e7)", (c) => { const r = DR(c, "roam-27"); r.box = [107, 56, 117, 62]; r.spawns[0].at = [110, 61]; }, /a tile it may not stand on/]
 ];
 const MUT = {
   off: ["the creatures left off in the content preview", (s) => s.replace("creatures: all || (CONTENT_PREVIEW && MAP.spawns.length > 0),", "creatures: all,")],
@@ -327,13 +372,19 @@ for (const [k, [, fn]] of Object.entries(MUT)) if (fn(WORLD) === WORLD) check("n
 const SIM_CONTENT = (ids) => { const o = realWith((q) => { const i = q.records.findIndex((r) => r.id === "roam-01") + 1; q.records.splice(i, 0, ...ids.map((id) => ({ id, kind: "roam", box: ROAM_PLAN[id].box, habitat: ROAM_PLAN[id].habitat, spawns: ROAM_PLAN[id].spawns }))); });
   const c = compileContent(o, src, m); return { format: 2, staged: true, schema: DATA.schema, id: DATA.id, generator: DATA.generator, source: DATA.source, sourceSha256: DATA.sourceSha256, terrainSha256: DATA.terrainSha256, solidTiles: c.solidTiles, footPixels: c.footPixels, records: JSON.parse(JSON.stringify(c.records)) }; };
 const PRED_CONTENT = SIM_CONTENT(["roam-02", "roam-03"]);
+// (B3e7: the cats are in the content now, so the naming guard is tried on a one-cat content: the real one less roam-27, test only)
+const ONE_CAT = (() => { const o = realWith((q) => { q.records = q.records.filter((r) => r.id !== "roam-27"); }), c = compileContent(o, src, m); return { ...PRED_CONTENT, solidTiles: c.solidTiles, footPixels: c.footPixels, records: JSON.parse(JSON.stringify(c.records)) }; })();
 const SAY = {}; for (const k of KINDS) { const g = (WORLD.match(new RegExp(k + ": \\{ art: true, sp: \\d+, step: [\\d.]+, (?:graze: true, )?say: (\\[[^\\]]*\\]|\"[^\"]*\")")) || [])[1]; SAY[k] = g ? [].concat(JSON.parse(g)) : []; }
 // (the bots aren't on the art sheet: their entry is a pixel pattern, then say)
 for (const k of KINDS.filter(BOT)) { const g = (WORLD.match(new RegExp("\\n    " + k + ": \\{ w: \\d+, [^\\n]*paths: true,\\n(?:      [^\\n]*\\n)*?      say: (\\[[^\\]]*\\]|\"[^\"]*\") \\}")) || [])[1]; SAY[k] = g ? [].concat(JSON.parse(g)) : []; }
-for (const k of KINDS) if (!SAY[k].length) check("node", `the game's card lines for the ${NAME[k]} found in js/world.js`, false);
+for (const k of KINDS) if (!CAT(k) && !SAY[k].length) check("node", `the game's card lines for the ${NAME[k]} found in js/world.js`, false);
+// (B3e7: the cats' names, collars and lines are set by the game on the two it finds, the first Jasmine, the second Prince)
+const CATSAY = {}; ["jasmine", "prince"].forEach((n, k) => { const g = WORLD.match(new RegExp(`cats\\[${k}\\]\\.name = "${n}"; cats\\[${k}\\]\\.pal = \\{ Q: "(#[0-9a-f]{6})" \\}; cats\\[${k}\\]\\.say = ("[^"]*");`)); CATSAY[n] = g ? { collar: g[1], say: JSON.parse(g[2]) } : null; });
+check("node", "the game's names, collars and lines for the two cats found in js/world.js (format 1's: Jasmine pink, Prince blue)", CATSAY.jasmine && CATSAY.prince && CATSAY.jasmine.collar === "#ff7eb6" && CATSAY.prince.collar === "#4f8fff", JSON.stringify(CATSAY));
+const SAYI = (i) => CAT(ALL[i].kind) ? [CATSAY[ALL[i].pop].say] : SAY[ALL[i].kind];
 
 const port = 9500 + Math.floor(Math.random() * 80);
-const terrainPv = await startPreview(port), contentPv = await startPreview(port + 1, { content: true }), predPv = await startPreview(port + 2, { content: PRED_CONTENT }), plain = await serve(port + 3);
+const terrainPv = await startPreview(port), contentPv = await startPreview(port + 1, { content: true }), predPv = await startPreview(port + 2, { content: PRED_CONTENT }), plain = await serve(port + 3), oneCatPv = await startPreview(port + 4, { content: ONE_CAT });
 mkdirSync(OUT, { recursive: true });
 const Q = "?debug=1&step=1&islandhour=11&seed=42#island";
 const STORE = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
@@ -395,23 +446,23 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   check(name, "terrain preview: no creature, the creature system off", tp.loaded && !tp.errs.length && tv.sys.creatures === false && tv.systems.critters === 0, tv ? `${tv.systems.critters}` : "");
   const tDig = tp.loaded ? { td: await tp.I(() => window.__island.terrainDigest()), gd: await tp.page.evaluate(DIGEST) } : null;
 
-  // 2c. the content preview: the twenty-six creatures (B3e3's two brachiosaurs, herd of four and dilophosaur, B3e4's two parasaurolophus, B3e1's
-  // two pachycephalosaurs, B3e2's four gallimimus and five compsognathus, B3e5's three babies, B3e6's two robots and roomba) and nothing else
+  // 2c. the content preview: the twenty-eight creatures (B3e3's two brachiosaurs, herd of four and dilophosaur, B3e4's two parasaurolophus, B3e1's
+  // two pachycephalosaurs, B3e2's four gallimimus and five compsognathus, B3e5's three babies, B3e6's two robots and roomba, B3e7's two cats) and nothing else
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store: STORE });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const OFF = ["rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
   const kinds = (cs) => { const o = {}; cs.forEach((c) => { o[c.kind] = (o[c.kind] || 0) + 1; }); return o; };
   const sameArea = (cs) => ALL.every((q, i) => ALL.every((r, j) => (q.roam === r.roam) === (cs[i].areaIx === cs[j].areaIx)));
-  check(name, "content preview: 44 records (288 solid tiles); the creature system on (with the buildings and the stations), every other home system off (the robot crew, SYS.bots, among them); exactly twenty-six creatures, 2 brachiosaurs, the herd (a stegosaur, 2 triceratops, an ankylosaur), 2 parasaurolophus, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus, 3 babies (2 baby, a baby2), 2 maintenance robots and a roomba, in format 1's order, each at its spawn; the herd's four in the one roam area they share (one object, as in format 1), every other creature in its own (23 areas); no T. rex, raptor, spinosaur or cat",
-    cp.loaded && !cp.errs.length && cv.content.records === 44 && cv.content.solidTiles === 288 && cv.sys.creatures && cv.sys.buildings && cv.sys.stations && OFF.every((k) => cv.sys[k] === false) && cv.systems.critters === NA && NA === 26 && !cv.systems.rex && !cv.systems.car &&
-      cv.creatures.every((c, i) => c.kind === ALL[i].kind && c.x === ALL[i].at[0] * 16 + 8 && c.y === ALL[i].at[1] * 16 + 10 && c.area.join() === ALL[i].box.join()) && new Set(cv.creatures.map((c) => c.areaIx)).size === NAREAS && NAREAS === 23 && sameArea(cv.creatures),
+  check(name, "content preview: 46 records (288 solid tiles); the creature system on (with the buildings and the stations), every other home system off (the robot crew, SYS.bots, the koi, among them); exactly twenty-eight creatures, 2 brachiosaurs, the herd (a stegosaur, 2 triceratops, an ankylosaur), 2 parasaurolophus, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus, 3 babies (2 baby, a baby2), 2 maintenance robots, a roomba and 2 cats, in format 1's order, each at its spawn; the herd's four in the one roam area they share (one object, as in format 1), every other creature in its own (25 areas); no T. rex, raptor or spinosaur",
+    cp.loaded && !cp.errs.length && cv.content.records === 46 && cv.content.solidTiles === 288 && cv.sys.creatures && cv.sys.buildings && cv.sys.stations && OFF.every((k) => cv.sys[k] === false) && cv.systems.critters === NA && NA === 28 && !cv.systems.rex && !cv.systems.car &&
+      cv.creatures.every((c, i) => c.kind === ALL[i].kind && c.x === ALL[i].at[0] * 16 + 8 && c.y === ALL[i].at[1] * 16 + 10 && c.area.join() === ALL[i].box.join()) && new Set(cv.creatures.map((c) => c.areaIx)).size === NAREAS && NAREAS === 25 && sameArea(cv.creatures),
     cv ? `sys ${JSON.stringify(cv.sys)}; ${JSON.stringify(kinds(cv.creatures))}; ${JSON.stringify(cv.creatures.map((c) => [c.kind, c.x, c.y, c.areaIx]))}` : cp.errs.join("; "));
   if (cp.loaded) {
     for (const P of POPS) await cp.I(([x, y]) => { const I2 = window.__island; I2.teleport(x * 16 + 8, (y + 3) * 16 + 10); I2.step(4); }, [(P.box[0] + P.box[2]) >> 1, P.box[3]]);
     const cDig = { td: await cp.I(() => window.__island.terrainDigest()), gd: await cp.page.evaluate(DIGEST) };
     check(name, "content preview, every creature drawn: both locked painter digests (creatures are drawn in the object layer)", cDig.td === TERRAIN_SHA && cDig.gd === GROUND_SHA && tDig && tDig.td === TERRAIN_SHA, `terrain ${cDig.td.slice(0, 12)}, ground ${cDig.gd.slice(0, 12)}`);
-    const sp = await cp.I((s) => s.map(([x, y, g]) => { const I2 = window.__island; return I2.tile(x, y).walkable && !I2.tile(x, y).content && I2.safe(x, y) && I2.tile(x, y).type === g; }), ALL.map((q) => [...q.at, GROUND(q.kind)]));
-    check(name, "spawns: every creature's tile walkable, no content, safe ground; grass for a dinosaur, path for a bot", sp.every(Boolean), JSON.stringify(sp));
+    const sp = await cp.I((s) => s.map(([x, y, g]) => { const I2 = window.__island; return I2.tile(x, y).walkable && !I2.tile(x, y).content && I2.safe(x, y) && I2.tile(x, y).type === g; }), ALL.map((q) => [...q.at, CAT(q.kind) ? m.ground[q.at[1] * W + q.at[0]] : GROUND(q.kind)]));
+    check(name, "spawns: every creature's tile walkable, no content, safe ground; grass for a dinosaur, path for a bot, the terrain's own ground for a cat (Jasmine grass, Prince the pond loop's path)", sp.every(Boolean), JSON.stringify(sp));
     // a long seeded run, pi away from all of them (no player influence): ten minutes of game time
     const far = [60 * 16 + 8, 60 * 16 + 10];
     const r1 = await run(cp, 36000, far);
@@ -556,6 +607,85 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       check(name, `the bots in view (the rendered frame, ten minutes of ordinary wandering each): the robot never passes behind the drink stand or the mailbox, the roomba never under the signpost, the road robot never behind anything; each always at least ${100 * VIS_MIN}% in view`,
         vis.every((q) => q.ref > 0 && q.n > 150 && q.least >= VIS_MIN && q.under50 === 0) && vis[0].near > 100 && vis[2].near > 100, vis.map(say).join("; "));
       notes.push(`${name}: the bots in view: ${vis.map(say).join("; ")}`); }
+    // B3e7: the cats, frame by frame for ten minutes with pi away, here and in format 1 (its two cats in its own garden, measured the same way):
+    // every walk picked (its target in the lawn, anything but a dock: format 1's okFor), arrived or blocked; distance, time walking, napping and
+    // standing; targets and tiles; feet on a solid pixel, outside the lawn; the drawn cat (12 x 7 px on its feet, every other frame) over a
+    // blocked pixel (the pond's water and rim, a wall). Comparable to format 1: each cat's distance within a quarter of format 1's same cat's,
+    // its share walking and napping within ten points (the placement gate measured 164 to 186 tiles against 183 to 185, walking 44 to 49%
+    // against 49%, napping 29 to 35% against 27 to 30%: tools/out/mapb/b3e7/placement/)
+    { const catWatch = (Pg, ixs, n) => Pg.I(([is, nn]) => { const I2 = window.__island; I2.teleport(10 * 16 + 8, 10 * 16 + 10);
+        const cs0 = I2.preview().creatures, S = is.map((i) => { const c = I2.creature(i); return { i, a: cs0[i].area, tx: c.tx, ty: c.ty, prev: [c.x, c.y], d0: c.dist, picks: 0, badPick: 0, arrive: 0, blocked: 0, walk: 0, nap: 0, naps: 0, ps: 0, still: 0, maxStill: 0, tiles: new Set(), tgt: new Set(), solid: 0, out: 0, spr: 0, sprMax: 0 }; });
+        for (let f = 0; f < nn; f++) { I2.step(1);
+          for (const s of S) { const c = I2.creature(s.i), a = s.a;
+            if (!s.tx && c.tx) { s.picks++; const gx = Math.floor(c.tx / 16), gy = Math.floor(c.ty / 16), t = I2.tile(gx, gy); s.tgt.add(gx + "," + gy); if (!t.walkable || t.type === 6 || gx < a[0] || gx > a[2] || gy < a[1] || gy > a[3]) s.badPick++; }
+            if (s.tx && !c.tx) { if (Math.hypot(c.x - s.tx, c.y - s.ty) < 2.5) s.arrive++; else s.blocked++; }
+            s.tx = c.tx; s.ty = c.ty; if (c.sleep > 0 && !(s.ps > 0)) s.naps++; s.ps = c.sleep;
+            const mv = Math.hypot(c.x - s.prev[0], c.y - s.prev[1]) > 0.01; s.prev = [c.x, c.y];
+            if (mv) { s.walk++; s.still = 0; } else if (c.sleep > 0) { s.nap++; s.still = 0; } else s.maxStill = Math.max(s.maxStill, ++s.still);
+            s.tiles.add(Math.floor(c.x / 16) + "," + Math.floor(c.y / 16));
+            if (I2.blocked(c.x - 4, c.y - 2) || I2.blocked(c.x + 4, c.y - 2) || I2.blocked(c.x - 4, c.y + 1) || I2.blocked(c.x + 4, c.y + 1)) s.solid++;
+            if (c.x < a[0] * 16 || c.x >= (a[2] + 1) * 16 || c.y < a[1] * 16 || c.y >= (a[3] + 1) * 16) s.out++;
+            if (f % 2 === 0) { const x0 = Math.round(c.x - 6), y0 = Math.round(c.y - 6); let o = 0; for (let y = 0; y < 7; y++) for (let x = 0; x < 12; x++) if (I2.blocked(x0 + x + 0.5, y0 + y + 0.5)) o++; if (o) { s.spr++; s.sprMax = Math.max(s.sprMax, o); } } } }
+        return S.map((s) => ({ picks: s.picks, badPick: s.badPick, arrive: s.arrive, blocked: s.blocked, walk: s.walk / nn, nap: s.nap / nn, naps: s.naps, maxStill: s.maxStill, tiles: s.tiles.size, tgt: s.tgt.size, dist: Math.round(I2.creature(s.i).dist - s.d0), solid: s.solid, out: s.out, spr: s.spr / (nn / 2), sprMax: s.sprMax })); }, [ixs, n]);
+      const cw = await catWatch(cp, catIx, 36000);
+      const f1p = await open(`http://127.0.0.1:${port + 3}/${Q}`), f1Cats = F1.spawns.map((q, i) => CAT(q.kind) ? i : -1).filter((i) => i >= 0);
+      const fw = f1p.loaded ? await catWatch(f1p, f1Cats, 36000) : null; await f1p.ctx.close();
+      const say = (q, k) => `${["jasmine", "prince"][k]}: ${q.arrive} walks (${q.blocked} blocked), ${(q.dist / 16).toFixed(0)} tiles walked, ${(100 * q.walk).toFixed(0)}% walking, ${(100 * q.nap).toFixed(0)}% napping (${q.naps} naps), longest stand-still ${(q.maxStill / 60).toFixed(1)} s, ${q.tgt} targets, ${q.tiles} tiles stood on; the drawn cat over a blocked pixel ${(100 * q.spr).toFixed(1)}% of frames (at most ${q.sprMax} px)`;
+      check(name, "the cats, ten minutes frame by frame with pi away: every target on its own lawn (format 1's okFor); no walk blocked (none stops at the pond), so none strands; they walk, nap and stand about as format 1's cats do (distance within a quarter of format 1's same cat's, walking and napping within ten points); feet never on a solid pixel, never off the lawn; the drawn cat never over the pond's water or rim, nor a wall",
+        cw.every((q, k) => q.badPick === 0 && q.blocked === 0 && q.arrive > 25 && q.tgt >= 15 && q.solid === 0 && q.out === 0 && q.spr === 0 && q.maxStill < 1200 && fw && Math.abs(q.dist - fw[k].dist) <= fw[k].dist / 4 && Math.abs(q.walk - fw[k].walk) <= 0.1 && Math.abs(q.nap - fw[k].nap) <= 0.1) && fw && fw.every((q) => q.badPick === 0 && q.solid === 0),
+        `MAP-B: ${cw.map(say).join("; ")}. Format 1: ${fw ? fw.map(say).join("; ") : "didn't load"}`);
+      notes.push(`${name}: the cats, ten minutes: MAP-B ${cw.map(say).join("; ")}; format 1 ${fw ? fw.map(say).join("; ") : "didn't load"}`); }
+    // B3e7: Prince by the macbook, on the rendered frame. The macbook (105,57) has no collision and draws its blanket over x 1672 to 1703;
+    // Prince is held at every place his feet can reach in his lawn's west three columns (x 1720 to 1768 on a 2 px grid, y 906 to 938: a
+    // straight walk between two of his targets stays between them), Jasmine away; the frame drawn with him, then twice with him moved away,
+    // and the pixels he changes in a box round his sprite (less those that change anyway) against the same on open lawn at his east end: the
+    // share of him in view. The placement gate measured 98 to 100% here and 0% on the whole north lawn's west end (feet x 1688 to 1696):
+    // tools/out/mapb/b3e7/placement/
+    { const VIS_MIN = 0.9, pi0 = catIx[1], j0 = catIx[0];
+      const vis = await cp.I(async ([pc, jc, box]) => { const I2 = window.__island; I2.creature(jc, { x: 108 * 16 + 8, y: 67 * 16 + 10, tx: 0, wait: 1e9, sleep: 0 });
+        I2.teleport(111 * 16 + 8, 55 * 16 + 10); I2.step(60); for (let k = 0; k < 60 && I2.getState().iris; k++) { await new Promise((r) => setTimeout(r, 50)); I2.step(0); }
+        const cv = document.querySelector(".w-cv"), g = cv.getContext("2d"), v = I2.preview(), E = v.ui.scale * v.zoom, kk = cv.width / cv.getBoundingClientRect().width, cam = v.camera;
+        const bb = (x, y) => { const x0 = Math.floor((x - 10 - cam[0]) * E * kk), y0 = Math.floor((y - 12 - cam[1]) * E * kk); return [x0, y0, Math.ceil((x + 10 - cam[0]) * E * kk) - x0, Math.ceil((y + 5 - cam[1]) * E * kk) - y0]; };
+        const diff = (p, q) => { let n = 0; for (let m = 0; m < p.length; m += 4) if (Math.abs(p[m] - q[m]) + Math.abs(p[m + 1] - q[m + 1]) + Math.abs(p[m + 2] - q[m + 2]) > 24) n++; return n; };
+        const seen = (x, y) => { I2.creature(pc, { x, y, tx: 0, wait: 1e9, sleep: 0 }); const b = bb(x, y); if (b[0] < 0 || b[1] < 0 || b[0] + b[2] > cv.width || b[1] + b[3] > cv.height) return null; const grab = () => g.getImageData(b[0], b[1], b[2], b[3]).data;
+          I2.step(0); const p1 = grab(); I2.creature(pc, { x: 5 * 16 + 8, y: 5 * 16 + 10 }); I2.step(0); const p2 = grab(); I2.step(0); const p3 = grab(); return Math.max(0, diff(p1, p2) - diff(p2, p3)); };
+        const ref = Math.max(...[[115, 56], [116, 57], [114, 56]].map(([x, y]) => seen(x * 16 + 8, y * 16 + 10)));
+        let n = 0, least = 2, at = null, off = 0; for (let x = box[0] * 16 + 8; x <= box[0] * 16 + 8 + 48; x += 2) for (let y = box[1] * 16 + 10; y <= box[3] * 16 + 10; y += 2) { const s0 = seen(x, y); if (s0 === null) { off++; continue; } n++; const q = Math.min(1, s0 / ref); if (q < least) { least = q; at = [x, y]; } }
+        I2.creature(pc, { x: 113 * 16 + 8, y: 57 * 16 + 10, wait: 0 }); I2.creature(jc, { wait: 0 }); return { ref, n, least, at, off }; }, [pi0, j0, ALL[pi0].box]);
+      check(name, `Prince by the macbook, on the rendered frame: at every place his feet can reach in his lawn's west three columns (the nearest to the macbook's blanket), at least ${100 * VIS_MIN}% of him in view (the blanket never covers him)`,
+        vis.ref > 0 && vis.n > 300 && !vis.off && vis.least >= VIS_MIN, `${vis.n} places, at least ${(100 * vis.least).toFixed(0)}% in view${vis.at ? " (feet " + vis.at.join(",") + ")" : ""}; reference ${vis.ref} px`); }
+    // B3e7: the collars, on the rendered frame: each cat at its spawn, the canvas over its sprite (and a pixel round it) read back, each pixel
+    // put with the nearest of the art's three bright colours, the pink collar (#ff7eb6), the blue collar (#4f8fff) and the eyes (#6fb7ff,
+    // both cats') when within 40: Jasmine shows pink and no blue collar, Prince the blue and no pink (format 1's palette swaps)
+    { const COLS = { pink: CATSAY.jasmine.collar, blue: CATSAY.prince.collar, eye: "#6fb7ff" };
+      const col = await cp.I(([ixs, cols]) => { const I2 = window.__island, cv = document.querySelector(".w-cv"), g = cv.getContext("2d"), hx = (h) => [1, 3, 5].map((k) => parseInt(h.slice(k, k + 2), 16));
+        return ixs.map(([i, sx, sy]) => { I2.creature(i, { x: sx * 16 + 8, y: sy * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }); I2.teleport(sx * 16 + 8, (sy + 2) * 16 + 10); I2.step(30); I2.step(0);
+          const v = I2.preview(), E = v.ui.scale * v.zoom, kk = cv.width / cv.getBoundingClientRect().width, c = I2.creature(i), x0 = Math.floor((c.x - 7 - v.camera[0]) * E * kk), y0 = Math.floor((c.y - 8 - v.camera[1]) * E * kk), w = Math.ceil(15 * E * kk), h = Math.ceil(10 * E * kk);
+          const d = g.getImageData(x0, y0, w, h).data, n = { pink: 0, blue: 0, eye: 0 };
+          for (let m = 0; m < d.length; m += 4) { let best = null, bd = 40; for (const [k, hc] of Object.entries(cols)) { const q = hx(hc), dd = Math.hypot(d[m] - q[0], d[m + 1] - q[1], d[m + 2] - q[2]); if (dd < bd) { bd = dd; best = k; } } if (best) n[best]++; }
+          I2.creature(i, { wait: 0 }); return n; }); }, [catIx.map((i) => [i, ...ALL[i].at]), COLS]);
+      check(name, "the collars on the rendered frame: Jasmine's pink (#ff7eb6) and no blue collar, Prince's blue (#4f8fff) and no pink; both with their eyes (#6fb7ff)",
+        col[0].pink > 0 && col[0].blue === 0 && col[1].blue > 0 && col[1].pink === 0 && col[0].eye > 0 && col[1].eye > 0, `canvas pixels by colour: Jasmine ${JSON.stringify(col[0])}, Prince ${JSON.stringify(col[1])}`); }
+    // B3e7: each cat reached in normal play: pi starts outside the garden's north gate (111,52) or its west gate (100,62) and walks up to the
+    // cat as a player would (the game's own route to a clear tile beside it), and [E] opens that cat's card; the cat held at its spawn and at
+    // its lawn's four corners. A station counts only when it is genuinely nearer pi than the cat and within its own reach
+    { const STARTS = [[111, 52], [100, 62]], spots = (i) => { const [x0, y0, x1, y1] = ALL[i].box; return [ALL[i].at, [x0, y0], [x1, y0], [x0, y1], [x1, y1]]; }, res = [];
+      for (const i of catIx) for (const st of STARTS) for (const sp of spots(i)) {
+        const w = await cp.I(([ci, oi, st, sp]) => { const I2 = window.__island; I2.creature(oi, { x: 5 * 16 + 8, y: 5 * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }); I2.creature(ci, { x: sp[0] * 16 + 8, y: sp[1] * 16 + 10, tx: 0, wait: 1e9, sleep: 0 });
+          I2.teleport(st[0] * 16 + 8, st[1] * 16 + 10); I2.step(1);
+          // (a player steps to another side when the first leaves him out of reach: the pond's rim pixels below Prince's lawn stop pi's feet short)
+          let side = null, f = 0, tries = 0; for (const [dx, dy] of [[0, 1], [0, -1], [1, 0], [-1, 0]]) { const x = sp[0] + dx, y = sp[1] + dy; if (!I2.tile(x, y).walkable || !I2.safe(x, y)) continue;
+            I2.teleport(st[0] * 16 + 8, st[1] * 16 + 10); I2.step(1); if (I2.walkTo(x, y) === null) continue; tries++; for (f = 0; f < 4000 && I2.getState().pi.path; f++) I2.step(1); I2.step(2);
+            side = [x, y]; const q = I2.getState().pi; if (Math.hypot(q.x - (sp[0] * 16 + 8), q.y - (sp[1] * 16 + 10)) < 18) break; }
+          if (!side) return { side: null };
+          const p = I2.getState().pi, mb = I2.preview().stations.find((q) => q.id === "macbook"), dm = mb ? Math.hypot(p.x - (mb.x * 16 + 8), p.y - (mb.y * 16 + 12)) : 1e9;
+          return { side, f, tries, d: Math.hypot(p.x - (sp[0] * 16 + 8), p.y - (sp[1] * 16 + 10)), dm, near: I2.preview().nearby }; }, [i, catIx.find((j) => j !== i), st, sp]);
+        // (Escape only when a card is open: with none, it opens the pause menu, which held the next walk in the first run)
+        let d = null; if (w.side) { await cp.page.keyboard.press("e"); await cp.I(() => window.__island.step(3)); d = await dialog(cp); if (d.open) await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(3)); }
+        res.push({ cat: ALL[i].pop, st, sp, ...w, name: d && d.open ? d.name : null, text: d && d.open ? d.text : null, ok: !!w.side && d && d.open && (d.name === ALL[i].pop && SAYI(i).includes(d.text) || (w.near === "macbook" && w.dm < 26 && w.dm < w.d)) }); }
+      await cp.I((ixs) => ixs.forEach(([i, x, y]) => window.__island.creature(i, { x: x * 16 + 8, y: y * 16 + 10, tx: 0, wait: 0, sleep: 0 })), catIx.map((i) => [i, ...ALL[i].at]));
+      check(name, "each cat reached in normal play: from outside the garden's north gate and its west gate pi walks up beside the cat (at its spawn and at its lawn's four corners) by the game's own route, and [E] opens that cat's card (its name and line), unless a station is genuinely nearer",
+        res.length === 20 && res.every((q) => q.ok), res.map((q) => `${q.cat} at ${q.sp} from ${q.st}: ${q.side ? `pi beside at ${q.side}${q.tries > 1 ? " (side " + q.tries + ")" : ""} after ${(q.f / 60).toFixed(1)} s, ${q.d.toFixed(0)} px off, "${q.name}"` : "NO CLEAR SIDE"}`).join("; ")); }
     // pi walks round each habitat that doesn't bolt (B3e1's check, for the heath; B3e3's herd and dilophosaur): they keep to their box
     for (const P of POPS.filter((q) => !q.bolt)) {
       const [x0, y0, x1, y1] = P.box, ring = []; for (let x = x0 - 1; x <= x1 + 1; x++) ring.push([x, y0 - 1]); for (let y = y0; y <= y1 + 1; y++) ring.push([x1 + 1, y]); for (let x = x1; x >= x0 - 1; x--) ring.push([x, y1 + 1]); for (let y = y1; y >= y0; y--) ring.push([x0 - 1, y]);
@@ -623,7 +753,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       notes.push(`${name}: DIAGNOSTIC, not a roaming check: bots pushed out of their boxes at blocked tiles up to three tiles off. MAP-B: ${diag(fb)}. Format 1, pushed the same way: ${ff ? diag(ff) : "didn't load"}`); }
     // B3e6: a bot is set back on its spawn first: by the drink stand, the mailbox or the signpost [E] opens the station instead (format 1's
     // priorities; measured in the audit and left for review), so the card asked about is the bot's own
-    const atSpawn = (i) => BOT(ALL[i].kind) ? { x: ALL[i].at[0] * 16 + 8, y: ALL[i].at[1] * 16 + 10 } : {};
+    // (B3e7: a cat too, so the one asked about is where the review expects it, away from the other)
+    const atSpawn = (i) => BOT(ALL[i].kind) || CAT(ALL[i].kind) ? { x: ALL[i].at[0] * 16 + 8, y: ALL[i].at[1] * 16 + 10 } : {};
     // [E] beside one of each kind: the prompt, the card (format 1's: "a dinosaur" and one of its kind's lines; "a bot" for a robot or the roomba), the hop; and a click on one.
     // In the herd the others stand off in the far corner of the box first, so the one asked about is the one nearest. For the click (and the phones'
     // tap, below) pi starts a few tiles off on the first of several sides from which the game's own route (walkTo, what a tap plans) reaches it
@@ -637,13 +768,13 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const e1 = await cp.I(([i, ms, b, h]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }); ms.forEach((j, n) => I2.creature(j, { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 })); I2.teleport(c.x + 12, c.y); I2.step(1); return I2.preview().nearby; }, [i0, mates(i0), boxOf(i0), atSpawn(i0)]);
       await cp.page.keyboard.press("e"); await cp.I(() => window.__island.step(3));
       const d1 = await dialog(cp), hop = await cp.I((i) => window.__island.creature(i).hop, i0);
-      check(name, `[E] beside ${AN(k)}: the prompt offers it; its card is format 1's ("${CARD(k)}", ${SAY[k].length > 1 ? "one of the " + NAME[k] + "'s lines" : "the " + NAME[k] + "'s line"}); it hops`, e1 === "critter" && d1.open && d1.name === CARD(k) && SAY[k].includes(d1.text) && hop !== 0, `${e1}, "${d1.name}", ${SAY[k].indexOf(d1.text) >= 0 ? "line " + SAY[k].indexOf(d1.text) : "NOT its line"}, hop ${hop}`);
+      check(name, `[E] beside ${CAT(k) ? CARDI(i0) + " (a cat)" : AN(k)}: the prompt offers it; its card is format 1's ("${CARDI(i0)}", ${SAYI(i0).length > 1 ? "one of the " + NAME[k] + "'s lines" : CAT(k) ? "her line" : "the " + NAME[k] + "'s line"}); it hops`, e1 === "critter" && d1.open && d1.name === CARDI(i0) && SAYI(i0).includes(d1.text) && hop !== 0, `${e1}, "${d1.name}", ${SAYI(i0).indexOf(d1.text) >= 0 ? "line " + SAYI(i0).indexOf(d1.text) : "NOT its line"}, hop ${hop}`);
       await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(3));
       await cp.I(([i, ms, b, h]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }); ms.forEach((j, n) => I2.creature(j, { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 })); const clearTo = ([dx, dy]) => { I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-70, 10], [70, 10], [10, -60], [10, 60], [-50, 40], [50, 40]].find(clearTo) || [-70, 10]; I2.teleport(c.x + off[0], c.y + off[1]); I2.step(30); }, [i1, mates(i1), boxOf(i1), atSpawn(i1)]);
       const sc = await cp.I((i) => { const I2 = window.__island, v = I2.preview(), c = I2.creature(i), E = v.ui.scale * v.zoom; return [(c.x - v.camera[0]) * E, (c.y - 5 - v.camera[1]) * E]; }, i1);
       await cp.page.mouse.click(sc[0], sc[1]); await cp.I(() => { for (let i = 0; i < 400; i++) { window.__island.step(1); if (!window.__island.getState().pi.path) break; } window.__island.step(3); });
       const d2 = await dialog(cp);
-      check(name, `a click on ${AN(k)} walks pi to it and opens its card on arrival (format 1's tap${P.bolt ? "; it bolts as pi comes" : ""})`, d2.open && d2.name === CARD(k) && SAY[k].includes(d2.text), `"${d2.name}"${d2.open && SAY[k].includes(d2.text) ? "" : ": " + (d2.open ? d2.text.slice(0, 50) : "no card")}`);
+      check(name, `a click on ${CAT(k) ? CARDI(i1) + " (a cat)" : AN(k)} walks pi to it and opens its card on arrival (format 1's tap${P.bolt ? "; it bolts as pi comes" : ""})`, d2.open && d2.name === CARDI(i1) && SAYI(i1).includes(d2.text), `"${d2.name}"${d2.open && SAYI(i1).includes(d2.text) ? "" : ": " + (d2.open ? d2.text.slice(0, 50) : "no card")}`);
       await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(3));
     }
     // B3e6: each bot reached from every side. Held on its spawn and on the farthest tiles of its box (its corners' path tiles), pi 12 px north,
@@ -659,8 +790,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         sides.every((q) => q.tried >= 16 && q.none === 0 && q.bot >= q.tried - Object.values(q.station).reduce((a, b) => a + b, 0) && q.bot >= q.tried * 0.75), sides.map((q, n) => `${ALL[botIx[n]].kind} (${ALL[botIx[n]].roam}): ${q.bot} of ${q.tried} sides at ${q.spots} spots open the bot${Object.keys(q.station).length ? ", " + JSON.stringify(q.station) + " instead" : ""}`).join("; ")); }
     const comp = await cp.I(() => window.__island.completeness());
     const sr = comp && comp.missing.find((q) => /^spawns and roam areas/.test(q));
-    check(name, "completeness: a normal format-2 home made of this content would still be refused (7 items, the props item among them: the nests aren't in); the spawns item names the 5 roam areas not migrated yet (roam-02, roam-03, roam-07, roam-26 and roam-27; roam-00, roam-01, roam-04 to roam-06, roam-08 and roam-09 to roam-25 off it)",
-      comp && !comp.complete && comp.missing.length === 7 && comp.missing.some((q) => /nests/.test(q)) && sr && !/roam-(00|01|04|05|06|08|09|1\d|2[0-5])\b/.test(sr) && /roam-02/.test(sr) && /roam-03/.test(sr) && /roam-07/.test(sr) && /roam-26/.test(sr) && /roam-27/.test(sr) && (sr.match(/roam-\d\d/g) || []).length === 5, sr ? sr.slice(0, 200) : JSON.stringify(comp));
+    check(name, "completeness: a normal format-2 home made of this content would still be refused (7 items, the props item among them: the nests aren't in); the spawns item names the 3 roam areas not migrated yet (roam-02, roam-03 and roam-07; roam-00, roam-01, roam-04 to roam-06, roam-08 and roam-09 to roam-27 off it)",
+      comp && !comp.complete && comp.missing.length === 7 && comp.missing.some((q) => /nests/.test(q)) && sr && !/roam-(00|01|04|05|06|08|09|1\d|2[0-7])\b/.test(sr) && /roam-02/.test(sr) && /roam-03/.test(sr) && /roam-07/.test(sr) && (sr.match(/roam-\d\d/g) || []).length === 3, sr ? sr.slice(0, 200) : JSON.stringify(comp));
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the runs, the chases, the cards, a reload)", (await storeOf(cp)) === STORE_JSON);
     const refusedHere = async (o) => cp.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
@@ -670,10 +801,10 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   }
   if (cp.loaded) await cp.ctx.close();
 
-  // 2d. repeatability: two fresh loads with the same seed, the same ten-minute walk to the pixel, for all twenty-six
+  // 2d. repeatability: two fresh loads with the same seed, the same ten-minute walk to the pixel, for all twenty-eight
   { const a = await open(`http://127.0.0.1:${port + 1}/${Q}`), b = await open(`http://127.0.0.1:${port + 1}/${Q}`);
     const ra = a.loaded ? await run(a, 36000, [60 * 16 + 8, 60 * 16 + 10]) : null, rb = b.loaded ? await run(b, 36000, [60 * 16 + 8, 60 * 16 + 10]) : null;
-    check(name, "repeatability: two fresh loads with ?seed=42, ten minutes each, end with all twenty-six creatures at the same spots, having walked the same distances", ra && rb && JSON.stringify(ra.end) === JSON.stringify(rb.end) && JSON.stringify(ra.st.map((s) => s.dist)) === JSON.stringify(rb.st.map((s) => s.dist)), ra && rb ? `${ra.end.length} creatures, ${JSON.stringify(ra.end.slice(0, 3))}... vs ${JSON.stringify(rb.end.slice(0, 3))}...` : "didn't load");
+    check(name, "repeatability: two fresh loads with ?seed=42, ten minutes each, end with all twenty-eight creatures at the same spots, having walked the same distances", ra && rb && JSON.stringify(ra.end) === JSON.stringify(rb.end) && JSON.stringify(ra.st.map((s) => s.dist)) === JSON.stringify(rb.st.map((s) => s.dist)), ra && rb ? `${ra.end.length} creatures, ${JSON.stringify(ra.end.slice(0, 3))}... vs ${JSON.stringify(rb.end.slice(0, 3))}...` : "didn't load");
     await a.ctx.close(); await b.ctx.close(); }
   // 2e. night: they doze (format 1's: idle dinosaurs, after dark); pi close wakes one of each kind
   { const P = await open(`http://127.0.0.1:${port + 1}/?debug=1&step=1&islandhour=22&seed=42#island`);
@@ -687,6 +818,12 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     // B3e6: the bots work through the night (format 1's: only the dinosaurs doze; a robot's antenna light shows in the dark)
     check(name, "night (22:00): the two robots and the roomba never doze; they keep walking their paths, feet never on solid, never outside the box", r && botIx.every((i) => r.st[i].sleep === 0 && r.st[i].walking > r.n / 2 * 0.4 && r.st[i].solid === 0 && r.st[i].outBox === 0),
       r ? botIx.map((i) => `${ALL[i].kind} (${ALL[i].roam}): asleep ${r.st[i].sleep} frames, walking ${(100 * r.st[i].walking / (r.n / 2)).toFixed(0)}%, ${r.st[i].tiles.length} tiles`).join("; ") : "");
+    // B3e7: the cats at night as by day (format 1's: they nap on arriving, 40% of walks, 6 to 16 s; they don't doze like the dinosaurs, and
+    // pi coming close doesn't wake them)
+    check(name, "night (22:00): the two cats keep their ways (they walk and nap on arriving, as by day; no dinosaur dozing), feet never on solid, never outside their lawns", r && catIx.every((i) => r.st[i].sleep > 0 && r.st[i].walking > r.n / 2 * 0.2 && r.st[i].solid === 0 && r.st[i].outBox === 0),
+      r ? catIx.map((i) => `${ALL[i].pop}: asleep ${(100 * r.st[i].sleep / (r.n / 2)).toFixed(0)}%, walking ${(100 * r.st[i].walking / (r.n / 2)).toFixed(0)}%, ${r.st[i].tiles.length} tiles`).join("; ") : "");
+    if (P.loaded) { const nap = await P.I((ixs) => { const I2 = window.__island; for (let f = 0; f < 36000; f++) { I2.step(1); const c = I2.creature(ixs[0]); if (c.sleep > 3 && !c.tx) { I2.teleport(c.x + 12, c.y); I2.step(2); const a = I2.creature(ixs[0]).sleep; I2.step(60); return { at: f, near: a > 0, later: I2.creature(ixs[0]).sleep }; } } return null; }, catIx);
+      check(name, "night: pi beside a napping cat doesn't wake it (format 1's: only the dinosaurs wake)", nap && nap.near && nap.later > 0, nap ? `napping after ${(nap.at / 60).toFixed(0)} s; still asleep a second after pi came` : "no nap in ten minutes"); }
     // (B3e5: for the babies' shots the animals sharing their ground sleep at the far side, so neither baby is hidden behind one)
     const AWAY = { babies: herdIx.map((j, n) => [j, ...[[42, 59], [45, 59], [54, 60], [57, 60]][n]]), "meadow-baby": brachioIx.map((j, n) => [j, ...[[13, 35], [24, 34]][n]]) };
     if (P.loaded && name !== "firefox") { await hideDbg(P); for (const Pp of POPS) { await P.I(([i, ms2, ap, aw]) => { const I2 = window.__island, c = I2.creature(i);
@@ -694,6 +831,19 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         if (ap) { const far = ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)); ms2.forEach((j, n) => I2.creature(j, { x: far[n][0] * 16 + 8, y: far[n][1] * 16 + 10 })); }
         const feet = (x, y) => I2.tile(Math.floor(x / 16), Math.floor(y / 16)).walkable && ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy)), off = [[40, -24], [-40, -24], [40, 24], [-40, 24]].find(([dx, dy]) => feet(c.x + dx, c.y + dy)) || [40, -24];
         I2.teleport(c.x + off[0], c.y + off[1]); for (let k = 0; k < 240; k++) I2.step(1); }, (() => { const i0 = ALL.findIndex((q) => q.pop === Pp.key); return [i0, Pp.apart ? ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0) : [], Pp.apart || null, AWAY[Pp.key] || []]; })()); await shoot(P, `${name}-${Pp.key}-night.png`); } }
+    // B3e7: both cats asleep at night, as they fall asleep in normal wander (their naps are their own). Taken when both nap at once within ten
+    // rows of each other; pi is set on the open tile nearest midway between them, only to put the camera there (the cats don't react to
+    // him), the minimap folded; both must be on screen, below the top bar
+    if (P.loaded && name !== "firefox") { const mr = await P.I(() => window.__island.preview().ui.mini); if (mr) await P.page.mouse.click(mr[0] + mr[2] / 2, mr[1] + mr[3] / 2);
+      const both = await P.I(async (ixs) => { const I2 = window.__island; ixs.forEach((i) => I2.creature(i, { wait: 0 }));
+        for (let f = 0; f < 72000; f++) { I2.step(1); const cs = ixs.map((i) => I2.creature(i)); if (!cs.every((c) => c.sleep > 2.5) || Math.abs(cs[0].y - cs[1].y) > 160) continue;
+          const mx = (cs[0].x + cs[1].x) / 32, my = (cs[0].y + cs[1].y) / 32; let best = null, bd = 1e9; for (let y = 54; y <= 70; y++) for (let x = 103; x <= 119; x++) if (I2.tile(x, y).walkable && I2.safe(x, y) && Math.hypot(x + 0.5 - mx, y + 0.6 - my) < bd) { bd = Math.hypot(x + 0.5 - mx, y + 0.6 - my); best = [x, y]; }
+          I2.teleport(best[0] * 16 + 8, best[1] * 16 + 10); I2.step(30); for (let k = 0; k < 60 && I2.getState().iris; k++) { await new Promise((r) => setTimeout(r, 50)); I2.step(0); }
+          const v = I2.preview(), E = v.ui.scale * v.zoom, sc = ixs.map((i) => { const c = I2.creature(i); return [(c.x - v.camera[0]) * E, (c.y - 7 - v.camera[1]) * E]; });
+          return { f, pi: best, at: ixs.map((i) => { const c = I2.creature(i); return [Math.floor(c.x / 16), Math.floor(c.y / 16)]; }), asleep: ixs.every((i) => I2.creature(i).sleep > 0), on: sc.every(([x, y]) => x > 20 && x < innerWidth - 20 && y > 60 && y < innerHeight - 20) }; } return null; }, catIx);
+      if (both && both.asleep) await shoot(P, `${name}-cats-asleep-night.png`);
+      if (mr) await P.page.mouse.click(mr[0] + mr[2] / 2, mr[1] + mr[3] / 2);
+      check(name, "night: both cats asleep at once in normal wander, both on screen in the review shot", both && both.asleep && both.on, both ? `after ${(both.f / 60).toFixed(0)} s, at ${both.at.map((q) => q.join(",")).join(" and ")}, pi at ${both.pi}; on screen ${both.on}` : "not within twenty minutes"); }
     await P.ctx.close(); }
 
   // 2f. phones: a tap on one of each kind walks pi to it and opens its card; the card on screen
@@ -702,21 +852,21 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     if (!P.loaded) { check(name, `phone ${vw} x ${vh}`, false, "didn't load"); await P.ctx.close(); continue; }
     await cardAway(P);
     const res = [];
-    for (const kk of KINDS) {
-      const i0 = ALL.findIndex((q) => q.kind === kk), Pp = POPS.find((q) => q.key === ALL[i0].pop), ms = [...(Pp.shared || Pp.together || Pp.apart ? ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0) : []), ...fieldMates(Pp)];
+    for (const i0 of [...KINDS.map((k) => ALL.findIndex((q) => q.kind === k)), ...catIx.slice(1)]) {
+      const kk = ALL[i0].kind, Pp = POPS.find((q) => q.key === ALL[i0].pop), ms = [...(Pp.shared || Pp.together || Pp.apart ? ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0) : []), ...fieldMates(Pp)];
       await P.I(([i, ms2, b, ap, h]) => { const I2 = window.__island, c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }), far = ap ? ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)) : null;
         ms2.forEach((j, n) => I2.creature(j, far ? { x: far[n][0] * 16 + 8, y: far[n][1] * 16 + 10, tx: 0, wait: 99, sleep: 0 } : { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 }));
         const feet = (x, y) => I2.tile(Math.floor(x / 16), Math.floor(y / 16)).walkable && ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy));
-        const clearTo = ([dx, dy]) => { if (!feet(c.x + dx, c.y + dy)) return false; I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-90, 30], [-60, 40], [60, 40], [10, -60], [10, 60], [90, 30]].find(clearTo) || [-90, 30]; I2.teleport(c.x + off[0], c.y + off[1]); for (let k = 0; k < 400 && Math.abs(I2.preview().zoom - 1) > 1e-4; k++) I2.step(2); I2.step(60); }, [i0, ms, Pp.box, Pp.apart || null, BOT(kk) ? { x: ALL[i0].at[0] * 16 + 8, y: ALL[i0].at[1] * 16 + 10 } : {}]);
+        const clearTo = ([dx, dy]) => { if (!feet(c.x + dx, c.y + dy)) return false; I2.teleport(c.x + dx, c.y + dy); const ok = I2.walkTo(Math.floor(c.x / 16), Math.floor(c.y / 16)) !== null; I2.teleport(c.x + dx, c.y + dy); return ok; }; const off = [[-90, 30], [-60, 40], [60, 40], [10, -60], [10, 60], [90, 30]].find(clearTo) || [-90, 30]; I2.teleport(c.x + off[0], c.y + off[1]); for (let k = 0; k < 400 && Math.abs(I2.preview().zoom - 1) > 1e-4; k++) I2.step(2); I2.step(60); }, [i0, ms, Pp.box, Pp.apart || null, BOT(kk) || CAT(kk) ? { x: ALL[i0].at[0] * 16 + 8, y: ALL[i0].at[1] * 16 + 10 } : {}]);
       const sc = await P.I((i) => { const I2 = window.__island, v = I2.preview(), c = I2.creature(i), E = v.ui.scale * v.zoom; return [(c.x - v.camera[0]) * E, (c.y - 5 - v.camera[1]) * E]; }, i0);
       await P.page.touchscreen.tap(sc[0], sc[1]); await P.I(() => { for (let i = 0; i < 400; i++) { window.__island.step(1); if (!window.__island.getState().pi.path) break; } window.__island.step(3); });
-      await P.page.waitForTimeout(BOT(kk) ? 2400 : 600);   // (B3e6: a robot's line is long; the shot waits for the card to finish typing)
+      await P.page.waitForTimeout(BOT(kk) || CAT(kk) ? 2400 : 600);   // (B3e6: a robot's line is long, and a cat's: the shot waits for the card to finish typing)
       const d = await dialog(P), rect = await P.page.evaluate(() => { const r = document.querySelector(".w-dialog").getBoundingClientRect(); return [r.left, r.top, r.right, r.bottom]; });
-      await hideDbg(P); await shoot(P, `${name}-phone${vw}-${kk}-card.png`);
-      res.push({ k: kk, ok: sc[0] > 0 && sc[0] < vw && sc[1] > 0 && sc[1] < vh && d.open && d.name === CARD(kk) && SAY[kk].includes(d.text) && rect[0] >= 0 && rect[2] <= vw && rect[3] <= vh, sc, d, rect });
+      await hideDbg(P); await shoot(P, `${name}-phone${vw}-${CAT(kk) ? ALL[i0].pop : kk}-card.png`);
+      res.push({ k: CAT(kk) ? ALL[i0].pop : kk, ok: sc[0] > 0 && sc[0] < vw && sc[1] > 0 && sc[1] < vh && d.open && d.name === CARDI(i0) && SAYI(i0).includes(d.text) && rect[0] >= 0 && rect[2] <= vw && rect[3] <= vh, sc, d, rect });
       await P.page.keyboard.press("Escape"); await P.I(() => window.__island.step(4));
     }
-    check(name, `phone ${vw} x ${vh}: a tap on each kind (brachiosaur, stegosaur, triceratops, ankylosaur, parasaurolophus, dilophosaur, pachycephalosaur, gallimimus, compsognathus, baby, baby2, maintenance robot, roomba; a bot from its spawn) walks pi to it and opens its card, on screen`, res.every((q) => q.ok) && !P.errs.length, res.map((q) => `${q.k}: tapped ${q.sc.map(Math.round)}, "${q.d.name}", card ${q.rect.map(Math.round)}`).join("; "));
+    check(name, `phone ${vw} x ${vh}: a tap on each kind (brachiosaur, stegosaur, triceratops, ankylosaur, parasaurolophus, dilophosaur, pachycephalosaur, gallimimus, compsognathus, baby, baby2, maintenance robot, roomba, and both cats, Jasmine and Prince; a bot or a cat from its spawn) walks pi to it and opens its card, on screen`, res.every((q) => q.ok) && !P.errs.length, res.map((q) => `${q.k}: tapped ${q.sc.map(Math.round)}, "${q.d.name}", card ${q.rect.map(Math.round)}`).join("; "));
     await P.ctx.close();
   }
 
@@ -731,7 +881,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const a = await sim(36000, {}, [100 * 16 + 8, 26 * 16 + 10]), b = await sim(36000, { path: lane, every: 40 }, null);
       const judge = (s) => { const r = []; s.r.st.forEach((q, i) => { const k = s.kinds[i]; if (k !== "trex" && k !== "raptor") return; const set = new Set(inn[k]); r.push({ k, out: q.tiles.filter((x) => !set.has(x)), solid: q.solid, walking: q.walking, tiles: q.tiles.length, n: s.r.n / 2, ext: q.box }); }); return r; };
       const ja = judge(a), jb = judge(b);
-      check(name, "predators (simulation only): the T. rex and the three raptors spawn and run in their enclosures with no page error (the roar zone and the cats aren't there: the game's guards hold)", v.creatures.filter((c) => c.kind === "trex").length === 1 && v.creatures.filter((c) => c.kind === "raptor").length === 3 && v.systems.critters === 4 + ALL.length && !P.errs.length, `${v.systems.critters} creatures: ${v.creatures.map((c) => c.kind).join(",")}`);
+      check(name, "predators (simulation only): the T. rex and the three raptors spawn and run in their enclosures with no page error (the roar zone isn't there: the game's guard holds)", v.creatures.filter((c) => c.kind === "trex").length === 1 && v.creatures.filter((c) => c.kind === "raptor").length === 3 && v.systems.critters === 4 + ALL.length && !P.errs.length, `${v.systems.critters} creatures: ${v.creatures.map((c) => c.kind).join(",")}`);
       check(name, "predators (simulation only): over ten minutes with pi away and ten with pi walking the fences and the lane between the paddocks, every T. rex and raptor foot stays inside its enclosure (no tile outside the inside), never on a solid pixel",
         [...ja, ...jb].every((q) => q.out.length === 0 && q.solid === 0), [...ja, ...jb].map((q) => `${q.k}: ${q.tiles} tiles${q.out.length ? ", OUTSIDE " + q.out.join(" ") : ""}${q.solid ? ", FEET ON SOLID " + q.solid : ""}`).join("; "));
       [["pi away", ja], ["pi on the fences", jb]].forEach(([lab, j]) => j.forEach((q) => notes.push(`${name}: predators, ${lab}: ${q.k} walked ${(100 * q.walking / q.n).toFixed(0)}% of frames over ${q.tiles} tiles, feet extent x ${q.ext[0]} to ${q.ext[2]}, y ${q.ext[1]} to ${q.ext[3]} px`)));
@@ -817,18 +967,19 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   if (name === "chromium") {
     const caught = (label, ok, detail) => check(name, `mutation caught: ${label}`, ok, detail);
     for (const k of ["off", "noSpawns"]) { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT[k][1](WORLD) }); const n = P.loaded ? await P.I(() => { window.__island.step(30); return window.__island.preview().creatures.filter((c) => c.kind === "pachy" && c.dist > 0).length; }) : -1; caught(MUT[k][0], n !== 2 || P.errs.length > 0, `${n} pachycephalosaurs walking; ${P.errs.length} errors`); await P.ctx.close(); }
-    { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.catGuard[1](WORLD) }); caught(MUT.catGuard[0], !P.loaded || P.errs.length > 0, `${P.errs.length} page errors${P.errs[0] ? " (" + P.errs[0].slice(0, 70) + ")" : ""}`); await P.ctx.close(); }
+    { const P0 = await open(`http://127.0.0.1:${port + 4}/${Q}`), n0 = P0.loaded ? await P0.I(() => window.__island.preview().creatures.filter((c) => c.kind === "cat").length) : -1; await P0.ctx.close();
+      const P = await open(`http://127.0.0.1:${port + 4}/${Q}`, { world: MUT.catGuard[1](WORLD) }); caught(MUT.catGuard[0] + " (a one-cat content, test only: the real one less roam-27; unmutated it runs one cat with no error)", n0 === 1 && !P0.errs.length && (!P.loaded || P.errs.length > 0), `unmutated: ${n0} cat, ${P0.errs.length} errors; mutated: ${P.errs.length} page errors${P.errs[0] ? " (" + P.errs[0].slice(0, 70) + ")" : ""}`); await P.ctx.close(); }
     { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: MUT.noCheck[1](WORLD) }); const r = P.loaded ? await P.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, cWith((c) => { DR(c, "roam-09").spawns[0].creature = "unicorn"; })) : "didn't load"; caught(MUT.noCheck[0], r === null, r === null ? "a unicorn decoded" : r); await P.ctx.close(); }
   }
 
   // 2i. performance: the live loop's frame work by the heath, beside the terrain preview; decoding
   { const live = async (p0) => { const P = await open(`http://127.0.0.1:${p0}/?debug=1&islandhour=11#island`, { wait: 2600 }); if (!P.loaded) return null;
       await P.page.click(".w-cv", { position: { x: 5, y: 400 } }).catch(() => {}); await P.I(() => window.__island.frames(true));
-      for (const [at, k2] of [[[10, 42], "ArrowRight"], [[29, 42], "ArrowLeft"], [[13, 78], "ArrowRight"], [[24, 78], "ArrowLeft"], [[39, 52], "ArrowRight"], [[59, 50], "ArrowLeft"], [[87, 18], "ArrowRight"], [[97, 18], "ArrowLeft"], [[34, 18], "ArrowRight"], [[47, 20], "ArrowLeft"], [[83, 44], "ArrowRight"], [[97, 45], "ArrowLeft"], [[25, 93], "ArrowRight"], [[35, 94], "ArrowLeft"], [[30, 84], "ArrowRight"], [[52, 85], "ArrowLeft"], [[72, 78], "ArrowRight"], [[84, 79], "ArrowLeft"]]) { await P.I(([x, y]) => window.__island.teleport(x * 16 + 8, y * 16 + 10), at); await P.page.keyboard.down(k2); await P.page.waitForTimeout(1800); await P.page.keyboard.up(k2); }
+      for (const [at, k2] of [[[10, 42], "ArrowRight"], [[29, 42], "ArrowLeft"], [[13, 78], "ArrowRight"], [[24, 78], "ArrowLeft"], [[39, 52], "ArrowRight"], [[59, 50], "ArrowLeft"], [[87, 18], "ArrowRight"], [[97, 18], "ArrowLeft"], [[34, 18], "ArrowRight"], [[47, 20], "ArrowLeft"], [[83, 44], "ArrowRight"], [[97, 45], "ArrowLeft"], [[25, 93], "ArrowRight"], [[35, 94], "ArrowLeft"], [[30, 84], "ArrowRight"], [[52, 85], "ArrowLeft"], [[72, 78], "ArrowRight"], [[84, 79], "ArrowLeft"], [[105, 67], "ArrowRight"], [[117, 57], "ArrowLeft"]]) { await P.I(([x, y]) => window.__island.teleport(x * 16 + 8, y * 16 + 10), at); await P.page.keyboard.down(k2); await P.page.waitForTimeout(1800); await P.page.keyboard.up(k2); }
       const f = (await P.I(() => window.__island.frames(true))).sort((x, y) => x - y); await P.ctx.close(); const q = (k) => f[Math.min(f.length - 1, Math.floor(f.length * k))]; return { n: f.length, med: q(0.5), p95: q(0.95), max: f[f.length - 1], errs: P.errs }; };
     const lc = await live(port + 1), lt = await live(port), fmt = (o) => o ? `${o.n} frames, median ${o.med.toFixed(2)} / p95 ${o.p95.toFixed(2)} / max ${o.max.toFixed(2)} ms` : "didn't load";
-    perf.push(`${name}: live frame work walking through the brachio meadow, the delta wetland, the riverlands range, the dilo strip, the heath, the galli meadow, the village gardens, the village road and square and the arrival plaza (all twenty-six creatures running; the brachiosaurs' footfalls shaking the camera, the herd drifting, the gallimimus and compsognathus bolting, the bots on their paths): content preview ${fmt(lc)}; terrain preview ${fmt(lt)}`);
-    check(name, "performance: through the seven habitats on the live loop (the babies' two among them) and the bots' three paths, all twenty-six creatures running, the content preview's frame work p95 is under 16.7 ms", lc && lc.n > 100 && lc.p95 < 16.7 && !lc.errs.length, `content ${fmt(lc)}; terrain ${fmt(lt)}`);
+    perf.push(`${name}: live frame work walking through the brachio meadow, the delta wetland, the riverlands range, the dilo strip, the heath, the galli meadow, the village gardens, the village road and square, the arrival plaza and the koi garden's lawns (all twenty-eight creatures running; the brachiosaurs' footfalls shaking the camera, the herd drifting, the gallimimus and compsognathus bolting, the bots on their paths): content preview ${fmt(lc)}; terrain preview ${fmt(lt)}`);
+    check(name, "performance: through the seven habitats on the live loop (the babies' two among them) the bots' three paths and the cats' two lawns, all twenty-eight creatures running, the content preview's frame work p95 is under 16.7 ms", lc && lc.n > 100 && lc.p95 < 16.7 && !lc.errs.length, `content ${fmt(lc)}; terrain ${fmt(lt)}`);
   }
   if (tp.loaded) await tp.ctx.close();
 
@@ -839,7 +990,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       await hideDbg(P); const mr = await P.I(() => window.__island.preview().ui.mini); if (mr) await P.page.mouse.click(mr[0] + mr[2] / 2, mr[1] + mr[3] / 2);
       // B3e3: framing, checked for each review shot below that shows them: every animal's whole sprite on screen, under no overlay (the HUD, the
       // badge, the map button, a toast; the minimap is folded above)
-      const ART = { brachio: [84, 83], para: [60, 42], stego: [65, 40], trike: [64, 36], ankylo: [52, 21], dilo: [47, 32], baby: [27, 18], baby2: [27, 18], robot: [8, 10], roomba: [8, 5] }, framing = [];
+      const ART = { brachio: [84, 83], para: [60, 42], stego: [65, 40], trike: [64, 36], ankylo: [52, 21], dilo: [47, 32], baby: [27, 18], baby2: [27, 18], robot: [8, 10], roomba: [8, 5], cat: [12, 7] }, framing = [];
       const clear = async (lab, ixs) => { const r = await P.I(([is, art]) => { const I2 = window.__island, v = I2.preview(), E = v.ui.scale * v.zoom;
           const root = document.querySelector(".w-cv").parentElement, seen = (e) => { for (let x = e; x && x !== root; x = x.parentElement) { const cs = getComputedStyle(x); if (cs.display === "none" || cs.visibility === "hidden" || +cs.opacity === 0 || x.hidden) return false; } return true; };
           const ui = [...root.querySelectorAll("*")].filter((e) => !(e instanceof HTMLCanvasElement) && !e.closest(".w-debug") && /absolute|fixed/.test(getComputedStyle(e).position) && seen(e) && e.getClientRects().length)
@@ -861,7 +1012,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
           const s = I2.getState().pi, piOk = Math.floor(s.x / 16) === pa[0] && Math.floor(s.y / 16) === pa[1] && I2.tile(pa[0], pa[1]).walkable && feet(pa[0] * 16 + 8, pa[1] * 16 + 10);
           l.forEach((q) => I2.creature(q.i, q.o));
           const bad = l.filter((q) => { const a = I2.preview().creatures[q.i].area, tx = Math.floor(q.o.x / 16), ty = Math.floor(q.o.y / 16), t = I2.tile(tx, ty);
-            return !(t.walkable && t.type === (/^(robot|roomba)$/.test(I2.preview().creatures[q.i].kind) ? 4 : 3) && feet(q.o.x, q.o.y) && tx >= a[0] && tx <= a[2] && ty >= a[1] && ty <= a[3]); }).map((q) => `${I2.preview().creatures[q.i].kind} at ${Math.floor(q.o.x / 16)},${Math.floor(q.o.y / 16)}`);
+            const kd = I2.preview().creatures[q.i].kind; return !(t.walkable && (kd === "cat" ? t.type !== 6 : t.type === (/^(robot|roomba)$/.test(kd) ? 4 : 3)) && feet(q.o.x, q.o.y) && tx >= a[0] && tx <= a[2] && ty >= a[1] && ty <= a[3]); }).map((q) => `${I2.preview().creatures[q.i].kind} at ${Math.floor(q.o.x / 16)},${Math.floor(q.o.y / 16)}`);
           I2.teleport(pa[0] * 16 + 8, pa[1] * 16 + 10); I2.step(30); return { piOk, at: [Math.floor(s.x / 16), Math.floor(s.y / 16)], bad }; }, [list, piAt, SPAWN0]);
         fixtures.push(`pi ${piAt}${r.piOk ? "" : " NOT REACHED (walked to " + r.at + ")"}${r.bad.length ? "; UNFAIR " + r.bad.join(", ") : ""}`); return r; };
       await pose([hold(bi[0], 16, 41), hold(bi[1], 23, 42)], [19, 39]); framed.push(await clear("brachio-pair", bi)); await shoot(P, `${name}-brachio-pair.png`);
@@ -917,18 +1068,28 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       await pose([hold(squareIx[0], 46, 85), hold(roadIx[0], 36, 84)], [41, 84]); framed.push(await clear("bots-village", [...squareIx, ...roadIx])); await shoot(P, `${name}-bots-village.png`);
       await pose([hold(roadIx[0], 28, 81), hold(squareIx[0], 46, 85)], [31, 84]); await P.I((i) => window.__island.creature(i, { tx: 34 * 16 + 8, ty: 84 * 16 + 10, wait: 0 }), roadIx[0]); await P.I(() => window.__island.play()); await P.page.waitForTimeout(1500); await shoot(P, `${name}-robot-road-walking.png`);
       await pose([hold(ALL.findIndex((q) => q.kind === "roomba"), 78, 78)], [80, 80]); framed.push(await clear("roomba-plaza", [ALL.findIndex((q) => q.kind === "roomba")])); await shoot(P, `${name}-roomba-plaza.png`); await P.I(() => window.__island.play());
-      for (const k of ["brachio", "stego", "trike", "ankylo", "para", "dilo", "baby", "baby2", "robot", "roomba"]) {
-        const i0 = ALL.findIndex((q) => q.kind === k), Pp = POPS.find((q) => q.key === ALL[i0].pop), ms = [...ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0), ...fieldMates(Pp)];
+      // B3e7: the cats. Jasmine on the south lawn and Prince on the north (pi between them on the west strip, both in view: the wide view of
+      // the garden); each by the pond's edge (Jasmine at 110,65 below the water, Prince at 110,58 above it); Prince at the places nearest the
+      // macbook his lawn allows (107,56, 107,57, 107,58), pi beside; and both asleep at night (below)
+      const ci = catIx;
+      await pose([hold(ci[0], 109, 66), hold(ci[1], 113, 57)], [104, 62]); framed.push(await clear("cats-garden", ci)); await shoot(P, `${name}-cats-garden.png`); await P.I(() => window.__island.play());
+      await pose([hold(ci[0], 108, 66), hold(ci[1], 113, 57)], [110, 67]); framed.push(await clear("jasmine-lawn", [ci[0]])); await shoot(P, `${name}-jasmine-lawn.png`); await P.I(() => window.__island.play());
+      await pose([hold(ci[0], 108, 66), hold(ci[1], 113, 57)], [115, 57]); framed.push(await clear("prince-lawn", [ci[1]])); await shoot(P, `${name}-prince-lawn.png`); await P.I(() => window.__island.play());
+      await pose([hold(ci[0], 110, 65), hold(ci[1], 113, 57)], [112, 67]); framed.push(await clear("jasmine-pond-edge", [ci[0]])); await shoot(P, `${name}-jasmine-pond-edge.png`); await P.I(() => window.__island.play());
+      await pose([hold(ci[0], 108, 66), hold(ci[1], 110, 58)], [112, 56]); framed.push(await clear("prince-pond-edge", [ci[1]])); await shoot(P, `${name}-prince-pond-edge.png`); await P.I(() => window.__island.play());
+      for (const y of [56, 57, 58]) { await pose([hold(ci[0], 108, 66), hold(ci[1], 107, y)], [109, 56]); framed.push(await clear(`prince-by-macbook-${y}`, [ci[1]])); await shoot(P, `${name}-prince-by-macbook-${y}.png`); await P.I(() => window.__island.play()); }
+      for (const k of ["brachio", "stego", "trike", "ankylo", "para", "dilo", "baby", "baby2", "robot", "roomba", "cat", "prince"]) {
+        const i0 = k === "prince" ? catIx[1] : ALL.findIndex((q) => q.kind === k), Pp = POPS.find((q) => q.key === ALL[i0].pop), ms = [...ixOf((q) => q.pop === Pp.key).filter((j) => j !== i0), ...fieldMates(Pp)];
         const pr = await P.I(([i, ms2, b, ap, h]) => { const I2 = window.__island; I2.step(1); const c = I2.creature(i, { tx: 0, wait: 99, sleep: 0, ...h }), far = ap ? ap.slice().sort((p, q) => Math.hypot(q[0] * 16 + 8 - c.x, q[1] * 16 + 10 - c.y) - Math.hypot(p[0] * 16 + 8 - c.x, p[1] * 16 + 10 - c.y)) : null;
           ms2.forEach((j, n) => I2.creature(j, far ? { x: far[n][0] * 16 + 8, y: far[n][1] * 16 + 10, tx: 0, wait: 99, sleep: 0 } : { x: ((c.x / 16 > (b[0] + b[2]) / 2 ? b[0] : b[2]) + n) * 16 + 8, y: ((c.y / 16 > (b[1] + b[3]) / 2 ? b[1] : b[3])) * 16 + 10, tx: 0, wait: 99, sleep: 0 }));
           const feet = (x, y) => I2.tile(Math.floor(x / 16), Math.floor(y / 16)).walkable && ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(x + dx, y + dy)), off = [[12, 0], [-12, 0], [0, 10], [0, -10], [10, 8], [-10, 8]].find(([dx, dy]) => feet(c.x + dx, c.y + dy));
-          I2.teleport(c.x + (off || [12, 0])[0], c.y + (off || [12, 0])[1]); I2.step(1); return off ? null : `${c.kind}'s prompt: no clear spot beside it`; }, [i0, ms, Pp.box, Pp.apart || null, BOT(k) ? { x: ALL[i0].at[0] * 16 + 8, y: ALL[i0].at[1] * 16 + 10 } : {}]); if (pr) fixtures.push("UNFAIR " + pr); await shoot(P, `${name}-${k}-prompt.png`);
-        await P.page.keyboard.press("e"); await P.I(() => window.__island.step(2)); await P.page.waitForTimeout(1200); await shoot(P, `${name}-${k}-card.png`);
+          I2.teleport(c.x + (off || [12, 0])[0], c.y + (off || [12, 0])[1]); I2.step(1); return off ? null : `${c.kind}'s prompt: no clear spot beside it`; }, [i0, ms, Pp.box, Pp.apart || null, BOT(k) || Pp.cat ? { x: ALL[i0].at[0] * 16 + 8, y: ALL[i0].at[1] * 16 + 10 } : {}]); if (pr) fixtures.push("UNFAIR " + pr); const kn = Pp.cat || k; await shoot(P, `${name}-${kn}-prompt.png`);
+        await P.page.keyboard.press("e"); await P.I(() => window.__island.step(2)); await P.page.waitForTimeout(Pp.cat ? 2400 : 1200); await shoot(P, `${name}-${kn}-card.png`);
         if (await P.page.evaluate(() => !document.querySelector(".w-dialog").hidden)) await P.page.keyboard.press("Escape");
         await P.I(() => window.__island.play());
       }
-      check(name, "review screenshots (B3e3 to B3e6): every brachiosaur, parasaurolophus, herd, dilophosaur, baby and bot shot shows each animal whole and on screen, under no overlay", framed.length === 16 && framed.every(Boolean), framing.join("; "));
-      check(name, "review screenshots (B3e4 review, B3e5, B3e6): every posed shot's pi walked there from his spawn by a tap's route (his feet on clear, walkable ground), every held animal on its own ground (grass, path for a bot) with its feet clear, and pi beside each prompt's animal on clear ground", fixtures.length === 18 && fixtures.every((q) => !/NOT|UNFAIR/.test(q)), fixtures.join("; "));
+      check(name, "review screenshots (B3e3 to B3e7): every brachiosaur, parasaurolophus, herd, dilophosaur, baby, bot and cat shot shows each animal whole and on screen, under no overlay", framed.length === 24 && framed.every(Boolean), framing.join("; "));
+      check(name, "review screenshots (B3e4 review to B3e7): every posed shot's pi walked there from his spawn by a tap's route (his feet on clear, walkable ground), every held animal on its own ground (grass, path for a bot, anything but a dock for a cat; inside its box) with its feet clear, and pi beside each prompt's animal on clear ground", fixtures.length === 26 && fixtures.every((q) => !/NOT|UNFAIR/.test(q)), fixtures.join("; "));
       await P.I(() => window.__island.teleport(40 * 16 + 8, 21 * 16 + 10)); await P.page.waitForTimeout(1500); await shoot(P, `${name}-pachy-spawn-area.png`);
       for (const [i, lab] of [[0, "moving-1"], [1, "moving-2"]]) { await P.I(([j]) => { const I2 = window.__island, c = I2.creature(j); I2.creature(j, { tx: (j ? 37 : 44) * 16 + 8, ty: (j ? 16 : 21) * 16 + 10, wait: 0, sleep: 0 }); I2.teleport(40 * 16 + 8, 21 * 16 + 10); }, [i]); await P.page.waitForTimeout(1600); await shoot(P, `${name}-pachy-${lab}.png`); }
       // by the edges: one sent at the heath's west and north limits
@@ -953,7 +1114,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   }
   await browser.close();
 }
-terrainPv.close(); contentPv.close(); predPv.close(); plain.close();
+terrainPv.close(); contentPv.close(); predPv.close(); plain.close(); oneCatPv.close();
 if (notes.length) { console.log("\nmeasured, for the record:"); notes.forEach((l) => console.log("  " + l)); }
 if (perf.length) { console.log("\nperformance (measured, for the record):"); perf.forEach((l) => console.log("  " + l)); }
 console.log(`\n${fails ? fails + " failed" : "all passed"}${blocked.length ? `; BLOCKED: ${blocked.join(", ")} (not a pass)` : ""}`);

@@ -180,7 +180,10 @@ export const STATION_REACH = 26;
    roomba, which keep to paths), and the creatures that start in it, kind and tile (format 1's kinds, counts and order). Amended
    by Ammaar for B3e6 (2026-10-29): roam-23 42,82 to 54,88 became 42,82 to 52,88 and roam-25 72,75 to 84,81 became 75,75 to 84,81,
    the spawns kept, so the robot doesn't pass behind the drink stand (53,87) nor the roomba under the signpost (74,76): MAP-B's
-   stations have no collision, and the bots vanished into their art */
+   stations have no collision, and the bots vanished into their art. Amended by Ammaar for B3e7 (2026-10-30): roam-26 and roam-27 (both
+   105,56 to 117,68, round the koi pond) became Jasmine's south lawn 105,65 to 117,68 and Prince's north lawn 107,56 to 117,58, the spawns
+   and the habitat kept: format 1's straight wander stopped at the pond on about half the cats' walks (five targets unreachable), and a
+   cat by the macbook (105,57) was hidden under its blanket and lost [E] to it */
 export const CREATURE_KINDS = ["brachio", "trex", "stego", "trike", "para", "raptor", "ankylo", "baby", "spino", "dilo", "pachy", "galli", "compy", "baby2", "robot", "roomba", "cat"];
 const RP = (box, habitat, spawns) => ({ box: { x0: box[0], y0: box[1], x1: box[2], y1: box[3] }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 export const ROAM_PLAN = {
@@ -201,7 +204,7 @@ export const ROAM_PLAN = {
   "roam-22": RP([14, 36, 22, 43], "brachio-meadow", [["baby", 19, 38]]),
   "roam-23": RP([42, 82, 52, 88], null, [["robot", 45, 85]]), "roam-24": RP([27, 80, 41, 86], null, [["robot", 33, 85]]),
   "roam-25": RP([75, 75, 84, 81], null, [["roomba", 77, 78]]),
-  "roam-26": RP([105, 56, 117, 68], "koi-garden", [["cat", 108, 66]]), "roam-27": RP([105, 56, 117, 68], "koi-garden", [["cat", 113, 57]])
+  "roam-26": RP([105, 65, 117, 68], "koi-garden", [["cat", 108, 66]]), "roam-27": RP([107, 56, 117, 58], "koi-garden", [["cat", 113, 57]])
 };
 // format 1's okFor: a tile a creature may walk to or stand on (ground codes: grass 3, path 4, dock 6)
 export const creatureMayStand = (kind, ground) => (kind === "robot" || kind === "roomba" ? ground === 4 : kind === "cat" ? ground !== 6 : ground === 3);                 // the game's: [E] reaches a station 26 px from pi's feet (nearCandidates)

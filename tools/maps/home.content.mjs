@@ -135,6 +135,13 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    plaza's west three left out, so the robot keeps off the drink stand at 53,87 and the roomba off the signpost at 74,76; MAP-B's
    stations have no collision, and the bots vanished behind their art). Format 1's wander picks path tiles only (okFor). In format 1's
    order they come after the babies */
+/* B3e7: format 1's two cats, Jasmine and Prince (named by the game when both are there: the first is Jasmine, pink collar; the second
+   Prince, blue), each in its own roam area in the koi garden (B1e habitat koi-garden), at B3a's places as Ammaar amended them for B3e7
+   (2026-10-30): Jasmine on the south lawn (roam-26, 105,65 to 117,68, all 52 tiles open), starting at 108,66; Prince on the north lawn
+   (roam-27, 107,56 to 117,58, all 33 tiles open), starting at 113,57. B3a's shared box round the pond (105,56 to 117,68) stopped about
+   half their straight walks at the water; each lawn is one open rectangle, so none stops. Prince's box starts at x 107 so he stays clear
+   of the macbook's blanket (105,57: 32 px wide, no collision on MAP-B), which hid him whole and took [E] from him. Format 1's wander picks
+   anything but a dock (okFor). In format 1's order they come last */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, ...(habitat ? { habitat } : {}), spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -229,6 +236,8 @@ export default {
     roam("roam-22", [14, 36, 22, 43], "brachio-meadow", [["baby", 19, 38]]),
     roam("roam-23", [42, 82, 52, 88], null, [["robot", 45, 85]]),
     roam("roam-24", [27, 80, 41, 86], null, [["robot", 33, 85]]),
-    roam("roam-25", [75, 75, 84, 81], null, [["roomba", 77, 78]])
+    roam("roam-25", [75, 75, 84, 81], null, [["roomba", 77, 78]]),
+    roam("roam-26", [105, 65, 117, 68], "koi-garden", [["cat", 108, 66]]),
+    roam("roam-27", [107, 56, 117, 58], "koi-garden", [["cat", 113, 57]])
   ]
 };

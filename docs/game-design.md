@@ -1438,7 +1438,7 @@ after his visual review, committed as "Map: migrate MAP-B pachycephalosaurs (B3e
   | roam-22 | baby | 14,36 to 22,43 | brachio-meadow 100% | 59 of 72 | 0% |
   | roam-23, 24 | robot x2 | 42,82 to 52,88 (amended in B3e6; B3a's was 42,82 to 54,88); 27,80 to 41,86 | none (paths) | 77 of 77; 31 of 105 | 0% |
   | roam-25 | roomba | 75,75 to 84,81 (amended in B3e6; B3a's was 72,75 to 84,81) | none (the plaza) | 70 of 70 | 0% |
-  | roam-26, 27 | cat x2 | 105,56 to 117,68 | koi-garden 100% | 117 of 169 | 54% (the pond) |
+  | roam-26, 27 | cat x2 | 105,65 to 117,68; 107,56 to 117,58 (amended in B3e7; B3a's was 105,56 to 117,68 for both) | koi-garden 100% | 52 of 52; 33 of 33 (B3a's: 117 of 169) | 0% (B3a's: 54%, the pond) |
 
   "Straight walks blocked" is the share of straight lines between two such tiles (sampled) that cross ground the creature
   can't walk: format 1's wander walks straight, so those stop short and pick again.
@@ -2212,6 +2212,94 @@ MAP-B B3e6, the maintenance robots and the roomba (2026-10-29; staged only, not 
   bump, the predators' and the spinosaur's), and one more from B3e6: **pi's feet can briefly cross thin foot-blocking pixels**
   (MAP-B's bridge rails, 3 to 8 frames; `move()` tests two corners an axis; format 1 shows it once in 94 runs). B4 must fix it (a
   collision change, its own approval) or accept it explicitly. Nests deferred to B3f. B3f and the next batch haven't begun. MAP-B stays preview-only;
+  production is unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
+
+MAP-B B3e7, Jasmine and Prince (2026-10-29 to 2026-10-31; staged only, not deployed; approved and committed):
+- Read first: format 1's cats in `js/world.js` (`DINOS.cat`, the naming block after spawning, `okFor`, `updateCritter`, `drawCritter`,
+  `sayLocal`), B3a's plan (roam-26, roam-27), B3d3's koi garden (wall, gates, pond) and B3d4b's macbook station (105,57).
+- Format 1: two cats in one box each (roam-26 Jasmine at 65,51, roam-27 Prince at 70,52, both 62,49 to 72,54). Pixel rows, 12 x 7 px
+  (a sleeping pose 12 x 5), not the art sheet. The game names them when both are there: the first Jasmine (pink collar `#ff7eb6`),
+  the second Prince (blue `#4f8fff`), each with a line of its own. Speed 10 px/s. Their wander is the dinosaurs': six random tiles of
+  the box, the first `okFor` allows (a cat: anything but a dock), a straight walk, half a second's pause if blocked. On arriving a cat
+  naps 40% of the time, 6 to 16 s, day or night; it doesn't doze like the dinosaurs, and pi doesn't wake it. [E] or a tap gives its
+  card (its name; asleep: "jasmine is asleep in the sun. pi lets her be.", "in the sun" even at night, format 1's words) and a hop
+  when awake.
+- The audit (`tools/out/mapb/b3e7/audit/`: `report.txt`, `summary.txt`, `pairs.txt`, `garden-map.txt`, `sim-*.txt`, `shots/`):
+  B3a's shared box (105,56 to 117,68) holds the pond's 52 tiles in the middle; 51% of straight walks between its 117 targets stop
+  at the water (47 to 52% in the game, ten minutes, seeds 42, 7 and 1234, Chromium and WebKit the same; format 1's cats 7%); five
+  targets can never be reached (their centre on the pond's rim pixels); up to 76 s between arrivals; the cats napped less (11 to 14%,
+  format 1's 27 to 30%). Never stranded, never out of the box or on water. A separate lawn each blocked nothing and matched format 1;
+  the lawns with the pond's outer row added blocked 1.6% and 8.7%. The macbook stands on the north lawn's west end with no collision
+  on MAP-B: a cat there vanishes under its blanket, and [E] picks the macbook.
+- Approved amendment (Ammaar, 2026-10-30): roam-26 Jasmine on the south lawn, 105,65 to 117,68; roam-27 Prince on the north lawn,
+  107,56 to 117,58, provisional on the macbook not hiding him; spawns (108,66 and 113,57) and habitat koi-garden kept. Recorded in
+  `ROAM_PLAN` (`tools/maps/content.mjs`) and the B3a table above.
+- The placement gate (`tools/out/mapb/b3e7/placement/gate-*.txt`, before any repo change): Prince held at every place his feet can reach
+  by the macbook (x 1720 to 1768 on a 2 px grid, y 906 to 938), the frame drawn with him and twice without: at least 98% (WebKit) and
+  100% (Chromium) in view by day, 88% at night everywhere along the row (the night's shading, not the macbook: the same at x 1768);
+  the whole north lawn's west end measured the same way: 0% at feet x 1688 to 1696. [E] after pi walks to him in his two west columns
+  6 of 6 (the whole lawn: 3 of 6, the macbook the other 3). Movement against the whole north lawn: 164 to 186 tiles in ten minutes
+  (173 to 199), 22 to 26 targets (24 to 26), walking 44 to 49% (46 to 53%), napping 29 to 35% (24 to 32%). The macbook's blanket
+  ends at x 1703 (32 px on its anchor's centre); Prince's sprite starts at x 1714 at the least.
+- Content (`tools/maps/home.content.mjs`): roam-26 and roam-27, last in format 1's order, habitat koi-garden. 46 records, the 44 before
+  them byte for byte (the staged file's diff: two inserted lines, a comma and the source hash), 288 solid tiles, 0 foot pixels
+  (20646 bytes, sha256 `7c42796be81c8f37`). Jasmine's lawn is 52 tiles, Prince's 33; Prince starts on the pond loop's path.
+- Runtime: no change. The decoder, `okFor`, the naming guard (`cats.length === 2`), `move()`, the pond, the terrain, the wall and the
+  station priorities are format 1's and B3d's as they were. The content preview runs twenty-eight creatures in 25 roam areas; the
+  completeness wall names the 3 roam areas still missing (roam-02, 03, 07) and the props item; a normal format-2 home is still refused.
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework):
+  - Node: both records against B3a as amended and format 1; every straight walk between each lawn's targets walked with `move()`
+    (none stops; B3a's box measured the same way for the record: 6870 of 13572, 50.6%); every target's feet clear of the rim pixels;
+    no station in or by either lawn; the macbook's blanket against Prince's nearest sprite (10 px apart); the cats' names, collars and
+    lines from `js/world.js`; the 44 earlier records byte for byte (a new hash at 11b1f82); seven malformed cases (B3a's old boxes for
+    roam-26 and roam-27, Prince on the whole north lawn, Jasmine moved, no habitat, a baby in roam-26, roam-27 first) and a decoder
+    refusal (a cat in the pond). Two older cases that borrowed roam-26 now use roam-02.
+  - The game: the cats frame by frame for ten minutes beside format 1's (targets on the lawn, no walk blocked, distance within a quarter
+    of format 1's same cat, walking and napping within ten points, feet never on solid or off the lawn, the drawn cat never over the
+    pond's water or rim or a wall); Prince by the macbook on the rendered frame (425 places, at least 90% in view required); the collars
+    read off the canvas; each cat reached in normal play from the north and west gates at its spawn and four corners ([E] gives its own
+    card); [E], card and hop; a click on Prince; phone taps on both (390 and 375); night (they walk and nap, pi doesn't wake one, both
+    asleep at once, framed); pi walking round each lawn; pushes at the pond and walls; repeatability; storage; the painter digests;
+    completeness 3; performance through the lawns; review shots.
+  - The naming guard's mutation now runs on a one-cat content (the real one less roam-27, test only): with both cats in the content
+    preview, removing the guard no longer errors there.
+  - Harness fixes after the first run (kept: `gates/mapb-creatures-first.log`, 343 passed, 4 failed, the same two checks in both
+    engines): the collar check read one guessed pixel and hit the fur (it now sorts the sprite's pixels by colour); the normal-play
+    check pressed Escape with no card open, which opened the pause menu and held the next walk, and it gave up on the first side of
+    Prince where the pond's rim stops pi's feet 23 px off (a player steps to another side; it now does). The second run passed
+    (`gates/mapb-creatures-second.log`, 347) before the night shot was made to frame both sleeping cats.
+- Verification (2026-10-30; logs in `tools/out/mapb/b3e7/gates/`; Firefox isn't installed, so it is BLOCKED at launch, never a pass):
+  - `mapb-creatures`: 347 passed (Node 127, Chromium 112, WebKit 108), Firefox BLOCKED. The final run
+    (`gates/mapb-creatures-third.log`) passed Node and Chromium whole and WebKit but for two checks: the live loop's shake a second
+    after it was set (0.67 and 1.33 left instead of 0, in format 1 as in the content preview; the one check on the page's real clock,
+    passing in both earlier runs). WebKit alone then passed whole (`gates/mapb-creatures-webkit-rerun.log`, Node 127, WebKit 108).
+    The machine was slow then (WebKit's live loop drew 122 to 269 frames on the performance route, against 600), which is what that
+    check measures; no code changed between the runs.
+  - The cats, ten minutes (both engines the same): Jasmine 38 walks, 0 blocked, 176 tiles, walking 47%, napping 33%, 26 targets;
+    Prince 46 walks, 0 blocked, 162 tiles, walking 43%, napping 35%, 25 targets; the drawn cats never over water or a wall. Format 1's:
+    Jasmine 46 walks (2 blocked), 192 tiles, 51%, 23%; Prince 38 (4 blocked), 162 tiles, 43%, 36%; its cats' sprites over a blocked
+    pixel 11 to 14% of frames (up to 48 px: its pond's edge).
+  - Prince by the macbook: 425 places, at least 100% in view (both engines). Normal play: 20 of 20 approaches give the right cat's card.
+  - Both cats asleep at once at night in normal wander after 90 s (111,65 and 113,57), framed with the minimap folded.
+  - Performance, all twenty-eight running: frame work p95 1.9 ms (Chromium); WebKit 2.0 ms in the second run, 7 to 9 ms in the slow
+    final runs (under 16.7 ms either way).
+  - Lightweight checks (`tools/out/mapb/b3e7/final/summary.txt`): map-compile and map-content `--check` current (46 records, 288 solid
+    tiles, 0 foot pixels); the Node parts of the eight MAP-B suites (creatures 127, stations 72, landmarks 33, content 29, koi-gate 52,
+    paddock 32, fences 35, buildings 71), all passing; guard 8; dry run; `git diff --check`; CSpell the same 19. No change to
+    `js/world.js` or `index.html`; `SAVE_V` 2, cache `20261025`.
+- Screenshots (`tools/out/mapb/b3e7/`, `chromium-` and `webkit-`): cats-garden (both, wide), jasmine-lawn, prince-lawn,
+  jasmine-pond-edge, prince-pond-edge, prince-by-macbook-56, -57 and -58 (the nearest places his lawn allows), cats-asleep-night,
+  jasmine-night, prince-night, jasmine-prompt, jasmine-card, prince-prompt, prince-card, phone390- and phone375-jasmine-card
+  and -prince-card; every earlier species' again. Audit shots in `audit/shots/` (B3a's box, the pond stops, format 1's garden).
+- Approval (2026-10-31): Ammaar approved B3e7 after visual review. Both boxes kept (Jasmine 105,65 to 117,68; Prince 107,56 to
+  117,58). The 347-check evidence and the documented WebKit timing failures stand as recorded above.
+- Final checks (2026-10-31, lightweight only; `tools/out/mapb/b3e7/final-approval/summary.txt`; the browser suites not rerun):
+  map-compile and map-content `--check` current (20646 bytes, sha256 `7c42796be81c8f37`, 46 records, 28 creatures, 288 solid tiles,
+  0 foot pixels); the Node parts of the eight MAP-B suites (creatures 127, stations 72, landmarks 33, content 29, koi-gate 52,
+  paddock 32, fences 35, buildings 71), all passing; guard 8; dry run; `git diff --check`; CSpell the same 19.
+- Status: complete, approved and committed.
+- B4 release blockers unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the predators'
+  and the spinosaur's, B3e6's pi bridge-rail crossing); none new from B3e7. B3e8 and B3f haven't begun. Nests deferred to B3f. MAP-B stays preview-only;
   production is unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
