@@ -190,6 +190,16 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Personal GitHub identity refresh, 2026-11-02 (local branch only)
+
+- Isolated on `refresh/personal-identity` from `a824c1c`; the original checkout's unfinished MAP-B predator work is untouched.
+- User-authorized copy updates: explicit UMD Spring 2027 admission; released Hammerhead v0.1.0 in about and an existing-style project row; GitHub personal code host and identity links; original DNS row in past tense. Details in `AUDIT.md`.
+- Cache bumped together to `20261102`. CSS, artwork, maps, boot/orb code, controls and save schema are unchanged. `world.js` changes only education/retired-monitoring text and cache strings.
+- Static HTML and deploy dry run pass. Browser checks and screenshots are BLOCKED by environment permissions; this is not a runtime verification pass.
+- CLI personal identity could not be verified; the connector is `talarurus-admin` with read-only access. No push, metadata mutation, authentication change, or Cloudflare deploy was attempted.
+- Historical GitHub-flag/GitLab-only instructions elsewhere in this file are superseded for this refresh by the user's explicit primary-personal-GitHub direction and the current public repository metadata. Visibility has not been changed.
+
+
 ### MAP-B B2e to B3b, 2026-10-09 (staged only, not deployed)
 
 - B2e (integration and performance audit) is committed as `09a1ecad6c42fc11082be2f2f3a1a8f8bb457ab8`. Accepted as documented for later: the Chromium first-key AudioContext hitch (a separate audio fix), format 1's follower stalls (a separate legacy fix), trailing-corner wet contacts (pinned), landscape phones (deferred).
@@ -609,6 +619,8 @@ The following historical implementation entries describe previously committed/pu
 
 ## 8. Waiting on Ammaar
 
+Identity refresh: publication waits on verified `ammaarrehman` CLI access and portfolio browser/screenshot checks. No redesign approval is needed for the prepared copy/link changes; no redesign was made.
+
 0. **MAP-A, B0 and core approach fix deploys: done 2026-10-03** (MAP-A: Cloudflare `b62884f1`, cache `20261023`; B0: Cloudflare `0e9f176d`, cache `20261024`; core approach fix: Cloudflare `b5fe7d52`, cache `20261025`; section 7). A manual look at the live island by Ammaar is still welcome; nothing should look different. On 2026-10-08 B2d code was deployed by accident (`e1d40cdd`) and rolled back to `b5fe7d52` about 6.5 minutes later (section 7); production is that approved release again.
 1. **Island visual quality reopened:** Ammaar says the conversion does not look good/fully reworked. Fresh assessment in `docs/audit-2026-09-28.md` agrees it needs a coherent art-direction/layout pass, not simply more props. Propose one cohesive slice for approval before expanding it. Park plaque still reads "PI'S ISLAND" rather than Mossgate; buildings/landmarks retain older art. Phase 12 map/layout approval still applies.
 2. HSTS: confirm after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
@@ -627,6 +639,8 @@ The following historical implementation entries describe previously committed/pu
 15. MAP-B B3e8 (the spinosaur): approved and committed 2026-11-01 (section 7), not pushed. roam-07 amended to option B3 (Ammaar, 2026-10-31). Ammaar accepted Jasmine's 12-point napping tolerance (don't loosen it again without investigating), the 43.5% single-seed straight-back rate and the corrected harness. Final lightweight checks in `tools/out/mapb/b3e8/final-approval/`. B4 release blockers unchanged (the spinosaur's spawn addressed in the preview, awaiting B4's sign-off); none new. Don't start B3e9 or B3f before Ammaar's go-ahead.
 
 ## 9. Next steps, in order
+
+Identity refresh next: finish desktop/mobile before-and-after review and interaction tests, then publish the scoped branch through the personal account. Production deployment remains a separate authorized release. Preserve the original checkout's unfinished MAP-B work.
 
 Follow handoff 3's build order. Where it stands:
 
@@ -662,6 +676,8 @@ Follow handoff 3's build order. Where it stands:
 11. **Phases 15 to 19:** NPCs and quests (H); regions and species (Styracosaurus from ref-9, etc.) with the camera and Field Guide; the containment breach (handoff 2 E2); Server Key, the reef and live status (needs the lab on the Pi); the standalone game (handoff 2 Part F).
 
 ## 10. Known gaps and notes
+
+2026-11-02: local server binding fails with EPERM, Chromium launch fails at MachPortRendezvous, and native Chrome capture fails. Static validation is available; browser coverage and screenshots are not. Do not record the portfolio update as fully verified or deployed.
 
 - Save v2 is live (2026-09-30): fix forward, never roll back past `bbadcae`, or returning visitors' island progress starts fresh.
 - The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).

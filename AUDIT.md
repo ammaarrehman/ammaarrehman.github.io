@@ -207,3 +207,18 @@ All 27 links checked: in-page anchors resolve, site files exist, the mailto is a
 4. Optional: a tagged (accessible) export of the résumé PDF. The bullets are fine in the current file (A6-8).
 
 The Cloudflare items (A6-13 minimum TLS 1.2, A6-14 Web Analytics) are done as of 2026-09-28.
+
+
+## Personal identity refresh, 2026-11-02
+
+Authorized by Ammaar's current request to refresh factual copy and personal GitHub links while preserving the design. This approval covers these scoped copy changes; it does not authorize a production deploy or an island redesign.
+
+| Item | Update | Evidence / status |
+|---|---|---|
+| Education | Admitted to UMD College Park, Robert H. Smith School of Business, Information Systems, Spring 2027; still incoming | Ammaar's current instructions |
+| Hammerhead | Released v0.1.0 Go repository-security CLI; linked from about and an existing-style rack row | Public release, seven-check registry, bounded walker, terminal/JSON reporters; release-to-main comparison changes presentation assets only |
+| Code host | GitHub personal account, including the public homelab and portfolio repos | Read-only GitHub metadata confirms these repositories are already public; no visibility changes |
+| DNS | Original single-node rack row and island monitoring text moved to past tense | v1 is retired; no live Pi audit performed |
+| Identity links | GitHub in contact, sameAs and rel=me; footer date updated | Personal account requested as primary developer identity |
+
+Static HTML validation and deploy dry run pass. Browser launch and loopback server binding are blocked in this environment; desktop/mobile before-and-after screenshots and interaction checks remain required before publishing this portfolio update. No production deploy was attempted.

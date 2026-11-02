@@ -1,7 +1,12 @@
 # ammaarrehman.github.io
 
-Personal ePortfolio of **Ammaar Rehman** — Information Systems student (Maryland),
-AWS Certified Cloud Practitioner. Homelab and projects documented at
+Personal ePortfolio of **Ammaar Rehman**, Howard Community College student and
+AWS Certified Cloud Practitioner. Admitted to the University of Maryland, College Park,
+Robert H. Smith School of Business for Information Systems, Spring 2027.
+
+Live at [ammaarrehman.com](https://ammaarrehman.com). Released security CLI:
+[Hammerhead v0.1.0](https://github.com/ammaarrehman/hammerhead/releases/tag/v0.1.0).
+Homelab and infrastructure writeups:
 [github.com/ammaarrehman/homelab](https://github.com/ammaarrehman/homelab).
 
 Hand-rolled design system: strict monochrome UI and ASCII art that carries
@@ -190,11 +195,11 @@ until hovered.
 
 - Run locally: `python3 -m http.server 8000` in the repo, then open http://localhost:8000.
 - `js/head.js` holds the site switches. `CODE_HOST` is where the project repos live: `null` hides
-  every repo link and the "code is on ..." sentences; `{ name: "GitLab", base: "https://gitlab.com/ammaarrehman" }`
+  every repo link and the "code is on ..." sentences; `{ name: "GitHub", base: "https://github.com/ammaarrehman" }`
   brings them back, built from the repo paths in the markup (GitLab's tree paths get their `/-/`). The markup
   holds only those paths (`data-repo`, no `href`), and the repo-only bits (`data-gh="hide"`) stay hidden until
   `head.js` marks the page `.code-host`, so with JavaScript off nothing links to a repo either.
-  `node tools/codelinks.mjs` checks all three cases (js off, no host, a GitLab host).
+  `node tools/codelinks.mjs` checks JavaScript off, no host, the shipped GitHub switches, and all repositories enabled.
 - Scripts and the stylesheet carry `?v=YYYYMMDD` in `index.html` (and the island's own paths in
   `js/site.js` and `js/world.js`). Bump it everywhere together whenever a script or the CSS
   changes, so returning visitors get the new files.
