@@ -1429,7 +1429,7 @@ after his visual review, committed as "Map: migrate MAP-B pachycephalosaurs (B3e
   | roam-03 (shared) | raptor x3 | 120,11 to 126,16 | raptor-yard 100% | 42 of 42 (the yard's inside) | 0% |
   | roam-04 (shared) | stegosaur, triceratops x2, ankylosaur | 41,43 to 57,60 | riverlands-range 100% | 260 of 306 | 0% |
   | roam-05, 06 | parasaurolophus x2 | 14,71 to 22,80 | delta-wetland 82% | 43 of 90 | 9% |
-  | roam-07 | spinosaur | 37,31 to 46,38 | spino-reach 94% | 58 of 80 (spawn on 20 foot-blocking px) | 55% |
+  | roam-07 | spinosaur | 36,29 to 41,37, spawn 39,34 (amended in B3e8; B3a's was 37,31 to 46,38, spawn 40,34) | spino-reach 85% (B3a's: 94%) | 44 of 54 (B3a's: 58 of 80, spawn on 20 foot-blocking px) | 4.7% walked with `move()` (B3a's: 55%, the river) |
   | roam-08 | dilophosaur | 89,14 to 95,21 | dilo-strip 96% | 56 of 56 | 0% |
   | roam-09, 10 | pachycephalosaur x2 | 36,15 to 45,22 | pachy-heath 99% | 69 of 80 | 0% |
   | roam-11 to 14 | gallimimus x4 | 85,41 to 95,48 | galli-meadow 100% | 88 of 88 | 0% |
@@ -1961,7 +1961,8 @@ MAP-B parasaurolophus (B3e4)"; not pushed or deployed):
   - the cache bump for B3e3's `js/world.js` change;
   - before the predators migrate (B3e1's deferred blockers): the T. rex's unreachable target 108,11, the T. rex's and raptors'
     sprites over their fences, the roar zone and the welder's patrol not in the format;
-  - the spinosaur's B3a spawn on the river bank's foot-blocking pixels;
+  - the spinosaur's B3a spawn on the river bank's foot-blocking pixels (addressed in the preview by B3e8's approved amendment, the spawn
+    moved to 39,34 and the box to the west bank; kept on this list until B4 signs it off);
   - added by B3e6: pi's feet can briefly cross thin foot-blocking pixels, MAP-B's bridge rails (MAP-B B3e6, below).
 - Status: complete, approved and committed. B3e5's audit followed (below).
 
@@ -2301,6 +2302,93 @@ MAP-B B3e7, Jasmine and Prince (2026-10-29 to 2026-10-31; staged only, not deplo
 - B4 release blockers unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the predators'
   and the spinosaur's, B3e6's pi bridge-rail crossing); none new from B3e7. B3e8 and B3f haven't begun. Nests deferred to B3f. MAP-B stays preview-only;
   production is unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
+
+MAP-B B3e8, the spinosaur (2026-10-31 to 2026-11-01; staged only, not deployed; approved and committed):
+- Read first: format 1's spinosaur in `js/world.js` (`DINOS.spino`: art sheet 96 x 51 px, 25 frames, speed 10 px/s, step 1.9, its two
+  lines; `okFor`, `updateCritter`, `move()`, `drawArt`, the night doze and waking), B3a's plan (roam-07) and the B3e8 audit.
+- Format 1: one spinosaur in roam-07 (box 17,44 to 26,53, at 20,48), on a riverbank. The dinosaurs' wander: six random tiles of the box,
+  the first open grass, a straight walk, half a second's pause if blocked; it dozes at night when idle and pi is away, and pi within
+  26 px wakes it with a hop. [E] or a tap gives "a dinosaur" and one of its two lines.
+- The audit (`tools/out/mapb/b3e8/audit/`: `report.txt`, `node-candidates.txt`, `sim-*.txt`, `overhang-*.txt`, `aggregate.txt`,
+  `shots.txt`, `shots/`; test-only, before any repo change): B3a's box (37,31 to 46,38) straddles the river, which crosses spino
+  reach from north-east to south-west; 54% of the straight walks between its 58 targets stop at the water (49% in the game, three seeds,
+  recovery up to 35 s), and its spawn 40,34 is the west bank's edge tile (20 foot-blocking px under its feet). Moving only the spawn
+  (option A) changed nothing else. Boxes on the west bank (B1 to B4) blocked 1.5 to 4.8% of walks. B3 (36,29 to 41,37) paced like
+  format 1 (34% of walks straight back, format 1's 34%), walked 247 tiles in ten minutes (format 1 265), with its sprite over water in
+  35% of frames (1.7% of its pixels; format 1 49%, 6.1%) and over a cliff in 17% (2.8%; format 1 53%, 3.8%). B2 (36,30 to 41,37) was the
+  alternative, 96% inside the habitat with more pacing. The east bank (option C) wasn't needed. Chromium and WebKit gave identical results.
+  Limits kept from the audit: format 1's [E] baseline there was incomplete (4 of 10 approaches ran, from start points of my own that
+  weren't walkable), and its shots include test setups, each labelled in `shots.txt`.
+- Approved amendment (Ammaar, 2026-10-31): option B3, roam-07 box 36,29 to 41,37, spawn 39,34, habitat spino-reach kept; B3a's
+  placement amended. Recorded in `ROAM_PLAN` (`tools/maps/content.mjs`) and the B3a table above.
+- Content (`tools/maps/home.content.mjs`): roam-07 between roam-06 and roam-08 (format 1's order). 47 records, the 46 before it byte
+  for byte (the staged file's diff: one inserted line and the source hash), 288 solid tiles, 0 foot pixels (20832 bytes, sha256
+  `2ca327294788b4c4`). The box is 54 tiles, 44 of them open grass it may walk to, 46 inside spino-reach (85.2%). Twenty-nine creatures
+  in 26 roam areas in the content preview.
+- Runtime: no change. The decoder, `okFor`, `move()`, the sheet, speed, animation, sleep and waking, the card and its lines, the
+  sounds, the terrain and the painter are format 1's and B3's as they were. The completeness wall names the 2 roam areas still missing
+  (roam-02 and roam-03, the predators) and the props item; a normal format-2 home is still refused.
+- Tests: `tools/mapb-creatures.mjs` extended (no new framework; the audit's candidate comparison isn't repeated):
+  - Node: the record against B3a as amended and format 1; its spawn open grass with feet clear, inside the habitat; the 46 earlier
+    records byte for byte (a new hash at 7ef762c) and roam-07 just after roam-06; every pair of its targets walked with `move()` at its
+    own speed (88 of 1892 stop, 4.7%: 77 headed for the bank tiles 40,34 and 41,32, 11 passing the bank up the east column; the least
+    place a walk can end still reaches 35 of 44 targets; B3a's box measured the same way for the record: 53.9%, the least 17); its art
+    on every target, every frame, either facing: over the river at most 33.4% of the sprite (at 41,32), 3.2% on average (B3a's box
+    16.8%), over the waterfall's cliff at most 51.5% (at 40,29, the north row: the sail against the cliff face); all 28 planned roam
+    areas now compile together (the known conflict is gone); seven malformed cases (B3a's box and spawn, refused both as not approved
+    and for its feet on the bank, B2's box, no habitat, a dilophosaur in roam-07, roam-07 after roam-08) and a decoder refusal (a
+    spinosaur in the river).
+  - The game: the spinosaur frame by frame for ten minutes beside format 1's (targets open grass in the box, blocked walks under 10%
+    and never more than two in a row, a new target within 2 s of a block, no stand-still over 15 s, feet never on solid or out of the
+    box, distance at least three quarters of format 1's, pacing within 15 points, its sprite's share over water no more than format
+    1's on average and at worst, over a cliff in no more frames than format 1's, over water in at most 40% of frames); normal play
+    (from the path south-west of spino reach and from north of the waterfall's cliff, pi walks up to it at its spawn and the open tile
+    nearest each box corner by the game's route, and [E] opens its card: 10 of 10); [E], card and hop; a click; phone taps at 390 and
+    375; night (it dozes, pi coming close wakes it; a sleeping shot framed whole); pi walking round its box; pushes at the cliff and
+    the river; repeatability; storage; the painter digests; completeness 2; performance through spino reach; review shots.
+  - Harness fixes after the first run (kept: `gates/mapb-creatures-first.log`, 363 passed, 10 failed, the same five checks in both
+    engines):
+    - the spinosaur's movement check also required its sprite over water in no more frames than format 1's: 35.3% against 32.1% on
+      this seed (format 1's was 49.1% over the audit's three seeds), though its share of pixels there was 2.0% against 4.9% and its
+      worst 31.6% against 67.7%. Now held to the audit's level (40%) beside the share checks.
+    - the pushes at the obstacles set the spinosaur on bank tiles (41,32 and 38,37) whose centres put its feet on the bank's pixels in
+      the first frame, which normal roaming never does (`gates/spino-push-diagnostic.txt`; format 1's spinosaur pushed out of its own
+      box crosses its bank's pixels too, 2 of 52 pushes). A push now starts only from a tile with clear feet, for every species.
+    - Jasmine's napping against format 1's Jasmine: 34% against 23%, 11 points (B3e7's run: 33% against 23%). She is unchanged; the
+      spinosaur before her in format 1's order shifts the seeded stream. Held within 12 points (Prince's still 10); accepted by Ammaar,
+      and not to be loosened again without investigating.
+    - the night shots: the cats napped ten rows apart, too far for one screen (now within eight, and the camera tile is tried in turn
+      until both are framed: the pond lies between the lawns, so the nearest open tile left the north cat under the top bar in the
+      second run); the spinosaur's camera tile three to four tiles south put its sail under the top bar (now two or three).
+  - The second run (`gates/mapb-creatures-second.log`): 369 passed (Node 137, Chromium 119, WebKit 113), 4 failed: the cats' night
+    framing in both engines (fixed as above) and WebKit's live-loop shake a second after it was set (1.33 left instead of 0, in format
+    1 as in the content preview: the one check on the page's real clock, B3e7's slow-machine failure; no code it covers changed).
+  - The third run (`gates/mapb-creatures-third.log`, 2026-11-01): **373 passed (Node 137, Chromium 120, WebKit 116), none failed**;
+    Firefox BLOCKED (not installed), never a pass. Performance, all twenty-nine running: frame work p95 1.6 ms (Chromium), 6.0 ms
+    (WebKit, the machine slow again: 287 frames on the route).
+  - Lightweight checks (`tools/out/mapb/b3e8/final/summary.txt`): map-compile and map-content `--check` current (20832 bytes, sha256
+    `2ca327294788b4c4`, 47 records, 288 solid tiles, 0 foot pixels); the Node parts of the other seven MAP-B suites (stations 72,
+    landmarks 33, content 29, koi-gate 52, paddock 32, fences 35, buildings 71), all passing; guard 8; dry run; `git diff --check`;
+    CSpell the same 19. No change to `js/world.js` or `index.html`; `SAVE_V` 2, cache `20261025`.
+- Measured (ten minutes, seed 42, both engines the same): MAP-B's spinosaur 70 walks arrived, 2 blocked (2.8%, never two in a row), a
+  new target 0.52 s after each, 247 tiles walked, walking 66%, longest stand-still 5.0 s, 36 targets, 43 tiles stood on, 30 of 69 walks
+  straight back (43.5%); its sprite over water in 35.3% of frames (2.0% of its pixels, at worst 31.6%), over a cliff in 19.0% (3.4%).
+  Format 1's: 50 arrived, 7 blocked (12.3%, two in a row at most), 275 tiles, walking 73%, 44 targets, 68 tiles, 15 of 49 straight back
+  (30.6%); over water 32.1% (4.9%, at worst 67.7%), over a cliff 69.3% (5.8%). On this seed it paced more than the audit's average
+  (34%, three seeds), 13 points above format 1's; within the 15 the check allows. Night: it dozes, and pi walking up wakes it with a
+  hop.
+- Screenshots (`tools/out/mapb/b3e8/`, `chromium-` and `webkit-`): spino-spawn, spino-walking (the game's own pick from its spawn),
+  spino-riverbank (sent at the bank tile 41,32, shot where `move()` stops it, its snout over the river), spino-cliff (held on the north
+  row, 38,29, the sail against the cliff face), spino-asleep-night (a doze in normal wander; pi set two tiles south only to frame it),
+  spino-night, spino-prompt, spino-card (typed out), phone390- and phone375-spino-card; every earlier species' again. Held poses are
+  test setups (pi walks to his spot by a tap's route); the walk and the bank stop are the game's. Audit shots in `audit/shots/`.
+- Status: complete, approved by Ammaar (2026-11-01) and committed, not pushed or deployed. Accepted with it: Jasmine's 12-point napping
+  tolerance, the 43.5% single-seed straight-back rate (within the 15-point check; the audit's three-seed average 34%), the smaller
+  sprite-over-water area despite one seed's higher frame share, the corrected harness and the kept failed logs.
+- B4 release blockers unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the predators'
+  and the spinosaur's B3a spawn, now addressed in the preview by the amendment but kept on the list for B4's sign-off, B3e6's pi
+  bridge-rail crossing); none new from B3e8. B3e9 and B3f haven't begun. Nests deferred to B3f. MAP-B stays preview-only; production is
+  unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

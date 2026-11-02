@@ -142,6 +142,12 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    half their straight walks at the water; each lawn is one open rectangle, so none stops. Prince's box starts at x 107 so he stays clear
    of the macbook's blanket (105,57: 32 px wide, no collision on MAP-B), which hid him whole and took [E] from him. Format 1's wander picks
    anything but a dock (okFor). In format 1's order they come last */
+/* B3e8: format 1's spinosaur, in its own roam area (roam-07) on the west bank of the river in spino reach (B1e habitat spino-reach), at
+   B3a's place as Ammaar amended it for B3e8 (2026-10-31): 36,29 to 41,37 (43 of its 54 tiles open grass, 85% inside the habitat),
+   starting at 39,34, a tile west of B3a's 40,34 (the bank's edge tile, its feet on 20 foot-blocking pixels). B3a's box (37,31 to 46,38)
+   straddled the river, and about half of format 1's straight walks stopped at it; on the west bank about 3% stop, at the two bank tiles
+   (40,34 and 41,32), and the animal picks a new target half a second later, as in format 1. Its sprite (96 x 51 px) reaches over the
+   river and the waterfall's cliff at times, less than format 1's does. In format 1's order it sits after roam-06 */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, ...(habitat ? { habitat } : {}), spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -219,6 +225,7 @@ export default {
     roam("roam-04", [41, 43, 57, 60], "riverlands-range", [["stego", 44, 46], ["trike", 50, 47], ["trike", 54, 55], ["ankylo", 45, 58]]),
     roam("roam-05", [14, 71, 22, 80], "delta-wetland", [["para", 20, 73]]),
     roam("roam-06", [14, 71, 22, 80], "delta-wetland", [["para", 16, 77]]),
+    roam("roam-07", [36, 29, 41, 37], "spino-reach", [["spino", 39, 34]]),
     roam("roam-08", [89, 14, 95, 21], "dilo-strip", [["dilo", 91, 17]]),
     roam("roam-09", [36, 15, 45, 22], "pachy-heath", [["pachy", 38, 18]]),
     roam("roam-10", [36, 15, 45, 22], "pachy-heath", [["pachy", 42, 19]]),
