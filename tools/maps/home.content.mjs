@@ -148,6 +148,14 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    straddled the river, and about half of format 1's straight walks stopped at it; on the west bank about 3% stop, at the two bank tiles
    (40,34 and 41,32), and the animal picks a new target half a second later, as in format 1. Its sprite (96 x 51 px) reaches over the
    river and the waterfall's cliff at times, less than format 1's does. In format 1's order it sits after roam-06 */
+/* B3e9: format 1's predators, last of its creatures, in their enclosures (B3d1's holding paddock, B3d2's raptor yard; nothing about the
+   fences changes). The T. rex in its own roam area (roam-02, B1e habitat holding-paddock) at B3a's place as Ammaar amended it for B3e9
+   (2026-11-01): 110,12 to 115,15, all 24 tiles open grass inside the paddock, starting at 112,14. B3a's box (108,11 to 116,16) took in
+   fence tiles and 108,11 outside the paddock, which format 1's stalking aimed at (clamped to the box, unchecked), and its 85 px sprite
+   then reached past the fence into the public lane; in the amended box it leans over a fence at most, never past the fence's outer edge.
+   The three raptors share one roam area (roam-03, B1e habitat raptor-yard: one object, as in format 1) at B3a's box, the yard's whole
+   inside (120,11 to 126,16), starting at 121,12, 124,14 and 125,12. The roar zone and the fences' [E] words (format 1's PADDOCKS) and
+   the welder's patrol wait for B3f: the game's guard keeps the roar off. In format 1's order they sit after roam-01 */
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, ...(habitat ? { habitat } : {}), spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -222,6 +230,8 @@ export default {
     station("boat", [79, 97], [79, 96], { berth: "south" }),
     roam("roam-00", [12, 33, 27, 50], "brachio-meadow", [["brachio", 16, 38]]),
     roam("roam-01", [12, 33, 27, 50], "brachio-meadow", [["brachio", 22, 46]]),
+    roam("roam-02", [110, 12, 115, 15], "holding-paddock", [["trex", 112, 14]]),
+    roam("roam-03", [120, 11, 126, 16], "raptor-yard", [["raptor", 121, 12], ["raptor", 124, 14], ["raptor", 125, 12]]),
     roam("roam-04", [41, 43, 57, 60], "riverlands-range", [["stego", 44, 46], ["trike", 50, 47], ["trike", 54, 55], ["ankylo", 45, 58]]),
     roam("roam-05", [14, 71, 22, 80], "delta-wetland", [["para", 20, 73]]),
     roam("roam-06", [14, 71, 22, 80], "delta-wetland", [["para", 16, 77]]),
