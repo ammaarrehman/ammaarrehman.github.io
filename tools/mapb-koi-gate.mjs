@@ -509,8 +509,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       hh.ok === 0 && hh.pts === (53 + 2 + 4) * 16 && hh.inGarden && hh.runs.every((r) => r.ok0 && r.state === "parked" && r.over === 0 && r.piSafe && !r.piOn), `${hh.ok} of ${hh.pts} allow a landing; ` + hh.runs.map((r) => `from ${r.from}${r.ok0 ? "" : " (E REFUSED THERE)"}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.over ? " OVER A SOLID" : ""}`).join("; "));
     // completeness and storage
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: with the koi garden's wall and the park gate there (each with its art) neither item is left; a normal format-2 home made of this content would still be refused (7 items since B3d4b's stations: the sections not in the format yet)",
-      comp && !comp.complete && comp.missing.length === 7 && !comp.missing.some((q) => /^(compound walls|the park gate|paddock fences|buildings|stations)/.test(q)) && comp.missing.some((q) => /^spawns and roam areas/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
+    check(name, "completeness: with the koi garden's wall and the park gate there (each with its art) neither item is left; a normal format-2 home made of this content would still be refused (6 items since B3e9's predators: the sections not in the format yet)",
+      comp && !comp.complete && comp.missing.length === 6 && !comp.missing.some((q) => /^(compound walls|the park gate|paddock fences|buildings|stations|spawns and roam areas)/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the pushes, walks, rooms, landings and a reload)", (await storeOf(cp)) === JSON.stringify(Object.keys(store).sort().map((k) => [k, store[k]])));
     // the decoder refuses malformed walls and gates

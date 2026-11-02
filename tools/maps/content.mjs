@@ -185,12 +185,16 @@ export const STATION_REACH = 26;
    and the habitat kept: format 1's straight wander stopped at the pond on about half the cats' walks (five targets unreachable), and a
    cat by the macbook (105,57) was hidden under its blanket and lost [E] to it. Amended by Ammaar for B3e8 (2026-10-31): roam-07 37,31 to
    46,38 with its spinosaur at 40,34 became 36,29 to 41,37 with it at 39,34, the habitat kept: B3a's box straddled the river, so about half
-   of format 1's straight walks stopped at it, and its spawn stood on the west bank's foot-blocking pixels; the amended box is the west bank */
+   of format 1's straight walks stopped at it, and its spawn stood on the west bank's foot-blocking pixels; the amended box is the west bank.
+   Amended by Ammaar for B3e9 (2026-11-01): roam-02 108,11 to 116,16 became 110,12 to 115,15, the T. rex's spawn (112,14) and the habitat
+   kept: the holding paddock is a stepped diamond, so B3a's rectangle took in fence tiles and one tile outside (108,11) that format 1's
+   stalking (clamped to the box, unchecked) aimed at, and the T. rex's sprite reached past the fence into the public lane; all 24 tiles of
+   the amended box are inside the paddock */
 export const CREATURE_KINDS = ["brachio", "trex", "stego", "trike", "para", "raptor", "ankylo", "baby", "spino", "dilo", "pachy", "galli", "compy", "baby2", "robot", "roomba", "cat"];
 const RP = (box, habitat, spawns) => ({ box: { x0: box[0], y0: box[1], x1: box[2], y1: box[3] }, habitat, spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 export const ROAM_PLAN = {
   "roam-00": RP([12, 33, 27, 50], "brachio-meadow", [["brachio", 16, 38]]), "roam-01": RP([12, 33, 27, 50], "brachio-meadow", [["brachio", 22, 46]]),
-  "roam-02": RP([108, 11, 116, 16], "holding-paddock", [["trex", 112, 14]]),
+  "roam-02": RP([110, 12, 115, 15], "holding-paddock", [["trex", 112, 14]]),
   "roam-03": RP([120, 11, 126, 16], "raptor-yard", [["raptor", 121, 12], ["raptor", 124, 14], ["raptor", 125, 12]]),
   "roam-04": RP([41, 43, 57, 60], "riverlands-range", [["stego", 44, 46], ["trike", 50, 47], ["trike", 54, 55], ["ankylo", 45, 58]]),
   "roam-05": RP([14, 71, 22, 80], "delta-wetland", [["para", 20, 73]]), "roam-06": RP([14, 71, 22, 80], "delta-wetland", [["para", 16, 77]]),

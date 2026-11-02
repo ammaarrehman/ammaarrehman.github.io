@@ -398,8 +398,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     check(name, "content preview: no storage read or written (a production save beside it untouched through the reads, the logs, a secret and a reload); after the reload nothing is found (progress lives in memory only)",
       (await storeOf(cp)) === STORE_JSON && rl.logs.found === 0 && rl.save.logs.length === 0 && rl.save.secrets.length === 0, `logs after reload ${JSON.stringify(rl.logs)}`);
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: with the eleven stations there the stations item is gone; a normal format-2 home made of this content would still be refused (7 items: the sections not in the format yet)",
-      comp && !comp.complete && comp.missing.length === 7 && !comp.missing.some((q) => /^(stations|landmark bases|compound walls|the park gate|paddock fences|buildings)/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
+    check(name, "completeness: with the eleven stations there the stations item is gone; a normal format-2 home made of this content would still be refused (6 items since B3e9's predators: the sections not in the format yet)",
+      comp && !comp.complete && comp.missing.length === 6 && !comp.missing.some((q) => /^(stations|landmark bases|compound walls|the park gate|paddock fences|buildings)/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
     const refusedHere = async (o) => cp.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
     { const msg = await refusedHere(cWith(() => {})); check(name, "decoder: the real content decodes", msg === null, msg || ""); }
     for (const [label, fn, re] of REFUSE) { const msg = await refusedHere(cWith(fn)); check(name, `decoder refuses: ${label}`, re.test(msg || ""), msg || "NOT refused"); }

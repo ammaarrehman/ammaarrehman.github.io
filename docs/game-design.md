@@ -1425,7 +1425,7 @@ after his visual review, committed as "Map: migrate MAP-B pachycephalosaurs (B3e
   | roam ids | creatures | box | habitat | open tiles to walk to | straight walks blocked |
   |---|---|---|---|---|---|
   | roam-00, 01 | brachiosaur x2 | 12,33 to 27,50 | brachio-meadow 100% | 244 of 288 | 0% |
-  | roam-02 | T. rex | 108,11 to 116,16 | holding-paddock 98% | 36 of 54 (35 inside, 1 outside the fence) | 9% |
+  | roam-02 | T. rex | 110,12 to 115,15 (amended in B3e9; B3a's was 108,11 to 116,16) | holding-paddock 100% (B3a's: 98%) | 24 of 24, all inside the fence (B3a's: 36 of 54, 35 inside, 1 outside the fence) | 0% (B3a's: 9%) |
   | roam-03 (shared) | raptor x3 | 120,11 to 126,16 | raptor-yard 100% | 42 of 42 (the yard's inside) | 0% |
   | roam-04 (shared) | stegosaur, triceratops x2, ankylosaur | 41,43 to 57,60 | riverlands-range 100% | 260 of 306 | 0% |
   | roam-05, 06 | parasaurolophus x2 | 14,71 to 22,80 | delta-wetland 82% | 43 of 90 | 9% |
@@ -1796,7 +1796,7 @@ complete):
   B4's deploy will need its own cache bump.
 
 MAP-B B3e4, the parasaurolophus (2026-10-26 and 27; staged only; approved by Ammaar 2026-10-27 and committed as "Map: migrate
-MAP-B parasaurolophus (B3e4)"; not pushed or deployed):
+MAP-B parasaurolophus (B3e4)"; not pushed then, since pushed with B3e6; not deployed):
 - Read first: B3e1's audit (para: "82% in delta-wetland; targets 43/90; straight walks blocked 9%"), B3a's plan, format 1's creature
   code. Audit files in `tools/out/mapb/b3e4/audit/`: `region.txt` (the wetland mapped), `walks.txt` (the game's move() in Node),
   `movement.txt` and `movement-summary.txt` (seeded runs in the game, MAP-B and format 1).
@@ -1960,7 +1960,9 @@ MAP-B parasaurolophus (B3e4)"; not pushed or deployed):
   - the gallimimus' and compsognathus' out-of-box fleeing and stranding risk (B3e2), to resolve or verify more strongly;
   - the cache bump for B3e3's `js/world.js` change;
   - before the predators migrate (B3e1's deferred blockers): the T. rex's unreachable target 108,11, the T. rex's and raptors'
-    sprites over their fences, the roar zone and the welder's patrol not in the format;
+    sprites over their fences, the roar zone and the welder's patrol not in the format (the first two addressed in the preview by
+    B3e9's approved amendment, kept on this list until B4 signs them off; the roar zone, the fences' [E] words and the welder's patrol
+    are B3f's, still missing: MAP-B B3e9, below);
   - the spinosaur's B3a spawn on the river bank's foot-blocking pixels (addressed in the preview by B3e8's approved amendment, the spawn
     moved to 39,34 and the box to the west bank; kept on this list until B4 signs it off);
   - added by B3e6: pi's feet can briefly cross thin foot-blocking pixels, MAP-B's bridge rails (MAP-B B3e6, below).
@@ -2382,13 +2384,161 @@ MAP-B B3e8, the spinosaur (2026-10-31 to 2026-11-01; staged only, not deployed; 
   row, 38,29, the sail against the cliff face), spino-asleep-night (a doze in normal wander; pi set two tiles south only to frame it),
   spino-night, spino-prompt, spino-card (typed out), phone390- and phone375-spino-card; every earlier species' again. Held poses are
   test setups (pi walks to his spot by a tap's route); the walk and the bank stop are the game's. Audit shots in `audit/shots/`.
-- Status: complete, approved by Ammaar (2026-11-01) and committed, not pushed or deployed. Accepted with it: Jasmine's 12-point napping
+- Status: complete, approved by Ammaar (2026-11-01) and committed; not pushed then, since pushed (GitHub's `main` at `a824c1c`, checked
+  2026-11-01); not deployed. Accepted with it: Jasmine's 12-point napping
   tolerance, the 43.5% single-seed straight-back rate (within the 15-point check; the audit's three-seed average 34%), the smaller
   sprite-over-water area despite one seed's higher frame share, the corrected harness and the kept failed logs.
 - B4 release blockers unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the predators'
   and the spinosaur's B3a spawn, now addressed in the preview by the amendment but kept on the list for B4's sign-off, B3e6's pi
   bridge-rail crossing); none new from B3e8. B3e9 and B3f haven't begun. Nests deferred to B3f. MAP-B stays preview-only; production is
   unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
+
+MAP-B B3e9, the predators (2026-11-01; staged only, not deployed; approved by Ammaar 2026-11-02, visual and technical, and committed locally, not pushed):
+- Read first: B3e1's predator simulation and deferred blockers (above), B3a's plan (roam-02, roam-03), B3d1's and B3d2's enclosures,
+  format 1's predators in `js/world.js` (`DINOS.trex`: 85 x 45 px sheet, speed 13; `DINOS.raptor`: 39 x 20 px, speed 26; the T. rex
+  stalks pi within 190 px, aiming at him clamped to its box with no ground check; the raptors pace their fence within 170 px, clamped
+  and checked, and dart after a mate; only the T. rex dozes at night), and the B3e9 audit.
+- The audit (`tools/out/mapb/b3e9/audit/`: `summary.txt`, `movement.log`, `interact.log`, `sim-*.txt`, `deps.txt`, `geom.txt`,
+  `results-*.json`, `shots/` with test-only renderings labelled; Chromium only, before any repo change). The holding paddock is a
+  stepped diamond, so B3a's rectangle (108,11 to 116,16) held fence tiles and one open tile outside the fence, 108,11: a target the T. rex
+  could never reach, and its stalking aimed at fence tiles too (46 walks stopped short in ten minutes with pi circling). Its sprite, laid
+  on the ground at its feet's row, reached past the fence's outer edge in 3.5% of frames with pi away and 21.8% with pi circling, up to
+  16 px into the public lane. In 110,12 to 115,15 every tile is inside (24 of 24, open grass) and the art never passes the outer edge;
+  110,11 to 114,16 still let it stalk onto fence tiles and was rejected. The raptors' art never passes their fence's outer edge in any
+  box (a raptor is 39 px wide; the fence tile takes the overhang); narrowing their box cost 6 to 12 of 42 tiles for nothing visible.
+  Rendering prototypes (test only, patched `js/world.js` served to the page): the fences drawn over the animals (B) left the snout in the
+  lane, clipping at the fence's outer edge (C) cut the art abruptly, at its inner edge (C') took the head off. Format 1's own T. rex
+  overhangs its fence in 99% of frames with pi circling (up to 14 px); its raptors don't.
+- Approved (Ammaar, 2026-11-01): data only.
+  - T. rex: roam-02 amended to 110,12 to 115,15, spawn 112,14 and habitat holding-paddock kept; B3a's placement amended, in `ROAM_PLAN`
+    (`tools/maps/content.mjs`) and the B3a table above. Accepted with it: 17 to 18% less travel than B3a's box.
+  - Raptors: roam-03 at B3a's box 120,11 to 126,16 (the yard's whole inside), spawns 121,12, 124,14 and 125,12, one shared area.
+  - Rendering: option A, the renderer, art and draw order unchanged (no clipping, scaling, fence redraw or terrain change). A sprite
+    leaning over a fence tile is acceptable; one reaching past the fence's outer edge into the public lane is not.
+  - Interactions: click and touch from outside, [E] as it is (its reach isn't extended). The roar zone, the fences' [E] words (format
+    1's PADDOCKS, which also set off the roar) and the welder's patrol stay with B3f; nothing partial is switched on.
+- Content (`tools/maps/home.content.mjs`): roam-02 and roam-03 after roam-01, in format 1's order. 49 records, the 47 before them byte
+  for byte, 288 solid tiles, 0 foot pixels. Thirty-three creatures in 28 roam areas: format 1's whole population, its kinds in its order,
+  sharing its areas as it does. The completeness item for the spawns and roam areas is gone (all 28 are there); a normal format-2 home
+  is still refused, 6 items (rooms, anchors, the routes with the welder's patrol, places, zones with the roar zone, props with the nests).
+- Runtime: no change. `js/world.js`, `index.html`, `move()`, `okFor`, the sheet, speeds, stalking, pacing, darting, the night doze,
+  [E]'s reach, the cards and lines are format 1's and B3's as they were. The roar stays off: the zone isn't in the content and the game's
+  guard (`ZONES["trex-roar"]`) holds; the fence [E] path that would roar has no fence words in MAP-B yet.
+- Tests: `tools/mapb-creatures.mjs` extended (its established harness; B3e1's simulation content replaced by the real one):
+  - Node: the two records against B3a as amended and format 1; the 47 earlier records byte for byte (a new hash at a824c1c) and
+    roam-02, roam-03 just after roam-01; the T. rex's 24 box tiles all open grass inside the paddock and every place its stalking can aim
+    on them; the yard's 42; both sprites, every frame, either facing, laid on the ground wherever their feet can be: over a fence tile
+    38.5% (T. rex) and 23.1% (raptors) of placings, past the outer edge and into the lane none (B3a's box measured the same way: past the
+    edge in 11470 of 42662 placings, up to 47 px; into the lane in 5146); twelve malformed cases (B3a's box and the audit's rejected
+    one, a moved T. rex, no habitat, a raptor in roam-02, the narrowed yard, the raptors split or short, a moved raptor, the wrong
+    habitat, the order twice) and two decoder refusals (a T. rex on its fence, a raptor in the lane). Two older cases that borrowed
+    roam-02's id now work round it (every roam id is in the content).
+  - The game, the predators' own (pi never set inside an enclosure: he starts outside at the paddock's viewing place, 112,19, and walks
+    by the game's own route, his tile checked against both insides every frame): ten minutes with pi away and ten with him walking round
+    both enclosures (feet always inside and never on solid; the T. rex's targets never outside; nothing stopped short; never standing
+    still with a target; the art past the fence's outer edge or in the lane in no frame; no roar); stalking and pacing toward pi at five
+    places outside; [E] from every open tile within two tiles of the fences that pi's route reaches (142); [E] in normal play; a click
+    from each viewing place by day and night; taps at 390 and 375; how much of each the rendered frame shows from the lane; obstacle
+    pushes at their fences (the animal moved, not pi); night (the T. rex dozes, the raptors never).
+  - Every earlier check now covers 33 creatures (census, spawns, ten-minute runs, repeatability, the painter digests, storage,
+    completeness, performance); the checks that set pi beside an animal ([E] and click, the ring walks, the night wake and shots, the
+    phones) leave the predators out. Jasmine's 12-point napping tolerance and every earlier tolerance are unchanged.
+  - Other suites: the completeness pins in `mapb-content`, `mapb-koi-gate`, `mapb-landmarks`, `mapb-stations` and `mapb-paddock` (7
+    items to 6, the spawns item gone); `mapb-paddock`'s check of the fence against B3a's original box now says it was amended.
+  - Harness fixes after the first runs (kept: `tools/out/mapb/b3e9/gates/`):
+    - `chromium-first.log` (277 passed, 2 failed, then a crash): the spawns check required every spawn on safe ground, but the game's
+      safe() is ground reached from pi's spawn, and a predator's spawn is inside its closed fence (now required not safe); the
+      stranding check held the longest stand-still to 6 s, but 8.3 to 11.4 s were measured with pi away, each an idle with no target
+      (format 1's wander can pick the tile it stands on and wait again; format 1's own T. rex, measured the same way, stands 8.6 s); the
+      visibility check read the box from the debug creature() call, which doesn't carry it.
+    - `chromium-second.log` (293 passed, 2 failed): "never standing still with a target" caught 4 and 1 single samples with pi
+      walking round (a stalker pressed into a corner moves and moves back between two samples as its clamped target flips; now the
+      longest unbroken spell, at most 1 s); from the viewing places south of the enclosures the camera left the boxes' north rows above
+      the canvas (now measured from the lane).
+    - `chromium-third.log` (294 passed, 1 failed): the raptors' mates were held on 125,16 and 126,16, and the raptor measured there was
+      drawn over its mate, the frame unchanged (now held in the yard's corner farthest from it); the north-row floor, set at 90% before
+      any measurement, is 85% (88 to 98% measured off the south row; the most anywhere is on a darker background).
+    - The T. rex-roaming review shot stood pi at 123,21, which left the T. rex off screen; it was moved to 98,19. The final run's
+      shots showed that wasn't enough: from 98,19 the frame held a dilophosaur and no T. rex, and the raptors-roaming shot from 106,19
+      held the T. rex stalking and no raptors. At 1280x900 the camera is 4x, about 20 tiles across, so an animal over 190 px (or 170)
+      from pi is off the canvas. Both shots are taken out of the suite (its other review shots are kept); the pi-away roaming shots are
+      the targeted check's, below.
+    - `mapb-creatures-full-first.log` (the first full run: Node 159, Chromium 135 and 1 failed, WebKit 131 and 1 failed; Firefox
+      BLOCKED): the visibility check in both engines, every row measured passing (the T. rex at least 90%, a raptor 88%, 68% on its
+      south row behind the fence) but its count short: at the camera's 4x zoom the T. rex's west columns are off the canvas from the
+      lane. The T. rex is now measured from north of its paddock (113,9), the raptors still from the lane, and the counts are printed.
+  - The final run, `gates/mapb-creatures-full.log`: **427 passed (Node 159, Chromium 136, WebKit 132), none failed; Firefox BLOCKED**
+    (not installed; not a pass). The visibility check, both engines: the T. rex 24 places and a raptor 42, none off the canvas; the
+    T. rex at least 87% on rows 12 and 15 and 98% on 13 and 14; a raptor at least 88% on rows 11 to 15 and 68% on row 16 (behind the
+    south fence, above the 50% floor). After the run the suite's wording was corrected (that check now says it is posed, not roaming
+    evidence, and the two roaming shots are gone); its Node part was rerun (159 passed), its browser part wasn't.
+  - Two evidence distinctions (Ammaar's review, 2026-11-02), each kept apart:
+    - Stalking versus roaming. The visibility check stands pi at 113,9, inside the T. rex's 190 px, and holds the animal at each tile in
+      turn: fence and visibility evidence of a posed animal, not roaming. Roaming with pi away is the ten-minute "away" run (both
+      engines) and the targeted check's shot. Off the canvas is counted apart (it must be 0) and never as hidden.
+    - One sprite versus three. In the visibility check the measured raptor's mates are held in the yard's far corner: a single
+      sprite's visibility, not the three's in play. The three in natural movement are the targeted check's, measured separately.
+    - The 85% north-row floor: set at 90% before any measurement; the third run measured 88% (raptor) and the final 87% (T. rex). The
+      measure is pixels changed against the most the animal changes anywhere in its box, and a pixel counts only past the diff's
+      cutoff (24 levels), so the count moves with the ground under the sprite: the reference is where the ground contrasts most, and
+      the same fully drawn sprite counts a little lower elsewhere. No fence draws in front of the north row (B3d1's order puts the north
+      fence behind), so a shortfall there is background, not occlusion; the floor stays above what was measured. Containment and the strict
+      rule that no art passes the fence's outer edge are unchanged and not thresholds (0 in every frame and placing).
+  - Targeted check (`tools/out/mapb/b3e9/targeted/natural.mjs`, `natural.log`; test only; Chromium and WebKit): **16 passed, none
+    failed**, with notes.
+    - Pi away from the T. rex: pi walked to 98,16 in a 1200x560 window (the game's own scale rule gives 2x there, 600 by 280 world
+      px, so both fit); four minutes, the T. rex never within 190 px (195 to 279), walking 50%, over all four rows.
+    - Pi away from the raptors: pi walked to 108,17 (1200x560); four minutes, no raptor within 170 px (194 at the nearest).
+    - Pi at 113,9: the T. rex stalks to its north row (all 120 samples on row 12, 46 to 51 px from pi). Shot labelled stalking.
+    - The three raptors in natural movement, nothing posed: any two overlapping in 72% of samples with pi away (format 1's own three,
+      measured the same way: 62%; the content preview over ten minutes: 70%), and in every sample when pacing toward pi (they bunch at
+      the fence nearest him). What their mates hide of each, in the rendered frame (the raptor with its mates against the same frame
+      with them moved off, same place and moment): pi away, median 91% shown with a mate over it, 10th percentile 60%, least 23%,
+      under 25% for at most 1.0 s; pi at the yard's viewing place (123,19), median 82%, least 59%; pi in the lane, median 57%, 10th
+      percentile 48%, least 0% (one sample), under 25% for at most 0.5 s. Evidence, no threshold: the darting is format 1's. Pi away,
+      117 samples had the raptor past the 1200x560 frame's east edge (the yard's east column); counted apart, never as hidden.
+  - Approved (Ammaar, 2026-11-02): the amended T. rex box, the raptor yard and art unchanged, the natural overlap as reported, the
+    isolated north-row threshold (85%), the interaction limits as documented. Testing limits recorded with it: the suite's browser part
+    wasn't rerun after its wording edits (its Node part was); natural raptor visibility is evidence without a threshold; Firefox
+    BLOCKED. Stale shots excluded: `*-predators-trex-roaming.png` and `*-predators-raptors-roaming.png` in `tools/out/mapb/b3e9/` (they
+    don't show the animals). The targeted check is in ignored `tools/out/`; it may become durable B4 regression coverage later.
+  - Lightweight checks (`tools/out/mapb/b3e9/final/summary.txt`): both compile checks current (staged content 21286 bytes, 49
+    records, 288 solid tiles, 0 foot pixels); the other seven MAP-B suites' Node parts (stations 72, landmarks 33, content 29,
+    koi-gate 52, paddock 32, fences 35, buildings 71) and the creature suite's (159), all passing; guard 8; dry run passed (41
+    references); `git diff --check` clean; CSpell 19 (pre-existing, `js/world.js`); no em dashes added.
+- Measured (ten minutes, seed 42):
+  - Pi away: the T. rex 24 tiles, walking 46%, 3597 px, 98 targets, none outside, none stopped short, longest stand-still 8.6 s (format
+    1's 8.6 s), its art over a fence tile in 37% of frames; the raptors 41 to 42 tiles, walking 31 to 36%, 5735 to 6376 px, longest
+    stand-still 6.4 to 11.4 s (format 1's 5.0 to 7.7 s), over a fence tile 16 to 20%.
+  - Pi walking round both enclosures: the T. rex 24 tiles, walking 79%, 8327 px, 520 targets (all inside), none stopped short, mean
+    distance to pi 111 px, over a fence tile 73%; the raptors 41 to 42 tiles, walking 48 to 51%, about 106 px from pi, over a fence tile
+    70 to 74%. Past the fence's outer edge and in the lane: never, for any of them.
+  - The three raptors' natural overlap and what their mates hide of each: the targeted check, above.
+  - Stalking and pacing: in the lane (118,13) the T. rex holds x 115.5 and the raptors x 120.5; south of the paddock the T. rex comes
+    to y 15.5, north of it 12.5; south of the yard the raptors come to y 16.5, north of it 11.5.
+  - [E]: offered for the T. rex at 11 spots by the paddock's corners (110,10, 111,10, 116,10, 117,11, 109,10, 108,11, 117,16, 114,17,
+    115,17, 116,17, 113,17), never for a raptor (the nearest a raptor comes is 30 px; [E] reaches 19.5); the lane by the yard gives no
+    card (format 1's fence card there waits for B3f). A click on an animal from the spot already nearest it plans no route and does
+    nothing, in format 1 too; clicks and taps from the viewing places walk pi to the fence and open the card.
+  - Visible on the rendered frame from the lane: the T. rex at least 90% of its best on every tile (the south row 90%, the south fence
+    in front); a raptor at least 88%, its south rows less with the fence in front (see the final run).
+  - Night: the T. rex asleep 70% of ten minutes with pi away, the raptors never; pi can't wake the T. rex from outside (26 px, and the
+    nearest open ground is further), and with pi at the fence it stays awake, stalking.
+- Screenshots (`tools/out/mapb/b3e9/`, `chromium-` and `webkit-`, each labelled on the frame as a review shot, pi walked by the game's
+  route outside the fences, time run, nothing posed): predators-trex-roaming, predators-raptors-roaming, predators-lane,
+  predators-raptors-reacting, predators-worst-overlap (the T. rex pressed into its box's north-east corner, head over the fence corner,
+  the lane clear), predators-lane-night, predators-worst-overlap-night, trex- and raptor-click-card (day and night), phone390- and
+  phone375-trex- and raptor-card; every earlier species' again. The audit's renderings and comparisons are in `audit/shots/`.
+- Status: implemented; uncommitted and unpushed for Ammaar's final visual approval. Not deployed. B3f and B4 not begun.
+- B3f dependencies, and B4 release blockers until they're in: the roar zone (B3a's 104,8.5 to 120,20; every one of its 95 reachable
+  tiles is within the roar's 150 px of the T. rex in the amended box) and the fences' [E] words (format 1's PADDOCKS cards, with a guard
+  for the birds, off in the preview, before the roar can use them); the welder's patrol (its start 123,19 and stops 118,13, 121,18,
+  125,18, 128,13 are open, reachable and outside both enclosures; the raptor house reserve is still open); with the props (the nests,
+  the gardener's plants, the cockatiels' perches). The predator migration is complete; these aren't part of it.
+- B4 release blockers otherwise unchanged (the parasaurolophus' water overhang, B3e2's fleeing and stranding, B3e3's cache bump, the
+  spinosaur's B3a spawn and the predators' target and fence overhang, both addressed in the preview by approved amendments and kept on
+  the list for B4's sign-off, B3e6's pi bridge-rail crossing); none new from B3e9. MAP-B stays preview-only; production is unchanged
+  and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

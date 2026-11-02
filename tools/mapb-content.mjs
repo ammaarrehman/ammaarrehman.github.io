@@ -209,8 +209,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   check(name, "content preview (real content): both locked painter digests, and the painter's reports as on the terrain preview", rl && rl.td === TERRAIN_SHA && rl.gd === GROUND_SHA && tl && rl.pr === tl.pr && rl.fr === tl.fr);
   // B3c2: with the bunker the three buildings are all there, so buildings has left the list; everything else is still missing
   // (B3d2: with both paddock fences there the list is 11 items, not 12; B3d3: with the koi garden's wall and the park gate, 9;
-  // B3d4a: with both landmark bases, 8; B3d4b: with the eleven stations, 7; the count is pinned so an item leaving it is noticed)
-  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list, 7 items: no longer the buildings, the paddock fences, the compound walls, the park gate, the landmark bases or the stations, still the sections not in the format yet)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length === 7 && !rl.comp.missing.some((s) => /^(buildings|paddock fences|compound walls|the park gate|landmark bases|stations)/.test(s)) && rl.comp.missing.some((s) => /^spawns and roam areas/.test(s)),
+  // B3d4a: with both landmark bases, 8; B3d4b: with the eleven stations, 7; B3e9: with all 28 roam areas, 6; the count is pinned so an item
+  // leaving it is noticed)
+  check(name, "content preview (real content): incomplete, so a normal format-2 home made of it would be refused (the missing list, 6 items: no longer the buildings, the paddock fences, the compound walls, the park gate, the landmark bases, the stations or, since B3e9's predators, the spawns and roam areas; still the sections not in the format yet)", rl && rl.comp && !rl.comp.complete && rl.comp.missing.length === 6 && !rl.comp.missing.some((s) => /^(buildings|paddock fences|compound walls|the park gate|landmark bases|stations|spawns and roam areas)/.test(s)),
     rl ? `${rl.comp.missing.length} missing, first: ${rl.comp.missing.slice(0, 2).join(" | ")}` : "");
   // B3c3: the bunker compound's wall is there (with its art); B3d3: so is the koi garden's, and the park gate (with its art)
   const wl = rl && rl.comp ? rl.comp.missing.filter((s) => /^(compound walls|the park gate)/.test(s)) : [];
