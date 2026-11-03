@@ -9,7 +9,7 @@
 
    1. Node, the content and its compiler:
       - the tracked content file is the current compile: the ten earlier records exactly as committed at B3d4a (their
-        compiled bytes pinned), then the eleven stations; still 288 solid tiles, no foot pixel (the stations add none);
+        compiled bytes pinned), then the eleven stations; still 290 solid tiles (288 and, since B3f, the two nests' tiles), no foot pixel (the stations add none);
       - each station against B3a's plan (anchor, approach), the approved source it is tied to (B1e's markers, log sites,
         plazas and berth; the B3d4a bases) and format 1 (the same ids, one solid tile each there); its approach open ground,
         reached from the spawn, in [E]'s reach;
@@ -92,11 +92,12 @@ const DATA = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(
 // B3d4a's ten compiled records, as committed at 1c42050 (the sha256 of their JSON, in order)
 const TEN = "8e0bac4d94b735fce70b13fd8de1669aa941b66166d7998dfa999ed4aae6b226";
 check("node", "the content: B3c's to B3d4a's ten records exactly as committed (their compiled records byte for byte), then the eleven stations in the completeness list's order (since B3e1 the roam areas after them, tools/mapb-creatures.mjs); nothing else",
-  createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 10))).digest("hex") === TEN && DATA.records.length >= 21 && DATA.records.slice(10, 21).map((r) => `${r.id}:${r.kind}`).join() === IDS.map((id) => `${id}:station`).join() && DATA.records.slice(21).every((r) => r.kind === "roam"),
+  createHash("sha256").update(JSON.stringify(DATA.records.slice(0, 10))).digest("hex") === TEN && DATA.records.length >= 21 && DATA.records.slice(10, 21).map((r) => `${r.id}:${r.kind}`).join() === IDS.map((id) => `${id}:station`).join() && DATA.records.slice(21).every((r, i, a) => r.kind === "roam" || (["anchor", "place", "zone", "route", "prop"].includes(r.kind) && a.slice(i).every((q) => q.kind !== "roam"))),
   DATA.records.slice(10, 21).map((r) => r.id).join(", "));
 const PAST = contentLayers(RECS.slice(0, 10), W, H);
-let sameLayer = PAST.solidTiles === LAYER.solidTiles; for (let i = 0; sameLayer && i < W * H; i++) if (PAST.tiles[i] !== LAYER.tiles[i]) sameLayer = false;
-check("node", "the content passes every rule; 288 solid tiles and no foot pixel, exactly B3d4a's layer tile for tile: the stations add no collision", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0 && sameLayer,
+// (B3f: the two nests' tiles, 46,54 and 51,51, besides)
+const NEST_T = new Set([54 * W + 46, 51 * W + 51]); let sameLayer = PAST.solidTiles + 2 === LAYER.solidTiles; for (let i = 0; sameLayer && i < W * H; i++) if (NEST_T.has(i) ? !LAYER.tiles[i] : PAST.tiles[i] !== LAYER.tiles[i]) sameLayer = false;
+check("node", "the content passes every rule; 290 solid tiles (288 and, since B3f, the two nests' tiles) and no foot pixel, exactly B3d4a's layer tile for tile: the stations add no collision", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 290 && built.compiled.footPixels === 0 && sameLayer,
   `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels, ${sameLayer ? "the same tiles as B3d4a's" : "TILES DIFFER FROM B3d4a's"}`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
 const aimWet = (x, y) => { let n = 0; const fx = x * T + 8, fy = y * T + 10; for (let py = fy - 2; py <= fy + 1; py++) for (let px = fx - 4; px <= fx + 4; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
@@ -141,8 +142,11 @@ for (const id of IDS) {
   // the string literals, from esprima's tokenizer (in tools' node_modules, through cspell): every quoted string in the file
   let esprima = null; try { esprima = createRequire(import.meta.url)("esprima"); } catch (e) { esprima = null; }
   const lits = (s) => new Set(esprima ? esprima.tokenize(s).filter((q) => q.type === "String").map((q) => q.value) : []);
-  const L0 = lits(W0), L1 = lits(W1), gone = [...L0].filter((q) => !L1.has(q)), added = [...L1].filter((q) => !L0.has(q));
-  check("node", `every one of B3d4a's ${L0.size} string literals in js/world.js is still there (no card, secret, prompt or terminal line removed or reworded)`, !!esprima && L0.size > 2000 && gone.length === 0,
+  // (B3f: the completeness list's placeholder for a section not in the content format yet, " (not in the content format yet)", is gone
+  // with the last such section: every item is now checked from the decoded data. Not a card, secret, prompt or terminal line)
+  const RETIRED = ['" (not in the content format yet)"'];   // (esprima's token value keeps the quotes)
+  const L0 = lits(W0), L1 = lits(W1), gone = [...L0].filter((q) => !L1.has(q) && !RETIRED.includes(q)), added = [...L1].filter((q) => !L0.has(q));
+  check("node", `every one of B3d4a's ${L0.size} string literals in js/world.js is still there (no card, secret, prompt or terminal line removed or reworded; B3f retired the completeness list's placeholder for sections not in the format, which no item needs now)`, !!esprima && L0.size > 2000 && gone.length === 0,
     gone.length ? `${gone.length} gone (first: ${gone[0].length} chars, sha256 ${sha(gone[0]).slice(0, 12)})` : `${added.length} new`);
   const shown = added.filter((q) => /on this island yet/.test(q));
   notes.push(`node: ${added.length} new string literals in js/world.js (B3d4b): ${added.length - shown.length} in the decoder's station checks, and the content preview's own lines for systems not migrated yet: ${shown.join("; ")}`);
@@ -325,8 +329,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cp = await open(`http://127.0.0.1:${port + 1}/${Q}`, { store: STORE });
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const SYS_OFF = ["rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
-  check(name, "content preview: all its records (288 solid tiles: since B3e1 roam areas too, without collision); the buildings, the stations and (since B3e1) the creatures on, every other home system off (no rex, bird, koi, bot, drone, car, rift, volcano or hatching); 13 stations with the room's rack and desk; 8 logs to find, none found (no save read)",
-    cp.loaded && !cp.errs.length && cv.content.records === ROAM_N.records && cv.content.solidTiles === 288 && cv.sys.buildings && cv.sys.stations && SYS_OFF.every((k) => cv.sys[k] === false) && cv.systems.stations === 13 && cv.systems.critters === ROAM_N.creatures && cv.systems.bots === 0 && cv.systems.drones === 0 && cv.systems.birds === 0 && cv.systems.koi === 0 && !cv.systems.car && !cv.systems.rex && !cv.systems.arena && !cv.systems.volcano && cv.logs.total === 8 && cv.logs.found === 0 && cv.saveLocked,
+  check(name, "content preview: all its records (290 solid tiles (288 and, since B3f, the two nests' tiles): since B3e1 roam areas too, without collision); the buildings, the stations and (since B3e1) the creatures on, every other home system off (no rex, bird, koi, bot, drone, car, rift, volcano or hatching); 13 stations with the room's rack and desk; 8 logs to find, none found (no save read)",
+    cp.loaded && !cp.errs.length && cv.content.records === ROAM_N.records && cv.content.solidTiles === 290 && cv.sys.buildings && cv.sys.stations && SYS_OFF.every((k) => cv.sys[k] === false) && cv.systems.stations === 13 && cv.systems.critters === ROAM_N.creatures && cv.systems.bots === 0 && cv.systems.drones === 0 && cv.systems.birds === 0 && cv.systems.koi === 0 && !cv.systems.car && !cv.systems.rex && !cv.systems.arena && !cv.systems.volcano && cv.logs.total === 8 && cv.logs.found === 0 && cv.saveLocked,
     cv ? `sys ${JSON.stringify(cv.sys)}; systems ${JSON.stringify(cv.systems)}; logs ${JSON.stringify(cv.logs)}` : cp.errs.join("; "));
   check(name, "content preview: each station where its record puts it (anchor, approach as the game's stand), the tower's and the lighthouse's on their bases",
     cv && cv.stations.length === 11 && IDS.every((id) => { const s = cv.stations.find((q) => q.id === id), A = ST[id]; return s && s.x === A.anchor[0] && s.y === A.anchor[1] && s.stand.join() === A.approach.join() && s.landmark === (A.place.landmark || null) && s.log === A.log; }),
@@ -345,7 +349,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     // collision: the stations add none
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the compiler's, B3d4a's 288 tiles (the stations add none), kept apart from the terrain's; gameplay is their union", lay);
+    check(name, "collision: the content layer is exactly the compiler's, B3d4a's 288 tiles (the stations add none) and B3f's two nests, kept apart from the terrain's; gameplay is their union", lay);
     const pc = await cp.I(([sts]) => {
       const I2 = window.__island, o = {};
       for (const [id, a, p, free] of sts) {
@@ -398,8 +402,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     check(name, "content preview: no storage read or written (a production save beside it untouched through the reads, the logs, a secret and a reload); after the reload nothing is found (progress lives in memory only)",
       (await storeOf(cp)) === STORE_JSON && rl.logs.found === 0 && rl.save.logs.length === 0 && rl.save.secrets.length === 0, `logs after reload ${JSON.stringify(rl.logs)}`);
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: with the eleven stations there the stations item is gone; a normal format-2 home made of this content would still be refused (6 items since B3e9's predators: the sections not in the format yet)",
-      comp && !comp.complete && comp.missing.length === 6 && !comp.missing.some((q) => /^(stations|landmark bases|compound walls|the park gate|paddock fences|buildings)/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
+    check(name, "completeness: with the eleven stations there the stations item is gone; the completeness wall passes for this content since B3f (every item satisfied; the decoder still refuses a non-staged format-2 map, B4's to lift) (complete since B3f's nests)",
+      comp && comp.complete && comp.missing.length === 0 && !comp.missing.some((q) => /^(stations|landmark bases|compound walls|the park gate|paddock fences|buildings)/.test(q)), comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
     const refusedHere = async (o) => cp.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
     { const msg = await refusedHere(cWith(() => {})); check(name, "decoder: the real content decodes", msg === null, msg || ""); }
     for (const [label, fn, re] of REFUSE) { const msg = await refusedHere(cWith(fn)); check(name, `decoder refuses: ${label}`, re.test(msg || ""), msg || "NOT refused"); }
@@ -748,7 +752,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
     const P2 = await open(`http://127.0.0.1:${port + 1}/${Q}`);
     if (P2.loaded) {
       const dec = await P2.I(([mm]) => { const I2 = window.__island; for (let i = 0; i < 3; i++) I2.decodeMap(mm); const a = performance.now(); for (let i = 0; i < 10; i++) I2.decodeMap(mm); return (performance.now() - a) / 10; }, [cWith(() => {})]);
-      const dec10 = await P2.I(([mm]) => { const I2 = window.__island; for (let i = 0; i < 3; i++) I2.decodeMap(mm); const a = performance.now(); for (let i = 0; i < 10; i++) I2.decodeMap(mm); return (performance.now() - a) / 10; }, [cWith((c) => { c.records = c.records.slice(0, 10); })]);
+      const dec10 = await P2.I(([mm]) => { const I2 = window.__island; for (let i = 0; i < 3; i++) I2.decodeMap(mm); const a = performance.now(); for (let i = 0; i < 10; i++) I2.decodeMap(mm); return (performance.now() - a) / 10; }, [cWith((c) => { c.records = c.records.slice(0, 10); c.solidTiles = c.records.reduce((n, r) => n + r.tiles.length, 0); })]);   // (the ten's own total: since B3f the nests add 2 beyond them)
       perf.push(`${name}: decoding the staged map (warm, 10): ${dec.toFixed(1)} ms with the ${DATA.records.length} records, ${dec10.toFixed(1)} ms with B3d4a's ten (the stations' checks and their flood from the spawn)`);
     }
     await P2.ctx.close(); }

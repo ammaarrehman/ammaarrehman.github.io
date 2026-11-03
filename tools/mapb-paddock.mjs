@@ -95,8 +95,8 @@ check("node", "the tracked content file is the current compile, bound to the sta
   `${Buffer.byteLength(built.text)} bytes, terrain ${t.sourceSha256.slice(0, 16)}`);
 const RECS = built.compiled.records, LAYER = contentLayers(RECS, W, H), F = RECS.find((r) => r.id === HP), Y = RECS.find((r) => r.id === YARD);
 // B3d3 adds the koi garden's wall and the park gate after this batch's record (tools/mapb-koi-gate.mjs tests them)
-check("node", "the content holds B3c's three buildings and compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence, B3d3's koi garden wall and park gate, B3d4a's tower and lighthouse bases, B3d4b's eleven stations and B3e1's two roam areas (nothing else)", RECS.slice(0, 21).map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark,sign:station,uplink:station,tower:station,lighthouse:station,macbook:station,tablet:station,mailbox:station,drink:station,shrine:station,cave:station,boat:station" && RECS.slice(21).every((r) => r.kind === "roam"), RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
-check("node", "the content passes every rule: 288 solid tiles (184 before B3d2, its 36, then B3d3's 53 + 2 and B3d4a's 9 + 4; B3d4b's stations add none), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
+check("node", "the content holds B3c's three buildings and compound wall, B3d1's raptor-yard fence, B3d2's holding-paddock fence, B3d3's koi garden wall and park gate, B3d4a's tower and lighthouse bases, B3d4b's eleven stations and B3e1's two roam areas (nothing else)", RECS.slice(0, 21).map((r) => `${r.id}:${r.kind}`).join() === "visitor:building,depot:building,bunker:building,bunker-compound:wall,raptor-yard:fence,holding-paddock:fence,koi-garden:wall,park-gate:gate,tower-base:landmark,lighthouse-base:landmark,sign:station,uplink:station,tower:station,lighthouse:station,macbook:station,tablet:station,mailbox:station,drink:station,shrine:station,cave:station,boat:station" && RECS.slice(21).every((r, i, a) => r.kind === "roam" || (["anchor", "place", "zone", "route", "prop"].includes(r.kind) && a.slice(i).every((q) => q.kind !== "roam"))), RECS.map((r) => `${r.id} (${r.kind})`).join(", "));
+check("node", "the content passes every rule: 290 solid tiles (288 and, since B3f, the two nests' tiles) (184 before B3d2, its 36, then B3d3's 53 + 2 and B3d4a's 9 + 4; B3d4b's stations add none), no foot pixel", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 290 && built.compiled.footPixels === 0, `${built.compiled.solidTiles} solid tiles, ${built.compiled.footPixels} foot pixels`);
 const foot = (x, y) => { let n = 0; for (let py = y * T; py < y * T + T; py++) for (let px = x * T; px < x * T + T; px++) n += m.px.foot[py * PW + px] ? 1 : 0; return n; };
 {
   const hab = src.habitats.find((q) => q.id === HP), pts = hab && hab.outline ? hab.outline.points.map((p) => [p.id, p.x, p.y]) : [];
@@ -291,8 +291,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const cv = cp.loaded ? await cp.I(() => window.__island.preview()) : null;
   const sortK = (o) => JSON.stringify(Object.keys(o || {}).sort().map((k2) => [k2, o[k2]]));
   const fv = cv && cv.fences.find((f) => f.id === HP), yv = cv && cv.fences.find((f) => f.id === YARD);
-  check(name, "content preview: loads with all its records (B3d4b's 21 and, since B3e1, the roam areas) (288 solid tiles, B3d3's, B3d4a's and B3d4b's among them); the paddock's fence as its record says: 36 tiles, no openings, closing its ground in, 24 corners and 12 runs, a warning sign on the middle of each of its five east-west runs",
-    cp.loaded && !cp.errs.length && cv.content.records === ROAM_N.records && cv.content.solidTiles === 288 && cv.sys.buildings === true && cv.fences.length === 2 && fv && fv.tiles === 36 && fv.encloses === true && !fv.gaps.length && sortK(fv.kinds) === sortK({ corner: 24, run: 12 }) && key(fv.signs) === key(SIGNS),
+  check(name, "content preview: loads with all its records (B3d4b's 21 and, since B3e1, the roam areas) (290 solid tiles (288 and, since B3f, the two nests' tiles), B3d3's, B3d4a's and B3d4b's among them); the paddock's fence as its record says: 36 tiles, no openings, closing its ground in, 24 corners and 12 runs, a warning sign on the middle of each of its five east-west runs",
+    cp.loaded && !cp.errs.length && cv.content.records === ROAM_N.records && cv.content.solidTiles === 290 && cv.sys.buildings === true && cv.fences.length === 2 && fv && fv.tiles === 36 && fv.encloses === true && !fv.gaps.length && sortK(fv.kinds) === sortK({ corner: 24, run: 12 }) && key(fv.signs) === key(SIGNS),
     cv ? JSON.stringify(fv) : cp.errs.join("; "));
   check(name, "content preview: B3d1's raptor yard exactly as approved (30 tiles, 4 corners and 26 runs, signs at 123,10 and 123,17, closing its ground in), and B3c's buildings and compound wall as they were (B3d3's koi garden wall beside it)",
     yv && yv.tiles === 30 && yv.encloses === true && !yv.gaps.length && sortK(yv.kinds) === sortK({ corner: 4, run: 26 }) && key(yv.signs) === "123,10 123,17" && cv.buildings.map((b) => b.id).join() === "visitor,depot,bunker" && cv.walls.map((q) => q.id).join() === "bunker-compound,koi-garden" && cv.walls[0].tiles === 53,
@@ -304,7 +304,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       `terrain ${cDig.td.slice(0, 12)}, ground ${cDig.gd.slice(0, 12)}`);
     const L = await cp.I(() => { const L2 = window.__island.layers(); return { c: L2.collision, t: L2.terrainCollision, k: L2.contentCollision }; });
     let lay = true; for (let i = 0; i < W * H; i++) if (L.t[i] !== m.coll[i] || (L.k[i] !== 0) !== !!LAYER.tiles[i] || L.c[i] !== (m.coll[i] | (LAYER.tiles[i] ? 1 : 0))) { lay = false; break; }
-    check(name, "collision: the content layer is exactly the compiler's (288 tiles, the paddock's 36 among them), kept apart from the terrain's (the compiler's, untouched); gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 288 && RING.every(([x, y]) => L.k[y * W + x] !== 0));
+    check(name, "collision: the content layer is exactly the compiler's (290 tiles, B3f's two nests among them, the paddock's 36 among them), kept apart from the terrain's (the compiler's, untouched); gameplay is their union", lay && LAYER.tiles.reduce((a, v) => a + v, 0) === 290 && RING.every(([x, y]) => L.k[y * W + x] !== 0));
     // the art: one opaque tile per fence tile
     const art = await cp.I((id) => { const a = window.__island.fenceArt(id); delete a.png; return a; }, HP);
     const pieceAt = (x, y) => art.pieces.find((q) => q.tile[0] === x && q.tile[1] === y) || {};
@@ -449,8 +449,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       hh.ok === 0 && hh.pts === 71 * 16 && hh.runs.every((r) => r.ok0 && r.state === "parked" && r.over === 0 && r.piSafe && !r.piIn), `${hh.ok} of ${hh.pts} allow a landing; ` + hh.runs.map((r) => `from ${r.from}: ${r.state} at ${r.heli}, pi on ${r.pi}${r.over ? " OVER A PADDOCK" : ""}`).join("; "));
     // the completeness report and storage
     const comp = await cp.I(() => window.__island.completeness());
-    check(name, "completeness: with both paddock fences there (each enclosing, with its art) the paddock fences item is gone; a normal format-2 home made of this content would still be refused (the sections not in the format yet; B3d3's koi garden wall and park gate, B3d4b's stations and B3e9's spawns and roam areas have left the list)",
-      comp && !comp.complete && !comp.missing.some((q) => /^paddock fences/.test(q)) && !comp.missing.some((q) => /^(compound walls|the park gate)/.test(q)) && !comp.missing.some((q) => /^spawns and roam areas/.test(q)) && comp.missing.length === 6, comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
+    check(name, "completeness: with both paddock fences there (each enclosing, with its art) the paddock fences item is gone; the completeness wall passes for this content since B3f (every item satisfied; the decoder still refuses a non-staged format-2 map, B4's to lift) (complete since B3f's nests; B3d3's koi garden wall and park gate, B3d4b's stations and B3e9's spawns and roam areas have left the list)",
+      comp && comp.complete && !comp.missing.some((q) => /^paddock fences/.test(q)) && !comp.missing.some((q) => /^(compound walls|the park gate)/.test(q)) && !comp.missing.some((q) => /^spawns and roam areas/.test(q)) && comp.missing.length === 0, comp ? `${comp.missing.length} items missing, first: ${comp.missing.slice(0, 2).join(" | ")}` : "");
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the pushes, walks, landings and a reload)", (await storeOf(cp)) === JSON.stringify(Object.keys(store).sort().map((k) => [k, store[k]])));
     // the decoder refuses a malformed paddock fence
@@ -495,21 +495,34 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // 2d. the fence on screen, against the terrain preview at the same spot, step and size (1280 x 560: scale 2, pi in the lane, both
   // paddocks in the frame). Over each fence tile the frame must differ; over the open tiles touching it, outside and inside, it must not
   // (the tiles beside pi, where its sprite is, are left out)
+  /* (a test setup for the fence's and the lane's own checks below: since B3e9 the T. rex stands in the paddock on the content preview, and
+     since B3f pi in the lane sets off its roar (a shake and the T. rex turned to him); the fence art, the lane's ground and pi's own
+     pixels are measured with the predators held out of the frame, still. The predators themselves are mapb-creatures.mjs's, the roar
+     mapb-sections.mjs's. The B3f full run found the frames differing under the T. rex at B3e9's commit too, and the roar new:
+     tools/out/mapb/b3f/gates/full/mapb-paddock.log) */
+  // (and since B3f pi beside a fence gets [E]'s prompt, with the first-use hint above it while the save hasn't seen it: the setup marks
+  // the hint seen, in memory only (the previews write nothing), as for a returning player, and the measures leave the prompt's own
+  // rectangle out)
+  const noPredators = (P) => P.I(() => { const I2 = window.__island; I2.setSave(Object.assign(I2.getSave(), { hints: { move: true, use: true } })); I2.preview().creatures.forEach((c, i) => { if (c.kind === "raptor" || c.kind === "trex") I2.creature(i, { x: 60 * 16 + 8, y: 80 * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }); }); I2.step(0); });
   { const vp = { viewport: { width: 1280, height: 560 } }, A2 = await open(`http://127.0.0.1:${port + 1}/${Q}`, { ctxOpts: vp }), B2 = await open(`http://127.0.0.1:${port}/${Q}`, { ctxOpts: vp });
     if (A2.loaded && B2.loaded) {
+      await noPredators(A2);
       for (const P of [A2, B2]) await settle(P, [118 * 16 + 8, 13 * 16 + 10]);
       { const ta = await A2.I(() => window.__island.getState().t), tb = await B2.I(() => window.__island.getState().t), k = Math.round((ta - tb) * 60);
         if (k > 0) await B2.I((n) => window.__island.step(n), k); else if (k < 0) await A2.I((n) => window.__island.step(n), -k); }
       const NEAR = []; for (const [x, y] of RING) for (const [dx, dy] of N4) { const q = [x + dx, y + dy]; if (!isRing.has(q.join()) && !NEAR.some((o) => o.join() === q.join()) && m.coll[q[1] * W + q[0]] === 0 && !(Math.abs(q[0] - 118) <= 1 && Math.abs(q[1] - 13) <= 2)) NEAR.push(q); }
       const grab = (P) => P.I(([ring, near]) => {
         const I2 = window.__island, v = I2.preview(), E = v.ui.scale * v.zoom * v.ui.dpr, c = document.querySelector(".w-cv"), d = c.getContext("2d").getImageData(0, 0, c.width, c.height).data;
+        // (B3f: beside a fence the game draws [E]'s prompt, UI on top of the world, over the canvas: its rectangle, from the game's own
+        // record of where it drew it, is left out of the comparison, -1; the full run found it over 114,9 to 116,10)
+        const k = c.width / c.getBoundingClientRect().width, pr = v.prompt ? v.prompt.map((q) => q * k) : null, inPr = (xx, yy) => !!pr && xx >= pr[0] - 2 && xx <= pr[0] + pr[2] + 2 && yy >= pr[1] - 2 && yy <= pr[1] + pr[3] + 2;
         const tile = ([x, y]) => { const x0 = Math.ceil((x * 16 - v.camera[0]) * E), y0 = Math.ceil((y * 16 - v.camera[1]) * E), x1 = Math.floor(((x + 1) * 16 - v.camera[0]) * E) - 1, y1 = Math.floor(((y + 1) * 16 - v.camera[1]) * E) - 1;
-          if (x0 < 0 || y0 < 0 || x1 >= c.width || y1 >= c.height) return null; const o = []; for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) { const i = (yy * c.width + xx) * 4; o.push(d[i], d[i + 1], d[i + 2]); } return o; };
+          if (x0 < 0 || y0 < 0 || x1 >= c.width || y1 >= c.height) return null; const o = []; for (let yy = y0; yy <= y1; yy++) for (let xx = x0; xx <= x1; xx++) { const i = (yy * c.width + xx) * 4; if (inPr(xx, yy)) o.push(-1, -1, -1); else o.push(d[i], d[i + 1], d[i + 2]); } return o; };
         const fa = I2.fenceArt("holding-paddock");
         return { cam: v.camera, ring: ring.map(tile), near: near.map(tile), at: fa ? fa.pieces.map((q) => [q.tile, q.at]) : null };
       }, [RING, NEAR]);
       const a = await grab(A2), b = await grab(B2);
-      const frac = (x, y) => { if (!x || !y || x.length !== y.length) return null; let dd = 0; for (let i = 0; i < x.length; i += 3) if (x[i] !== y[i] || x[i + 1] !== y[i + 1] || x[i + 2] !== y[i + 2]) dd++; return dd / (x.length / 3); };
+      const frac = (x, y) => { if (!x || !y || x.length !== y.length) return null; let dd = 0, nn = 0; for (let i = 0; i < x.length; i += 3) { if (x[i] < 0 || y[i] < 0) continue; nn++; if (x[i] !== y[i] || x[i + 1] !== y[i + 1] || x[i + 2] !== y[i + 2]) dd++; } return nn ? dd / nn : 0; };   // (the prompt's pixels, -1, left out)
       const rf = RING.map((q, i) => frac(a.ring[i], b.ring[i])), nf = NEAR.map((q, i) => frac(a.near[i], b.near[i]));
       const sameCam = a.cam.join() === b.cam.join(), allIn = rf.every((v) => v !== null) && nf.every((v) => v !== null);
       const rMin = Math.min(...rf.filter((v) => v !== null)), rAll = rf.filter((v) => v !== null).reduce((x, y) => x + y, 0) / Math.max(1, rf.filter((v) => v !== null).length);
@@ -527,8 +540,13 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // beside the paddock (116,9), same camera offset (pi centred), same frame of its idle loop
   { const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { ctxOpts: { viewport: { width: 1280, height: 800 } } });
     if (P.loaded) {
+      await noPredators(P);
       const lit = (at) => P.I(([x, y]) => { const I2 = window.__island; I2.teleport(x, y); for (let i = 0; i < 90; i++) I2.step(1); const st = I2.getState().t; I2.step(Math.round((Math.ceil(st) - st) * 60)); const v = I2.preview(), E = v.ui.scale * v.zoom * v.ui.dpr, c = document.querySelector(".w-cv"), g = c.getContext("2d");
-        const sx = Math.round((x - v.camera[0]) * E), sy = Math.round((y - v.camera[1]) * E), r = Math.round(14 * E), d = g.getImageData(sx - r, sy - r * 2, r * 2, r * 2 + Math.round(4 * E)).data; let n = 0; for (let i = 0; i < d.length; i += 4) if (d[i] >= 236 && d[i + 1] >= 236 && d[i + 2] >= 236) n++; return n; }, at);
+        // (B3f: beside a fence the game draws [E]'s prompt, white, near pi: its rectangle, from the game's own record, is left out, so only
+        // pi's own pixels are counted; the full run counted it into the open-grass reference, 1134 against 784)
+        const k = c.width / c.getBoundingClientRect().width, pr = v.prompt ? v.prompt.map((q) => q * k) : null;
+        const sx = Math.round((x - v.camera[0]) * E), sy = Math.round((y - v.camera[1]) * E), r = Math.round(14 * E), bx = sx - r, by = sy - r * 2, bw = r * 2, d = g.getImageData(bx, by, bw, r * 2 + Math.round(4 * E)).data; let n = 0;
+        for (let i = 0; i < d.length; i += 4) { const px = bx + (i / 4) % bw, py = by + Math.floor(i / 4 / bw); if (pr && px >= pr[0] - 2 && px <= pr[0] + pr[2] + 2 && py >= pr[1] - 2 && py <= pr[1] + pr[3] + 2) continue; if (d[i] >= 236 && d[i + 1] >= 236 && d[i + 2] >= 236) n++; } return n; }, at);
       const inLane = [], onGrass = [];
       for (const row of [12, 13, 14, 15]) inLane.push(await lit([118 * 16 + 8, row * 16 + 10]));
       for (const at of [[116, 9], [111, 9], [113, 17]]) onGrass.push(await lit(tilePx(at)));
@@ -543,7 +561,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   if (name !== "firefox") for (const [vw, vh, dsf] of [[390, 844, 3], [375, 667, 2]]) {
     const P = await open(`http://127.0.0.1:${port + 1}/${Q}`, { ctxOpts: { viewport: { width: vw, height: vh }, deviceScaleFactor: dsf, isMobile: true, hasTouch: true }, wait: 1500 });
     if (!P.loaded) { check(name, `phone ${vw} x ${vh}`, false, "didn't load"); await P.ctx.close(); continue; }
-    await cardAway(P);
+    await cardAway(P); await noPredators(P);
     const follow = () => P.I(() => { const I2 = window.__island, seen = []; for (let n = 0; n < 2000; n += 2) { I2.step(2); const p = I2.getState().pi, q = [Math.floor(p.x / 16), Math.floor(p.y / 16)], l = seen[seen.length - 1]; if (!l || l[0] !== q[0] || l[1] !== q[1]) seen.push(q); if (!p.path && n > 10) break; } const p = I2.getState().pi; return { at: [Math.floor(p.x / 16), Math.floor(p.y / 16)], seen, stalls: p.stalls }; });
     await settle(P, tilePx(PLACE));
     let sc = await screenOf(P, TREX[0] * 16 + 8, TREX[1] * 16 + 8);

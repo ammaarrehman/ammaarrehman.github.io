@@ -1962,10 +1962,15 @@ MAP-B parasaurolophus (B3e4)"; not pushed then, since pushed with B3e6; not depl
   - before the predators migrate (B3e1's deferred blockers): the T. rex's unreachable target 108,11, the T. rex's and raptors'
     sprites over their fences, the roar zone and the welder's patrol not in the format (the first two addressed in the preview by
     B3e9's approved amendment, kept on this list until B4 signs them off; the roar zone, the fences' [E] words and the welder's patrol
-    are B3f's, still missing: MAP-B B3e9, below);
+    are B3f's: B3f puts the roar zone and the fence cards in, on in the preview, and the welder's patrol in the format, its bot still
+    off: MAP-B B3f, below);
   - the spinosaur's B3a spawn on the river bank's foot-blocking pixels (addressed in the preview by B3e8's approved amendment, the spawn
     moved to 39,34 and the box to the west bank; kept on this list until B4 signs it off);
-  - added by B3e6: pi's feet can briefly cross thin foot-blocking pixels, MAP-B's bridge rails (MAP-B B3e6, below).
+  - added by B3e6: pi's feet can briefly cross thin foot-blocking pixels, MAP-B's bridge rails (MAP-B B3e6, below);
+  - added by B3f: the props that block their tile in format 1 and aren't migrated (the outpost kit, the depot's crates, the lamps, the
+    vegetation; the nests are in, Ammaar's option D), and the systems still off in the preview, every one required before the switch
+    (rex, the cockatiels with D6's perches in code, the bots, the car, the rift, the hatching, the koi, the volcano's life): MAP-B B3f,
+    below.
 - Status: complete, approved and committed. B3e5's audit followed (below).
 
 MAP-B B3e5, the babies (2026-10-28; staged only, not deployed; approved and committed; the nests deferred to B3f):
@@ -2393,7 +2398,7 @@ MAP-B B3e8, the spinosaur (2026-10-31 to 2026-11-01; staged only, not deployed; 
   bridge-rail crossing); none new from B3e8. B3e9 and B3f haven't begun. Nests deferred to B3f. MAP-B stays preview-only; production is
   unchanged and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
 
-MAP-B B3e9, the predators (2026-11-01; staged only, not deployed; approved by Ammaar 2026-11-02, visual and technical, and committed locally, not pushed):
+MAP-B B3e9, the predators (2026-11-01; staged only, not deployed; approved by Ammaar 2026-11-02, visual and technical, and committed as `d6b4c43`; since pushed):
 - Read first: B3e1's predator simulation and deferred blockers (above), B3a's plan (roam-02, roam-03), B3d1's and B3d2's enclosures,
   format 1's predators in `js/world.js` (`DINOS.trex`: 85 x 45 px sheet, speed 13; `DINOS.raptor`: 39 x 20 px, speed 26; the T. rex
   stalks pi within 190 px, aiming at him clamped to its box with no ground check; the raptors pace their fence within 170 px, clamped
@@ -2539,6 +2544,119 @@ MAP-B B3e9, the predators (2026-11-01; staged only, not deployed; approved by Am
   spinosaur's B3a spawn and the predators' target and fence overhang, both addressed in the preview by approved amendments and kept on
   the list for B4's sign-off, B3e6's pi bridge-rail crossing); none new from B3e9. MAP-B stays preview-only; production is unchanged
   and undeployed (format 1, 100 x 80, `SAVE_V` 2, cache `20261025`).
+
+MAP-B B3f, content completion (2026-11-02; staged only, not deployed; implemented with Ammaar's corrections (the nests, option D; the raptor occlusion measure), uncommitted, awaiting his final approval):
+- Scope (Ammaar's brief): the rest of format 1's home sections in the content format, at B3a's approved places, with the schema,
+  compiler, decoder, runtime and tests; systems on in the preview only where their content and guards are ready. No new feature.
+- Decisions applied (no new ones taken): B3a's placements (section 3 of the plan); D4 (the first visit starts at the spawn); D6 (the
+  cockatiels perch on the mailbox and the drink stand, and trees in [30, 86, 55, 98]); D7 (the gardener in the village beds); D8 (a
+  deterministic placement rule for vegetation); D10 ("t-rex paddock" and "raptor pen" in game text); D1 and Ammaar's B3e5 nest decision.
+- Content (`tools/maps/home.content.mjs`), 41 records after the 49 before them (those byte for byte as at `d6b4c43`): 90 records, 290 solid
+  tiles (the nests' 2; nothing else of B3f's blocks), 0 foot pixels.
+  - Anchors (`anchor-<name>`): cargo dock 92,82 (on the quay), car 58,89, rex 38,80, gardener 36,92, first visit 79,79 (the spawn),
+    arena 76,56 (the rift field's middle), core approach 76,57. The gate's anchor is the park gate record (B3d3); it stays out of the
+    decoded anchors, which would draw format 1's own gate.
+  - Places (`place-<name>`), format 1's ten in its order: pond 110,57; gate 74,40; plaza 79,79; car 57,88; paddock 112,19; raptors
+    123,19; volcano 83,25; outpost 111,85; shrine 14,20; clearing 76,56.
+  - Zones (`zone-<name>`): trex-roar 104,8.5 to 120,20; fireflies 11,31 to 30,53; rex-meadow 34,78 to 41,81; gardener-beds 28,88 to
+    41,97; cockatiel-trees 30,86 to 55,98.
+  - The welder's patrol (`route-welder-patrol`): start 123,19; stops 118,13, 121,18, 125,18, 128,13.
+  - The gardener's plants: 16 ferns and tall grass (sprite props, none blocking, as in format 1) in its beds, by a seeded rule at
+    format 1's density there (12.5%), off doors, station approaches and spawns, each with open ground south of it
+    (`tools/out/mapb/b3f/plants.mjs`).
+  - The nests (Ammaar's option D, 2026-11-02): format 1's two at B3a's places, 46,54 with 3 eggs and 51,51 with 2 (`nest-46-54`,
+    `nest-51-51`: prop records with sprite `e:nest0`, `eggs`, `base: "straw"`). Each on a bed of straw and twigs drawn opaque over its
+    whole tile, under format 1's nest sprite and eggs (`nestBase()` in `js/world.js`, drawn once per nest in the object layer, not the
+    ground painter): the tile is solid as format 1's and every solid pixel is drawn (D1, no exception). Format 1's card ("a nest of N
+    speckled eggs...") and its wobbling egg. Not applied to anything else.
+- Rooms: no place of their own (format 1's are drawn to their own scale). Completeness checks each of the game's three is behind
+  exactly one building's door.
+- Schema and compiler (`tools/maps/content.mjs`): kinds anchor, place, zone, route; a prop with a `sprite` (B3b's generic prop, a
+  solid with drawn boxes, still works as before). Plans ANCHOR_PLAN, PLACE_PLAN, ZONE_PLAN, ROUTE_PLAN; PROP_SPRITES (only
+  non-blocking undergrowth). Five new rules: anchors, places (order too), zones (the roar zone round the whole holding-paddock fence and
+  the T. rex's box; rex in his meadow; the gardener in the beds; the arena and the core approach), routes, props. Every spot is open
+  ground reached from the spawn with pi's feet clear, outside every reserve and enclosure.
+- Decoder (`js/world.js`): the same kinds checked again (names the game knows, open reachable spots, the cargo dock on the dock, no
+  blocking sprite, D1); decoded into format 1's shapes (anchors, places in order, regions.zones, routes, props). The completeness
+  wall's items are real checks now: rooms, anchors, routes, places and zones each name what's missing; the props item needs a
+  gardener plant in the beds, two perches (D6) and the two nests.
+- Runtime in the content preview: the roar zone and the fences' [E] cards (format 1's words; the t-rex paddock's card sets off the
+  roar) are on; `ls paddocks/` names both; goto reaches the ten places; the fireflies show at night; the plants are drawn and rustle.
+  A guard keeps the roar from touching the cockatiels when there are none (format 1 always has them). Rex, the cockatiels, the bots
+  (cargo, welder, gardener, drones), the car, the rift, the hatching, the koi and the volcano stay off: their code isn't adapted to
+  MAP-B, or (rex, the cockatiels) it draws on the seeded random stream every creature run is calibrated on. Their content is in and
+  checked; switching them on is B3g/B3h's or B4's.
+- Decisions taken (Ammaar, 2026-11-02): **the nests, option D** (above). **The raptor visibility measure**: the absolute measure (pixel
+  counts against the most anywhere) compared different animation silhouettes; it is now occlusion against an unobstructed reference
+  of the identical frame and facing. A page of the game with one test-only switch served in memory (the content fences' pieces not
+  drawn; collision and simulation unchanged) draws each pose at each tile twice at the same moment, with the fences and without:
+  the animal's pixels are where the frame without them changes when it goes, and a pixel is hidden only where the fences change it.
+  Poses: standing (the stationary floor, kept: 85% on the box's north row; 50% anywhere) and walking (west at two walk frames, east),
+  each against its own reference. Measured (probe `tools/out/mapb/b3f/probe-occlusion.log`): the T. rex's north row 86.4 to 90.2%,
+  a raptor's 87.9 to 92.3% (the side fences, drawn in front of an animal on their row, B3d1's order, hide its overhang: real
+  occlusion, the same in every pose; no render noise between two draws). The absolute figures are kept as notes. Zero predator art
+  past the outer fence, containment and the approved movement and art are unchanged.
+- Tests: `tools/mapb-sections.mjs` (new): Node, the content and every rule, 22 malformed cases; browser, the decoded sections,
+  completeness, goto to all ten places, the terminal's paddocks, both fence cards and the roar from the paddock's, the roar zone's rule
+  case by case (pi strictly inside and within 150 px; never a row outside it or farther), the plants, both painter digests, storage
+  untouched (the roar's secret included), 13 decoder refusals, night. Other suites: the completeness pins (6 items to 1, the nests) and
+  the record-list pins (B3f's kinds after the roam areas) in content, koi-gate, landmarks, stations, paddock, fences and buildings;
+  stations' literal guard retires the placeholder " (not in the content format yet)", which no item needs now; creatures: the census
+  (the 49 before B3f byte for byte), the nests check, the roar (format 1's rule now: never with pi away, yes with pi walking round), the
+  [E] survey (a fence's card is offered beside a fence, format 1's nearest first), and the visibility measure lets a roar's shake settle
+  before reading a frame.
+  - The first consolidated Chromium and WebKit pass (`tools/out/mapb/b3f/gates/full/`): decode 76, runtime 220, painter 49, content 145,
+    buildings 382, koi-gate 183, landmarks 132 and stations 255 passed, none failed; the findings in four suites, each diagnosed and
+    fixed in its harness, no threshold loosened: fences and paddock (frames against the terrain preview differed under the predators,
+    since B3e9: the paddock suite fails the same way at `d6b4c43`, `gates/mapb-paddock-at-d6b4c43.log`; and since B3f pi beside a fence
+    gets [E]'s prompt and its first-use hint: those B3d checks hold the predators out of the frame, mark the hint seen in memory and
+    leave the prompt's rectangle out); sections (the cave terminal on the real clock: waited for, a counted retry); creatures (the
+    census; the shake's "before" served the content without B3f's kinds; a roar carried into the "pi away" run; walks a roar clears no
+    longer counted as stopped short).
+  - With the nests and the occlusion measure: the riverlands' herd and babies walked with the game's own `move()` against terrain and
+    content (B3e4's measure and bounds): babies 136 of 3,540 walks stop at a nest (3.8%; B3e5 measured 134, 3.8%), the herd 1,560 of
+    66,306 (2.4%; B3e5 3.1%), never stranded (from any stop at least 51 of 60 and 238 of 258 targets); in the game, three minutes frame
+    by frame, the babies and the herd never on a nest tile or a solid pixel, each walking 990 px or more. Each completeness item shown
+    real: taking away the depot's room, the car's anchor, the welder's route, the shrine's place, the fireflies' zone or a nest, the
+    wall names exactly that item.
+  - The spinosaur's walks straight back (B3e8's check against format 1's, 15 points): with the nests in, seed 42 read 51.5% against
+    format 1's 30.6%. Diagnosed, not loosened (`tools/out/mapb/b3f/probe-spino.mjs`, `.log`): the nests are nowhere near it but shift the
+    seeded stream; on fresh pages seed 42 gives 56.7% even without the nests, and over seeds 42, 1, 2 and 3 MAP-B averages 49.7% with
+    the nests, 53.4% without, format 1 43.6% (single seeds range 31 to 63%). One seed's rate is the draw's (B3e8's audit averaged three
+    seeds too), so the check now compares the four-seed means, the 15-point bound kept, the seed-42 figures kept beside them. A method
+    change for Ammaar's sign-off, stated here, not taken silently.
+  - The final run with the nests and the corrected measures (`tools/out/mapb/b3f/gates/final/`, Chromium and WebKit, Firefox BLOCKED,
+    not installed, not a pass), every affected suite, none failed: sections 103 (Node 33, Chromium 35, WebKit 35), content 145,
+    buildings 382, fences 165, paddock 142, koi-gate 183, landmarks 132, stations 255 (its decode timing's ten-record content recounted),
+    creatures 427 (Node 159, Chromium 136, WebKit 132). Unaffected and not rerun: decode 76, runtime 220, painter 49 (the first pass;
+    both painter digests are checked again in sections). The occlusion check: the T. rex's north row 86.4 to 90.2% over its four poses,
+    a raptor's 87.9 to 92.3%; never under half anywhere.
+  - Format 1 unchanged: `map-decode` 250, `map-parity` and `b0-parity` PASS (Firefox BLOCKED), every planted mutation caught (rerun
+    after the nests: `map-decode` 250, `map-parity` and `b0-parity` PASS).
+  - Review shots (`tools/out/mapb/b3f/`, Chromium and WebKit, labelled): `nests-desktop-day`, `nests-desktop-night`, `nests-phone390-day`,
+    `nests-phone390-night`, `roar-lane`, `gardener-beds`, `fireflies-night`.
+- Completeness: **complete** in the content preview (every item satisfied by validated content). A normal format-2 home is still refused
+  by the decoder (any non-staged format-2 map); lifting that is B4's.
+- B4 work, the systems still off in the preview, each with its content in and checked. **Every one must work before the production
+  switch**: production (format 1) has them all, and B4 can't ship a regression; four carry secrets (rex: "rex"; the koi: "koi"; the
+  car: "drift", "honk"; the rift: the eight-logs ending, the core and the ruler) and the hatching is the first visit:
+  - rex (anchor rex, zone rex-meadow; code as format 1's, draws on the seeded stream: the creature suites' seeded measures re-baselined
+    with it);
+  - the cockatiels (D6's perch set, the mailbox and the drink stand, in code; trees in their zone with the vegetation);
+  - the bots: cargo bots (the cargo dock and the depot's and visitor centre's doors), the welder (its patrol), the gardener (its beds
+    and plants), the drones (the depot roof pad);
+  - the car (anchor car; drift, honk and parking on MAP-B's ground);
+  - the rift (arena, core approach, the rift field; the eight-logs wake-up and the shrine's seal already run);
+  - the hatching (the first visit at the spawn, D4);
+  - the koi (the koi pond body, scoped to it: B3a's risk 6);
+  - the volcano's life (pterosaurs, smoke, embers, glow, rumble from the crater; format 2's volcano is painted, B2d).
+- B4 work, props not migrated (each blocks its tile in format 1 with art smaller than the tile, so each needs its own D1 answer, not
+  the nests' base unless shown needed): the outpost kit (mast, solar panels, generator, tank, tent, campfire, crates), the depot's crates,
+  the five lamps; and the vegetation (D8's batch: trees, the cockatiels' trees among them, undergrowth, rocks).
+- B4 release blockers: all earlier ones unchanged and still open (the parasaurolophus' water overhang, B3e2's fleeing and stranding,
+  B3e3's cache bump, which now covers B3f's `js/world.js` too, the spinosaur's and the predators' amended placements to sign off, B3e6's
+  bridge-rail crossing); with B3f's: the systems and props above; and B4's own switch, lifting the decoder's refusal of a non-staged
+  format-2 map, with D12's saved-position handling.
 
 Still planned: a spatial hash for proximity queries; ground pre-rendered in 32 x 32-tile chunks. Canvas memory under
 48 MB on desktop and 32 MB on coarse pointers. Performance: p95 frame under 16.7 ms on a mid-range laptop

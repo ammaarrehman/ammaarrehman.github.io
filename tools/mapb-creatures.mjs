@@ -5,8 +5,8 @@
    B3a's T. rex box (108,11 to 116,16) took in fence tiles and one tile outside the paddock (108,11) that format 1's stalking aimed at, and
    its sprite reached past the fence into the public lane; Ammaar amended it (2026-11-01) to 110,12 to 115,15, from the B3e9 audit
    (tools/out/mapb/b3e9/audit/). The raptors keep B3a's box, the yard's whole inside. No runtime change: the renderer, the draw order, the
-   art, [E]'s reach and format 1's movement are as they were; the roar zone, the fences' [E] words and the welder's patrol wait for B3f
-   (the game's guard keeps the roar off). Pi is never set inside an enclosure: he walks round the fences by the game's own route (what a
+   art, [E]'s reach and format 1's movement are as they were. B3f adds the roar zone and the fences' [E] words, so the roar is format 1's
+   now (its rule in detail is mapb-sections.mjs's) and [E] beside a fence offers its card. Pi is never set inside an enclosure: he walks round the fences by the game's own route (what a
    tap plans), and the [E] survey sets him only on open ground outside them that route reaches. The predators' art is laid on the ground
    at the feet's row (the audit's measure): over a fence tile it may lean, past the fence's outer edge or into the lane between the
    enclosures it may not. B3e8 adds format 1's spinosaur (roam-07, the west bank of the river in
@@ -100,7 +100,7 @@ const POPS = [
   // tiles and 108,11 outside the paddock); the three raptors share one roam area (one object, as in format 1), the yard's whole inside
   { key: "trex", name: "T. rex", batch: "B3e9", box: [110, 12, 115, 15], habitat: "holding-paddock", roams: ["roam-02"], spawns: [[112, 14]], targets: 24, pred: "holding-paddock" },
   { key: "raptors", name: "utahraptor", batch: "B3e9", box: [120, 11, 126, 16], habitat: "raptor-yard", roams: ["roam-03", "roam-03", "roam-03"], kinds: ["raptor", "raptor", "raptor"], spawns: [[121, 12], [124, 14], [125, 12]], targets: 42, pred: "raptor-yard" },
-  { key: "herd", name: "herd", batch: "B3e3", box: [41, 43, 57, 60], habitat: "riverlands-range", roams: ["roam-04", "roam-04", "roam-04", "roam-04"], kinds: ["stego", "trike", "trike", "ankylo"], spawns: [[44, 46], [50, 47], [54, 55], [45, 58]], targets: 260, shared: true },
+  { key: "herd", name: "herd", batch: "B3e3", box: [41, 43, 57, 60], habitat: "riverlands-range", roams: ["roam-04", "roam-04", "roam-04", "roam-04"], kinds: ["stego", "trike", "trike", "ankylo"], spawns: [[44, 46], [50, 47], [54, 55], [45, 58]], targets: 258, shared: true },
   { key: "para", name: "parasaurolophus", batch: "B3e4", box: [14, 71, 22, 80], habitat: "delta-wetland", roams: ["roam-05", "roam-06"], spawns: [[20, 73], [16, 77]], targets: 43, wetland: true, apart: [[21, 73], [14, 79], [21, 78], [14, 77]] },
   // B3e8: the spinosaur on the river's west bank in spino reach (B3a's box 37,31 to 46,38 and spawn 40,34, as Ammaar amended them 2026-10-31);
   // three of its targets are bank tiles whose foot-blocking pixels stop a walk short (measured with move() below)
@@ -109,7 +109,7 @@ const POPS = [
   { key: "pachy", name: "pachycephalosaur", batch: "B3e1", box: [36, 15, 45, 22], habitat: "pachy-heath", roams: ["roam-09", "roam-10"], spawns: [[38, 18], [42, 19]], targets: 69 },
   { key: "galli", name: "gallimimus", batch: "B3e2", box: [85, 41, 95, 48], habitat: "galli-meadow", roams: ["roam-11", "roam-12", "roam-13", "roam-14"], spawns: [[87, 43], [90, 42], [93, 45], [86, 47]], targets: 88, bolt: 64 },
   { key: "compy", name: "compsognathus", batch: "B3e2", box: [27, 91, 33, 96], habitat: "village-gardens", roams: ["roam-15", "roam-16", "roam-17", "roam-18", "roam-19"], spawns: [[29, 92], [30, 93], [28, 94], [31, 92], [27, 93]], targets: 42, bolt: 48 },
-  { key: "babies", name: "baby", batch: "B3e5", box: [44, 50, 53, 56], habitat: "riverlands-range", roams: ["roam-20", "roam-21"], kinds: ["baby", "baby2"], spawns: [[47, 52], [50, 53]], targets: 62, open: true, together: true },
+  { key: "babies", name: "baby", batch: "B3e5", box: [44, 50, 53, 56], habitat: "riverlands-range", roams: ["roam-20", "roam-21"], kinds: ["baby", "baby2"], spawns: [[47, 52], [50, 53]], targets: 60, open: true, together: true },
   { key: "meadow-baby", name: "baby", batch: "B3e5", box: [14, 36, 22, 43], habitat: "brachio-meadow", roams: ["roam-22"], kinds: ["baby"], spawns: [[19, 38]], targets: 59, open: true },
   // B3e6: the bots, on paths in no B1e habitat (B3a's plan names none for them)
   // (roam-23 and roam-25 as Ammaar amended B3a's boxes, 2026-10-29: 42,82 to 54,88 and 72,75 to 84,81 let the robot pass behind the drink stand
@@ -184,20 +184,25 @@ const FORTY_SIX = "417ffda2ddddc312084039914178ee4fd77d8fa26e160ff29a738a95f174f
 // B3e8's 47 (those and the spinosaur's roam-07), as committed at a824c1c
 const FORTY_SEVEN = "f0fc57e5ee75e17bdb559912e5571b2f72576204d205d591f61136d8927842bd";
 // (B3e9: the predators' roam-02 and roam-03 left out, the 47 before them)
-const PREDS = ["roam-02", "roam-03"], PRIOR = DATA.records.filter((r) => !PREDS.includes(r.id));
+// B3e9's 49 (those and the predators' roam-02 and roam-03), as committed at d6b4c43; B3f's records (anchors, places, zones, the welder's
+// route and the gardener's plants) come after them and are left out here
+const FORTY_NINE = "27354e47275633f2e598ee47f7c00c1872a967b3237e8f56925a5d51ce5bcd8a", B3F_K = ["anchor", "place", "zone", "route", "prop"], CREC = DATA.records.filter((r) => !B3F_K.includes(r.kind));
+const PREDS = ["roam-02", "roam-03"], PRIOR = CREC.filter((r) => !PREDS.includes(r.id));
 const PARA = ["roam-05", "roam-06"], BABY = ["roam-20", "roam-21", "roam-22"], BOTS = ["roam-23", "roam-24", "roam-25"], CATS = ["roam-26", "roam-27"], SPINO = ["roam-07"], NEW3 = ["roam-00", "roam-01", "roam-04", "roam-08", ...PARA, ...BABY, ...BOTS, ...CATS, ...SPINO], EARLIER = PRIOR.filter((r) => !NEW3.includes(r.id));
-check("node", "the content: B3c's to B3d4b's 21 records, B3e1's two roam areas, B3e2's nine, B3e3's four (roam-00, roam-01, roam-04, roam-08), B3e4's two (roam-05, roam-06), B3e5's three (roam-20 to roam-22), B3e6's three (roam-23 to roam-25), B3e7's two (roam-26, roam-27) and B3e8's spinosaur (roam-07) exactly as committed (byte for byte, in their order), with B3e9's T. rex (roam-02) and raptors (roam-03) after roam-01 in format 1's order: 49 records, every one of format 1's 28 roam areas; nothing else",
-  sha(DATA.records.slice(0, 21)) === TWENTY_ONE && sha([...DATA.records.slice(0, 21), ...EARLIER.filter((r) => r.id === "roam-09" || r.id === "roam-10")]) === TWENTY_THREE && sha(EARLIER) === THIRTY_TWO &&
+check("node", "the content (B3f's records after them, left out): B3c's to B3d4b's 21 records, B3e1's two roam areas, B3e2's nine, B3e3's four (roam-00, roam-01, roam-04, roam-08), B3e4's two (roam-05, roam-06), B3e5's three (roam-20 to roam-22), B3e6's three (roam-23 to roam-25), B3e7's two (roam-26, roam-27) and B3e8's spinosaur (roam-07) exactly as committed (byte for byte, in their order), with B3e9's T. rex (roam-02) and raptors (roam-03) after roam-01 in format 1's order: 49 records, every one of format 1's 28 roam areas; nothing else",
+  sha(CREC.slice(0, 21)) === TWENTY_ONE && sha([...CREC.slice(0, 21), ...EARLIER.filter((r) => r.id === "roam-09" || r.id === "roam-10")]) === TWENTY_THREE && sha(EARLIER) === THIRTY_TWO &&
     sha(PRIOR.filter((r) => !["roam-00", "roam-01", ...PARA, ...BABY, ...BOTS, ...CATS, ...SPINO].includes(r.id))) === THIRTY_FOUR && sha(PRIOR.filter((r) => ![...PARA, ...BABY, ...BOTS, ...CATS, ...SPINO].includes(r.id))) === THIRTY_SIX &&
     sha(PRIOR.filter((r) => ![...BABY, ...BOTS, ...CATS, ...SPINO].includes(r.id))) === THIRTY_EIGHT && sha(PRIOR.filter((r) => ![...BOTS, ...CATS, ...SPINO].includes(r.id))) === FORTY_ONE && sha(PRIOR.filter((r) => ![...CATS, ...SPINO].includes(r.id))) === FORTY_FOUR &&
-    sha(PRIOR.filter((r) => !SPINO.includes(r.id))) === FORTY_SIX && sha(PRIOR) === FORTY_SEVEN && DATA.records.length === 49 && PRIOR.findIndex((r) => r.id === "roam-07") === PRIOR.findIndex((r) => r.id === "roam-06") + 1 &&
-    PREDS.every((id, n) => DATA.records.findIndex((r) => r.id === id) === DATA.records.findIndex((r) => r.id === "roam-01") + 1 + n) && ROAMS.length === 28 &&
-    DATA.records.slice(21).map((r) => `${r.id}:${r.kind}`).join() === ROAMS.map((id) => `${id}:roam`).join(), DATA.records.slice(21).map((r) => r.id).join(", "));
-check("node", `B3a's nests deferred to B3f (${NESTS.map(([x, y, e]) => `${x},${y} with ${e} eggs`).join(", ")}): the content holds no prop record (no nest), and both places are open grass inside the riverlands babies' box with no content tile, so nothing blocks or draws there yet`,
-  !RECS.some((r) => r.kind === "prop") && NESTS.every(([x, y]) => !LAYER.tiles[y * W + x] && m.coll[y * W + x] === 0 && creatureMayStand("baby", m.ground[y * W + x]) && x >= 44 && x <= 53 && y >= 50 && y <= 56), RECS.map((r) => r.kind).filter((k, i, a) => a.indexOf(k) === i).join(", "));
+    sha(PRIOR.filter((r) => !SPINO.includes(r.id))) === FORTY_SIX && sha(PRIOR) === FORTY_SEVEN && CREC.length === 49 && sha(CREC) === FORTY_NINE && DATA.records.slice(49).every((r) => B3F_K.includes(r.kind)) && PRIOR.findIndex((r) => r.id === "roam-07") === PRIOR.findIndex((r) => r.id === "roam-06") + 1 &&
+    PREDS.every((id, n) => CREC.findIndex((r) => r.id === id) === CREC.findIndex((r) => r.id === "roam-01") + 1 + n) && ROAMS.length === 28 &&
+    CREC.slice(21).map((r) => `${r.id}:${r.kind}`).join() === ROAMS.map((id) => `${id}:roam`).join(), CREC.slice(21).map((r) => r.id).join(", "));
+check("node", `B3a's nests, in since B3f (Ammaar's option D; ${NESTS.map(([x, y, e]) => `${x},${y} with ${e} eggs`).join(", ")}): each a nest with format 1's eggs on its straw base, its own tile solid and drawn whole (the base's drawn box is the tile exactly), open grass terrain under it (the terrain untouched), inside the riverlands babies' box; no other prop blocks anything`,
+  NESTS.every(([x, y, e]) => { const r = RECS.find((q) => q.kind === "prop" && q.sprite === "e:nest0" && q.at[0] === x && q.at[1] === y); return r && r.eggs === e && r.base === "straw" && r.tiles.length === 1 && r.tiles[0].join() === `${x},${y}` && r.drawnPxBoxes.length === 1 && JSON.stringify(r.drawnPxBoxes[0]) === JSON.stringify({ px0: x * T, py0: y * T, px1: x * T + T - 1, py1: y * T + T - 1 }) && LAYER.tiles[y * W + x] === 1 && m.coll[y * W + x] === 0 && creatureMayStand("baby", m.ground[y * W + x]) && x >= 44 && x <= 53 && y >= 50 && y <= 56; }) &&
+  RECS.filter((r) => r.kind === "prop" && r.sprite && r.sprite !== "e:nest0").every((r) => !r.tiles.length), RECS.filter((r) => r.kind === "prop" && r.sprite === "e:nest0").map((r) => `${r.id} ${r.eggs} eggs`).join(", "));
 const PAST = contentLayers(RECS.slice(0, 21), W, H);
-let sameLayer = PAST.solidTiles === LAYER.solidTiles; for (let i = 0; sameLayer && i < W * H; i++) if (PAST.tiles[i] !== LAYER.tiles[i]) sameLayer = false;
-check("node", "the content passes every rule; 288 solid tiles and no foot pixel, B3d4b's layer tile for tile: roam areas add no collision", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 288 && built.compiled.footPixels === 0 && sameLayer, `${built.compiled.solidTiles} tiles`);
+// (B3f: the two nests' tiles, 46,54 and 51,51, besides)
+const NEST_T = new Set([54 * W + 46, 51 * W + 51]); let sameLayer = PAST.solidTiles + 2 === LAYER.solidTiles; for (let i = 0; sameLayer && i < W * H; i++) if (NEST_T.has(i) ? !LAYER.tiles[i] : PAST.tiles[i] !== LAYER.tiles[i]) sameLayer = false;
+check("node", "the content passes every rule; 290 solid tiles (288 and, since B3f, the two nests' tiles) and no foot pixel, B3d4b's layer tile for tile: roam areas add no collision", contentProblems(RECS, src, m).length === 0 && built.compiled.solidTiles === 290 && built.compiled.footPixels === 0 && sameLayer, `${built.compiled.solidTiles} tiles`);
 // format 1's creatures, the inventory
 const F1 = (() => { const c = { window: {} }; vm.runInNewContext(readFileSync(join(ROOT, "js/maps/home.js"), "utf8"), c); return c.window.ISLAND_MAPS.home; })();
 const f1Kinds = {}; F1.spawns.forEach((s) => { f1Kinds[s.kind] = (f1Kinds[s.kind] || 0) + 1; });
@@ -228,8 +233,12 @@ for (const P of POPS) {
       check("node", `${id}: its ${NAME[k]}'s spawn ${sx},${sy} is ${BOT(k) ? "path" : CAT(k) ? "open ground (" + (m.ground[sy * W + sx] === 4 ? "path" : "grass") + "; a cat may stand on anything but a dock)" : "open grass"} (a tile it may stand on), its feet clear of every foot-blocking pixel, ${HM ? "inside the habitat" : "no habitat (" + P.bot + ")"}`, may(k, sx, sy) && !aimWet(sx, sy) && (HM ? HM[sy * W + sx] === 1 : m.ground[sy * W + sx] === 4));
   }
   let blockedWalks = 0; for (let i = 0; i < 2000; i++) { const a = targets[(rnd() * targets.length) | 0], c = targets[(rnd() * targets.length) | 0]; const ax = a[0] * T + 8, ay = a[1] * T + 10, cx = c[0] * T + 8, cy = c[1] * T + 10, d = Math.hypot(cx - ax, cy - ay), st = Math.max(1, Math.ceil(d / 2)); for (let j = 0; j <= st; j++) { const px = ax + (cx - ax) * j / st, py = ay + (cy - ay) * j / st; if (m.coll[Math.floor(py / T) * W + Math.floor(px / T)] !== 0 || m.px.foot[Math.floor(py) * PW + Math.floor(px)]) { blockedWalks++; break; } } }
+  // (B3f: the riverlands now hold format 1's two nests, solid; their herd and babies are walked with the game's own move() against the
+  // terrain and the content, as the wetland's are (B3e4's measure and bounds), below; the targets leave the nests' tiles out, the herd's
+  // 260 to 258, the babies' 62 to 60. B3e5's audit measured it so: babies 3.8% of walks stopped, the herd 3.1%, never stranded)
+  const NESTED = P.habitat === "riverlands-range";
   if (P.spino) continue;   // (B3e8: walked with the game's move() below)
-  if (!P.wetland) check("node", `${P.cat ? P.cat + "'s lawn in the " + P.habitat : P.habitat || P.bot}: ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to${P.bot ? " (path, format 1's okFor)" : P.cat ? " (anything but a dock, format 1's okFor: all of it)" : ""} (the others: ${notOk.length}), ${HM ? inHab.length + " inside the habitat" : "no habitat"}; every straight walk between two of them (2,000 tried) crosses only walkable ground (format 1's wander walks straight)`, targets.length === P.targets && blockedWalks === 0, notOk.length ? `not theirs: ${notOk.join(" ")}` : "all");
+  if (!P.wetland && !NESTED) check("node", `${P.cat ? P.cat + "'s lawn in the " + P.habitat : P.habitat || P.bot}: ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to${P.bot ? " (path, format 1's okFor)" : P.cat ? " (anything but a dock, format 1's okFor: all of it)" : ""} (the others: ${notOk.length}), ${HM ? inHab.length + " inside the habitat" : "no habitat"}; every straight walk between two of them (2,000 tried) crosses only walkable ground (format 1's wander walks straight)`, targets.length === P.targets && blockedWalks === 0, notOk.length ? `not theirs: ${notOk.join(" ")}` : "all");
   else {
     // the wetland (B3e4): walked with the game's own move() (9 x 4 px feet, x then y, each axis stopping on a solid pixel, 12 px/s), every pair
     // of targets; then from every place a walk can end (the targets and each blocked walk's stop), how many targets a straight walk reaches
@@ -240,8 +249,9 @@ for (const P of POPS) {
     const px = (q) => [q[0] * T + 8, q[1] * T + 10], stops = new Map(targets.map((q) => [q.join(), px(q)])); let pairs = 0, bad = 0; const at = {};
     for (const a of targets) for (const c of targets) { if (a === c) continue; pairs++; const r = walkTo(...px(a), ...px(c)); if (!r.ok) { bad++; stops.set(r.o.x.toFixed(1) + "," + r.o.y.toFixed(1), [r.o.x, r.o.y]); const k = Math.floor(r.o.x / T) + "," + Math.floor(r.o.y / T); at[k] = (at[k] || 0) + 1; } }
     const reach = [...stops.values()].map(([x, y]) => targets.filter((c) => walkTo(x, y, ...px(c)).ok).length), least = Math.min(...reach);
-    check("node", `${P.habitat}: ${targets.length} of its ${boxTiles.length} box tiles are open grass a ${P.name} may walk to (the rest: the lagoon, the river, its banks, the path, sand), ${inHab.length} inside the habitat; walked with the game's own move(), a few straight walks between them stop on the river bank's foot pixels (under 5%), and no place a walk can end strands it (from each, at least half the targets in a straight walk)`,
-      targets.length === P.targets && bad / pairs < 0.05 && least >= targets.length / 2, `${bad} of ${pairs} walks stop (${(100 * bad / pairs).toFixed(1)}%), at ${Object.entries(at).map((e) => e.join(" x")).join(", ")}; ${stops.size} places a walk can end, the least reaching ${least} targets (the line sampler: ${blockedWalks} of 2,000)`);
+    check("node", NESTED ? `${P.habitat} (${P.name}): ${targets.length} of its ${boxTiles.length} box tiles are ground a ${P.name} may walk to (the nests' two among the others, solid since B3f), ${inHab.length} inside the habitat; walked with the game's own move() against the terrain and the content (B3e4's measure), a few straight walks stop on a nest (under 5%; B3e5 measured ${P.key === "babies" ? "3.8" : "3.1"}%), and no place a walk can end strands it (from each, at least half the targets in a straight walk); the terrain alone blocks none (the line sampler)`
+      : `${P.habitat}: ${targets.length} of its ${boxTiles.length} box tiles are open grass a ${P.name} may walk to (the rest: the lagoon, the river, its banks, the path, sand), ${inHab.length} inside the habitat; walked with the game's own move(), a few straight walks between them stop on the river bank's foot pixels (under 5%), and no place a walk can end strands it (from each, at least half the targets in a straight walk)`,
+      targets.length === P.targets && bad / pairs < 0.05 && least >= targets.length / 2 && (!NESTED || blockedWalks === 0), `${bad} of ${pairs} walks stop (${(100 * bad / pairs).toFixed(1)}%), at ${Object.entries(at).map((e) => e.join(" x")).join(", ")}; ${stops.size} places a walk can end, the least reaching ${least} targets (the line sampler: ${blockedWalks} of 2,000)`);
   }
 }
 // B3e6: the bots' paths. Each box's path tiles (the targets format 1's okFor lets a bot pick) are one connected stretch (4-neighbour, inside
@@ -520,7 +530,10 @@ check("node", "the game's names, collars and lines for the two cats found in js/
 const SAYI = (i) => CAT(ALL[i].kind) ? [CATSAY[ALL[i].pop].say] : SAY[ALL[i].kind];
 
 const port = 9500 + Math.floor(Math.random() * 80);
-const terrainPv = await startPreview(port), contentPv = await startPreview(port + 1, { content: true }), plain = await serve(port + 3), oneCatPv = await startPreview(port + 4, { content: ONE_CAT });
+// (B3f: an older js/world.js, the shake's "before" below, doesn't know B3f's kinds: it is served the content less them, test only; B3f
+// adds no collision but the nests', so its total is the earlier one)
+const B3E_ONLY = Object.assign(copy(DATA), { records: copy(CREC), solidTiles: CREC.reduce((n, r) => n + r.tiles.length, 0) });   // (288: the nests' 2 are B3f's)
+const terrainPv = await startPreview(port), contentPv = await startPreview(port + 1, { content: true }), plain = await serve(port + 3), oneCatPv = await startPreview(port + 4, { content: ONE_CAT }), b3eOnlyPv = await startPreview(port + 5, { content: B3E_ONLY });
 mkdirSync(OUT, { recursive: true });
 const Q = "?debug=1&step=1&islandhour=11&seed=42#island";
 const STORE = { "island-save": JSON.stringify({ v: 2, logs: ["mailbox"], secrets: [], island: "home", flags: {} }), "island-opts": '{"shake":0.25}', unrelated: "kept" };
@@ -605,8 +618,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   const OFF = ["rex", "birds", "koi", "bots", "car", "rift", "volcano", "hatch"];
   const kinds = (cs) => { const o = {}; cs.forEach((c) => { o[c.kind] = (o[c.kind] || 0) + 1; }); return o; };
   const sameArea = (cs) => ALL.every((q, i) => ALL.every((r, j) => (q.roam === r.roam) === (cs[i].areaIx === cs[j].areaIx)));
-  check(name, "content preview: 49 records (288 solid tiles); the creature system on (with the buildings and the stations), every other home system off (the robot crew, SYS.bots, the koi, among them); exactly thirty-three creatures, format 1's population (its kinds, in its order, sharing its roam areas as it does): 2 brachiosaurs, a T. rex, 3 utahraptors, the herd (a stegosaur, 2 triceratops, an ankylosaur), 2 parasaurolophus, a spinosaur, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus, 3 babies (2 baby, a baby2), 2 maintenance robots, a roomba and 2 cats, each at its spawn; the herd's four in the one roam area they share and the raptors' three in theirs (one object each, as in format 1), every other creature in its own (28 areas, all of format 1's)",
-    cp.loaded && !cp.errs.length && cv.content.records === 49 && cv.content.solidTiles === 288 && cv.sys.creatures && cv.sys.buildings && cv.sys.stations && OFF.every((k) => cv.sys[k] === false) && cv.systems.critters === NA && NA === 33 && !cv.systems.rex && !cv.systems.car &&
+  check(name, "content preview: 90 records (B3e9's 49 and B3f's 41; 290 solid tiles (288 and, since B3f, the two nests' tiles)); the creature system on (with the buildings and the stations), every other home system off (the robot crew, SYS.bots, the koi, among them); exactly thirty-three creatures, format 1's population (its kinds, in its order, sharing its roam areas as it does): 2 brachiosaurs, a T. rex, 3 utahraptors, the herd (a stegosaur, 2 triceratops, an ankylosaur), 2 parasaurolophus, a spinosaur, a dilophosaur, 2 pachycephalosaurs, 4 gallimimus, 5 compsognathus, 3 babies (2 baby, a baby2), 2 maintenance robots, a roomba and 2 cats, each at its spawn; the herd's four in the one roam area they share and the raptors' three in theirs (one object each, as in format 1), every other creature in its own (28 areas, all of format 1's)",
+    cp.loaded && !cp.errs.length && cv.content.records === DATA.records.length && DATA.records.length === 90 && cv.content.solidTiles === 290 && cv.sys.creatures && cv.sys.buildings && cv.sys.stations && OFF.every((k) => cv.sys[k] === false) && cv.systems.critters === NA && NA === 33 && !cv.systems.rex && !cv.systems.car &&
       cv.creatures.every((c, i) => c.kind === ALL[i].kind && c.x === ALL[i].at[0] * 16 + 8 && c.y === ALL[i].at[1] * 16 + 10 && c.area.join() === ALL[i].box.join()) && new Set(cv.creatures.map((c) => c.areaIx)).size === NAREAS && NAREAS === 28 && sameArea(cv.creatures) &&
       JSON.stringify(cv.creatures.map((c) => c.kind)) === JSON.stringify(F1.spawns.map((q) => q.kind)) && F1.spawns.every((q, i) => F1.spawns.every((r, j) => (q.roam === r.roam) === (cv.creatures[i].areaIx === cv.creatures[j].areaIx))),
     cv ? `sys ${JSON.stringify(cv.sys)}; ${JSON.stringify(kinds(cv.creatures))}; ${JSON.stringify(cv.creatures.map((c) => [c.kind, c.x, c.y, c.areaIx]))}` : cp.errs.join("; "));
@@ -662,16 +675,16 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       check(name, "the riverlands babies on the herd's ground (format 1's: one field), five minutes with pi in earshot: the herd grazes through the babies' box and they pass close (creatures pass through each other, as in format 1); the babies keep to their box, feet never on a solid pixel; each baby hops when it squeaks standing, and no herd animal does; format 1's babies and herd measured the same way share their field too",
         sh.herdIn > 0 && sh.solid === 0 && sh.out === 0 && sh.hops.every((h) => h > 0) && sh.herdHops.every((h) => h === 0) && sf && sf.herdIn > 0 && sf.hops.every((h) => h > 0) && sf.herdHops.every((h) => h === 0), `MAP-B: ${say(sh)}; format 1: ${sf ? say(sf) : "didn't load"}`);
       notes.push(`${name}: babies and herd, five minutes: MAP-B ${say(sh)}; format 1 ${sf ? say(sf) : "didn't load"}`); }
-    // B3e5: B3a's two nest places, deferred to B3f: with the babies and the herd held off, pi walks onto each by a tap's route and stands there;
-    // nothing is offered there ([E] finds no nest, and pressing it opens no nest's card) and nothing blocks
+    // B3e5: B3a's two nest places, deferred to B3f; B3f puts the nests there (Ammaar's option D): with the babies and the herd held off, pi
+    // sent onto each by a tap's route stops beside it (its tile solid, as format 1's), [E] there finds the nest and opens format 1's card
     for (const [nx, ny] of NESTS) {
       const nr = await cp.I(([x, y, bi, hi]) => { const I2 = window.__island; [...bi, ...hi].forEach((i, n) => I2.creature(i, { x: (42 + n * 3) * 16 + 8, y: 59 * 16 + 10, tx: 0, wait: 99, sleep: 0 }));
         I2.teleport((x - 3) * 16 + 8, (y + 3) * 16 + 10); I2.step(1); I2.walkTo(x, y); for (let f = 0; f < 2000 && I2.getState().pi.path; f++) I2.step(1); I2.step(2);
         const s = I2.getState().pi, t = I2.tile(x, y), feet = ![[-4, -2], [4, -2], [-4, 1], [4, 1]].some(([dx, dy]) => I2.blocked(s.x + dx, s.y + dy));
         return { at: [Math.floor(s.x / 16), Math.floor(s.y / 16)], walkable: t.walkable, content: !!t.content, feet, near: I2.preview().nearby }; }, [nx, ny, babyIx, herdIx]);
       await cp.page.keyboard.press("e"); await cp.I(() => window.__island.step(3)); const dn = await dialog(cp);
-      check(name, `B3a's nest place ${nx},${ny} (deferred to B3f): pi walks onto it by a tap's route and stands there, feet clear; no content there, [E] finds no nest and pressing it opens none`,
-        nr.at[0] === nx && nr.at[1] === ny && nr.walkable && !nr.content && nr.feet && nr.near !== "nest" && !(dn.open && dn.name === "a nest"), `pi at ${nr.at}, nearby ${nr.near}, ${dn.open ? "card \"" + dn.name + "\"" : "no card"}`);
+      check(name, `B3a's nest place ${nx},${ny} (its nest since B3f, on its straw base): pi sent onto it by a tap's route stops beside it, feet clear (the tile solid content, as format 1's), and [E] there opens the nest's card (format 1's: "a nest")`,
+        !(nr.at[0] === nx && nr.at[1] === ny) && !nr.walkable && nr.content && nr.feet && nr.near === "nest" && dn.open && dn.name === "a nest", `pi at ${nr.at}, nearby ${nr.near}, ${dn.open ? "card \"" + dn.name + "\"" : "no card"}`);
       if (dn.open) { await cp.page.keyboard.press("Escape"); await cp.I(() => window.__island.step(3)); }
     }
     // the parasaurolophus' wetland (B3e4): format 1's wander walks straight, and a walk that meets the river bank's foot pixels stops; the game
@@ -878,11 +891,20 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const sw = await spWatch(cp, spI, 36000), f1p = await open(`http://127.0.0.1:${port + 3}/${Q}`), f1i = F1.spawns.findIndex((q) => q.kind === "spino");
       const fw = f1p.loaded ? await spWatch(f1p, f1i, 36000) : null; await f1p.ctx.close();
       const ov = over(sw), ovf = fw ? over(fw) : null, pc = (x) => (100 * x).toFixed(1) + "%";
+      /* (B3f: the walks straight back against format 1's, as the mean of four seeds, 42, 1, 2 and 3, each a fresh page of each, ten minutes, pi
+         away; the 15-point bound kept. One seed's rate is the draw's: B3f's nests changed nothing near the spinosaur but shifted the seeded
+         stream, and seed 42 went from 43.1% to 51.5% against format 1's 30.6%; on fresh pages without the nests seed 42 gives 56.7%, and
+         across the four seeds MAP-B with the nests averages 49.7%, without them 53.4%, format 1 43.6%: tools/out/mapb/b3f/probe-spino.log.
+         B3e8's audit averaged three seeds the same way, 34%) */
+      // (each seed's rate kept beside the mean, for diagnosis)
+      const perSeed = { C: [], F: [] };
+      const backMean = async (pt, key) => { let sum = 0; for (const sd of [42, 1, 2, 3]) { const Pg = await open(`http://127.0.0.1:${pt}/${Q.replace("seed=42", "seed=" + sd)}`); if (!Pg.loaded) { await Pg.ctx.close(); return null; } const ii = await Pg.I(() => window.__island.preview().creatures.findIndex((c) => c.kind === "spino")); const r = await spWatch(Pg, ii, 36000); const v = r.back / Math.max(1, r.legs); perSeed[key].push(`seed ${sd} ${r.back}/${r.legs} (${(100 * v).toFixed(1)}%)`); sum += v; await Pg.ctx.close(); } return sum / 4; };
+      const bmC = await backMean(port + 1, "C"), bmF = await backMean(port + 3, "F");
       const say = (q, o) => `${q.arrive} walks arrived, ${q.blocked} blocked (${pc(q.blocked / Math.max(1, q.arrive + q.blocked))}; at most ${q.runMax} in a row), a new target within ${(q.recMax / 60).toFixed(2)} s of a block, ${(q.dist / 16).toFixed(0)} tiles walked, ${pc(q.walk)} walking, longest stand-still ${(q.maxStill / 60).toFixed(1)} s, ${q.tgt} targets, ${q.tiles} tiles stood on, ${q.back} of ${q.legs} walks straight back (${pc(q.back / Math.max(1, q.legs))}); the sprite over water in ${pc(o.anyW)} of frames (${pc(o.meanW)} of its pixels, at worst ${pc(o.maxW)}), over a cliff or blocked ground in ${pc(o.anyC)} (${pc(o.meanC)})`;
-      check(name, "the spinosaur, ten minutes frame by frame with pi away: every target open grass in its box (format 1's okFor); it keeps walking, under 10% of its walks blocked (the bank), never more than two blocked in a row (it never strands), each block followed by a new target within 2 s (format 1's half-second pause), no stand-still over 15 s; feet never on a solid pixel, never outside its box; against format 1's spinosaur measured the same way: at least three quarters of its distance, its pacing (walks straight back) within 15 points, its sprite's share of pixels over water no more than format 1's, on average and at worst, over a cliff in no more frames than format 1's, and over water in at most 40% of frames (the audit's three seeds: 34.7%, format 1 49.1%)",
+      check(name, "the spinosaur, ten minutes frame by frame with pi away: every target open grass in its box (format 1's okFor); it keeps walking, under 10% of its walks blocked (the bank), never more than two blocked in a row (it never strands), each block followed by a new target within 2 s (format 1's half-second pause), no stand-still over 15 s; feet never on a solid pixel, never outside its box; against format 1's spinosaur measured the same way: at least three quarters of its distance, its pacing (walks straight back) within 15 points as the mean of four seeds (B3f; one seed's is the draw's), its sprite's share of pixels over water no more than format 1's, on average and at worst, over a cliff in no more frames than format 1's, and over water in at most 40% of frames (the audit's three seeds: 34.7%, format 1 49.1%)",
         sw.badPick === 0 && sw.arrive > 40 && sw.blocked / Math.max(1, sw.arrive + sw.blocked) < 0.1 && sw.runMax <= 2 && sw.recMax <= 120 && sw.pending <= 120 && sw.maxStill < 900 && sw.solid === 0 && sw.out === 0 && sw.tiles >= 30 &&
-          fw && fw.badPick === 0 && fw.solid === 0 && sw.dist >= 0.75 * fw.dist && Math.abs(sw.back / Math.max(1, sw.legs) - fw.back / Math.max(1, fw.legs)) <= 0.15 && ov.anyW <= 0.4 && ov.meanW <= ovf.meanW && ov.maxW <= ovf.maxW && ov.anyC <= ovf.anyC,
-        `MAP-B: ${say(sw, ov)}. Format 1: ${fw ? say(fw, ovf) : "didn't load"}`);
+          fw && fw.badPick === 0 && fw.solid === 0 && sw.dist >= 0.75 * fw.dist && bmC !== null && bmF !== null && Math.abs(bmC - bmF) <= 0.15 && ov.anyW <= 0.4 && ov.meanW <= ovf.meanW && ov.maxW <= ovf.maxW && ov.anyC <= ovf.anyC,
+        `MAP-B: ${say(sw, ov)}. Format 1: ${fw ? say(fw, ovf) : "didn't load"}. Walks straight back, the mean of seeds 42, 1, 2, 3: MAP-B ${bmC === null ? "-" : pc(bmC)} (${perSeed.C.join(", ")}), format 1 ${bmF === null ? "-" : pc(bmF)} (${perSeed.F.join(", ")})`);
       notes.push(`${name}: the spinosaur, ten minutes: MAP-B ${say(sw, ov)}; format 1 ${fw ? say(fw, ovf) : "didn't load"}`); }
     // B3e8: the spinosaur reached in normal play: pi starts south-west of spino reach (30,45, on the path) or north of the waterfall's cliff
     // (36,22) and walks up beside it by the game's own route (a test setup puts pi at the start and holds the spinosaur in place: at its spawn
@@ -1011,8 +1033,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         sides.every((q) => q.tried >= 16 && q.none === 0 && q.bot >= q.tried - Object.values(q.station).reduce((a, b) => a + b, 0) && q.bot >= q.tried * 0.75), sides.map((q, n) => `${ALL[botIx[n]].kind} (${ALL[botIx[n]].roam}): ${q.bot} of ${q.tried} sides at ${q.spots} spots open the bot${Object.keys(q.station).length ? ", " + JSON.stringify(q.station) + " instead" : ""}`).join("; ")); }
     const comp = await cp.I(() => window.__island.completeness());
     const sr = comp && comp.missing.find((q) => /^spawns and roam areas/.test(q));
-    check(name, "completeness: a normal format-2 home made of this content would still be refused (6 items, the props item among them: the nests, the gardener's plants and the cockatiels' perches aren't in; the routes item: the welder's patrol, B3f's); the spawns and roam areas item is gone (B3e9: all 28 of format 1's roam areas are here)",
-      comp && !comp.complete && comp.missing.length === 6 && comp.missing.some((q) => /nests/.test(q)) && comp.missing.some((q) => /welder-patrol/.test(q)) && !sr, comp ? comp.missing.join(" | ").slice(0, 300) : "no report");
+    check(name, "completeness: the completeness wall passes for this content since B3f (every item satisfied; the decoder still refuses a non-staged format-2 map, B4's to lift) (complete since B3f's nests); the spawns and roam areas item is gone (B3e9: all 28 of format 1's roam areas are here)",
+      comp && comp.complete && comp.missing.length === 0 && !sr, comp ? comp.missing.join(" | ").slice(0, 300) : "no report");
     await cp.page.reload(); await cp.page.waitForFunction(() => window.__island && window.__island.getState().open, null, { timeout: 60000 }).catch(() => {});
     check(name, "content preview: no storage read or written (a production save beside it untouched through the runs, the chases, the cards, a reload)", (await storeOf(cp)) === STORE_JSON);
     const refusedHere = async (o) => cp.I((mm) => { try { window.__island.decodeMap(mm); return null; } catch (e) { return e.message; } }, o);
@@ -1146,6 +1168,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const pred = (scen) => P.I(([sc, circ, ix, inn, rng, cols, lane]) => {
         const I2 = window.__island, o = window.__b3e9, S = (a) => new Set(a), IN = { trex: S(inn.trex), raptor: S(inn.raptor) }, RG = { trex: S(rng.trex), raptor: S(rng.raptor) };
         if (sc === "away") I2.teleport(100 * 16 + 8, 26 * 16 + 10); else I2.teleport(112 * 16 + 8, 19 * 16 + 10); I2.step(1);
+        // (B3f: pi set up at the paddock's viewing place is inside the roar zone, so a roar may be under way: it ends before the run; the
+        // first full run counted one carried into the "away" run, gates/full/mapb-creatures.log)
+        if (sc === "away") for (let q = 0; q < 300 && I2.preview().creatures.some((c) => c.roar > 0); q++) I2.step(1);
         const st = ix.map(() => ({ frames: 0, tiles: {}, feetOut: {}, solid: 0, tgt: 0, tgtOut: {}, blocked: 0, walk: 0, beyond: 0, beyondMax: 0, over: 0, lane: 0, roar: 0, still: 0, stillMax: 0, stuck: 0, stuckRun: 0, d0: null, dsum: 0, prevT: null, px: 0, py: 0 }));
         let wp = 0; const in0 = o.piIn, stall0 = o.stalls;
         for (let f = 0; f < 36000; f += 2) {
@@ -1160,7 +1185,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
             if (Math.hypot(c.x - s.px, c.y - s.py) < 0.01) { s.still++; s.stillMax = Math.max(s.stillMax, s.still); if (c.tx) { s.stuck++; s.stuckRun++; s.stuckMax = Math.max(s.stuckMax || 0, s.stuckRun); } else s.stuckRun = 0; } else { s.still = 0; s.stuckRun = 0; } s.px = c.x; s.py = c.y;
             const tk = c.tx ? Math.floor(c.tx / 16) + "," + Math.floor(c.ty / 16) : null;
             if (tk && tk !== s.prevT) { s.tgt++; if (!IN[k].has(tk)) s.tgtOut[tk] = (s.tgtOut[tk] || 0) + 1; }
-            if (s.prevT && !tk && Math.hypot(s.ptx - c.x, s.pty - c.y) > 3) s.blocked++;
+            if (s.prevT && !tk && Math.hypot(s.ptx - c.x, s.pty - c.y) > 3 && !(c.roar > 0)) s.blocked++;   // (B3f: a roar clears the walk, format 1's: not stopped short)
             s.prevT = tk; s.ptx = c.tx; s.pty = c.ty;
             // the art on the ground at the feet's row (drawArt's placing; facing west it's flipped)
             const cl = cols[k], dx = Math.round(c.x - cl.w / 2), ab = c.face < 0 ? cl.f : cl.n, ty = Math.floor(c.y / 16); let b = 0, ov = 0, l = 0;
@@ -1192,7 +1217,10 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
         await f1p.ctx.close(); notes.push(`${name}: format 1's predators, ten minutes with pi away (the same measure): ${fs.join("; ")}`); }
       check(name, "the predators' art against the fences, frame by frame in both runs (the sprite laid on the ground at the feet's row, every column): it leans over a fence tile at times, never past the fence's outer edge, never into the lane between the enclosures",
         all.every((q) => q.beyond === 0 && q.lane === 0), all.map((q) => `${q.k}: over a fence tile ${pc(q.over, q.frames)}, past it ${q.beyond} (at most ${q.beyondMax} px), lane ${q.lane}`).join("; "));
-      check(name, "no roar: the T. rex never roars (the roar zone and the fences' [E] words are B3f's; the game's guard holds with them absent) and the page runs with no error", all.every((q) => q.roar === 0) && !P.errs.length, P.errs.slice(0, 2).join(" | ") || "none");
+      // (B3e9 held the roar off: its zone and the fences' [E] words were B3f's. B3f adds them, so the roar is format 1's: pi strictly
+      // inside the roar zone and within 150 px of the T. rex. Where and when exactly is mapb-sections.mjs's; here, the runs)
+      check(name, "the roar (B3f: format 1's rule, its zone in the content): with pi away the T. rex never roars; with pi walking round both enclosures (through the roar zone) it does; the raptors never do; the page runs with no error",
+        ra.st.every((q) => q.roar === 0) && rb.st.some((q) => q.k === "trex" && q.roar > 0) && all.filter((q) => q.k === "raptor").every((q) => q.roar === 0) && !P.errs.length, `pi away: ${ra.st.map((q) => q.k + " " + q.roar).join(", ")}; pi walking round: ${rb.st.map((q) => q.k + " " + q.roar).join(", ")} roaring samples; ${P.errs.slice(0, 2).join(" | ") || "no error"}`);
       notes.push(`${name}: predators, pi away: ${sayRun(ra)}`); notes.push(`${name}: predators, pi walking round both enclosures: ${sayRun(rb)}`);
       // stalking and pacing toward pi (format 1's: the T. rex aims at pi clamped to its box within 190 px, a raptor at pi clamped to its box,
       // one of three offsets, within 170 px): pi walked to five places outside the fences and standing there 20 s, the last 5 s averaged
@@ -1211,15 +1239,17 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const near2 = new Set(); for (const id of ["holding-paddock", "raptor-yard"]) for (const [x, y] of FENCE[id].tiles) for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) near2.add(`${x + dx},${y + dy}`);
       const cands = [...near2].map((q) => q.split(",").map(Number)).filter(([x, y]) => m.coll[y * W + x] === 0 && !LAYER.tiles[y * W + x] && !PINN.trex.includes(`${x},${y}`) && !PINN.raptor.includes(`${x},${y}`));
       const survey = await P.I((cs0) => { const I2 = window.__island, out = [];
-        for (const [x, y] of cs0) { I2.teleport(112 * 16 + 8, 19 * 16 + 10); if (I2.walkTo(x, y, false) === null) continue; I2.teleport(x * 16 + 8, y * 16 + 10); I2.step(1); let eT = 0, eR = 0, mT = 1e9, mR = 1e9;
+        for (const [x, y] of cs0) { I2.teleport(112 * 16 + 8, 19 * 16 + 10); if (I2.walkTo(x, y, false) === null) continue; I2.teleport(x * 16 + 8, y * 16 + 10); I2.step(1); let eT = 0, eR = 0, eF = 0, mT = 1e9, mR = 1e9;
           for (let f = 0; f < 480; f += 4) { I2.step(4); const v = I2.preview(), p = I2.getState().pi, ds = v.creatures.map((c) => [c.kind, Math.hypot(p.x - c.x, p.y - c.y)]);
             ds.forEach(([k, d]) => { if (k === "trex") mT = Math.min(mT, d); if (k === "raptor") mR = Math.min(mR, d); });
-            if (v.nearby === "critter") { const nn = ds.slice().sort((a, b) => a[1] - b[1])[0]; if (nn[0] === "trex") eT++; else if (nn[0] === "raptor") eR++; } }
-          out.push({ at: [x, y], eT, eR, mT: Math.round(mT), mR: Math.round(mR) }); }
+            if (v.nearby === "critter") { const nn = ds.slice().sort((a, b) => a[1] - b[1])[0]; if (nn[0] === "trex") eT++; else if (nn[0] === "raptor") eR++; } else if (v.nearby === "fence") eF++; }
+          out.push({ at: [x, y], eT, eR, eF, mT: Math.round(mT), mR: Math.round(mR) }); }
         return out; }, cands);
-      const eTs = survey.filter((q) => q.eT > 0), eRs = survey.filter((q) => q.eR > 0), nearR = Math.min(...survey.map((q) => q.mR)), nearT = Math.min(...survey.map((q) => q.mT));
-      check(name, `[E] from outside the fences (${survey.length} open tiles within two tiles of them that pi's route reaches): it offers the T. rex at a few by the paddock's corners, when it comes over to pi; it never offers a raptor (the nearest one comes is over [E]'s ${REACH.raptor} px: the yard's fence is between, as in format 1, where neither predator is ever in [E]'s reach from outside)`,
-        survey.length > 100 && eTs.length >= 1 && eRs.length === 0 && nearR > REACH.raptor, `the T. rex at ${eTs.length}: ${eTs.map((q) => q.at.join(",")).join(" ")}; a raptor at ${eRs.length}; nearest the T. rex comes ${nearT} px, a raptor ${nearR} px`);
+      // (B3f: a fence piece within a tile of pi is a candidate too, format 1's fence card at 23 px, so [E] offers the nearer of the fence and
+      // the T. rex, as format 1's nearest-first rule does)
+      const eTs = survey.filter((q) => q.eT > 0), eRs = survey.filter((q) => q.eR > 0), eFs = survey.filter((q) => q.eF > 0), nearR = Math.min(...survey.map((q) => q.mR)), nearT = Math.min(...survey.map((q) => q.mT));
+      check(name, `[E] from outside the fences (${survey.length} open tiles within two tiles of them that pi's route reaches): beside a fence it offers the fence's card (B3f, format 1's words); the T. rex only when it comes nearer pi than the fence (format 1's nearest first); it never offers a raptor (the nearest one comes is over [E]'s ${REACH.raptor} px: the yard's fence is between, as in format 1, where neither predator is ever in [E]'s reach from outside)`,
+        survey.length > 100 && eFs.length > survey.length / 3 && eRs.length === 0 && nearR > REACH.raptor, `the fence at ${eFs.length}; the T. rex at ${eTs.length}: ${eTs.map((q) => q.at.join(",")).join(" ")}; a raptor at ${eRs.length}; nearest the T. rex comes ${nearT} px, a raptor ${nearR} px`);
       notes.push(`${name}: [E] survey: ${survey.length} spots; the T. rex offered at ${eTs.map((q) => `${q.at.join(",")} (${Math.round(100 * q.eT / 120)}%)`).join(" ")}; nearest the T. rex ${nearT} px, a raptor ${nearR} px`);
       // [E] in normal play: pi walked to the spot where it offered the T. rex most, [E] pressed when the prompt shows; then in the lane by the
       // yard (the nearest pi comes to the raptors), [E] pressed: no raptor's card (format 1's fence card there waits for B3f's fence words)
@@ -1228,8 +1258,8 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       let dE = null; if (eW && eW.near === "critter") { await P.page.keyboard.press("e"); await P.I(() => window.__island.step(3)); dE = await dialog(P); if (dE.open) await P.page.keyboard.press("Escape"); await P.I(() => window.__island.step(3)); }
       const eL = await P.I(() => { const o = window.__b3e9, I2 = window.__island, in0 = o.piIn, ok = o.walk([118, 13], 600); return { ok, near: I2.preview().nearby, piIn: o.piIn - in0 }; });
       await P.page.keyboard.press("e"); await P.I(() => window.__island.step(3)); const dL = await dialog(P); if (dL.open) await P.page.keyboard.press("Escape"); await P.I(() => window.__island.step(3));
-      check(name, "[E] in normal play: pi walked by the game's route to where it offers the T. rex (outside the paddock), [E] opens its card (\"a dinosaur\" and one of its lines); pi walked into the lane by the yard, [E] opens no raptor's card",
-        eW && eW.ok && eW.piIn === 0 && dE && dE.open && dE.name === "a dinosaur" && SAY.trex.includes(dE.text) && eL.ok && eL.piIn === 0 && !(dL.open && SAY.raptor.includes(dL.text)),
+      check(name, "[E] in normal play: pi walked by the game's route to where it offers the T. rex (outside the paddock), if anywhere, [E] opens its card (\"a dinosaur\" and one of its lines); pi walked into the lane by the yard, [E] opens a fence's card (B3f: format 1's \"t-rex paddock\" or \"raptor pen\"), never a raptor's",
+        (!best || (eW && eW.ok && eW.piIn === 0 && dE && dE.open && dE.name === "a dinosaur" && SAY.trex.includes(dE.text))) && eL.ok && eL.piIn === 0 && dL.open && ["t-rex paddock", "raptor pen"].includes(dL.name) && !SAY.raptor.includes(dL.text),
         `${best ? best.at.join(",") : "no spot"}: prompt after ${eW ? (eW.f / 60).toFixed(1) + " s" : "-"}, ${dE && dE.open ? `"${dE.name}": ${dE.text.slice(0, 40)}` : "no card"}; the lane 118,13: prompt ${eL.near}, ${dL.open ? `"${dL.name}": ${dL.text.slice(0, 40)}` : "no card"}`);
       // a click on each from its viewing place (format 1's tap: pi walks the route to the nearest open ground by it and the card opens on
       // arrival). (From the lane, where pi already stands on the nearest open ground, a click plans no route and does nothing: format 1 the
@@ -1247,6 +1277,9 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       const vis = async (k, sp, ix, mates, far) => P.I(async ([kk, sp2, i, ms, fr, aw, ah]) => { const o = window.__b3e9, I2 = window.__island; I2.teleport(112 * 16 + 8, 19 * 16 + 10); I2.step(1); o.walk(sp2, 120);
         ms.forEach((j, n) => I2.creature(j, { x: fr[n][0] * 16 + 8, y: fr[n][1] * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }));
         for (let q = 0; q < 60 && I2.getState().iris; q++) { await new Promise((r) => setTimeout(r, 50)); I2.step(0); }
+        // (B3f: pi at 113,9 and in the lane is inside the roar zone, and a roar shakes the camera: let it roar and settle first. The measure
+        // runs no game time, step(0) only draws, so no roar starts during it)
+        for (let q = 0; q < 1200 && (I2.getState().events.quake > 0 || I2.preview().creatures.some((c) => c.roar > 0)); q++) I2.step(1);
         const cv = document.querySelector(".w-cv"), g = cv.getContext("2d"), v = I2.preview(), E = v.ui.scale * v.zoom, kp = cv.width / cv.getBoundingClientRect().width, cam = v.camera, c0 = I2.creature(i), home = [c0.x, c0.y];
         const bb = (x, y) => { const x0 = Math.floor((x - aw / 2 - 2 - cam[0]) * E * kp), y0 = Math.floor((y - ah - 2 - cam[1]) * E * kp); return [x0, y0, Math.ceil((x + aw / 2 + 2 - cam[0]) * E * kp) - x0, Math.ceil((y + 4 - cam[1]) * E * kp) - y0]; };
         const diff = (p, q) => { let n = 0; for (let m2 = 0; m2 < p.length; m2 += 4) if (Math.abs(p[m2] - q[m2]) + Math.abs(p[m2 + 1] - q[m2 + 1]) + Math.abs(p[m2 + 2] - q[m2 + 2]) > 24) n++; return n; };
@@ -1266,10 +1299,72 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
       // range, so this is fence and visibility evidence of a posed animal, not roaming: roaming with pi away is the "away" run above and
       // targeted/natural.mjs's shot. Off the canvas is counted apart (off, which must be 0), never as hidden. The raptors' mates moved to
       // the far corner isolate the measured sprite; the three raptors' natural overlap is targeted/natural.mjs's, never claimed from here)
-      const vT = await vis("trex", [113, 9], tI[0], [], []), vR = await vis("raptor", [118, 13], rI[0], rI.slice(1), [[126, 16], [125, 16]]);
+      // (B3f: pi in the lane is inside the roar zone, and every tile of the paddock is within the roar's 150 px of the lane: for the
+      // raptor's measure the T. rex is held out of the paddock (a test pose, as the mates'; its sprite never reaches the yard's boxes from
+      // the lane), so no roar runs the clock on between the walk and the frame. The first full run at B3f let it roar and settle first, and the
+      // raptor, measured later in its animation, read 85% on its north row against B3e9's 88%: gates/full/mapb-creatures.log)
+      const vT = await vis("trex", [113, 9], tI[0], [], []);
+      await P.I((i) => window.__island.creature(i, { x: 60 * 16 + 8, y: 80 * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }), tI[0]);
+      const vR = await vis("raptor", [118, 13], rI[0], rI.slice(1), [[126, 16], [125, 16]]);
+      await P.I(([i, h]) => window.__island.creature(i, { x: h[0], y: h[1], wait: 0 }), [tI[0], [112 * 16 + 8, 14 * 16 + 10]]);   // back at its spawn
       const rowsSay = (q) => Object.entries(q.rows).map(([y, f]) => `row ${y} at least ${(100 * f).toFixed(0)}%`).join(", ");
-      check(name, `layering and visibility on the rendered frame, posed (each animal held at each tile in turn; not roaming evidence), from outside the fences (the T. rex from north of its paddock, 113,9, inside its stalking range; the raptors from the lane, the measured one's mates held apart, so a single sprite's visibility, not the three's in play): the T. rex at each of its 24 tiles and a raptor at each of the yard's 42, every one on screen; nowhere hidden behind its fence (at least ${100 * VIS_PRED}% of the most it shows anywhere), and close to it on its box's north row, which no fence draws in front of (at least 85%: the most anywhere is on a darker background; the third run measured 88 to 98% off the south row)`,
-        vT.n === 24 && vR.n === 42 && !vT.off && !vR.off && vT.least >= VIS_PRED && vR.least >= VIS_PRED && vT.rows[12] >= 0.85 && vR.rows[11] >= 0.85, `T. rex (${vT.n} places, ${vT.off} off the canvas; reference ${vT.ref} px): ${rowsSay(vT)}; raptor (${vR.n} places, ${vR.off} off the canvas; reference ${vR.ref} px): ${rowsSay(vR)}`);
+      // (B3f: the absolute measure above compares pixel counts of whatever frame the animal holds when posed, against the most it shows
+      // anywhere: a different walk or idle frame, or facing, changes the count with nothing hiding it (tools/out/mapb/b3f/probe-facing.log:
+      // a raptor 87.5% facing west, 91.2% east, 52.9% in another frame). Recorded, no longer the check; the occlusion measure below is)
+      notes.push(`${name}: the absolute measure (B3e7's, pixel counts against the most anywhere; not a check since B3f): T. rex (${vT.n} places, ${vT.off} off the canvas; reference ${vT.ref} px): ${rowsSay(vT)}; raptor (${vR.n} places, ${vR.off} off the canvas; reference ${vR.ref} px): ${rowsSay(vR)}`);
+      /* B3f (Ammaar, 2026-11-02): occlusion, against an unobstructed reference of the identical frame and facing. A page of the game whose
+         js/world.js has one test-only switch, served in memory (window.__b3fNoFence: the content fences' pieces not drawn; their collision,
+         the simulation and everything else as they are). At each tile the animal is posed and the frame drawn twice at the same moment,
+         with the fences and without, then without the animal: its pixels are where the frame without the fences changes when it goes
+         (less what changes between two draws anyway), and a pixel of it is hidden where the fences change it. So the frame and facing are
+         the same in the measure and its reference, and only the fences' art can count against it. Poses: standing (its idle frame at the
+         moment) and walking (facing west at two frames of the walk cycle, facing east). Every pose: nowhere under half of it shown (50%),
+         and on its box's north row, which no fence draws in front of, at least 85% (the stationary floor, kept) */
+      const NOFENCE = WORLD.replace("if (FENCEAT && fx >= 0 &&", "if (!window.__b3fNoFence && FENCEAT && fx >= 0 &&");
+      if (NOFENCE === WORLD) check(name, "the occlusion measure's test switch applies to js/world.js", false, "the fence pieces' draw line wasn't found");
+      const PV = await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: NOFENCE });
+      let oT = null, oR = null;
+      if (PV.loaded) {
+        await piSetup(PV);
+        const occ = (k, sp, ix, mates, hold) => PV.I(async ([sp2, i, ms, hd, aw, ah]) => {
+          const o = window.__b3e9, I2 = window.__island; I2.teleport(112 * 16 + 8, 19 * 16 + 10); I2.step(1);
+          hd.forEach((j) => I2.creature(j, { x: 60 * 16 + 8, y: 80 * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }));   // (held out of the frame, still)
+          o.walk(sp2, 120);
+          for (let q = 0; q < 60 && I2.getState().iris; q++) { await new Promise((r) => setTimeout(r, 50)); I2.step(0); }
+          // (a roar that is ready goes off within a frame of pi in the zone: half a second for it, then it ends and the shake settles; its
+          // 14 s cooldown then outlasts the measure, so every pose is a pose, never the roar)
+          I2.step(30); for (let q = 0; q < 1200 && (I2.getState().events.quake > 0 || I2.preview().creatures.some((c) => c.roar > 0)); q++) I2.step(1);
+          const cv = document.querySelector(".w-cv"), g = cv.getContext("2d"), v = I2.preview(), E = v.ui.scale * v.zoom, kp = cv.width / cv.getBoundingClientRect().width, cam = v.camera, a0 = v.creatures[i].area;
+          const bb = (x, y) => { const x0 = Math.floor((x - aw / 2 - 2 - cam[0]) * E * kp), y0 = Math.floor((y - ah - 2 - cam[1]) * E * kp); return [x0, y0, Math.ceil((x + aw / 2 + 2 - cam[0]) * E * kp) - x0, Math.ceil((y + 4 - cam[1]) * E * kp) - y0]; };
+          const dpx = (p, q, m2) => Math.abs(p[m2] - q[m2]) + Math.abs(p[m2 + 1] - q[m2 + 1]) + Math.abs(p[m2 + 2] - q[m2 + 2]);
+          const out = [];
+          for (const [lab, dir, extra] of [["standing", 0, 0], ["walking west", -1, 0], ["walking west, a later frame", -1, 3], ["walking east", 1, 0]]) {
+            if (dir) { const c = I2.creature(i); I2.creature(i, { tx: c.x + dir * 64, ty: c.y, wait: 0, sleep: 0 }); I2.step(1 + extra); }   // its facing and walk frame set by walking
+            const c1 = I2.creature(i), rows = {}; let off = 0, n = 0, least = 2, mMin = 1e9, mMax = 0;
+            for (let y = a0[1]; y <= a0[3]; y++) for (let x = a0[0]; x <= a0[2]; x++) {
+              const px = x * 16 + 8, py = y * 16 + 10, cn = [[a0[0], a0[1]], [a0[2], a0[1]], [a0[0], a0[3]], [a0[2], a0[3]]].sort((p, q) => Math.hypot(q[0] * 16 + 8 - px, q[1] * 16 + 10 - py) - Math.hypot(p[0] * 16 + 8 - px, p[1] * 16 + 10 - py))[0];
+              ms.forEach((j, m3) => I2.creature(j, { x: (cn[0] + (cn[0] === a0[0] ? m3 : -m3)) * 16 + 8, y: cn[1] * 16 + 10, tx: 0, wait: 1e9, sleep: 0 }));
+              I2.creature(i, { x: px, y: py, tx: dir ? px + dir * 64 : 0, ty: py, wait: 1e9, sleep: 0 });
+              const b0 = bb(px, py); if (b0[0] < 0 || b0[1] < 0 || b0[0] + b0[2] > cv.width || b0[1] + b0[3] > cv.height) { off++; continue; }
+              const grab = () => g.getImageData(b0[0], b0[1], b0[2], b0[3]).data;
+              I2.step(0); const A = grab(); window.__b3fNoFence = 1; I2.step(0); const B = grab();
+              I2.creature(i, { x: 5 * 16 + 8, y: 5 * 16 + 10 }); I2.step(0); const B0 = grab(); I2.step(0); const B1 = grab(); window.__b3fNoFence = 0;
+              let mask = 0, shown = 0; for (let m2 = 0; m2 < A.length; m2 += 4) if (dpx(B, B0, m2) > 24 && dpx(B0, B1, m2) <= 24) { mask++; if (dpx(A, B, m2) <= 24) shown++; }
+              const f = mask ? shown / mask : 0; n++; least = Math.min(least, f); rows[y] = Math.min(rows[y] === undefined ? 2 : rows[y], f); mMin = Math.min(mMin, mask); mMax = Math.max(mMax, mask);
+            }
+            I2.step(0); out.push({ lab, face: c1.face, mode: I2.creature(i).roar > 0 || c1.roar > 0 ? "roar" : dir ? "walk" : "idle", n, off, least, rows, mMin, mMax });
+          }
+          I2.creature(i, { x: a0[0] * 16 + 24, y: a0[1] * 16 + 26, tx: 0, wait: 0 }); hd.forEach((j) => I2.creature(j, { wait: 0 }));
+          return out; }, [sp, ix, mates, hold, COLS[k].w, COLS[k].h]);
+        // (the T. rex from north of its paddock, 113,9, as above; the raptors from the lane, the T. rex held out of the frame, the mates at the far corner)
+        oT = await occ("trex", [113, 9], tI[0], [], []); oR = await occ("raptor", [118, 13], rI[0], rI.slice(1), [tI[0]]);
+      }
+      const okPose = (q, north, N) => q.mode === (q.lab === "standing" ? "idle" : "walk") && q.n === N && q.off === 0 && q.least >= VIS_PRED && q.rows[north] >= 0.85;
+      const sayOcc = (q) => `${q.lab} (facing ${q.face < 0 ? "west" : "east"}, ${q.mode}; ${q.n} places, ${q.off} off; its pixels ${q.mMin} to ${q.mMax}): least ${(100 * q.least).toFixed(1)}%, ${Object.entries(q.rows).map(([y, f]) => `row ${y} ${(100 * f).toFixed(1)}%`).join(", ")}`;
+      check(name, "layering and visibility on the rendered frame, posed (each animal held at each tile in turn; not roaming evidence), from outside the fences (the T. rex from north of its paddock, 113,9, inside its stalking range; a raptor from the lane, its mates and the T. rex held apart, so a single sprite's visibility, not the three's in play): occlusion, each pose against an unobstructed reference of the identical frame and facing (B3f): standing and walking (west at two frames, east), every one of the T. rex's 24 tiles and the yard's 42 on screen; nowhere under half of it shown, and on its box's north row, which no fence draws in front of, at least 85%",
+        PV.loaded && oT && oR && oT.length === 4 && oR.length === 4 && oT.every((q) => okPose(q, 12, 24)) && oR.every((q) => okPose(q, 11, 42)) && !PV.errs.length,
+        `T. rex: ${(oT || []).map(sayOcc).join("; ")}. Raptor: ${(oR || []).map(sayOcc).join("; ")}${PV.errs.length ? "; errors " + PV.errs.slice(0, 2).join(" | ") : ""}`);
+      await PV.ctx.close();
       // review shots, normal play (pi walked by the game's route from the paddock's viewing place, time run; nothing posed)
       if (name !== "firefox") {
         await hideDbg(P); const mr = await P.I(() => window.__island.preview().ui.mini); if (mr) await P.page.mouse.click(mr[0] + mr[2] / 2, mr[1] + mr[3] / 2);
@@ -1306,7 +1401,7 @@ for (const [name, type] of [["chromium", chromium], ["webkit", webkit], ["firefo
   // once settled; each brachiosaur's footfalls and the seal's cut after eight logs, in the content preview against format 1
   { const seq = (P) => P.I(() => { const I2 = window.__island; I2.fireEvent("quake"); const q = []; for (let s2 = 0; s2 < 40; s2++) { I2.step(1); q.push(+I2.getState().events.quake.toFixed(4)); } return q; });
     const WANT = Array.from({ length: 40 }, (_, n) => +Math.max(0, 4 - (n + 1) * 8 / 60).toFixed(4));
-    const pages = { f1Old: await open(`http://127.0.0.1:${port + 3}/${Q}`, { world: OLD_WORLD }), f1: await open(`http://127.0.0.1:${port + 3}/${Q}`), cpOld: await open(`http://127.0.0.1:${port + 1}/${Q}`, { world: OLD_WORLD }), cp: await open(`http://127.0.0.1:${port + 1}/${Q}`) };
+    const pages = { f1Old: await open(`http://127.0.0.1:${port + 3}/${Q}`, { world: OLD_WORLD }), f1: await open(`http://127.0.0.1:${port + 3}/${Q}`), cpOld: await open(`http://127.0.0.1:${port + 5}/${Q}`, { world: OLD_WORLD }), cp: await open(`http://127.0.0.1:${port + 1}/${Q}`) };
     const sq = {}; for (const [k, P] of Object.entries(pages)) sq[k] = P.loaded ? await seq(P) : null;
     const same = (a, b) => a && b && JSON.stringify(a) === JSON.stringify(b), short = (a) => a ? a.filter((_, i) => i % 4 === 0).join(" ") : "didn't load";
     check(name, "the shake in format 1, frame by frame: exactly as before the change (B3e2's js/world.js) and as the volcano's update settles it, 8 a second (4 to 0 in 30 frames, once a frame: no second decay)", same(sq.f1, sq.f1Old) && same(sq.f1, WANT), `now ${short(sq.f1)}; before ${short(sq.f1Old)}`);

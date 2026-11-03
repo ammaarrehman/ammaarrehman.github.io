@@ -8,13 +8,14 @@
    where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; terrainTiles, where the terrain
    closes a wall's ring; encloses, a ring that closes ground in; a building's, a wall's, a fence's or a gate's art; a
    building's room; a wall's compound; a gate's marker; a station's anchor, approach and place (it blocks nothing); a
-   roam area's box, habitat and spawns (format 1's creatures, B3e1; it blocks nothing).
+   roam area's box, habitat and spawns (format 1's creatures, B3e1; it blocks nothing); an anchor's or a place's tile (at), a
+   zone's area, a route's start and stops, a prop's sprite, tile, flip and offsets (B3f; none of them blocks anything).
    solidTiles and footPixels: the totals, which the game checks.
    The game reads the terrain's collision for painting and the union of both layers for movement. */
 (window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {
   "format": 2, "staged": true, "schema": "mapb-content-1", "id": "home", "generator": "tools/map-content.mjs",
-  "source": "tools/maps/home.content.mjs", "sourceSha256": "bda61ddd4af39fab38043e78378ede5bc33db83e750966c41921612081db3767", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
-  "solidTiles": 288, "footPixels": 0,
+  "source": "tools/maps/home.content.mjs", "sourceSha256": "694134ac2722bb875ce94cf137db49c8581d13150c611e6e9d4943b2387d0ce8", "terrainSha256": "e668064edf1731d34c0a0483e1b788458a669b4115f0e9b2734511049ef59603",
+  "solidTiles": 290, "footPixels": 0,
   "records": [
     {"id":"visitor","kind":"building","drawnPxBoxes":[{"px0":1280,"py0":1104,"px1":1423,"py1":1183}],"tiles":[[80,69],[81,69],[82,69],[83,69],[84,69],[85,69],[86,69],[87,69],[88,69],[80,70],[81,70],[82,70],[83,70],[84,70],[85,70],[86,70],[87,70],[88,70],[80,71],[81,71],[82,71],[83,71],[84,71],[85,71],[86,71],[87,71],[88,71],[80,72],[81,72],[82,72],[83,72],[84,72],[85,72],[86,72],[87,72],[88,72],[80,73],[81,73],[82,73],[83,73],[84,73],[85,73],[86,73],[87,73],[88,73]],"footPxBoxes":[],"doorTiles":[[84,74]],"reserve":"visitor-centre","art":"placeholder","room":"visitor"},
     {"id":"depot","kind":"building","drawnPxBoxes":[{"px0":1616,"py0":1168,"px1":1727,"py1":1231}],"tiles":[[101,73],[102,73],[103,73],[104,73],[105,73],[106,73],[107,73],[101,74],[102,74],[103,74],[104,74],[105,74],[106,74],[107,74],[101,75],[102,75],[103,75],[104,75],[105,75],[106,75],[107,75],[101,76],[102,76],[103,76],[104,76],[105,76],[106,76],[107,76]],"footPxBoxes":[],"doorTiles":[[104,77]],"reserve":"ranger-hq-depot","art":"placeholder","room":"depot"},
@@ -64,6 +65,47 @@
     {"id":"roam-24","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[27,80,41,86],"spawns":[{"creature":"robot","at":[33,85]}]},
     {"id":"roam-25","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[75,75,84,81],"spawns":[{"creature":"roomba","at":[77,78]}]},
     {"id":"roam-26","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[105,65,117,68],"habitat":"koi-garden","spawns":[{"creature":"cat","at":[108,66]}]},
-    {"id":"roam-27","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[107,56,117,58],"habitat":"koi-garden","spawns":[{"creature":"cat","at":[113,57]}]}
+    {"id":"roam-27","kind":"roam","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"box":[107,56,117,58],"habitat":"koi-garden","spawns":[{"creature":"cat","at":[113,57]}]},
+    {"id":"anchor-cargo-dock","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[92,82]},
+    {"id":"anchor-car","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[58,89]},
+    {"id":"anchor-rex","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[38,80]},
+    {"id":"anchor-gardener","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[36,92]},
+    {"id":"anchor-first-visit","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[79,79]},
+    {"id":"anchor-arena","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[76,56]},
+    {"id":"anchor-core-approach","kind":"anchor","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[76,57]},
+    {"id":"place-pond","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[110,57]},
+    {"id":"place-gate","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[74,40]},
+    {"id":"place-plaza","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[79,79]},
+    {"id":"place-car","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[57,88]},
+    {"id":"place-paddock","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[112,19]},
+    {"id":"place-raptors","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[123,19]},
+    {"id":"place-volcano","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[83,25]},
+    {"id":"place-outpost","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[111,85]},
+    {"id":"place-shrine","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[14,20]},
+    {"id":"place-clearing","kind":"place","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"at":[76,56]},
+    {"id":"zone-trex-roar","kind":"zone","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"area":[104,8.5,120,20]},
+    {"id":"zone-fireflies","kind":"zone","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"area":[11,31,30,53]},
+    {"id":"zone-rex-meadow","kind":"zone","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"area":[34,78,41,81]},
+    {"id":"zone-gardener-beds","kind":"zone","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"area":[28,88,41,97]},
+    {"id":"zone-cockatiel-trees","kind":"zone","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"area":[30,86,55,98]},
+    {"id":"route-welder-patrol","kind":"route","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"start":[123,19],"stops":[[118,13],[121,18],[125,18],[128,13]]},
+    {"id":"plant-01","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass2","at":[33,88],"flip":true,"ox":-1,"oy":-2},
+    {"id":"plant-02","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern0","at":[28,89],"flip":true,"ox":-1,"oy":0},
+    {"id":"plant-03","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern0","at":[34,89],"flip":true,"ox":-3,"oy":-1.5},
+    {"id":"plant-04","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass0","at":[38,89],"flip":true,"ox":-1,"oy":0},
+    {"id":"plant-05","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass1","at":[41,89],"flip":true,"ox":-2,"oy":-0.5},
+    {"id":"plant-06","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern1","at":[36,90],"flip":true,"ox":-2,"oy":-2},
+    {"id":"plant-07","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern0","at":[39,90],"flip":true,"ox":-3,"oy":-1},
+    {"id":"plant-08","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern0","at":[30,92],"flip":true,"ox":0,"oy":0},
+    {"id":"plant-09","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass1","at":[32,92],"flip":true,"ox":-2,"oy":-2},
+    {"id":"plant-10","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass0","at":[33,92],"flip":true,"ox":0,"oy":-1.5},
+    {"id":"plant-11","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass1","at":[36,92],"flip":true,"ox":-3,"oy":-1.5},
+    {"id":"plant-12","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern1","at":[38,92],"flip":true,"ox":-1,"oy":-0.5},
+    {"id":"plant-13","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern0","at":[36,93],"flip":true,"ox":0,"oy":-2},
+    {"id":"plant-14","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern0","at":[29,96],"flip":true,"ox":-2,"oy":-0.5},
+    {"id":"plant-15","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:fern1","at":[38,97],"flip":true,"ox":-3,"oy":-2},
+    {"id":"plant-16","kind":"prop","drawnPxBoxes":[],"tiles":[],"footPxBoxes":[],"doorTiles":[],"sprite":"e:tallgrass2","at":[39,97],"flip":true,"ox":-3,"oy":-0.5},
+    {"id":"nest-46-54","kind":"prop","drawnPxBoxes":[{"px0":736,"py0":864,"px1":751,"py1":879}],"tiles":[[46,54]],"footPxBoxes":[],"doorTiles":[],"sprite":"e:nest0","at":[46,54],"eggs":3,"base":"straw"},
+    {"id":"nest-51-51","kind":"prop","drawnPxBoxes":[{"px0":816,"py0":816,"px1":831,"py1":831}],"tiles":[[51,51]],"footPxBoxes":[],"doorTiles":[],"sprite":"e:nest0","at":[51,51],"eggs":2,"base":"straw"}
   ]
 };

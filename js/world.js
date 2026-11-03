@@ -358,6 +358,12 @@
   /* the content layer's stations (B3d4b): format 1's eleven outdoor stations (STATION_WORDS' ids that stand outdoors, the
      compiler's STATION_IDS), what a station may be tied to, and [E]'s reach (nearCandidates: 26 px from pi's feet) */
   var STATION_IDS = ["sign", "uplink", "tower", "lighthouse", "macbook", "tablet", "mailbox", "drink", "shrine", "cave", "boat"], PLACE_KINDS = ["landmark", "marker", "logSite", "plaza", "berth"], STATION_REACH = 26;
+  /* B3f's content kinds: format 1's remaining home sections, a record each. an anchor's name in the content and the game's (the gate's
+     is the park gate record's), the zones and routes the game's systems read (format 1's), and format 1's ten goto places */
+  var SECTION_KINDS = ["anchor", "place", "zone", "route", "prop"], NEST_BASES = ["straw"];
+  var ANCHOR_IDS = { "cargo-dock": "dock", car: "car", rex: "rex", gardener: "gardener", "first-visit": "firstVisit", arena: "arena", "core-approach": "coreApproach" };
+  var ZONE_IDS = ["trex-roar", "fireflies", "rex-meadow", "gardener-beds", "cockatiel-trees"], ROUTE_IDS = ["welder-patrol"];
+  var PLACE_IDS = ["pond", "gate", "plaza", "car", "paddock", "raptors", "volcano", "outpost", "shrine", "clearing"];
   function previewMode() { var f = window.ISLAND_MAP_PREVIEW; return typeof f === "string" && Object.prototype.hasOwnProperty.call(PREVIEW_FLAGS, f) ? PREVIEW_FLAGS[f] : null; }
   function previewAsked() { return previewMode() !== null; }
   function decodeMap(M) {
@@ -538,7 +544,7 @@
       if (C.schema !== "mapb-content-1") bad("content.schema must be mapb-content-1");
       if (C.id !== M.id) bad("content.id must be the map's own id, " + M.id);
       if (typeof C.terrainSha256 !== "string" || C.terrainSha256 !== M.sourceSha256) bad("content.terrainSha256 isn't this terrain's sourceSha256: the content was placed on other terrain");
-      var KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop", "roam"], seen = {}, owner = {}, cc = new Uint16Array(w * h), cf = new Uint32Array((PWm * PHm + 31) >>> 5), nT = 0, nF = 0;
+      var KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop", "roam", "anchor", "place", "zone", "route"], seen = {}, owner = {}, cc = new Uint16Array(w * h), cf = new Uint32Array((PWm * PHm + 31) >>> 5), nT = 0, nF = 0;
       function pxBox(b, f) {
         if (!isObj(b)) bad(f + " must be an inclusive pixel box { px0, py0, px1, py1 }");
         only(b, f, ["px0", "py0", "px1", "py1"]);
@@ -549,8 +555,11 @@
         if (!isObj(r) || typeof r.id !== "string" || !ID.test(r.id)) bad("content.records[" + k + "] needs an id (a short lowercase name)");
         var f = "content record " + r.id;
         if (seen[r.id]) bad(f + " appears twice"); seen[r.id] = 1;
-        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns"]);
+        only(r, f, ["id", "kind", "drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles", "gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns", "at", "area", "start", "stops", "sprite", "flip", "ox", "oy", "eggs", "base"]);
         if (KINDS.indexOf(r.kind) < 0) bad(f + ".kind " + JSON.stringify(r.kind) + " isn't one of " + KINDS.join(", "));
+        var nestRec = r.kind === "prop" && r.base !== undefined;                 // a nest on its base (B3f, option D): its one tile solid, drawn whole
+        if (SECTION_KINDS.indexOf(r.kind) >= 0 && (r.kind !== "prop" || r.sprite !== undefined)) { sectionShape(r, f); if (!nestRec) return { r: r, inDrawn: function () { return false; } }; }   // (a prop with no sprite is B3b's: a solid with drawn boxes)
+        if (!nestRec) ["at", "area", "start", "stops", "sprite", "flip", "ox", "oy", "eggs", "base"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only an anchor, a place, a zone, a route or a prop has it"); });
         if (r.kind === "station") { ["box", "habitat", "spawns"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only a roam area has a box, a habitat and spawns"); }); stationShape(r, f); return { r: r, inDrawn: function () { return false; } }; }
         if (r.kind === "roam") { roamShape(r, f); return { r: r, inDrawn: function () { return false; } }; }
         ["anchor", "approach", "place"].forEach(function (k2) { if (r[k2] !== undefined) bad(f + "." + k2 + ": only a station has an anchor, an approach and a place"); });
@@ -700,6 +709,41 @@
           if (q.at[0] < b[0] || q.at[0] > b[2] || q.at[1] < b[1] || q.at[1] > b[3]) bad(g2 + ": its " + q.creature + " starts at " + q.at + ", outside its roam area's box");
         });
       }
+      /* an anchor's, a place's, a zone's, a route's or a prop's shape (B3f): format 1's remaining home sections, one record each, named
+         "<kind>-<name>" (format 1's name: an anchor one of ANCHOR_IDS, a place any goto name, a zone one of ZONE_IDS, a route one of
+         ROUTE_IDS); no collision and nothing drawn by the content layer (a prop is one of the game's environment sprites, and only one
+         that blocks nothing in format 1: one that does would make its tile solid outside what it draws, D1). an anchor or a place is a
+         tile (at), a zone a box of numbers in the map (area; its edges may be fractional), a route a start and two or more stops, a
+         prop a sprite at a tile, maybe flipped and nudged (ox, oy, px). where they may be is checked once every solid is known */
+      function sectionShape(r, f) {
+        var fields = { anchor: ["at"], place: ["at"], zone: ["area"], route: ["start", "stops"], prop: ["sprite", "at", "flip", "ox", "oy", "eggs", "base"] }[r.kind];
+        var nst = r.kind === "prop" && r.base !== undefined;
+        ["drawnPxBoxes", "tiles", "footPxBoxes", "doorTiles"].forEach(function (k2) { if (arr(r[k2], f + "." + k2).length && !(nst && (k2 === "tiles" || k2 === "drawnPxBoxes"))) bad(f + " is a " + r.kind + ": it blocks nothing and the content layer draws nothing of it (" + k2 + " must be empty)"); });
+        ["gapTiles", "terrainTiles", "reserve", "encloses", "room", "art", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns", "at", "area", "start", "stops", "sprite", "flip", "ox", "oy", "eggs", "base"].forEach(function (k2) { if (r[k2] !== undefined && fields.indexOf(k2) < 0) bad(f + "." + k2 + ": a " + r.kind + " has no " + k2); });
+        if (r.kind !== "prop" && r.id.indexOf(r.kind + "-") !== 0) bad(f + " is a " + r.kind + ", so it is named " + r.kind + "-<name>");
+        var nm = r.id.slice(r.kind.length + 1);
+        if (r.kind === "anchor" && !ANCHOR_IDS[nm]) bad(f + " is an anchor, and " + nm + " isn't one of the game's (" + Object.keys(ANCHOR_IDS).join(", ") + ")");
+        if (r.kind === "zone" && ZONE_IDS.indexOf(nm) < 0) bad(f + " is a zone, and " + nm + " isn't one of the game's (" + ZONE_IDS.join(", ") + ")");
+        if (r.kind === "route" && ROUTE_IDS.indexOf(nm) < 0) bad(f + " is a route, and " + nm + " isn't one of the game's (" + ROUTE_IDS.join(", ") + ")");
+        if (r.kind === "anchor" || r.kind === "place" || r.kind === "prop") tileAt(r.at, f + ".at");
+        if (r.kind === "zone") { nums(r.area, f + ".area", 4); if (r.area[0] < 0 || r.area[1] < 0 || r.area[2] > w || r.area[3] > h || r.area[2] < r.area[0] || r.area[3] < r.area[1]) bad(f + ".area must lie inside the map (0 to " + w + ", 0 to " + h + ") with x0 <= x1 and y0 <= y1"); }
+        if (r.kind === "route") { tileAt(r.start, f + ".start"); if (arr(r.stops, f + ".stops").length < 2) bad(f + ".stops needs at least 2 stops"); r.stops.forEach(function (p, k) { tileAt(p, f + ".stops[" + k + "]"); }); }
+        if (r.kind === "prop") {
+          if (typeof r.sprite !== "string" || !/^e:[a-z]+\d$/.test(r.sprite)) bad(f + ".sprite must be one of the game's environment sprites (e:<kind><variant>)");
+          if (BLOCKING_PROP.test(r.sprite) && !nst) bad(f + ": the sprite " + r.sprite + " blocks its tile in format 1, and its art doesn't cover the tile: no invisible collision (D1)");
+          /* a nest on its base (B3f, option D): format 1's nest and eggs, its base (straw and twigs) drawn over its whole tile, which is
+             the one tile it makes solid: what blocks is exactly what's drawn (D1). nothing else has eggs or a base */
+          if (r.eggs !== undefined || nst) {
+            if (r.sprite !== "e:nest0") bad(f + ": only a nest (e:nest0) has eggs and a base");
+            int(r.eggs, f + ".eggs", 1, 9); if (NEST_BASES.indexOf(r.base) < 0) bad(f + ".base must be one of " + NEST_BASES.join(", ") + " (it draws over the nest's whole tile)");
+            var tb = r.tiles, db = r.drawnPxBoxes;
+            if (!tb || tb.length !== 1 || tb[0][0] !== r.at[0] || tb[0][1] !== r.at[1]) bad(f + ": a nest makes its own tile " + r.at + " solid, and only that");
+            if (!db || db.length !== 1 || db[0].px0 !== r.at[0] * T || db[0].py0 !== r.at[1] * T || db[0].px1 !== r.at[0] * T + T - 1 || db[0].py1 !== r.at[1] * T + T - 1) bad(f + ": a nest's base is drawn over its whole tile, its one drawn box that tile exactly");
+          }
+          if (r.flip !== undefined && typeof r.flip !== "boolean") bad(f + ".flip must be true or false");
+          ["ox", "oy"].forEach(function (k2) { if (r[k2] !== undefined && (typeof r[k2] !== "number" || !isFinite(r[k2]) || Math.abs(r[k2]) > 16)) bad(f + "." + k2 + " must be a number of px from -16 to 16"); });
+        }
+      }
       /* a building's shape (B3c1): its solid is one full rectangle of tiles (its footprint); its placeholder art is one box
          as wide as the footprint, standing on its front edge (it may rise above it, never below or beside it); one with a
          room has exactly one door, the tile right in front of the footprint (the front is south), and pi's feet fit in its
@@ -802,6 +846,28 @@
         var dd = Math.hypot(ax * T + 8 - fx, ay * T + 12 - fy);
         if (dd >= STATION_REACH) bad(f + ": from its approach pi's feet are " + dd.toFixed(1) + " px from the station, out of [E]'s reach (" + STATION_REACH + ")");
       });
+      /* B3f, once every solid is known: an anchor, a place, a route's start and stops are open ground with pi's feet clear of every
+         foot-blocking pixel, reached on foot from the spawn (so never inside an enclosure); the cargo dock's is on the dock; a prop
+         stands on open ground; no two records name the same anchor, place, zone or route */
+      var secs = recs.filter(function (o) { return SECTION_KINDS.indexOf(o.r.kind) >= 0 && (o.r.kind !== "prop" || o.r.sprite !== undefined); }), named = {};
+      if (secs.length && !reach) {
+        reach = new Uint8Array(w * h); var sq2 = [A.spawnTile[1] * w + A.spawnTile[0]]; reach[sq2[0]] = 1;
+        for (var qh2 = 0; qh2 < sq2.length; qh2++) { var qi2 = sq2[qh2], qx2 = qi2 % w, qy2 = (qi2 - qx2) / w; [[1, 0], [-1, 0], [0, 1], [0, -1]].forEach(function (d) { var nx = qx2 + d[0], ny = qy2 + d[1], j = ny * w + nx; if (nx >= 0 && ny >= 0 && nx < w && ny < h && !reach[j] && walk(nx, ny) && !cc[j]) { reach[j] = 1; sq2.push(j); } }); }
+      }
+      function openSpot(p, f, what) {
+        var x = p[0], y = p[1], fx = x * T + 8, fy = y * T + 10, wet = 0;
+        for (var yy = fy - 2; yy <= fy + 1; yy++) for (var xx = fx - 4; xx <= fx + 4; xx++) if (bit(D.foot, xx, yy) || bit(cf, xx, yy)) wet++;
+        if (!walk(x, y) || cc[y * w + x] || wet) bad(f + ": " + what + " " + p + " isn't open ground (" + (!walk(x, y) ? "terrain" : cc[y * w + x] ? "solid content" : wet + " foot-blocking pixels under pi's feet") + ")");
+        if (!reach[y * w + x]) bad(f + ": " + what + " " + p + " can't be reached on foot from the spawn");
+      }
+      secs.forEach(function (o) {
+        var r = o.r, f = "content record " + r.id, key = r.kind === "prop" ? null : r.id;
+        if (key) { if (named[key]) bad(f + " appears twice"); named[key] = 1; }
+        if (r.kind === "anchor" || r.kind === "place") openSpot(r.at, f, "its tile");
+        if (r.kind === "anchor" && ANCHOR_IDS[r.id.slice(7)] === "dock" && g(r.at[0], r.at[1]) !== DOCK) bad(f + ": the cargo dock's anchor " + r.at + " isn't on the dock");
+        if (r.kind === "route") [r.start].concat(r.stops).forEach(function (p) { openSpot(p, f, "its stop"); });
+        if (r.kind === "prop" && (!walk(r.at[0], r.at[1]) || (cc[r.at[1] * w + r.at[0]] && r.base === undefined))) bad(f + ": its tile " + r.at + " isn't open ground");
+      });
       // the spawn stays clear: its tile, and pi's feet standing there
       var sp0 = A.spawnTile, spx = footOfTile(sp0);
       if (cc[sp0[1] * w + sp0[0]]) bad("content: the spawn tile " + sp0 + " is solid content");
@@ -815,11 +881,19 @@
     // the content sections format 1 carries: none yet (B3 adds them to format 2 as its own sections)
     D.decals = {}; D.buildings = []; D.stations = {}; D.regions = { paddocks: [], compound: null, roamAreas: [], zones: {} }; D.spawns = []; D.routes = {}; D.places = {}; D.props = [];
     // the creatures (B3e1): the content's roam areas and their spawns, in format 1's shapes (regions.roamAreas, spawns), so the game's
-    // creature code reads them as it reads format 1's
+    // creature code reads them as it reads format 1's. B3f: the anchors (format 1's names; the gate's stays out: format 1's own gate is
+    // drawn from anchors.gate, and MAP-B's is the gate record's), the places in their order, the zones, the routes and the props, in
+    // format 1's shapes too
     (D.contentRecords || []).forEach(function (r) {
-      if (r.kind !== "roam") return;
-      D.regions.roamAreas.push({ id: r.id, box: r.box.slice() });
-      r.spawns.forEach(function (q) { D.spawns.push({ kind: q.creature, at: q.at.slice(), roam: r.id }); });
+      if (r.kind === "roam") {
+        D.regions.roamAreas.push({ id: r.id, box: r.box.slice() });
+        r.spawns.forEach(function (q) { D.spawns.push({ kind: q.creature, at: q.at.slice(), roam: r.id }); });
+      }
+      if (r.kind === "anchor") D.anchors[ANCHOR_IDS[r.id.slice(7)]] = r.at.slice();
+      if (r.kind === "place") D.places[r.id.slice(6)] = r.at.slice();
+      if (r.kind === "zone") D.regions.zones[r.id.slice(5)] = r.area.slice();
+      if (r.kind === "route") D.routes[r.id.slice(6)] = { start: r.start.slice(), stops: r.stops.map(function (p) { return p.slice(); }) };
+      if (r.kind === "prop" && r.sprite !== undefined) { var pr = { kind: r.sprite, tx: r.at[0], ty: r.at[1] }; if (r.flip !== undefined) pr.flip = r.flip; if (r.ox !== undefined) pr.ox = r.ox; if (r.oy !== undefined) pr.oy = r.oy; if (r.eggs !== undefined) { pr.eggs = r.eggs; pr.base = r.base; } D.props.push(pr); }
     });
     return D;
   }
@@ -904,7 +978,25 @@
         if (miss.length) out.push(s0 + ": " + miss.join(", ") + " (" + miss.length + " of 28 not migrated yet)");
         return;
       }
-      out.push(s0 + " (not in the content format yet)");
+      /* B3f: the rest are in the content format, so each item names what isn't there (the decoder has checked what is). the rooms
+         have no place of their own (format 1's are drawn to their own scale): each of the game's rooms is behind exactly one
+         building's door. the gate's anchor is the park gate's record (above). the props: at least one plant the gardener waters in
+         its beds, two perches for the cockatiels (D6: the mailbox and the drink stand, and any tree in their zone), and the nests
+         where the babies roam (format 1's: two, 3 eggs and 2) */
+      var miss2 = [];
+      if (s0 === "rooms") ROOM_IDS.forEach(function (id) { var b = recs.filter(function (r) { return r.kind === "building" && r.room === id && r.doorTiles.length === 1; }); if (b.length !== 1) miss2.push(id + (b.length ? " (behind " + b.length + " doors)" : "")); });
+      else if (/^anchors/.test(s0)) Object.keys(ANCHOR_IDS).forEach(function (nm) { if (!D.anchors[ANCHOR_IDS[nm]]) miss2.push(nm); });
+      else if (/^routes/.test(s0)) ROUTE_IDS.forEach(function (id) { if (!D.routes[id] || !D.routes[id].start) miss2.push(id); });
+      else if (s0 === "places") PLACE_IDS.forEach(function (id) { if (!D.places[id]) miss2.push(id); });
+      else if (s0 === "zones") ZONE_IDS.forEach(function (id) { if (!D.regions.zones[id]) miss2.push(id); });
+      else if (/^props/.test(s0)) {
+        var Zg = D.regions.zones["gardener-beds"], Zc = D.regions.zones["cockatiel-trees"], inZ = function (p, z) { return !!z && p.tx >= z[0] && p.tx <= z[2] && p.ty >= z[1] && p.ty <= z[3]; };
+        if (!D.props.some(function (p) { return /^e:(fern|cycad|bush|magnolia|tallgrass)/.test(p.kind) && inZ(p, Zg); })) miss2.push("the gardener's plants");
+        var perch = ["mailbox", "drink"].filter(function (id) { return recs.some(function (r) { return r.kind === "station" && r.id === id; }); }).length + D.props.filter(function (p) { return /^e:(oak|birch|ginkgo)/.test(p.kind) && inZ(p, Zc); }).length;
+        if (perch < 2) miss2.push("the cockatiels' perches (" + perch + " of 2)");
+        if ([[46, 54, 3], [51, 51, 2]].some(function (n) { return !D.props.some(function (p) { return p.kind === "e:nest0" && p.tx === n[0] && p.ty === n[1] && p.eggs === n[2]; }); })) miss2.push("the nests (46,54 with 3 eggs, 51,51 with 2: they block their tile in format 1 and their art doesn't cover it, D1; waiting on Ammaar's decision)");
+      }
+      if (miss2.length) out.push(s0.replace(/ \(.*\)$/, "") + ": " + miss2.join(", "));
     });
     if (!((D.shapes && D.shapes.water) || []).some(function (b) { return b.id === "koi-pond" && b.kind === "pond"; })) out.push("the koi pond (shapes.water koi-pond)");
     return out;
@@ -1096,9 +1188,10 @@
   /* MAP-B's paddock fences (B3d1): each fence record of the content layer (the ring round a contained B1e habitat; the
      decoder has checked that its art is one tile on every solid tile and nowhere else), one piece per solid tile, the
      same way as the walls: a run, a corner, or a post beside an opening; the middle tile of each east-west run carries a
-     warning sign (mark "sign"). format 1's paddock fences (fence, drawFence) are unchanged. a fence has no interaction
-     here yet: format 1's [E] at a fence names the paddock and its animals, and waits for them (a later batch) */
+     warning sign (mark "sign"). format 1's paddock fences (fence, drawFence) are unchanged. B3f: [E] at a piece names its
+     paddock and its animals in format 1's words (FENCE_NAMES), and the t-rex paddock's sets off the roar, as format 1's does */
   var FENCES = [], FENCE_PIECES = [], FENCEAT = null;
+  var FENCE_NAMES = { "holding-paddock": "t-rex paddock", "raptor-yard": "raptor pen" };   // B3f: what the game calls them (D10), in format 1's order
   (MAP.contentRecords || []).forEach(function (r) {
     if (r.kind !== "fence" || r.art !== "placeholder") return;
     if (!FENCEAT) FENCEAT = new Int32Array(MW * MH);
@@ -1298,6 +1391,27 @@
   var TALL = /^e:(oak|birch|ginkgo|mpuzzle|redwood|palm|fig|tallfern)/;
   var props = MAP.props;
   var nests = props.filter(function (p) { return p.kind === "e:nest0"; });     // each with a clutch of speckled eggs
+  /* MAP-B's nests (B3f, Ammaar's option D): a bed of straw and twigs drawn over the nest's whole tile, opaque to its edges, so the tile
+     format 1 makes solid is all drawn (D1, no exception). Drawn once per nest, under format 1's nest sprite and eggs; laid strand by
+     strand from the tile's hash, so the two nests differ */
+  function nestBase(p) {
+    if (p._base) return p._base;
+    var c = mkCanvas(); c.width = T; c.height = T; var g = c.getContext("2d"), ST = ["#5e4620", "#7d5f2b", "#9c7a38", "#b8954a", "#d4b264", "#e8cc84"], TW = ["#3a2712", "#53391b"];
+    for (var y = 0; y < T; y++) for (var x = 0; x < T; x++) {                       // the bed, every pixel: mottled straw, lit from the top left, in shade below
+      var lit = 2.6 - y / T * 1.6 - x / T * 0.5 + (hash(p.tx * 97 + x, p.ty * 89 + y) - 0.5) * 1.6;
+      g.fillStyle = ST[Math.max(0, Math.min(4, Math.round(lit)))]; g.fillRect(x, y, 1, 1);
+    }
+    for (var n = 0; n < 46; n++) {                                                    // straw strands, every way, some to the tile's edge so it has no hard rim
+      var h1 = hash(p.tx * 31 + n, p.ty * 17 + n * 3), h2 = hash(p.ty * 13 + n * 7, p.tx * 29 + n), x0 = Math.floor(h1 * T), y0 = Math.floor(h2 * T), len = 2 + Math.floor(hash(n, p.tx + p.ty) * 4), d = Math.floor(hash(n * 5, p.ty) * 4);
+      g.fillStyle = ST[1 + Math.floor(hash(x0, y0 + n) * 5)];
+      for (var q = 0; q < len; q++) { var sx = x0 + (d === 0 ? q : d === 1 ? 0 : q), sy = y0 + (d === 0 ? 0 : d === 1 ? q : d === 2 ? q : -q); if (sx >= 0 && sy >= 0 && sx < T && sy < T) g.fillRect(sx, sy, 1, 1); }
+    }
+    for (var m2 = 0; m2 < 4; m2++) {                                                  // twigs, dark and thin, laid across the bed
+      var tx0 = Math.floor(hash(p.tx + m2 * 5, p.ty) * 11), ty0 = 1 + Math.floor(hash(p.ty + m2 * 3, p.tx) * 12), dir = m2 % 2 ? 1 : -1;
+      g.fillStyle = TW[m2 % 2]; for (var q2 = 0; q2 < 5; q2++) { var qx = tx0 + q2, qy = ty0 + (q2 >> 1) * dir; if (qx >= 0 && qx < T && qy >= 0 && qy < T) g.fillRect(qx, qy, 1, 1); }
+    }
+    p._base = c; return c;
+  }
   /* collision is two layers in a staged format-2 map with content (B3b): the terrain's (TCOLL, TFOOT: authored, B2a's,
      locked) and the content's (MAP.contentColl, whole solid tiles; MAP.contentFoot, pixels where feet stop on tiles that
      stay walkable). The ground painter reads the terrain's alone, so content can never change a painted pixel. Everything
@@ -4009,7 +4123,7 @@
     ls: function (args) {
       var dir = args.filter(function (a) { return a[0] !== "-"; })[0];
       if (dir && /^landmarks/.test(dir)) { print(STATIONS.filter(function (s) { return s.found; }).map(function (s) { return s.id + (found[s.id] ? "*" : ""); }).join("   ")); print("(* = found)", "dim"); return; }
-      if (dir && /^paddocks/.test(dir)) { print(PADDOCKS.map(function (q) { return q.name.replace(/ /g, "-"); }).join("   ")); return; }
+      if (dir && /^paddocks/.test(dir)) { print((LEGACY ? PADDOCKS.map(function (q) { return q.name; }) : Object.keys(FENCE_NAMES).filter(function (id) { return FENCES.some(function (q) { return q.id === id; }); }).map(function (id) { return FENCE_NAMES[id]; })).map(function (nm) { return nm.replace(/ /g, "-"); }).join("   ")); return; }
       if (dir) { print("ls: " + dir + ": no such directory"); return; }
       var all = /-\w*a/.test(args.join(" "));
       print(Object.keys(FILES).filter(function (f) { return all || f[0] !== "."; }).concat(all ? ["rift*"] : []).join("   "));
@@ -4255,7 +4369,9 @@
     var ptx = Math.floor(pi.x / T), pty = Math.floor(pi.y / T);
     if (SYS.koi && near(ptx, pty, 1, function (a, b) { return at(a, b) === POND; })) out.push({ d: 21, max: 22, v: { id: "pond", ax: pi.x, ay: pi.y - 16 } });
     var fz = null; near(ptx, pty, 1, function (a, b) { if (fence[k(a, b)] && !fz) fz = [a, b]; return false; });
-    if (fz) out.push({ d: 23, max: 24, v: { id: "fence", fx: fz[0], fy: fz[1], ax: fz[0] * T + 8, ay: fz[1] * T - 8 } });
+    // MAP-B's paddock fences (B3f): a piece of a content fence, named for its habitat (D10: format 1's names in the game's words)
+    if (!fz && FENCEAT) near(ptx, pty, 1, function (a, b) { if (!fz && a >= 0 && b >= 0 && a < MW && b < MH && FENCEAT[b * MW + a]) fz = [a, b, FENCE_PIECES[FENCEAT[b * MW + a] - 1].fence.id]; return false; });
+    if (fz) out.push({ d: 23, max: 24, v: { id: "fence", fx: fz[0], fy: fz[1], fence: fz[2], ax: fz[0] * T + 8, ay: fz[1] * T - 8 } });
     return out;
   }
   function sayLocal(v) {
@@ -4275,10 +4391,10 @@
     }
     else if (v.id === "nest") say("a nest", "a nest of " + v.ref.eggs + " speckled eggs, still warm. one of them wobbles. pi backs away slowly.", []);
     else if (v.id === "fence") {
-      var pd = PADDOCKS.filter(function (q) { return v.fx >= q.x0 && v.fx <= q.x1 && v.fy >= q.y0 && v.fy <= q.y1; })[0];
+      var pd = v.fence ? (FENCE_NAMES[v.fence] ? { name: FENCE_NAMES[v.fence] } : null) : PADDOCKS.filter(function (q) { return v.fx >= q.x0 && v.fx <= q.x1 && v.fy >= q.y0 && v.fy <= q.y1; })[0];
       say(pd ? pd.name : "a fence", pd && pd.name === "raptor pen" ? "the raptor pen. 10,000 volts. three raptors inside, and all three have stopped to look at pi." : "the t-rex paddock. 10,000 volts. somewhere in there, something very big just stopped moving.", []);
       sfx("zap", v.fx * T + 8, v.fy * T);
-      if (pd && pd.name !== "raptor pen" && trex.cd <= 0) roar();
+      if (pd && pd.name !== "raptor pen" && trex && trex.cd <= 0) roar();
     }
     else if (v.id === "car") { say("the car", "Ammaar's car. press e to get in, arrows or wasd to drive, space to honk, e again to park." + (TOUCH ? " on touch: tap where you want to go." : ""), [["get in", "#drive"]]); }
   }
@@ -4289,7 +4405,7 @@
     trex.roar = 1.4; trex.cd = 14; trex.tx = 0; trex.face = pi.x > trex.x ? 1 : -1; quake = 4;
     roarTag = { x: trex.x, y: trex.y - artH("trex") - 4, t: 1.6 };
     sfx("roar", trex.x, trex.y, { vol: 1.4 });
-    if (!birds[0].fly) { var n = (birds[0].perch + 3) % perches.length; fly(birds[0], n, 0); fly(birds[1], n, 0.2); }
+    if (birds.length && !birds[0].fly) { var n = (birds[0].perch + 3) % perches.length; fly(birds[0], n, 0); fly(birds[1], n, 0.2); }   // (the MAP-B preview has no birds yet, B3f)
   }
   var roarTag = null;
   // the t-rex roars when pi is strictly inside its zone (edges out; they may be fractional) and close by
@@ -6063,6 +6179,7 @@
             return;
           }
           if (p.eggs !== undefined) {                             // the nest, with its clutch of speckled teal eggs; one of them wobbles
+            if (p.base) ctx.drawImage(nestBase(p), p.tx * T, p.ty * T);   // MAP-B (B3f, option D): its straw bed over the whole solid tile
             softShadow(bx + 1, by + 1, 18); ctx.drawImage(s, bx - 10, by - 10);
             for (var e = 0; e < p.eggs; e++) {
               var ex = bx - 5 + e * 4, wob = e === 1 && !REDUCED && Math.sin(t * 9) > 0.6 ? 1 : 0;

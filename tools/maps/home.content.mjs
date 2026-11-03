@@ -156,6 +156,30 @@ const station = (id, anchor, approach, place) => ({ id, kind: "station", anchor,
    The three raptors share one roam area (roam-03, B1e habitat raptor-yard: one object, as in format 1) at B3a's box, the yard's whole
    inside (120,11 to 126,16), starting at 121,12, 124,14 and 125,12. The roar zone and the fences' [E] words (format 1's PADDOCKS) and
    the welder's patrol wait for B3f: the game's guard keeps the roar off. In format 1's order they sit after roam-01 */
+/* B3f: format 1's remaining home sections, at B3a's approved places (B3a plan, section 3), none of them blocking anything.
+   - Anchors: the cargo dock 92,82 (the quay's east end), the car 58,89 (the car park), rex 38,80 (his meadow), the gardener 36,92
+     (the beds), the first visit 79,79 (D4: the spawn), the arena 76,56 (the rift field's middle) and the core approach 76,57 (one row
+     south of it, as format 1's). The gate's anchor is the park gate record's (B3d3).
+   - Places (goto), format 1's ten in its order: pond 110,57; gate 74,40; plaza 79,79; car 57,88; paddock 112,19; raptors 123,19;
+     volcano 83,25; outpost 111,85; shrine 14,20; clearing 76,56.
+   - Zones: trex-roar 104,8.5 to 120,20 (the holding paddock's whole fence and the walk round it), fireflies 11,31 to 30,53 (the
+     brachio meadow), rex-meadow 34,78 to 41,81, gardener-beds 28,88 to 41,97 (D7: the village), cockatiel-trees 30,86 to 55,98 (D6).
+   - The welder's patrol: start 123,19, stops 118,13, 121,18, 125,18 and 128,13, round the raptor yard's outside.
+   - The gardener's beds: format 1's gardener waters undergrowth (fern, cycad, bush, magnolia, tall grass) in its zone, none of which
+     blocks its tile. Sixteen plants by a deterministic rule (D8's way; tools/out/mapb/b3f/plants.mjs): every open grass tile in the
+     zone whose tile south is open (where the gardener stands to water it), off every door, station approach and spawn, takes a fern
+     or tall grass when a seeded hash of its tile is under format 1's density there (12.5%); sprite, flip and offsets by the hash too.
+   - The nests (Ammaar's option D, 2026-11-02): format 1's two at B3a's places, 46,54 with 3 eggs and 51,51 with 2, in the riverlands
+     babies' field; each on a base of straw and twigs drawn over its whole tile, so the tile is solid as format 1's and none of it is
+     invisible (D1). The nest sprite, its eggs and its card are format 1's.
+   The other props that block their tile in format 1 (the trees, lamps, the outpost kit, crates) aren't here: their art doesn't cover the
+   whole tile (D1); they wait for B4. */
+const nest = (x, y, eggs) => ({ id: `nest-${x}-${y}`, kind: "prop", sprite: "e:nest0", at: [x, y], eggs, base: "straw" });
+const anchor = (name, at) => ({ id: "anchor-" + name, kind: "anchor", at });
+const place = (name, at) => ({ id: "place-" + name, kind: "place", at });
+const zone = (name, area) => ({ id: "zone-" + name, kind: "zone", area });
+let plants = 0;
+const plant = (x, y, sprite, ox, oy) => ({ id: "plant-" + String(++plants).padStart(2, "0"), kind: "prop", sprite, at: [x, y], flip: true, ox, oy });
 const roam = (id, [x0, y0, x1, y1], habitat, spawns) => ({ id, kind: "roam", box: { x0, y0, x1, y1 }, ...(habitat ? { habitat } : {}), spawns: spawns.map(([creature, x, y]) => ({ creature, at: [x, y] })) });
 
 const T = 16;
@@ -255,6 +279,18 @@ export default {
     roam("roam-24", [27, 80, 41, 86], null, [["robot", 33, 85]]),
     roam("roam-25", [75, 75, 84, 81], null, [["roomba", 77, 78]]),
     roam("roam-26", [105, 65, 117, 68], "koi-garden", [["cat", 108, 66]]),
-    roam("roam-27", [107, 56, 117, 58], "koi-garden", [["cat", 113, 57]])
+    roam("roam-27", [107, 56, 117, 58], "koi-garden", [["cat", 113, 57]]),
+    anchor("cargo-dock", [92, 82]), anchor("car", [58, 89]), anchor("rex", [38, 80]), anchor("gardener", [36, 92]),
+    anchor("first-visit", [79, 79]), anchor("arena", [76, 56]), anchor("core-approach", [76, 57]),
+    place("pond", [110, 57]), place("gate", [74, 40]), place("plaza", [79, 79]), place("car", [57, 88]), place("paddock", [112, 19]),
+    place("raptors", [123, 19]), place("volcano", [83, 25]), place("outpost", [111, 85]), place("shrine", [14, 20]), place("clearing", [76, 56]),
+    zone("trex-roar", [104, 8.5, 120, 20]), zone("fireflies", [11, 31, 30, 53]), zone("rex-meadow", [34, 78, 41, 81]),
+    zone("gardener-beds", [28, 88, 41, 97]), zone("cockatiel-trees", [30, 86, 55, 98]),
+    { id: "route-welder-patrol", kind: "route", start: [123, 19], stops: [[118, 13], [121, 18], [125, 18], [128, 13]] },
+    plant(33, 88, "e:tallgrass2", -1, -2), plant(28, 89, "e:fern0", -1, 0), plant(34, 89, "e:fern0", -3, -1.5), plant(38, 89, "e:tallgrass0", -1, 0),
+    plant(41, 89, "e:tallgrass1", -2, -0.5), plant(36, 90, "e:fern1", -2, -2), plant(39, 90, "e:fern0", -3, -1), plant(30, 92, "e:fern0", 0, 0),
+    plant(32, 92, "e:tallgrass1", -2, -2), plant(33, 92, "e:tallgrass0", 0, -1.5), plant(36, 92, "e:tallgrass1", -3, -1.5), plant(38, 92, "e:fern1", -1, -0.5),
+    plant(36, 93, "e:fern0", 0, -2), plant(29, 96, "e:fern0", -2, -0.5), plant(38, 97, "e:fern1", -3, -2), plant(39, 97, "e:tallgrass2", -3, -0.5),
+    nest(46, 54, 3), nest(51, 51, 2)
   ]
 };

@@ -48,6 +48,7 @@
      roam record (B3e1): { id: "roam-NN", kind: "roam", box: tileBox, habitat?: "b1e-habitat-id",
                            spawns: [{ creature: "<kind>", at: [x, y] }, ...] }
                                          // format 1's roam area of that id and the creatures that start in it; no collision
+     anchor, place, zone, route and prop records (B3f): below
 
    A building (B3c1) draws itself: art "placeholder" is the game's temporary building art, drawn exactly over the
    record's one drawn box, until the art stage adds real sprites as a new art kind (the footprint, the door and the
@@ -123,6 +124,29 @@
    dock for a cat) with its feet clear of every foot-blocking pixel; the box holds at least one more such tile to walk to;
    roam areas come in format 1's order.
 
+   B3f's records carry format 1's remaining home sections, each at B3a's approved place, none blocking or drawing anything
+   but a prop's sprite. Each is named for what it is ("<kind>-<name>"), so the game finds format 1's name in its id:
+     anchor  { id: "anchor-<name>", kind: "anchor", at: [x, y] }: a point the game's systems start from (ANCHOR_PLAN: the
+             cargo dock, the car, rex, the gardener, the first visit (D4: the spawn), the arena and the core approach; the
+             gate's is the park gate record's middle). Open ground (the cargo dock's on the quay) reached from the spawn,
+             pi's feet clear; the core approach next to the arena; rex in his meadow and the gardener in the beds.
+     place   { id: "place-<name>", kind: "place", at: [x, y] }: a goto spot (PLACE_PLAN, format 1's ten, in its order):
+             open ground reached from the spawn, pi's feet clear, outside every footprint.
+     zone    { id: "zone-<name>", kind: "zone", area: [x0, y0, x1, y1] }: a named box (ZONE_PLAN, format 1's five; edges may
+             be fractional, as the roar zone's are; each system reads its edges its own way), inside the map. The roar zone
+             wraps the holding paddock's whole fence and the T. rex's box.
+     route   { id: "route-<name>", kind: "route", start: [x, y], stops: [[x, y], ...] }: a bot's patrol (ROUTE_PLAN, the
+             welder's): start and stops open ground reached from the spawn, pi's feet clear, outside every enclosure and
+             footprint.
+     prop    { id, kind: "prop", sprite, at: [x, y], flip?, ox?, oy? }: one of the game's environment sprites (a prop with no
+             sprite is B3b's generic record, a solid with drawn boxes, as before) (PROP_SPRITES:
+             in B3f only the undergrowth the gardener waters, which blocks nothing in format 1 either) standing on open
+             grass, off every path, door, station's approach, spawn, footprint and the rift field. A prop that blocks its
+             tile in format 1 (a nest, a tree, a lamp, the outpost kit, crates) isn't accepted: its whole tile would be
+             solid outside what it draws (D1). The nests are the exception made whole (Ammaar's option D): each on a base of
+             straw and twigs drawn over its whole tile, its tile solid, as format 1's ({ ..., sprite: "e:nest0", eggs, base:
+             "straw" }; NEST_PLAN). Other blocking props wait for B4.
+
    A free-standing station's anchor is open land (walkable terrain with no content tile, not a bridge, a dock or the pad)
    outside every B1e footprint; a landmark's is on its base; the boat's is the sea. No two stations share an anchor, and
    a landmark carries at most one station.
@@ -149,6 +173,11 @@
      landmarks      a landmark base's art, footprint, name, drawn box and approach, as above (B3d4a)
      stations       a station's id, place, anchor and approach, as above (B3d4b)
      creatures      a roam area's id, box, habitat and spawns, as above (B3e1)
+     anchors        an anchor's name, tile and ground (B3f)
+     places         a place's name, order, tile and ground (B3f)
+     zones          a zone's name and box, and what its system needs inside it (B3f)
+     routes         a route's name, start and stops (B3f)
+     props          a prop's sprite and tile (B3f)
      open-space     nothing solid in the B1e open spaces (the rift arena's clear field)
      doors          each door tile walkable, next to its record's solid, reachable from the spawn
      route-ends     every B1d route end still reachable from the spawn
@@ -157,8 +186,8 @@ import { regionPoly } from "../map-compile.mjs";
 import { raster } from "./geom.mjs";
 
 export const CONTENT_SCHEMA = "mapb-content-1";
-export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop", "roam"];
-export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "landmarks", "stations", "creatures", "open-space", "doors", "route-ends", "pockets"];
+export const KINDS = ["building", "landmark", "station", "wall", "fence", "gate", "prop", "roam", "anchor", "place", "zone", "route"];
+export const RULES = ["schema", "terrain", "spawn", "drawn", "overlap", "foot", "reserve", "buildings", "walls", "fences", "gates", "landmarks", "stations", "anchors", "places", "zones", "routes", "props", "creatures", "open-space", "doors", "route-ends", "pockets"];
 /* the rooms a building may open into (the game's ROOMS in js/world.js, whose decoder holds the same list), the art
    kinds the game draws, and what it draws them on (a building since B3c1, a wall since B3c3, a fence since B3d1, a gate
    since B3d3, a landmark since B3d4a) */
@@ -212,10 +241,27 @@ export const ROAM_PLAN = {
   "roam-25": RP([75, 75, 84, 81], null, [["roomba", 77, 78]]),
   "roam-26": RP([105, 65, 117, 68], "koi-garden", [["cat", 108, 66]]), "roam-27": RP([107, 56, 117, 58], "koi-garden", [["cat", 113, 57]])
 };
+/* B3f: format 1's remaining home sections at B3a's approved places (section 3 of the B3a plan): the anchors (the gate's is the park
+   gate record's), the ten goto places in format 1's order, the five zones and the welder's patrol. The anchors' names here are the
+   records' (anchor-<name>); the game's are in ANCHOR_NAMES. firstVisit is D4's: the first visit starts at the spawn */
+export const ANCHOR_PLAN = { "cargo-dock": [92, 82], car: [58, 89], rex: [38, 80], gardener: [36, 92], "first-visit": [79, 79], arena: [76, 56], "core-approach": [76, 57] };
+export const ANCHOR_NAMES = { "cargo-dock": "dock", car: "car", rex: "rex", gardener: "gardener", "first-visit": "firstVisit", arena: "arena", "core-approach": "coreApproach" };
+export const PLACE_PLAN = [["pond", [110, 57]], ["gate", [74, 40]], ["plaza", [79, 79]], ["car", [57, 88]], ["paddock", [112, 19]], ["raptors", [123, 19]], ["volcano", [83, 25]], ["outpost", [111, 85]], ["shrine", [14, 20]], ["clearing", [76, 56]]];
+export const ZONE_PLAN = { "trex-roar": [104, 8.5, 120, 20], fireflies: [11, 31, 30, 53], "rex-meadow": [34, 78, 41, 81], "gardener-beds": [28, 88, 41, 97], "cockatiel-trees": [30, 86, 55, 98] };
+export const ROUTE_PLAN = { "welder-patrol": { start: [123, 19], stops: [[118, 13], [121, 18], [125, 18], [128, 13]] } };
+/* the props B3f takes: the undergrowth the gardener waters (format 1's gardener: fern, cycad, bush, magnolia, tall grass), none of
+   which blocks its tile; the game's environment sprites by name (e:<kind><variant>) */
+export const PROP_SPRITES = /^e:(fern|cycad|bush|magnolia|tallgrass)\d$/;
+/* the nests (Ammaar's decision for B3f, 2026-11-02, option D): format 1's two, at B3a's places with format 1's egg counts, each on a
+   base of straw and twigs drawn over its whole tile, so format 1's whole-tile collision is all drawn (D1, no exception): its solid is
+   its own tile, its drawn box that tile exactly. The nest sprite, its eggs and its card are format 1's */
+export const NEST_PLAN = [[46, 54, 3], [51, 51, 2]];
+export const NEST_BASES = ["straw"];
 // format 1's okFor: a tile a creature may walk to or stand on (ground codes: grass 3, path 4, dock 6)
 export const creatureMayStand = (kind, ground) => (kind === "robot" || kind === "roomba" ? ground === 4 : kind === "cat" ? ground !== 6 : ground === 3);                 // the game's: [E] reaches a station 26 px from pi's feet (nearCandidates)
 const ID = /^[a-z0-9]+(-[a-z0-9]+)*$/;
 const T = 16;
+const SECTION = ["anchor", "place", "zone", "route", "prop"];         // B3f's kinds, resolved by section()
 // terrain codes and flags, the compiler's (tools/map-compile.mjs GROUND and COLL)
 const G_BRIDGE = 10, G_DOCK = 6, G_PAD = 8;
 
@@ -276,10 +322,12 @@ export function resolveContent(content, src, m) {
     if (typeof r.id !== "string" || !ID.test(r.id)) fail("schema", `${f0} needs an id (lowercase words joined by hyphens)`);
     const f = `record ${r.id}`;
     if (seen.has(r.id)) fail("schema", `${f} appears twice`); seen.add(r.id);
-    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns"]);
+    only(r, f, ["id", "kind", "drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns", "at", "area", "start", "stops", "sprite", "flip", "ox", "oy", "eggs", "base"]);
     if (!KINDS.includes(r.kind)) fail("schema", `${f}.kind ${JSON.stringify(r.kind)} isn't one of ${KINDS.join(", ")}`);
     if (r.kind === "station") return station(r, f);
     if (r.kind === "roam") return roam(r, f);
+    if (SECTION.includes(r.kind) && (r.kind !== "prop" || r.sprite !== undefined)) return section(r, f);   // (a prop with no sprite is B3b's: a solid with drawn boxes)
+    for (const k of ["at", "area", "start", "stops", "sprite", "flip", "ox", "oy", "eggs", "base"]) if (r[k] !== undefined) fail("schema", `${f}.${k} is on a ${r.kind}: only an anchor, a place, a zone, a route or a prop has it`);
     for (const k of ["box", "habitat", "spawns"]) if (r[k] !== undefined) fail("schema", `${f}.${k} is on a ${r.kind}: only a roam area has a box, a habitat and spawns`);
     for (const k of ["anchor", "approach", "place"]) if (r[k] !== undefined) fail("schema", `${f}.${k} is on a ${r.kind}: only a station has an anchor, an approach and a place`);
     if (r.room !== undefined && (r.kind !== "building" || !ROOM_IDS.includes(r.room))) fail("schema", `${f}.room ${JSON.stringify(r.room)} ${r.kind !== "building" ? "is on a " + r.kind + ": only a building has a room" : "isn't one of the game's rooms, " + ROOM_IDS.join(", ")}`);
@@ -351,6 +399,40 @@ export function resolveContent(content, src, m) {
     const pk = Object.keys(r.place);
     if (pk.length !== 1 || !PLACE_KINDS.includes(pk[0]) || typeof r.place[pk[0]] !== "string" || !ID.test(r.place[pk[0]])) fail("schema", `${f}.place must name one place, { <kind>: "<id>" } with kind one of ${PLACE_KINDS.join(", ")}, not ${JSON.stringify(r.place)}`);
     const out = { id: r.id, kind: "station", drawnPxBoxes: [], tiles: [], footPxBoxes: [], doorTiles: [], anchor: [anchor[0], anchor[1]], approach: [approach[0], approach[1]], place: { [pk[0]]: r.place[pk[0]] } };
+    Object.defineProperty(out, "inner", { value: [], enumerable: false });
+    Object.defineProperty(out, "shape", { value: { solid: [], box: null, habitat: null, ownDrawn: 0 }, enumerable: false });
+    return out;
+  }
+  /* an anchor, a place, a zone, a route or a prop (B3f): no collision and nothing drawn by the content layer (a prop is the game's
+     sprite); its fields by kind, the rest is the rules' */
+  function section(r, f) {
+    const fields = { anchor: ["at"], place: ["at"], zone: ["area"], route: ["start", "stops"], prop: ["sprite", "at", "flip", "ox", "oy", "eggs", "base"] }[r.kind];
+    for (const k of ["drawnPxBoxes", "solid", "doorTiles", "reserve", "encloses", "art", "room", "compound", "marker", "anchor", "approach", "place", "box", "habitat", "spawns", "at", "area", "start", "stops", "sprite", "flip", "ox", "oy", "eggs", "base"])
+      if (r[k] !== undefined && !fields.includes(k)) fail("schema", `${f}.${k}: a ${r.kind} has no ${k}${k === "solid" ? " (it blocks nothing)" : ""}`);
+    const out = { id: r.id, kind: r.kind, drawnPxBoxes: [], tiles: [], footPxBoxes: [], doorTiles: [] };
+    if (r.kind === "anchor" || r.kind === "place") { const a = tile(r.at, f + ".at", W, H); out.at = [a[0], a[1]]; }
+    if (r.kind === "zone") {
+      const a = r.area; if (!Array.isArray(a) || a.length !== 4 || a.some((v) => typeof v !== "number" || !isFinite(v))) fail("schema", `${f}.area must be [x0, y0, x1, y1], four numbers`);
+      if (a[0] < 0 || a[1] < 0 || a[2] > W || a[3] > H || a[2] < a[0] || a[3] < a[1]) fail("schema", `${f}.area must lie inside the map with x0 <= x1 and y0 <= y1, not ${a}`);
+      out.area = a.slice();
+    }
+    if (r.kind === "route") {
+      const st = tile(r.start, f + ".start", W, H), sp = list(r.stops, f + ".stops").map((p, j) => tile(p, `${f}.stops[${j}]`, W, H));
+      if (sp.length < 2) fail("schema", `${f}.stops needs at least 2 stops`);
+      out.start = [st[0], st[1]]; out.stops = sp.map((p) => [p[0], p[1]]);
+    }
+    if (r.kind === "prop") {
+      if (typeof r.sprite !== "string" || !/^e:[a-z]+\d$/.test(r.sprite)) fail("schema", `${f}.sprite must be one of the game's environment sprites (e:<kind><variant>), not ${JSON.stringify(r.sprite)}`);
+      const a = tile(r.at, f + ".at", W, H); out.sprite = r.sprite; out.at = [a[0], a[1]];
+      if (r.flip !== undefined) { if (typeof r.flip !== "boolean") fail("schema", `${f}.flip must be true or false`); out.flip = r.flip; }
+      for (const k of ["ox", "oy"]) if (r[k] !== undefined) { if (typeof r[k] !== "number" || !isFinite(r[k]) || Math.abs(r[k]) > 16) fail("schema", `${f}.${k} must be a number of px from -16 to 16`); out[k] = r[k]; }
+      // a nest (option D): its eggs, and its base, which draws over its whole tile, the one tile it makes solid
+      if (r.eggs !== undefined || r.base !== undefined) {
+        if (r.sprite !== "e:nest0") fail("schema", `${f}: only a nest (e:nest0) has eggs and a base`);
+        int(r.eggs, f + ".eggs", 1, 9); if (!NEST_BASES.includes(r.base)) fail("schema", `${f}.base must be one of ${NEST_BASES.join(", ")} (it draws over the nest's whole tile)`);
+        out.eggs = r.eggs; out.base = r.base; out.tiles = [[a[0], a[1]]]; out.drawnPxBoxes = [{ px0: a[0] * T, py0: a[1] * T, px1: a[0] * T + T - 1, py1: a[1] * T + T - 1 }];
+      }
+    }
     Object.defineProperty(out, "inner", { value: [], enumerable: false });
     Object.defineProperty(out, "shape", { value: { solid: [], box: null, habitat: null, ownDrawn: 0 }, enumerable: false });
     return out;
@@ -641,6 +723,83 @@ export function contentProblems(records, src, m) {
     let room = 0; for (let y = y0; y <= y1; y++) for (let x = x0; x <= x1; x++) if (may(r.spawns[0].creature, x, y)) room++;
     if (room < 2) B(`its box holds ${room} tile(s) its ${r.spawns[0].creature} may walk to: nowhere to roam`);
   }
+  // B3f: the anchors, places, zones, routes and props. A spot is open ground (terrain walkable, no content tile) with pi's feet
+  // clear of every foot-blocking pixel, reached from the spawn, outside every footprint (enclosures are cut off, so never reached)
+  const spot = (x, y) => {
+    const i = at(x, y), fx = x * T + 8, fy = y * T + 10; let wet = 0;
+    for (let yy = fy - 2; yy <= fy + 1; yy++) for (let xx = fx - 4; xx <= fx + 4; xx++) wet += m.px.foot[yy * PW + xx] || L.foot[yy * PW + xx] ? 1 : 0;
+    const rs = RES.find((q) => inBox(x, y, q.b));
+    return !tWalk(i) ? "terrain coll " + m.coll[i] : L.tiles[i] ? "solid content" : wet ? wet + " foot-blocking pixels under pi's feet" : !after[i] ? "not reached from the spawn" : rs ? "inside the reserve " + rs.id : null;
+  };
+  const nameOf = (r) => r.id.slice(r.kind.length + 1);
+  const seenName = { anchor: new Set(), place: new Set(), zone: new Set(), route: new Set() }; let lastPlace = -1;
+  for (const r of records) {
+    if (!SECTION.includes(r.kind) || r.kind === "prop") { if (r.kind === "prop") continue; for (const k of ["anchor", "place", "zone", "route"]) if (r.id.startsWith(k + "-")) add(k + "s", `${r.id}: the id is ${k === "anchor" ? "an" : "a"} ${k}'s, and this is a ${r.kind}`); continue; }
+    const rule = r.kind + "s", B = (msg) => add(rule, `${r.id}: ${msg}`);
+    if (!r.id.startsWith(r.kind + "-")) { B(`${r.kind === "anchor" ? "an" : "a"} ${r.kind} is named ${r.kind}-<name>`); continue; }
+    const nm = nameOf(r);
+    if (seenName[r.kind].has(nm)) B(`there is already ${r.kind === "anchor" ? "an" : "a"} ${r.kind} named ${nm}`); seenName[r.kind].add(nm);
+    if (r.kind === "anchor") {
+      const want = ANCHOR_PLAN[nm];
+      if (!want) { B(`an anchor is one of B3a's (${Object.keys(ANCHOR_PLAN).join(", ")}; the gate's is the park gate's), and ${nm} isn't`); continue; }
+      if (r.at.join() !== want.join()) B(`its approved tile is ${want} (B3a's plan${nm === "first-visit" ? ", D4: the spawn" : ""}), not ${r.at}`);
+      const [x, y] = r.at, why = spot(x, y);
+      if (why) B(`its tile ${r.at} isn't open ground for pi (${why})`);
+      if (nm === "cargo-dock") { const q = src.exits.south.quayBox; if (m.ground[at(x, y)] !== G_DOCK || !inBox(x, y, q)) B(`the cargo dock is on the south harbour's quay (dock, ${q.x0},${q.y0} to ${q.x1},${q.y1}), and ${r.at} isn't`); }
+      if (nm === "first-visit" && r.at.join() !== m.anchors.spawnTile.join()) B(`the first visit starts at the spawn ${m.anchors.spawnTile} (D4)`);
+    }
+    if (r.kind === "place") {
+      const k = PLACE_PLAN.findIndex((q) => q[0] === nm);
+      if (k < 0) { B(`a place is one of format 1's ten (${PLACE_PLAN.map((q) => q[0]).join(", ")}), and ${nm} isn't`); continue; }
+      if (k < lastPlace) B(`places come in format 1's order (goto lists them so): ${nm} comes before ${PLACE_PLAN[lastPlace][0]}`); lastPlace = Math.max(lastPlace, k);
+      if (r.at.join() !== PLACE_PLAN[k][1].join()) B(`its approved tile is ${PLACE_PLAN[k][1]} (B3a's plan), not ${r.at}`);
+      const why = spot(...r.at); if (why) B(`its tile ${r.at} isn't open ground for pi (${why})`);
+    }
+    if (r.kind === "zone") {
+      const want = ZONE_PLAN[nm];
+      if (!want) { B(`a zone is one of format 1's five (${Object.keys(ZONE_PLAN).join(", ")}), and ${nm} isn't`); continue; }
+      if (r.area.join() !== want.join()) B(`its approved box is ${want} (B3a's plan), not ${r.area}`);
+    }
+    if (r.kind === "route") {
+      const want = ROUTE_PLAN[nm];
+      if (!want) { B(`a route is one of format 1's (${Object.keys(ROUTE_PLAN).join(", ")}), and ${nm} isn't`); continue; }
+      if (JSON.stringify([r.start, r.stops]) !== JSON.stringify([want.start, want.stops])) B(`its approved start and stops are ${want.start}; ${want.stops.join("; ")} (B3a's plan), not ${r.start}; ${r.stops.join("; ")}`);
+      for (const p of [r.start, ...r.stops]) { const why = spot(...p); if (why) B(`${p} isn't open ground for its bot (${why})`); }
+    }
+  }
+  // a zone's system needs (B3a): the roar zone round the holding paddock's whole fence and the T. rex's box; rex's anchor in his
+  // meadow on grass; the gardener's anchor in the beds; the core approach next to the arena, the arena at the clear field's middle
+  const Zr = (nm) => records.find((r) => r.kind === "zone" && nameOf(r) === nm), Ar = (nm) => records.find((r) => r.kind === "anchor" && nameOf(r) === nm);
+  const inArea = (x, y, a) => x >= a[0] && x <= a[2] && y >= a[1] && y <= a[3];
+  const roarZ = Zr("trex-roar"), pd = records.find((r) => r.kind === "fence" && r.id === "holding-paddock"), rx = records.find((r) => r.kind === "roam" && r.id === "roam-02");
+  if (roarZ && pd) for (const [x, y] of pd.tiles) if (!(x > roarZ.area[0] && x + 1 < roarZ.area[2] && y > roarZ.area[1] && y + 1 < roarZ.area[3])) { add("zones", `zone-trex-roar: the holding paddock's fence tile ${x},${y} isn't inside it (it wraps the whole fence)`); break; }
+  if (roarZ && rx) { const b = rx.box; if (!(b[0] > roarZ.area[0] && b[2] + 1 < roarZ.area[2] && b[1] > roarZ.area[1] && b[3] + 1 < roarZ.area[3])) add("zones", `zone-trex-roar: the T. rex's box ${b} isn't inside it`); }
+  const rm = Zr("rex-meadow"), ra = Ar("rex");
+  if (rm && ra && (!inArea(...ra.at, rm.area) || m.ground[at(...ra.at)] !== 3)) add("anchors", `anchor-rex: rex starts on grass in his meadow (${rm.area}), not at ${ra.at}`);
+  const gb = Zr("gardener-beds"), ga = Ar("gardener");
+  if (gb && ga && !inArea(...ga.at, gb.area)) add("anchors", `anchor-gardener: the gardener starts in the beds (${gb.area}), not at ${ga.at}`);
+  const ar = Ar("arena"), ca = Ar("core-approach"), field = (src.reserves.openSpaces || []).find((o) => o.id === "rift-arena");
+  if (ar && field && ar.at.join() !== [Math.floor(field.clearField.cx), Math.floor(field.clearField.cy)].join()) add("anchors", `anchor-arena: the arena is the rift field's middle tile ${Math.floor(field.clearField.cx)},${Math.floor(field.clearField.cy)}, not ${ar.at}`);
+  if (ar && ca && Math.max(Math.abs(ca.at[0] - ar.at[0]), Math.abs(ca.at[1] - ar.at[1])) > 1) add("anchors", `anchor-core-approach: the core floats over the arena, so its approach is on or next to it (${ar.at}), not ${ca.at}`);
+  // props (B3f): the undergrowth the gardener waters, on open grass off every path, door, station approach, spawn and the rift field
+  const doors = new Set(records.flatMap((r) => r.doorTiles.map(([x, y]) => at(x, y)))), fronts = new Set(records.filter((r) => r.kind === "station").map((r) => at(...r.approach)));
+  const spawns = new Set(records.filter((r) => r.kind === "roam").flatMap((r) => r.spawns.map((q) => at(...q.at))));
+  const propAt = new Map();
+  for (const r of records) {
+    if (r.kind !== "prop" || !r.sprite) continue;
+    const B = (msg) => add("props", `${r.id}: ${msg}`), [x, y] = r.at, i = at(x, y);
+    if (r.sprite === "e:nest0") {
+      const k = NEST_PLAN.findIndex(([nx, ny]) => nx === x && ny === y);
+      if (!r.base) { B("a nest blocks its tile, as format 1's: it stands on a base drawn over that whole tile (option D), or its collision would be invisible (D1)"); continue; }
+      if (k < 0) B(`a nest is one of format 1's two, at B3a's places (${NEST_PLAN.map((q) => q.slice(0, 2).join(",")).join("; ")}), and ${r.at} isn't`);
+      else if (r.eggs !== NEST_PLAN[k][2]) B(`the nest at ${r.at} holds format 1's ${NEST_PLAN[k][2]} eggs, not ${r.eggs}`);
+    } else if (!PROP_SPRITES.test(r.sprite)) { B(`${r.sprite} isn't a prop B3f places (the gardener's undergrowth, which blocks nothing, and the nests on their bases); any other prop that blocks its tile in format 1 waits for B4 (D1)`); continue; }
+    if (propAt.has(i)) B(`${r.at} already has ${propAt.get(i)}`); propAt.set(i, r.id);
+    if (!tWalk(i) || (L.tiles[i] && !r.base) || m.ground[i] !== 3) B(`it stands on open grass, and ${r.at} is ${!tWalk(i) ? "terrain coll " + m.coll[i] : L.tiles[i] && !r.base ? "solid content" : "ground " + m.ground[i]}`);
+    else if (doors.has(i) || fronts.has(i) || spawns.has(i) || i === at(...sp)) B(`${r.at} is ${doors.has(i) ? "a door" : fronts.has(i) ? "a station's approach" : spawns.has(i) ? "a creature's spawn" : "the spawn"}: kept clear`);
+    const rs = RES.find((q) => inBox(x, y, q.b)); if (rs) B(`${r.at} is inside the reserve ${rs.id}`);
+    if (field && ((x + 0.5 - field.clearField.cx) / field.clearField.rx) ** 2 + ((y + 0.5 - field.clearField.cy) / field.clearField.ry) ** 2 <= 1) B(`${r.at} is in the rift arena's clear field`);
+  }
   const enclosed = new Set(); for (const r of records) if (r.encloses) for (const [x, y] of r.inner) enclosed.add(at(x, y));
   let lost = 0, first = null;
   for (let i = 0; i < W * H; i++) if (before[i] && !after[i] && !L.tiles[i] && !enclosed.has(i)) { lost++; if (!first) first = `${i % W},${(i - i % W) / W}`; }
@@ -672,6 +831,10 @@ export function serializeContent(c, meta) {
     if (r.marker) o.marker = r.marker;
     if (r.kind === "station") { o.anchor = r.anchor; o.approach = r.approach; o.place = r.place; }
     if (r.kind === "roam") { o.box = r.box; if (r.habitat) o.habitat = r.habitat; o.spawns = r.spawns; }
+    if (r.kind === "anchor" || r.kind === "place") o.at = r.at;
+    if (r.kind === "zone") o.area = r.area;
+    if (r.kind === "route") { o.start = r.start; o.stops = r.stops; }
+    if (r.kind === "prop" && r.sprite) { o.sprite = r.sprite; o.at = r.at; if (r.flip !== undefined) o.flip = r.flip; if (r.ox !== undefined) o.ox = r.ox; if (r.oy !== undefined) o.oy = r.oy; if (r.eggs !== undefined) { o.eggs = r.eggs; o.base = r.base; } }
     return `    ${num(o)}`;
   };
   return [
@@ -685,7 +848,8 @@ export function serializeContent(c, meta) {
     `   where feet stop on tiles that stay walkable; doorTiles; gapTiles, a ring's openings; terrainTiles, where the terrain`,
     `   closes a wall's ring; encloses, a ring that closes ground in; a building's, a wall's, a fence's or a gate's art; a`,
     `   building's room; a wall's compound; a gate's marker; a station's anchor, approach and place (it blocks nothing); a`,
-    `   roam area's box, habitat and spawns (format 1's creatures, B3e1; it blocks nothing).`,
+    `   roam area's box, habitat and spawns (format 1's creatures, B3e1; it blocks nothing); an anchor's or a place's tile (at), a`,
+    `   zone's area, a route's start and stops, a prop's sprite, tile, flip and offsets (B3f; none of them blocks anything).`,
     `   solidTiles and footPixels: the totals, which the game checks.`,
     `   The game reads the terrain's collision for painting and the union of both layers for movement. */`,
     `(window.ISLAND_MAPS_STAGED_CONTENT = window.ISLAND_MAPS_STAGED_CONTENT || {}).home = {`,
