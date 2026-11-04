@@ -130,14 +130,18 @@ for (const id of IDS) {
 { // the game's ids and words: the decoder's, the completeness list's and STATION_WORDS' outdoor ids are the eleven; no string literal of B3d4a's world.js
   // is gone (the cards, the secrets, the terminal's lines; checked by presence, never printed: some are a CTF's payload)
   const W1 = readFileSync(join(ROOT, "js/world.js"), "utf8"), W0 = execFileSync("git", ["show", `${B3D4A}:js/world.js`], { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 26 });
+  // (the identity refresh, 9521940, approved by Ammaar and merged at B3f: it rewords the watchtower's and the stone tablet's cards and moves
+  // the image cache to v=20261102; its own js/world.js, with its parent's, is the approved source for those words. Nothing else may change)
+  const gitShow = (rev) => execFileSync("git", ["show", `${rev}:js/world.js`], { cwd: ROOT, encoding: "utf8", maxBuffer: 1 << 26 });
+  const WR = gitShow("9521940"), WRP = gitShow("9521940^");
   const dec = JSON.parse((W1.match(/var STATION_IDS = (\[[^\]]*\])/) || [])[1] || "null");
   const comp = JSON.parse((W1.match(/\["station", (\[[^\]]*\]), "stations"\]/) || [])[1] || "null");
   const words = [...(W1.match(/var STATION_WORDS = \[([\s\S]*?)\n  \];/) || ["", ""])[1].matchAll(/\{ id: "([a-z]+)"(, room: "[a-z]+")?/g)].filter((q) => !q[2]).map((q) => q[1]);
   check("node", "js/world.js: the decoder's STATION_IDS, the completeness list's stations and STATION_WORDS' outdoor stations are the eleven ids", JSON.stringify(dec) === JSON.stringify(IDS) && JSON.stringify(comp) === JSON.stringify(IDS) && JSON.stringify(words) === JSON.stringify(IDS), `${words.join(",")}`);
   const block = (s, a, b) => { const i = s.indexOf(a); return i < 0 ? null : s.slice(i, s.indexOf(b, i) + b.length); };
   const same = [["STATION_WORDS", "var STATION_WORDS = [", "\n  ];"], ["SECRETS", "var SECRETS = [", "\n  ];"], ["ROUTES", "var ROUTES = {", "};"], ["TOUR", "var TOUR = [", "];"], ["PLACES", "var PLACES = {", "};"], ["verbOf", "function verbOf(v) {", "\n  }"], ["DEITY_LINES", "var DEITY_LINES", "];"], ["FILES", "var FILES = {", "\n  };"]]
-    .map(([n, a, b]) => [n, block(W0, a, b), block(W1, a, b)]);
-  check("node", "the cards (STATION_WORDS), the secrets, the deep links (ROUTES), the tour, goto's places, the prompt's verbs, the shrine's lines and the terminal's files are byte for byte as at B3d4a",
+    .map(([n, a, b]) => [n, n === "STATION_WORDS" ? block(WR, a, b) : block(W0, a, b), block(W1, a, b)]);
+  check("node", "the cards (STATION_WORDS), the secrets, the deep links (ROUTES), the tour, goto's places, the prompt's verbs, the shrine's lines and the terminal's files are byte for byte as at B3d4a (the cards as the identity refresh, 9521940, reworded them)",
     same.every(([, a, b]) => a && a === b), same.map(([n, a, b]) => `${n} ${a && a === b ? "same" : "CHANGED"}`).join(", "));
   // the string literals, from esprima's tokenizer (in tools' node_modules, through cspell): every quoted string in the file
   let esprima = null; try { esprima = createRequire(import.meta.url)("esprima"); } catch (e) { esprima = null; }
@@ -145,7 +149,8 @@ for (const id of IDS) {
   // (B3f: the completeness list's placeholder for a section not in the content format yet, " (not in the content format yet)", is gone
   // with the last such section: every item is now checked from the decoded data. Not a card, secret, prompt or terminal line)
   const RETIRED = ['" (not in the content format yet)"'];   // (esprima's token value keeps the quotes)
-  const L0 = lits(W0), L1 = lits(W1), gone = [...L0].filter((q) => !L1.has(q) && !RETIRED.includes(q)), added = [...L1].filter((q) => !L0.has(q));
+  const LR = lits(WR), LRP = lits(WRP), REWORDED = [...LRP].filter((q) => !LR.has(q));   // (what the identity refresh itself reworded)
+  const L0 = lits(W0), L1 = lits(W1), gone = [...L0].filter((q) => !L1.has(q) && !RETIRED.includes(q) && !REWORDED.includes(q)), added = [...L1].filter((q) => !L0.has(q));
   check("node", `every one of B3d4a's ${L0.size} string literals in js/world.js is still there (no card, secret, prompt or terminal line removed or reworded; B3f retired the completeness list's placeholder for sections not in the format, which no item needs now)`, !!esprima && L0.size > 2000 && gone.length === 0,
     gone.length ? `${gone.length} gone (first: ${gone[0].length} chars, sha256 ${sha(gone[0]).slice(0, 12)})` : `${added.length} new`);
   const shown = added.filter((q) => /on this island yet/.test(q));
