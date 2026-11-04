@@ -190,6 +190,24 @@ ship them, never commit them, and never name their sources anywhere in the site 
 
 ## 7. What's done
 
+### Personal GitHub identity refresh, 2026-11-02 (local branch only)
+
+- Final publication handoff: Ammaar manually opened and reviewed the local portfolio in Chrome, said it looks good, and explicitly approved publishing the prepared refresh subject to final safety checks. This is user-reported visual approval, not an automated browser pass or confirmation of every checklist item. No site source or visual changes were made in this final session.
+- Final local review: the eight-file diff from cached `d6b4c43` to `94d2331` is scoped to the approved refresh. The published predator commit's technical files are preserved byte for byte; artwork, CSS, map data, animation/interaction logic and saves are unchanged. HTML, JavaScript syntax, the 53-file/41-reference deploy dry run, whitespace and the scoped Gitleaks scan pass. Original-checkout edits were left untouched.
+- Publication stopped before push: `git fetch` failed with `Could not resolve host: github.com`. Cached `origin/main` is not fresh remote verification. The final Terminal handoff must fetch first and stop on any unexpected main or candidate commit; only a normal, non-force GitHub push is authorized. No Cloudflare or other hosting deployment is authorized or performed. These final notes supersede earlier identity-refresh publication gates below; browser automation remains blocked.
+
+- Continuation: the profile, Homelab and Triage commits are now published and independently reverified. Personal profile/repository metadata and the prepared Hammerhead/Sana's Cakes documentation were published through the existing `ammaarrehman` Chrome session; the connector remained read-only. See `../../REPORT.md` for exact heads and evidence.
+- This portfolio remains local. On the unchanged `1042cf3` site source, HTML validation, the 53-file/41-reference deploy dry run, JS syntax and `git diff --check` pass. The offline audit cannot bind its loopback server (`listen EPERM`); direct launches of installed Chromium 1243 and WebKit 2359 are also blocked. No desktop/mobile, theme, animation, terminal, island or screenshot pass is claimed. Firefox was omitted. No install, source workaround, push or deploy occurred.
+- GitHub's freshly read `main` is `d6b4c43615915cc67bca2863edb97f46c3b5f13b`, an ancestor of this branch. The original checkout has active concurrent MAP-B edits; they were not changed, staged, stashed, reset or merged into this verification branch. The temporary dependency symlink was removed. This continuation changes only this handoff.
+
+- Isolated on `refresh/personal-identity` from `a824c1c`. During this task the other session committed and pushed its existing predator work as `d6b4c43`. That published commit was incorporated with a normal merge; none of its content was changed by this refresh.
+- User-authorized copy updates: explicit UMD Spring 2027 admission; released Hammerhead v0.1.0 in about and an existing-style project row; GitHub personal code host and identity links; original DNS row in past tense. Details in `AUDIT.md`.
+- Cache bumped together to `20261102`. CSS, artwork, maps, boot/orb code, controls and save schema are unchanged. `world.js` changes only education/retired-monitoring text and cache strings.
+- Static HTML and deploy dry run pass. Browser checks and screenshots are BLOCKED by environment permissions; this is not a runtime verification pass.
+- CLI personal identity could not be verified; the connector is `talarurus-admin` with read-only access. No push, metadata mutation, authentication change, or Cloudflare deploy was attempted.
+- Historical GitHub-flag/GitLab-only instructions elsewhere in this file are superseded for this refresh by the user's explicit primary-personal-GitHub direction and the current public repository metadata. Visibility has not been changed.
+
+
 ### MAP-B B2e to B3b, 2026-10-09 (staged only, not deployed)
 
 - B2e (integration and performance audit) is committed as `09a1ecad6c42fc11082be2f2f3a1a8f8bb457ab8`. Accepted as documented for later: the Chromium first-key AudioContext hitch (a separate audio fix), format 1's follower stalls (a separate legacy fix), trailing-corner wet contacts (pinned), landscape phones (deferred).
@@ -623,6 +641,8 @@ The following historical implementation entries describe previously committed/pu
 
 ## 8. Waiting on Ammaar
 
+Identity refresh: Ammaar has manually reviewed the local portfolio in Chrome and approved publishing the prepared refresh subject to final safety checks. Publication now waits on a fresh remote fetch and comparison, blocked here by GitHub DNS/network access. See `../../REPORT.md` and `../../PORTFOLIO-VERIFICATION.md` for the pinned Terminal handoff. Automated browser checks remain blocked, not passed. Authentication must not be changed to address the network restriction.
+
 0. **MAP-A, B0 and core approach fix deploys: done 2026-10-03** (MAP-A: Cloudflare `b62884f1`, cache `20261023`; B0: Cloudflare `0e9f176d`, cache `20261024`; core approach fix: Cloudflare `b5fe7d52`, cache `20261025`; section 7). A manual look at the live island by Ammaar is still welcome; nothing should look different. On 2026-10-08 B2d code was deployed by accident (`e1d40cdd`) and rolled back to `b5fe7d52` about 6.5 minutes later (section 7); production is that approved release again.
 1. **Island visual quality reopened:** Ammaar says the conversion does not look good/fully reworked. Fresh assessment in `docs/audit-2026-09-28.md` agrees it needs a coherent art-direction/layout pass, not simply more props. Propose one cohesive slice for approval before expanding it. Park plaque still reads "PI'S ISLAND" rather than Mossgate; buildings/landmarks retain older art. Phase 12 map/layout approval still applies.
 2. HSTS: confirm after a week (raise to `max-age=31536000; includeSubDomains` in `_headers` on or after 2026-10-04 if nothing broke).
@@ -643,6 +663,8 @@ The following historical implementation entries describe previously committed/pu
 17. **MAP-B B3f (content completion): implemented 2026-11-02 with Ammaar's corrections (the nests, option D; the raptor occlusion measure), uncommitted and unpushed, waiting on his final approval** (section 7; nest shots `tools/out/mapb/b3f/*-nests-*`). On approval: one commit, "Map: complete MAP-B home content (B3f)", push only if Ammaar asks. Don't start B4 before Ammaar's go-ahead.
 
 ## 9. Next steps, in order
+
+Identity refresh next: use the pinned Terminal handoff to fetch GitHub main and publish only if the candidate, clean worktree, reviewed remote base and ancestry all match. Stop for review on any unexpected commit; do not auto-merge, rebase, reset or force-push. Ammaar's manual Chrome approval is recorded; do not claim browser automation passed. Preserve the original checkout's active MAP-B work and published `d6b4c43`. Do not deploy separately to Cloudflare or another provider.
 
 Follow handoff 3's build order. Where it stands:
 
@@ -678,6 +700,8 @@ Follow handoff 3's build order. Where it stands:
 11. **Phases 15 to 19:** NPCs and quests (H); regions and species (Styracosaurus from ref-9, etc.) with the camera and Field Guide; the containment breach (handoff 2 E2); Server Key, the reef and live status (needs the lab on the Pi); the standalone game (handoff 2 Part F).
 
 ## 10. Known gaps and notes
+
+2026-11-02 final handoff: Ammaar reports manually reviewing the local portfolio in Chrome and approving its publication. The earlier loopback/browser automation blocks are retained; no automated browser pass, complete interaction coverage or screenshots are claimed. Fetch failed with `Could not resolve host: github.com`, so latest remote state and publication could not be verified. No push or hosting deployment occurred in this session.
 
 - Save v2 is live (2026-09-30): fix forward, never roll back past `bbadcae`, or returning visitors' island progress starts fresh.
 - The audit's confirmed bugs (the `DEEP` collision, focus escaping the island, three walkable tiles painted as water) are fixed (section 7).

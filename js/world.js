@@ -1265,10 +1265,10 @@
     { id: "rack", room: "bunker", x: 2, y: 3, name: "the rack", sec: "projects", found: true, text: "Homelab v1, retired September 2026: high-availability DNS. Two Raspberry Pi 5 nodes ran AdGuard Home behind a keepalived VRRP floating IP, filtering DNS for my own devices. Failover and failback tested in both directions. Version two, one Pi built with Ansible, is in progress.", links: [["ha-dns repo ↗", GH + "homelab/tree/main/ha-dns"], ["projects", "#projects"]] },
     { id: "desk", room: "bunker", x: 6, y: 3, name: "the desk", sec: "projects", found: true, wide: true, text: "Claude intake triage assistant. Turns messy free-text help requests into structured, reviewable records (category, urgency, summary, next step, human-review flag) via Google Forms, Apps Script, and the Claude API. A 15-case eval harness took classification accuracy to 100% and multi-need coverage from 0% to 90%. Every record carries a human-review flag.", links: [["repo ↗", GH + "claude-intake-triage"], ["demo ↗", "https://www.loom.com/share/c43efcd9c3314bcd9cda3002282d31a5"], ["projects", "#projects"]] },
     { id: "uplink", name: "the uplink", sec: "projects", found: true, text: "AWS static site with Terraform. A private S3 bucket served over HTTPS through CloudFront with Origin Access Control, provisioned entirely with Terraform. Deployment and teardown are scripted and documented.", links: [["terraform repo ↗", GH + "homelab/tree/main/terraform-aws-static-site"], ["projects", "#projects"]] },
-    { id: "tower", name: "the watchtower", sec: "projects", found: true, text: "monitoring-stack: Prometheus scrapes host and container metrics, Grafana charts them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker, tracking availability and response health for the homelab's services. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
+    { id: "tower", name: "the watchtower", sec: "projects", found: true, text: "Homelab v1, retired September 2026. monitoring-stack: Prometheus scraped host and container metrics, Grafana charted them. Docker Compose. uptime-monitoring: Uptime Kuma in Docker tracked availability and response health for the homelab's services. (from up here you can see the whole island, and the volcano is still warm.)", links: [["monitoring ↗", GH + "homelab/tree/main/monitoring-stack"], ["uptime ↗", GH + "homelab/tree/main/uptime-monitoring"], ["projects", "#projects"]] },
     { id: "lighthouse", name: "the lighthouse", sec: "experience", found: true, text: "Cyber Ready Clinic, Cyber Security Analyst, Sep 2026 – present, Maryland · internship cohort. Support nonprofit cyber-readiness assessments using the Discover5 business-risk and Ready5 capability frameworks, with findings aligned to the NIST Cybersecurity Framework and CIS Controls. Working toward the Ready5 Practitioner digital badge, expected Nov 2026 on cohort completion. Also: NextGen Consulting Inc., Cloud & AI Operations Intern, May 2025 – present. HCC Campus Store · Slingshot, Campus Operations Associate, Aug 2024 – present.", links: [["experience", "#experience"]] },
     { id: "macbook", name: "a macbook on a blanket", sec: "projects", found: true, text: "ammaarrehman.com. This site. Plain HTML, CSS, JavaScript and a little Python, no frameworks. The orb, the island, and the boot screen are all canvas. (you're standing in it.)", links: [["site repo ↗", GH + "ammaarrehman.github.io"], ["projects", "#projects"]] },
-    { id: "tablet", name: "a stone tablet", sec: "education & certs", found: true, text: "Howard Community College, A.A. General Studies, Aug 2024 – Dec 2026, GPA 3.65 · Dean's List. UMD · Smith School of Business, B.S. Information Systems, starts Jan 2027. Certifications: AWS Certified Cloud Practitioner (CLF-C02), CompTIA Tech+, Ready5 Practitioner (Cyber Ready Clinic, in progress · expected Nov 2026).", links: [["education", "#education"]] },
+    { id: "tablet", name: "a stone tablet", sec: "education & certs", found: true, text: "Howard Community College, A.A. General Studies, Aug 2024 – Dec 2026, GPA 3.65 · Dean's List. University of Maryland, College Park, Robert H. Smith School of Business, Information Systems, admitted for Spring 2027. Certifications: AWS Certified Cloud Practitioner (CLF-C02), CompTIA Tech+, Ready5 Practitioner (Cyber Ready Clinic, in progress · expected Nov 2026).", links: [["education", "#education"]] },
     { id: "mailbox", name: "the mailbox", sec: "contact", found: true, text: "ammaarrehmanf@gmail.com. Want to talk? Email is the fastest way to reach me.", links: [["email ↗", "mailto:ammaarrehmanf@gmail.com"], ["linkedin ↗", "https://www.linkedin.com/in/ammaarrehman/"], ["contact", "#contact"]] },
     { id: "drink", name: "a drink stand", text: "pi takes a sip. zoom mode for ten seconds." },
     { id: "shrine", name: "an old shrine", text: "" },
@@ -1477,7 +1477,7 @@
     Object.keys(PROPS).forEach(function (n) { var e = PROPS[n]; SPR[n].getContext("2d").drawImage(PROPS_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); });
     if (skinCache) { skinCache.forEach(function (e) { Object.keys(e).forEach(function (k2) { freeCanvas(e[k2]); }); }); skinCache.clear(); }   // nothing reskinned from the empty canvases
   };
-  PROPS_IMG.src = "img/atlas/props.png?v=20261025";
+  PROPS_IMG.src = "img/atlas/props.png?v=20261102";
 
   /* ════════ ground, drawn once (handoff 3, D1) ════════
      pixel by pixel, into one buffer. every pixel is grass, dirt, sand or water, decided from a
@@ -3101,10 +3101,10 @@
       c.getContext("2d").drawImage(ENV_IMG, e[0], e[1], e[2], e[3], 0, 0, e[2], e[3]); SPR["e:" + n] = c;
     });
   };
-  ENV_IMG.src = "img/atlas/env.png?v=20261025";
+  ENV_IMG.src = "img/atlas/env.png?v=20261102";
   var SHEET_IMG = new Image(), sheetReady = false;
   SHEET_IMG.onload = function () { sheetReady = true; };
-  SHEET_IMG.src = "assets/island/dinos.png?v=20261025";
+  SHEET_IMG.src = "assets/island/dinos.png?v=20261102";
   var DART = {}, BLANK = mkCanvas(); BLANK.width = BLANK.height = 1;
   function dinoFrame(kind, mode, i) {
     var d = SHEET[kind]; if (!d || !sheetReady) return BLANK;
